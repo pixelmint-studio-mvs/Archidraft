@@ -7,6 +7,11 @@ void main() {
   runApp(const ProviderScope(child: ArchiDraftApp()));
 }
 
+/// Root application widget for Archi Draft.
+///
+/// Wrapped in ProviderScope for Riverpod state management.
+/// Uses GoRouter for declarative routing.
+/// Theme follows docs/06_design/BRAND_AND_DESIGN_DIRECTION.md.
 class ArchiDraftApp extends ConsumerWidget {
   const ArchiDraftApp({super.key});
 
@@ -14,6 +19,7 @@ class ArchiDraftApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'Archi Draft',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
