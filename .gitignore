@@ -46,3 +46,13 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Windows system files
+desktop.ini
+Thumbs.db
+
+# Temporary files
+*.tmp
+
+# Flutter metadata (auto-generated, machine-specific)
+.metadata

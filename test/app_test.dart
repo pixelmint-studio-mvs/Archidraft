@@ -9,9 +9,7 @@ void main() {
     WidgetTester tester,
   ) async {
     // Build the app inside ProviderScope (matching main.dart).
-    await tester.pumpWidget(
-      const ProviderScope(child: ArchiDraftApp()),
-    );
+    await tester.pumpWidget(const ProviderScope(child: ArchiDraftApp()));
 
     // Verify the app title text is present on the home screen.
     expect(find.text('Archi Draft'), findsWidgets);
@@ -21,9 +19,7 @@ void main() {
   });
 
   testWidgets('ArchiDraftApp uses Material 3', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: ArchiDraftApp()),
-    );
+    await tester.pumpWidget(const ProviderScope(child: ArchiDraftApp()));
 
     // Verify Material 3 is active by checking the MaterialApp.router exists.
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
