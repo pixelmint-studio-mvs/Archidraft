@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Firebase generated files
+android/app/google-services.json
+lib/firebase_options.dart
+firebase.json
