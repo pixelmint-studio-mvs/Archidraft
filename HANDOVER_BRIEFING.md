@@ -5,30 +5,28 @@
 **Date:** September 6, 2026
 **Status:** Phase 2 Complete 🟢 (Ready for Phase 3)
 **Status:** Phase 3 Complete 🟢 (Ready for Phase 4)
+**Status:** Phase 3 Complete 🟢
+**Status:** Phase 4 Complete 🟢 (Ready for Phase 5)
 
 ---
 
 ## 📌 PROJECT CONTEXT
 **ARCHI DRAFT** is a professional, premium application for an architectural firm (Draughtsman Studio). It manages the entire workflow of architectural drafting projects between **Clients**, **Draughtsmen**, and **Admins**. 
 
-We have spent the entire session strictly analyzing and planning the architecture. **Zero production code has been written.** The goal was to create a flawless, secure, and highly scalable blueprint before a single line of Flutter or Firebase code is written.
+We have spent the entire session strictly analyzing, planning, and building the core architecture and features.
 
 ---
 
 ## 📂 CURRENT STATE OF THE PROJECT
-The project has completed **Phase 3 (Authentication)**. Phases 1 and 2 have been fully completed.
+The project has completed **Phase 4 (User Profiles & Role Shells)**. Phases 1, 2, and 3 have been fully completed.
 
-### Current Project Status
+### Current Status
 
-**Current Phase Focus:** Phase 4 — User Profiles & Onboarding
-
-| Phase | Description | Status |
-|---|---|---|
-| Phase 1 | Project Foundation | ✅ Complete |
-| Phase 2 | Firebase Integration | ✅ Complete |
-| Phase 3 | Authentication | ✅ Complete |
-| Phase 4 | User Profiles & Onboarding | ⏳ Next |
-| Phase 5 | Project Dashboard | ⏸️ Pending |
+- **Phase 1 (Foundation):** COMPLETED. Core architecture, Riverpod setup, GoRouter configuration, environment variables, Firebase setup.
+- **Phase 2 (Firebase Setup):** COMPLETED. Authentication configured (Email/Password), Firestore configured (`users` collection), initial Security Rules.
+- **Phase 3 (Authentication):** COMPLETED. `AuthRepository`, `AuthController`, login/register UI, form validation, email verification routing, and auth state persistence.
+- **Phase 4 (User Profiles & Role Shells):** COMPLETED. Implemented `UserRole` enum, extended `UserProfile` with optional fields, created `ProfileRepository` with edit capabilities, built `AppTheme` with Stitch tokens, and created role-based `AppShell` with `ClientShell`, `DraughtsmanShell`, and `AdminShell`. Configured `firestore.rules`.
+- **Next Up (Phase 5 - Client Project Brief Submission):** PENDING. Focus on `ProjectModel`, multi-step form state (Riverpod), file attachment support, and `ProjectRepository`.
 
 A comprehensive 23-file documentation suite has been meticulously prepared and organized into the `docs/` folder. This is the absolute source of truth for the project.
 

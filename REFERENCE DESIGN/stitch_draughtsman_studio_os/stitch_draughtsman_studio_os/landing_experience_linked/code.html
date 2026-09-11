@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Draughtsman Studio - Landing</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#c5c6cd",
+                        "secondary": "#0453cd",
+                        "on-primary-container": "#76849f",
+                        "secondary-fixed": "#dae2ff",
+                        "on-primary": "#ffffff",
+                        "outline": "#75777e",
+                        "on-secondary-fixed-variant": "#0040a2",
+                        "primary-container": "#0d1c32",
+                        "on-tertiary-container": "#069669",
+                        "on-primary-fixed": "#0d1c32",
+                        "inverse-on-surface": "#f2f0f2",
+                        "surface-variant": "#e4e2e4",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "surface-container-low": "#f5f3f5",
+                        "primary-fixed": "#d6e3ff",
+                        "error": "#ba1a1a",
+                        "surface": "#fbf9fb",
+                        "tertiary-fixed": "#85f8c4",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#001848",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#fefcff",
+                        "on-surface": "#1b1b1d",
+                        "tertiary-container": "#002114",
+                        "surface-dim": "#dbd9db",
+                        "background": "#fbf9fb",
+                        "primary": "#000000",
+                        "surface-container-high": "#eae7ea",
+                        "on-primary-fixed-variant": "#39475f",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "on-surface-variant": "#44474d",
+                        "on-tertiary-fixed": "#002114",
+                        "surface-container": "#efedef",
+                        "primary-fixed-dim": "#b9c7e4",
+                        "secondary-container": "#356ee7",
+                        "tertiary": "#000000",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e4e2e4",
+                        "inverse-primary": "#b9c7e4",
+                        "surface-tint": "#515f78",
+                        "inverse-surface": "#303032",
+                        "surface-bright": "#fbf9fb",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-background": "#1b1b1d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "grid_gutter": "24px",
+                        "margin_tablet": "32px",
+                        "margin_desktop": "64px",
+                        "blueprint_unit": "40px",
+                        "base": "8px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "button-text": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "button-text": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .blueprint-bg {
+            background-image: linear-gradient(#e4e2e4 1px, transparent 1px), linear-gradient(90deg, #e4e2e4 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center center;
+        }
+        
+        .construction-line {
+            position: absolute;
+            background-color: #c5c6cd;
+            opacity: 0;
+            animation: drawLine 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .line-h { height: 1px; width: 0; }
+        .line-v { width: 1px; height: 0; }
+
+        @keyframes drawLine {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            100% { opacity: 0.3; width: 100%; height: 100%; }
+        }
+
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+        .delay-3 { animation-delay: 0.6s; }
+        .delay-4 { animation-delay: 0.8s; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        
+        .soft-elevation {
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 1px 2px rgba(13, 28, 50, 0.05), 0 8px 24px rgba(13, 28, 50, 0.03);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen relative overflow-x-hidden selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+<!-- Blueprint Grid Background -->
+<div class="fixed inset-0 blueprint-bg -z-10 opacity-60"></div>
+<!-- Animated Construction Lines (Atmosphere) -->
+<div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+<div class="construction-line line-h delay-1 top-[20%] left-0"></div>
+<div class="construction-line line-h delay-3 top-[60%] left-0"></div>
+<div class="construction-line line-v delay-2 left-[30%] top-0"></div>
+<div class="construction-line line-v delay-4 left-[80%] top-0"></div>
+</div>
+<!-- Top Navigation -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-margin_mobile py-4 pointer-events-none">
+<div class="pointer-events-auto">
+<!-- Logo is in hero, leaving empty or could add small mark here -->
+</div>
+<a class="pointer-events-auto p-2 bg-surface-container-lowest/80 backdrop-blur-md rounded-full soft-elevation flex items-center justify-center text-primary hover:bg-surface-variant transition-colors border border-white/50" href="{{DATA:SCREEN:SCREEN_7}}">
+<span class="material-symbols-outlined">person</span>
+</a>
+</header>
+<!-- Main Content Container -->
+<main class="flex flex-col min-h-screen px-margin_mobile pb-32 pt-12 relative z-10 max-w-lg mx-auto">
+<!-- Hero Section -->
+<section class="flex flex-col items-center justify-center pt-8 pb-12 animate-fade-in-up" style="opacity: 1; transform: translateY(0px); transition: opacity 0.6s ease-out, transform 0.6s ease-out;">
+<div class="w-full max-w-[280px] aspect-square relative mb-8 rounded-2xl overflow-hidden glass-panel soft-elevation p-4 flex items-center justify-center" style="opacity: 1; transform: translateY(0px); transition: opacity 0.6s ease-out, transform 0.6s ease-out;"><a class="w-full h-full flex items-center justify-center" href="{{DATA:SCREEN:SCREEN_15}}"><img alt="Draughtsman Studio Logo" class="w-full h-full object-contain mix-blend-multiply" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOY3bb7Jz0CrSFD203sd1cq2_ir8evBtiQHDSunUuLthghcRbAhSBkO4qX8kcsq5mG8FRWrFUOITfHM72fnLShxIz9aTMSv19QVRZ4eJYiTsd2J7KsQ32qKBvPhDBMn-S-i4tEGGlrXE3OPFqqTlDW7E-R5ikeP7DaaVypSXNrJEX-0EMQ5_NtR43JeuFd_OPaXTganMyWVQigrDCIIKo8oPxhqH-ESXyXRLYpxHGppiGkCtoSaqo9qhVuIj1A2P5CZg"/></a></div>
+<h1 class="font-headline-display text-headline-lg-mobile text-center text-primary mb-4 tracking-tight">
+                Precision.<br/>Design.<br/>Delivery.
+            </h1>
+<p class="text-on-surface-variant text-center max-w-sm mb-10 font-body-md">
+                Rigorous engineering software for architects and structural designers.
+            </p>
+<a class="w-full bg-primary-container text-on-primary py-4 px-6 rounded-lg font-button-text text-button-text shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary transition-colors flex items-center justify-center gap-2 group active:scale-[0.98]" href="{{DATA:SCREEN:SCREEN_12}}">Start Submission<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span></a>
+</section>
+<!-- Live Stats (Bento-ish Mobile Grid) -->
+<section class="grid grid-cols-2 gap-4 mb-16">
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-4 soft-elevation col-span-2 relative overflow-hidden group" style="opacity: 1; transform: translateY(0px); transition: opacity 0.6s ease-out, transform 0.6s ease-out;">
+<div class="absolute top-0 right-0 p-2 opacity-10">
+<span class="material-symbols-outlined text-4xl">architecture</span>
+</div>
+<div class="font-label-mono text-label-mono text-outline mb-1 uppercase tracking-wider">Projects Active</div>
+<div class="font-headline-lg text-headline-lg-mobile text-primary">1,204</div>
+<div class="mt-2 text-xs text-on-tertiary-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +12% this week
+                </div>
+</div>
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-4 soft-elevation relative overflow-hidden" style="opacity: 1; transform: translateY(0px); transition: opacity 0.6s ease-out, transform 0.6s ease-out;">
+<div class="font-label-mono text-label-mono text-outline mb-1 uppercase tracking-wider">Drawings Verified</div>
+<div class="font-headline-lg text-headline-lg-mobile text-primary">8.4k</div>
+</div>
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-4 soft-elevation relative overflow-hidden" style="opacity: 1; transform: translateY(0px); transition: opacity 0.6s ease-out, transform 0.6s ease-out;">
+<div class="font-label-mono text-label-mono text-outline mb-1 uppercase tracking-wider">Engineers Joined</div>
+<div class="font-headline-lg text-headline-lg-mobile text-primary">450+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="mt-auto pt-8 border-t border-outline-variant/30 text-center pb-8">
+<p class="font-body-md text-[11px] text-outline">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</footer>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] fixed bottom-0 w-full z-50 rounded-t-xl flex justify-around items-center h-20 px-margin_mobile glass-panel">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_14}}">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-label-mono text-label-mono mt-1">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_11}}">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+<span class="font-label-mono text-label-mono mt-1">Drawings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_9}}">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-mono text-label-mono mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_10}}">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-mono text-label-mono mt-1">Settings</span>
+</a>
+</nav>
+<script>
+        // Simple entry animation
+        document.addEventListener("DOMContentLoaded", () => {
+            const elements = document.querySelectorAll('.animate-fade-in-up, .soft-elevation');
+            elements.forEach((el, index) => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(10px)';
+                el.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+                setTimeout(() => {
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateY(0)';
+                }, 100 + (index * 150));
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>DRAUGHTSMAN - Project Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "outline-variant": "#c5c6cd",
+                        "secondary": "#0453cd",
+                        "on-primary-container": "#76849f",
+                        "secondary-fixed": "#dae2ff",
+                        "on-primary": "#ffffff",
+                        "outline": "#75777e",
+                        "on-secondary-fixed-variant": "#0040a2",
+                        "primary-container": "#0d1c32",
+                        "on-tertiary-container": "#069669",
+                        "on-primary-fixed": "#0d1c32",
+                        "inverse-on-surface": "#f2f0f2",
+                        "surface-variant": "#e4e2e4",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "surface-container-low": "#f5f3f5",
+                        "primary-fixed": "#d6e3ff",
+                        "error": "#ba1a1a",
+                        "surface": "#fbf9fb",
+                        "tertiary-fixed": "#85f8c4",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#001848",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#fefcff",
+                        "on-surface": "#1b1b1d",
+                        "tertiary-container": "#002114",
+                        "surface-dim": "#dbd9db",
+                        "background": "#fbf9fb",
+                        "primary": "#000000",
+                        "surface-container-high": "#eae7ea",
+                        "on-primary-fixed-variant": "#39475f",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "on-surface-variant": "#44474d",
+                        "on-tertiary-fixed": "#002114",
+                        "surface-container": "#efedef",
+                        "primary-fixed-dim": "#b9c7e4",
+                        "secondary-container": "#356ee7",
+                        "tertiary": "#000000",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e4e2e4",
+                        "inverse-primary": "#b9c7e4",
+                        "surface-tint": "#515f78",
+                        "inverse-surface": "#303032",
+                        "surface-bright": "#fbf9fb",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-background": "#1b1b1d"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "grid_gutter": "24px",
+                        "margin_tablet": "32px",
+                        "margin_desktop": "64px",
+                        "blueprint_unit": "40px",
+                        "base": "8px",
+                        "margin_mobile": "16px"
+                    },
+                    fontFamily: {
+                        "headline-display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "button-text": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"]
+                    },
+                    fontSize: {
+                        "headline-display": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "button-text": ["14px", { lineHeight: "20px", fontWeight: "600" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+                        "label-mono": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.surface');
+            /* Blueprint Grid Pattern */
+            background-image: 
+                linear-gradient(to right, rgba(197, 198, 205, 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(197, 198, 205, 0.2) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center top;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Glassmorphism classes applied directly in HTML via Tailwind */
+
+        /* Timeline specific styles */
+        .timeline-line {
+            position: absolute;
+            left: 20px;
+            top: 24px;
+            bottom: 0;
+            width: 1px;
+            background: theme('colors.outline-variant');
+            z-index: 0;
+        }
+        
+        .timeline-progress {
+            position: absolute;
+            left: 20px;
+            top: 24px;
+            width: 1px;
+            background: theme('colors.secondary');
+            z-index: 1;
+            transition: height 0.5s ease;
+        }
+
+        .timeline-node {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Custom Scrollbar for hidden scroll areas */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-on-surface antialiased min-h-screen font-body-md flex flex-col pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm flex justify-between items-center px-margin_mobile md:px-margin_desktop py-4">
+<div class="flex items-center gap-3 cursor-pointer active:scale-95 duration-200">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-weight="fill" style="font-variation-settings: 'FILL' 1;">architecture</span>
+</div>
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed uppercase font-bold text-center absolute left-1/2 -translate-x-1/2">
+            DRAUGHTSMAN
+        </h1>
+<div class="flex items-center cursor-pointer active:scale-95 duration-200">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant">
+<img alt="Architect Profile" class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait of a professional architect in a modern, brightly lit studio setting. The lighting is high-key and soft, emphasizing a technical yet luxurious aesthetic with deep blacks and pure whites." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAT_KP_CfM7eKRMM4_MFqiY6dEYGLmlNnWzuTGWlUhjkhpUAIzhqqLkBPdBMOpkM81CE3UmsUpAyPgbQ4lnEbYgvbLVn2A8viWuQD_hnHSQ3wlVjMZrfk-8zYGjvjrrxZHlCABc9vRqf3_jX8ovPmQphsYAknN4uiz07mN6FVVKBgZomHemV9lpx5uFEeSDnf3el1qd4l-032PVBWoFmzu02pxtkR1Nx_a-_GoGPl2AB2VdgLYYQp3G">
+</div>
+</div>
+</header>
+<!-- Main Content Area (Canvas) -->
+<main class="pt-[80px] px-margin_mobile md:px-margin_desktop w-full max-w-4xl mx-auto flex flex-col gap-6">
+<!-- Project Header Card -->
+<section class="bg-white border border-outline-variant rounded-lg p-6 relative overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.03)] mt-6">
+<!-- Decorative construction lines -->
+<div class="absolute top-0 left-0 w-full h-[1px] bg-outline-variant/30"></div>
+<div class="absolute top-0 left-0 w-[1px] h-full bg-outline-variant/30"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div>
+<span class="font-label-mono text-label-mono text-secondary mb-1 block">PRJ-2023-04A</span>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile font-semibold text-primary">Villa Savoy Extension</h2>
+</div>
+<span class="bg-surface-variant text-on-surface-variant font-label-mono text-label-mono px-2 py-1 rounded">IN PROGRESS</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-6 border-t border-outline-variant/30 pt-4 relative z-10">
+<div>
+<span class="block text-outline font-label-mono text-[10px] uppercase tracking-wider mb-1">Client</span>
+<span class="block font-body-md text-on-surface">Le Corbusier Est.</span>
+</div>
+<div>
+<span class="block text-outline font-label-mono text-[10px] uppercase tracking-wider mb-1">Deadline</span>
+<span class="block font-body-md text-on-surface">Oct 24, 2023</span>
+</div>
+</div>
+</section>
+<!-- Workflow Timeline Section -->
+<section class="bg-white border border-outline-variant rounded-lg p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.03)] mb-8">
+<h3 class="font-button-text text-button-text text-primary mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">account_tree</span>
+                PROJECT WORKFLOW
+            </h3>
+<div class="relative pl-2 pb-4">
+<!-- Background Line -->
+<div class="timeline-line"></div>
+<!-- Progress Line (simulated to 60%) -->
+<div class="timeline-progress h-[60%]"></div>
+<!-- Stage 1: Submitted (Completed) -->
+<div class="timeline-node flex gap-4 mb-8 cursor-pointer group" onclick="toggleDetail('detail-1')">
+<div class="w-[40px] h-[40px] rounded-full bg-secondary flex items-center justify-center border-4 border-white shadow-sm shrink-0 relative z-10">
+<span class="material-symbols-outlined text-white text-[18px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="pt-2 flex-1">
+<h4 class="font-button-text text-button-text text-primary group-hover:text-secondary transition-colors">1. Request Submitted</h4>
+<p class="font-body-md text-[14px] text-outline mt-1">Files uploaded and requirements defined.</p>
+<!-- Collapsible Detail -->
+<div class="hidden mt-3 bg-surface border border-outline-variant/50 rounded p-3 text-[13px]" id="detail-1">
+<ul class="space-y-2 font-label-mono text-outline">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[14px]">attachment</span> source_cad_v2.dwg</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-[14px]">description</span> project_brief.pdf</li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Stage 2: Admin Review (Completed) -->
+<div class="timeline-node flex gap-4 mb-8 cursor-pointer group" onclick="toggleDetail('detail-2')">
+<div class="w-[40px] h-[40px] rounded-full bg-secondary flex items-center justify-center border-4 border-white shadow-sm shrink-0 relative z-10">
+<span class="material-symbols-outlined text-white text-[18px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="pt-2 flex-1">
+<h4 class="font-button-text text-button-text text-primary group-hover:text-secondary transition-colors">2. Admin Review</h4>
+<p class="font-body-md text-[14px] text-outline mt-1">Scope approved by lead architect.</p>
+<!-- Collapsible Detail -->
+<div class="hidden mt-3 bg-surface border border-outline-variant/50 rounded p-3 text-[13px]" id="detail-2">
+<p class="font-body-md text-on-surface-variant italic">"Approved for detailing. Ensure structural grid aligns with the new layout." - Sarah J.</p>
+</div>
+</div>
+</div>
+<!-- Stage 3: Assign Draughtsman (Completed) -->
+<div class="timeline-node flex gap-4 mb-8 cursor-pointer group" onclick="toggleDetail('detail-3')">
+<div class="w-[40px] h-[40px] rounded-full bg-secondary flex items-center justify-center border-4 border-white shadow-sm shrink-0 relative z-10">
+<span class="material-symbols-outlined text-white text-[18px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div class="pt-2 flex-1">
+<h4 class="font-button-text text-button-text text-primary group-hover:text-secondary transition-colors">3. Assigned to Draughtsman</h4>
+<p class="font-body-md text-[14px] text-outline mt-1">Allocated to Senior Detailer.</p>
+</div>
+</div>
+<!-- Stage 4: Drawing Creation (Active) -->
+<div class="timeline-node flex gap-4 mb-8 cursor-pointer group" onclick="toggleDetail('detail-4')">
+<div class="w-[40px] h-[40px] rounded-full bg-white border-2 border-secondary flex items-center justify-center shadow-[0_0_15px_rgba(4,83,205,0.3)] shrink-0 relative z-10 before:content-[''] before:absolute before:w-2 before:h-2 before:bg-secondary before:rounded-full">
+<!-- Inner glowing dot handled by before pseudo-element -->
+</div>
+<div class="pt-2 flex-1">
+<h4 class="font-button-text text-button-text text-secondary group-hover:text-primary transition-colors">4. Drawing Creation</h4>
+<p class="font-body-md text-[14px] text-primary mt-1">Currently drafting floor plans and sections.</p>
+<!-- Collapsible Detail (Open by default for active state) -->
+<div class="block mt-3 bg-surface border border-secondary/20 rounded p-4" id="detail-4">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-mono text-outline text-[11px]">PROGRESS</span>
+<span class="font-label-mono text-secondary text-[11px]">65%</span>
+</div>
+<div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[65%]"></div>
+</div>
+<div class="mt-4 flex gap-2">
+<a href="{{DATA:SCREEN:SCREEN_8}}" class="flex-1 bg-surface-variant hover:bg-surface-dim text-primary font-label-mono text-[11px] py-2 rounded transition-colors text-center border border-outline-variant/30">VIEW DRAFTS</a>
+<button class="flex-1 bg-primary-container text-on-primary-container font-label-mono text-[11px] py-2 rounded transition-colors text-center border border-primary-container">MESSAGE</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Stage 5: Review (Pending) -->
+<div class="timeline-node flex gap-4 mb-8 opacity-50">
+<div class="w-[40px] h-[40px] rounded-full bg-surface border-2 border-outline-variant flex items-center justify-center shrink-0 relative z-10">
+</div>
+<div class="pt-2 flex-1">
+<h4 class="font-button-text text-button-text text-outline">5. Final Review</h4>
+<p class="font-body-md text-[14px] text-outline mt-1">Pending draft completion.</p>
+</div>
+</div>
+<!-- Stage 6: Delivery (Pending) -->
+<div class="timeline-node flex gap-4 opacity-50">
+<div class="w-[40px] h-[40px] rounded-full bg-surface border-2 border-outline-variant flex items-center justify-center shrink-0 relative z-10">
+</div>
+<div class="pt-2 flex-1">
+<h4 class="font-button-text text-button-text text-outline">6. Final Delivery</h4>
+<p class="font-body-md text-[14px] text-outline mt-1">Handover of finalized drawing sets.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] flex justify-around items-center h-20 px-margin_mobile rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out cursor-pointer" href="{{DATA:SCREEN:SCREEN_11}}"><span class="material-symbols-outlined mb-1">grid_view</span><span class="font-label-mono text-[10px]">Studio</span></a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out cursor-pointer" href="{{DATA:SCREEN:SCREEN_8}}"><span class="material-symbols-outlined mb-1" data-weight="fill" style="font-variation-settings: 'FILL' 1;">layers</span><span class="font-label-mono text-[10px] font-bold">Drawings</span></a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out cursor-pointer" href="{{DATA:SCREEN:SCREEN_7}}"><span class="material-symbols-outlined mb-1">analytics</span><span class="font-label-mono text-[10px]">Insights</span></a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out cursor-pointer" href="{{DATA:SCREEN:SCREEN_6}}"><span class="material-symbols-outlined mb-1">settings</span><span class="font-label-mono text-[10px]">Settings</span></a>
+</nav>
+<!-- Footer Signature (Desktop Only) -->
+<footer class="hidden md:block fixed bottom-4 right-6 text-[11px] font-body-md text-[#94A3B8] font-light z-40">
+        UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS
+    </footer>
+<script>
+        // Simple toggle function for timeline details
+        function toggleDetail(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (el.classList.contains('hidden')) {
+                    el.classList.remove('hidden');
+                    el.classList.add('block');
+                } else {
+                    el.classList.remove('block');
+                    el.classList.add('hidden');
+                }
+            }
+        }
+    </script>
+
+
+
+
+</body></html>

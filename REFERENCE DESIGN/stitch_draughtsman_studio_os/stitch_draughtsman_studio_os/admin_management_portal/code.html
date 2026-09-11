@@ -1,0 +1,286 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Draughtsman - User Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#dbd9db",
+                        "surface-container-high": "#eae7ea",
+                        "inverse-on-surface": "#f2f0f2",
+                        "surface-bright": "#fbf9fb",
+                        "surface-tint": "#515f78",
+                        "surface-container-low": "#f5f3f5",
+                        "tertiary": "#000000",
+                        "surface": "#fbf9fb",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-tertiary-fixed": "#002114",
+                        "on-secondary-container": "#fefcff",
+                        "surface-container": "#efedef",
+                        "background": "#fbf9fb",
+                        "primary-container": "#0d1c32",
+                        "secondary": "#0453cd",
+                        "on-surface": "#1b1b1d",
+                        "inverse-primary": "#b9c7e4",
+                        "on-primary-fixed-variant": "#39475f",
+                        "on-tertiary-container": "#069669",
+                        "outline-variant": "#c5c6cd",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#0040a2",
+                        "outline": "#75777e",
+                        "on-primary-container": "#76849f",
+                        "secondary-container": "#356ee7",
+                        "secondary-fixed": "#dae2ff",
+                        "surface-container-highest": "#e4e2e4",
+                        "primary-fixed": "#d6e3ff",
+                        "error-container": "#ffdad6",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#85f8c4",
+                        "on-primary-fixed": "#0d1c32",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e4e2e4",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "primary": "#000000",
+                        "on-background": "#1b1b1d",
+                        "tertiary-container": "#002114",
+                        "on-secondary-fixed": "#001848",
+                        "primary-fixed-dim": "#b9c7e4",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474d",
+                        "inverse-surface": "#303032"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin_desktop": "64px",
+                        "margin_mobile": "16px",
+                        "base": "8px",
+                        "blueprint_unit": "40px",
+                        "margin_tablet": "32px",
+                        "grid_gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "button-text": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "button-text": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .blueprint-grid {
+            background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .architectural-card {
+            box-shadow: 0 1px 0 rgba(0,0,0,0.05), 0 10px 40px rgba(0,0,0,0.03);
+        }
+        .glass-panel {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen blueprint-grid relative pb-32 md:pb-0 pt-24 md:pt-32">
+<!-- TopAppBar (Hidden on Mobile, Visible on Desktop) -->
+<header class="hidden md:flex bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm fixed top-0 w-full z-50 justify-between items-center px-margin_desktop py-4 glass-panel">
+<div class="flex items-center gap-4 cursor-pointer active:scale-95 duration-200">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-icon="architecture">architecture</span>
+<h1 class="font-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed">DRAUGHTSMAN</h1>
+</div>
+<nav class="flex gap-8">
+<a class="text-on-surface-variant dark:text-on-primary-container font-button-text hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Studio</a>
+<a class="text-on-surface-variant dark:text-on-primary-container font-button-text hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Drawings</a>
+<a class="text-on-surface-variant dark:text-on-primary-container font-button-text hover:text-primary dark:hover:text-primary-fixed transition-colors" href="#">Insights</a>
+<a class="text-secondary dark:text-secondary-fixed font-bold font-button-text hover:bg-surface-variant/50 transition-colors px-4 py-2 rounded-lg bg-surface-variant/20" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border border-outline-variant/30" data-alt="A close-up, professional headshot of an architect in a modern, light-filled studio. The lighting is bright and clean, emphasizing a corporate modern aesthetic with a focus on trust and sophistication. Deep midnight blue and warm white tones are subtly present in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDiXo3JWH5ns5rJMv4eUYhYGxcH_1Cjd8nAi1nmtQlRbAFAAB9Is_6uDeoxbN3Z407wZ7tQiL_EdC0oC7m_Nuq4-uVUfpytLUhMmSPtV95yfhm7LuVldQhfJyDkihWqnnJjiipInRPApYw7xwnXDKSXX7b7iYZlKNzoO-uJudGW3ici45SRSDJpVKEREC7YPUKnJko6nErsw2CarF7SWditwXpJxEnS2GkxzB5LvIgopL-gTOIUDzJ7">
+</div>
+</header>
+<!-- Mobile Header (Visible on Mobile, Hidden on Desktop) -->
+<header class="flex md:hidden bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm fixed top-0 w-full z-50 justify-between items-center px-margin_mobile py-4 glass-panel">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-icon="architecture">architecture</span>
+<h1 class="font-headline-lg-mobile tracking-tighter text-primary dark:text-on-primary-fixed">DRAUGHTSMAN</h1>
+</div>
+<img class="w-8 h-8 rounded-full object-cover border border-outline-variant/30" data-alt="A close-up, professional headshot of an architect in a modern, light-filled studio. The lighting is bright and clean, emphasizing a corporate modern aesthetic with a focus on trust and sophistication. Deep midnight blue and warm white tones are subtly present in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAH5A2Vm0RqiWnLXlmC7-gihmrLvwrYUY9hmptf-4yvFBuwD-x6SYI7ZfgzzzKkhDUPwukkp9jnhj2ww0vn7IQSZevKGqpGI8SGn7-xgHHVgpc5SQG1DsbhlOGyImUwSBgly6PrcMYyoF2BKZxkeYBvj5Z3kA_3jjAEk5RT-pZNPuO9ESmuSW5PNZXhuGsnvC8BIoRKJOeim58Qv58vihI17ELpgJOgs6zaXftaWrnYxVXaC3M_Ypum">
+</header>
+<main class="max-w-7xl mx-auto px-margin_mobile md:px-margin_desktop space-y-12">
+<!-- Header Section -->
+<div class="space-y-4">
+<h2 class="font-headline-display text-primary">User Management</h2>
+<p class="text-on-surface-variant max-w-2xl">Orchestrate the ecosystem of Engineers, Draughtsmen, and Students. Monitor productivity and manage access rights across active projects.</p>
+</div>
+<!-- User Data Bento Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-grid_gutter">
+<!-- Group Tabs -->
+<div class="lg:col-span-3 flex gap-4 border-b border-outline-variant/50 pb-2 overflow-x-auto">
+<button class="font-button-text text-secondary border-b-2 border-secondary pb-2 px-4 whitespace-nowrap">Engineers (24)</button>
+<button class="font-button-text text-on-surface-variant hover:text-primary pb-2 px-4 whitespace-nowrap transition-colors">Draughtsmen (48)</button>
+<button class="font-button-text text-on-surface-variant hover:text-primary pb-2 px-4 whitespace-nowrap transition-colors">Students (112)</button>
+</div>
+<!-- List View Card -->
+<div class="lg:col-span-2 bg-surface-container-lowest rounded-xl architectural-card p-8 border border-outline-variant/30 glass-panel">
+<div class="flex justify-between items-center mb-8">
+<h3 class="font-headline-lg-mobile text-primary">Active Engineers</h3>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm" data-icon="search">search</span>
+<input class="bg-surface-container-low border border-outline-variant/30 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-secondary focus:ring-4 focus:ring-secondary/10 transition-all w-64 font-body-md" placeholder="Search users..." type="text">
+</div>
+</div>
+<div class="space-y-6">
+<!-- User Row 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container/50 rounded-lg transition-colors border-b border-outline-variant/20 last:border-0">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-full object-cover border border-outline-variant/30" data-alt="A portrait of a male structural engineer looking confident, wearing a smart-casual dark blue shirt. The setting is a minimalist office with crisp white walls and subtle architectural models in the background. The aesthetic is clean, professional, and methodical." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRnYSRybw0WtX66gc0dRZQocBWMQhlI54zswilLfV2uzuJIzomB48gHD0seoXBdQNyD4P6XZKElSyXa_m2mPp_CMAp9ElVcCr7K1-p34EZrcIsSFXo1bQndrCjGG23pQhNS71qmU9xeojRsMt3RlbDaz38Bzp95zT3qpG7fUl8HI3Iy5h99vAHZFCM1mjiUdoL4wbFNDsZ0Bb3nTVfXIdHn3ZxfUpH7SdRrmPhF-b4dNfUe0CBpyvf">
+<div>
+<h4 class="font-button-text text-primary">Marcus Vance</h4>
+<p class="font-label-mono text-outline">Lead Structural</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="text-right hidden sm:block">
+<p class="font-label-mono text-secondary">12 Projects</p>
+<p class="font-label-mono text-outline text-[10px]">Active</p>
+</div>
+<button class="px-4 py-2 bg-transparent border border-secondary text-secondary rounded-lg font-button-text hover:bg-secondary/5 transition-colors">Assign</button>
+</div>
+</div>
+<!-- User Row 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container/50 rounded-lg transition-colors border-b border-outline-variant/20 last:border-0">
+<div class="flex items-center gap-4">
+<img class="w-12 h-12 rounded-full object-cover border border-outline-variant/30" data-alt="A portrait of a female civil engineer with a focused expression, wearing glasses and a light grey blazer. The background is a bright, airy architectural studio with frosted glass panels reflecting soft light. High-end, sophisticated corporate feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7WRgzvTKP9JQWoEfOn4EvLgE18X4ESwJdD8484hfTE2H3zua_EJu1hiHgMWAYdu_zX78dxbL2VOVMROfnqS-yQj0gc0P9g6yPGPKqYMcnSMn2aimZYNLkr47-EFRVfGhKfXl4VR184G8vs_vmaC-PZTynJZwvFafUjHbPi5-d85mF9u_bCNv4QElCEBY_nhnt_olpFzP5GQXEAJLcHdeonhWM0uvwFZOL5fGsJrelO4gIOQaja-v9">
+<div>
+<h4 class="font-button-text text-primary">Elena Rostova</h4>
+<p class="font-label-mono text-outline">Civil Engineer</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="text-right hidden sm:block">
+<p class="font-label-mono text-secondary">8 Projects</p>
+<p class="font-label-mono text-outline text-[10px]">Active</p>
+</div>
+<button class="px-4 py-2 bg-transparent border border-secondary text-secondary rounded-lg font-button-text hover:bg-secondary/5 transition-colors">Assign</button>
+</div>
+</div>
+<!-- User Row 3 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container/50 rounded-lg transition-colors border-b border-outline-variant/20 last:border-0">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center text-primary font-bold border border-outline-variant/30">
+                                CH
+                            </div>
+<div>
+<h4 class="font-button-text text-primary">David Chen</h4>
+<p class="font-label-mono text-outline">MEP Specialist</p>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="text-right hidden sm:block">
+<p class="font-label-mono text-secondary">4 Projects</p>
+<p class="font-label-mono text-outline text-[10px]">Active</p>
+</div>
+<button class="px-4 py-2 bg-transparent border border-secondary text-secondary rounded-lg font-button-text hover:bg-secondary/5 transition-colors">Assign</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Stats & Sparklines -->
+<div class="space-y-grid_gutter">
+<div class="bg-surface-container-lowest rounded-xl architectural-card p-6 border border-outline-variant/30 glass-panel">
+<h3 class="font-label-mono text-outline mb-2 uppercase">Group Revenue Yield</h3>
+<p class="font-headline-lg-mobile text-primary mb-4">$1.2M <span class="text-sm font-body-md text-on-tertiary-container ml-2">↑ 14% QTD</span></p>
+<div class="h-24 w-full bg-surface-container-low rounded flex items-end overflow-hidden border border-outline-variant/20">
+<!-- Abstract sparkline representation -->
+<div class="w-1/6 bg-secondary/20 h-1/4"></div>
+<div class="w-1/6 bg-secondary/40 h-2/4"></div>
+<div class="w-1/6 bg-secondary/30 h-1/3"></div>
+<div class="w-1/6 bg-secondary/60 h-3/4"></div>
+<div class="w-1/6 bg-secondary/50 h-2/3"></div>
+<div class="w-1/6 bg-secondary h-full"></div>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl architectural-card p-6 border border-outline-variant/30 glass-panel">
+<h3 class="font-label-mono text-outline mb-2 uppercase">Avg Productivity Index</h3>
+<p class="font-headline-lg-mobile text-primary mb-4">94.2 <span class="text-sm font-body-md text-outline ml-2">/ 100</span></p>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs font-label-mono text-on-surface-variant mb-1">
+<span class="">Drafting Speed</span>
+<span class="">88%</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 88%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-label-mono text-on-surface-variant mb-1">
+<span class="">Review Turnaround</span>
+<span class="">96%</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5">
+<div class="bg-primary-container h-1.5 rounded-full" style="width: 96%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Credit -->
+<footer class="mt-24 pb-8 text-right px-margin_mobile md:px-margin_desktop">
+<p class="text-[11px] font-body-md text-[#94A3B8]">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</footer>
+<!-- BottomNavBar (Hidden on Desktop, Visible on Mobile) -->
+<nav class="md:hidden bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] fixed bottom-0 w-full z-50 rounded-t-xl flex justify-around items-center h-20 px-margin_mobile glass-panel">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_11}}">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-label-mono text-label-mono mt-1">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_8}}">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+<span class="font-label-mono text-label-mono mt-1">Drawings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_7}}">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-mono text-label-mono mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_6}}">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-mono text-label-mono mt-1">Settings</span>
+</a>
+</nav>
+
+
+
+
+</body></html>

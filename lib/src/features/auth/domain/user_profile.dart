@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Represents the user's profile data stored in Firestore `users/{uid}`.
 ///
 /// This model maps to the schema defined in DATA_ARCHITECTURE.md.
-/// Only fields required for Phase 3 (Authentication) are included.
-/// Optional profile fields (qualification, dateOfBirth, address, etc.)
-/// will be added in Phase 4 (User Profiles).
+/// Phase 3 fields: id, name, email, mobile, role, createdAt.
+/// Phase 4 additions: qualification, dateOfBirth, address, companyName,
+/// collegeName, proofDocument, updatedAt.
 class UserProfile {
   /// Firebase Auth UID — also the Firestore document ID.
   final String id;
@@ -26,6 +26,33 @@ class UserProfile {
   /// Timestamp when the profile was created.
   final DateTime? createdAt;
 
+  // ──────────────────────────────────────────
+  // PHASE 4 — Optional profile fields
+  // Per DATA_ARCHITECTURE.md: role-specific, user-editable
+  // ──────────────────────────────────────────
+
+  /// Professional qualification (DRAUGHTSMAN only).
+  final String? qualification;
+
+  /// User's date of birth (all roles, optional).
+  final DateTime? dateOfBirth;
+
+  /// User's address (all roles, optional).
+  final String? address;
+
+  /// Company name (CLIENT only, optional).
+  final String? companyName;
+
+  /// College name (DRAUGHTSMAN only, optional).
+  final String? collegeName;
+
+  /// Proof document URL (DRAUGHTSMAN only, optional).
+  /// Upload functionality deferred to Phase 10 (File Storage).
+  final String? proofDocument;
+
+  /// Timestamp when the profile was last updated.
+  final DateTime? updatedAt;
+
   const UserProfile({
     required this.id,
     required this.name,
@@ -33,6 +60,13 @@ class UserProfile {
     required this.mobile,
     required this.role,
     this.createdAt,
+    this.qualification,
+    this.dateOfBirth,
+    this.address,
+    this.companyName,
+    this.collegeName,
+    this.proofDocument,
+    this.updatedAt,
   });
 
   /// Creates a [UserProfile] from a Firestore document snapshot.
@@ -45,6 +79,13 @@ class UserProfile {
       mobile: data['mobile'] as String? ?? '',
       role: data['role'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      qualification: data['qualification'] as String?,
+      dateOfBirth: (data['dateOfBirth'] as Timestamp?)?.toDate(),
+      address: data['address'] as String?,
+      companyName: data['companyName'] as String?,
+      collegeName: data['collegeName'] as String?,
+      proofDocument: data['proofDocument'] as String?,
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -62,4 +103,51 @@ class UserProfile {
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
+
+  /// Returns a Map of only the user-editable fields for profile updates.
+  ///
+  /// Does NOT include immutable fields (id, email, role, createdAt).
+  /// Automatically sets `updatedAt` to server timestamp.
+  Map<String, dynamic> toEditableFieldsMap() {
+    final map = <String, dynamic>{
+      'name': name,
+      'mobile': mobile,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (qualification != null) map['qualification'] = qualification;
+    if (dateOfBirth != null) map['dateOfBirth'] = Timestamp.fromDate(dateOfBirth!);
+    if (address != null) map['address'] = address;
+    if (companyName != null) map['companyName'] = companyName;
+    if (collegeName != null) map['collegeName'] = collegeName;
+    return map;
+  }
+
+  /// Creates a copy of this [UserProfile] with the given fields replaced.
+  UserProfile copyWith({
+    String? name,
+    String? mobile,
+    String? qualification,
+    DateTime? dateOfBirth,
+    String? address,
+    String? companyName,
+    String? collegeName,
+    String? proofDocument,
+  }) {
+    return UserProfile(
+      id: id,
+      email: email,
+      role: role,
+      createdAt: createdAt,
+      name: name ?? this.name,
+      mobile: mobile ?? this.mobile,
+      qualification: qualification ?? this.qualification,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      address: address ?? this.address,
+      companyName: companyName ?? this.companyName,
+      collegeName: collegeName ?? this.collegeName,
+      proofDocument: proofDocument ?? this.proofDocument,
+      updatedAt: updatedAt,
+    );
+  }
 }
+

@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // users collection rules (Phase 4 profiles)
+    match /users/{userId} {
+      
+      // Allow users to read their own profile
+      allow read: if isOwner(userId);
+      
+      // Allow profile creation ONLY upon registration, with strictly validated fields
+      allow create: if isOwner(userId)
+                    && request.resource.data.keys().hasAll(['id', 'name', 'email', 'mobile', 'role', 'createdAt'])
+                    && request.resource.data.role in ['CLIENT', 'DRAUGHTSMAN', 'ADMIN']
+                    && request.resource.data.id == userId;
+                    
+      // Allow users to update ONLY the mutable profile fields (preventing role/email modification)
+      allow update: if isOwner(userId)
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['id', 'email', 'role', 'createdAt']);
+    }
+  }
+}

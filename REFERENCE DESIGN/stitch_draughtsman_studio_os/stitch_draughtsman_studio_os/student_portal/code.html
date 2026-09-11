@@ -1,0 +1,334 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Student Learning Portal - DRAUGHTSMAN</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#dbd9db",
+                        "surface-container-high": "#eae7ea",
+                        "inverse-on-surface": "#f2f0f2",
+                        "surface-bright": "#fbf9fb",
+                        "surface-tint": "#515f78",
+                        "surface-container-low": "#f5f3f5",
+                        "tertiary": "#000000",
+                        "surface": "#fbf9fb",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-tertiary-fixed": "#002114",
+                        "on-secondary-container": "#fefcff",
+                        "surface-container": "#efedef",
+                        "background": "#fbf9fb",
+                        "primary-container": "#0d1c32",
+                        "secondary": "#0453cd",
+                        "on-surface": "#1b1b1d",
+                        "inverse-primary": "#b9c7e4",
+                        "on-primary-fixed-variant": "#39475f",
+                        "on-tertiary-container": "#069669",
+                        "outline-variant": "#c5c6cd",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#0040a2",
+                        "outline": "#75777e",
+                        "on-primary-container": "#76849f",
+                        "secondary-container": "#356ee7",
+                        "secondary-fixed": "#dae2ff",
+                        "surface-container-highest": "#e4e2e4",
+                        "primary-fixed": "#d6e3ff",
+                        "error-container": "#ffdad6",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#85f8c4",
+                        "on-primary-fixed": "#0d1c32",
+                        "error": "#ba1a1a",
+                        "surface-variant": "#e4e2e4",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "primary": "#000000",
+                        "on-background": "#1b1b1d",
+                        "tertiary-container": "#002114",
+                        "on-secondary-fixed": "#001848",
+                        "primary-fixed-dim": "#b9c7e4",
+                        "on-error-container": "#93000a",
+                        "on-surface-variant": "#44474d",
+                        "inverse-surface": "#303032"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin_desktop": "64px",
+                        "margin_mobile": "16px",
+                        "base": "8px",
+                        "blueprint_unit": "40px",
+                        "margin_tablet": "32px",
+                        "grid_gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "button-text": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "button-text": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .blueprint-bg {
+            background-color: #fbf9fb;
+            background-image: linear-gradient(#eae7ea 1px, transparent 1px), linear-gradient(90deg, #eae7ea 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md blueprint-bg min-h-screen relative pt-24 pb-24 md:pb-8">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
+<div class="flex justify-between items-center px-margin_mobile md:px-margin_desktop py-4">
+<div class="flex items-center gap-4 text-primary dark:text-primary-fixed cursor-pointer active:scale-95 duration-200 hover:bg-surface-variant/50 transition-colors p-2 rounded-lg">
+<span class="material-symbols-outlined filled text-2xl">architecture</span>
+<span class="font-headline-lg text-headline-lg-mobile md:text-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed">DRAUGHTSMAN</span>
+</div>
+<!-- Desktop Nav (Hidden on Mobile) -->
+<nav class="hidden md:flex items-center gap-8 font-label-mono text-label-mono">
+<a class="text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-4 py-2 rounded-lg" href="#">Studio</a>
+<a class="text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-4 py-2 rounded-lg" href="#">Drawings</a>
+<a class="text-secondary dark:text-secondary-fixed font-bold bg-secondary-fixed/30 rounded-lg px-4 py-2 hover:bg-surface-variant/50 transition-colors" href="#">Insights</a>
+<a class="text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-4 py-2 rounded-lg" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-3 cursor-pointer active:scale-95 duration-200 hover:bg-surface-variant/50 transition-colors p-2 rounded-lg">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary text-sm font-bold">
+                    AP
+                </div>
+<span class="hidden md:block font-button-text text-button-text text-on-surface">Architect Profile</span>
+</div>
+</div>
+</header>
+<main class="max-w-[1440px] mx-auto px-margin_mobile md:px-margin_desktop space-y-12">
+<!-- Header & Progress -->
+<section class="space-y-6">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="font-headline-display text-headline-display text-primary">Learning Path</h1>
+<p class="text-on-surface-variant mt-2">Architectural Drafting Foundations Module 4</p>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-lowest border border-outline-variant/50 px-4 py-2 rounded-lg shadow-sm">
+<span class="material-symbols-outlined text-tertiary-container">emoji_events</span>
+<span class="font-label-mono text-label-mono text-on-surface">Rank: Top 15%</span>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+<div class="flex justify-between items-center mb-4 font-label-mono text-label-mono">
+<span class="text-secondary font-bold">Module Progress</span>
+<span class="text-on-surface-variant">68% Complete</span>
+</div>
+<div class="w-full h-2 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 68%;"></div>
+</div>
+<div class="flex justify-between mt-4 text-xs text-outline font-label-mono">
+<span class="">Drafting</span>
+<span class="">Modelling</span>
+<span class="text-secondary font-bold">Rendering</span>
+<span class="">Documentation</span>
+</div>
+</div>
+</section>
+<!-- Main Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column: Mock Projects -->
+<section class="lg:col-span-2 space-y-6">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary border-b border-outline-variant/30 pb-2">Mock Projects</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Project Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-6 shadow-sm hover:shadow-[0_8px_32px_rgba(0,0,0,0.04)] transition-all duration-300 group cursor-pointer relative overflow-hidden">
+<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border-t-2 border-secondary"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 bg-surface-variant text-on-surface font-label-mono text-label-mono rounded">Beginner</span>
+<span class="material-symbols-outlined text-outline">bookmark_border</span>
+</div>
+<div class="w-full h-32 mb-4 bg-surface-container rounded-lg overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover grayscale opacity-80 mix-blend-multiply" data-alt="A clean, minimalist architectural floor plan shown in a digital drafting software interface. The plan consists of precise black lines on a crisp white background, illustrating a small residential pavilion layout. The aesthetic is highly technical, methodical, and representative of early-stage architectural design studies in a premium software environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDH20Rh0lv5hfbN-ZvAp5p4LfyORtbzd7GPepuy22_5fRMqidWeEDvMKsztE2B3pItX12vUppRun8aSUGWU0P_aYWfOo8Myi2DGw9mzlDAixTDq1v1gFhvSL1Fdcs-g5j46D6J6dUUde4XeMYGxdNSI6Q2SugV2zkh_piya0kkEAlnDv7LXz9mcVKYn_8S4DbRn32ayYNDbaaZ-gPk7f3SbsqpaNcDN4SqlzZmOj150hDN5m2AbKC9L">
+</div>
+<h3 class="font-button-text text-button-text text-primary mb-1">Residential Pavilion Plan</h3>
+<p class="text-sm text-on-surface-variant mb-4">Master basic layout and dimensioning tools.</p>
+<div class="flex items-center justify-between">
+<span class="font-label-mono text-label-mono text-secondary">Completed</span>
+<button class="text-sm font-button-text text-button-text text-secondary hover:text-secondary-container">Review</button>
+</div>
+</div>
+<!-- Project Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-6 shadow-sm hover:shadow-[0_8px_32px_rgba(0,0,0,0.04)] transition-all duration-300 group cursor-pointer relative overflow-hidden">
+<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border-t-2 border-secondary"></div>
+<div class="flex justify-between items-start mb-4">
+<span class="px-2 py-1 bg-primary-fixed-dim text-on-primary-fixed font-label-mono text-label-mono rounded">Intermediate</span>
+<span class="material-symbols-outlined text-outline">bookmark_border</span>
+</div>
+<div class="w-full h-32 mb-4 bg-surface-container rounded-lg overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover grayscale opacity-80 mix-blend-multiply" data-alt="A detailed 3D wireframe model of a multi-story commercial building corner section. The model is rendered in technical software with thin blue and grey construction lines over a stark white background. The image conveys complexity, structural logic, and architectural rigor associated with intermediate drafting projects." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwmjgdH0yhMOEuU-mYlfrnJWvjwOUSbHHt_JS-lhD8sxUd-g-4cXyifRxL8rvSepol5qh6kPajhStNIxg_avq_xZVzZ2yaM9ya4SFGvbkTz5CO-52nclIWyUj4-07d6X1Z8kHXj08_yLrEcV5Iu3m2F6EIIeBQOzhDQ5NIDZHS_gJ0MRqfDDy62pQ9OKZyO5PvcoO5gNht2fPYfnN8e04no-TpNWz60HbrjEr6Z43fALIKKRREMtTV">
+</div>
+<h3 class="font-button-text text-button-text text-primary mb-1">Commercial Facade Detailing</h3>
+<p class="text-sm text-on-surface-variant mb-4">Learn advanced wall assemblies and detailing.</p>
+<div class="flex items-center justify-between">
+<span class="font-label-mono text-label-mono text-on-surface-variant">In Progress</span>
+<a href="{{DATA:SCREEN:SCREEN_10}}" class="px-4 py-2 bg-primary text-on-primary font-button-text text-button-text rounded-lg hover:bg-primary/90 transition-colors inline-block">Continue</a>
+</div>
+</div>
+<!-- Project Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-6 shadow-sm hover:shadow-[0_8px_32px_rgba(0,0,0,0.04)] transition-all duration-300 group cursor-pointer relative overflow-hidden md:col-span-2">
+<div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border-t-2 border-secondary"></div>
+<div class="flex flex-col md:flex-row gap-6">
+<div class="w-full md:w-1/3 h-48 bg-surface-container rounded-lg overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover grayscale opacity-80 mix-blend-multiply" data-alt="An expansive, high-fidelity architectural rendering of a modern cultural center shown in a sophisticated CAD environment interface. The rendering shows complex curved geometries, intricate structural framing, and soft ambient occlusion lighting. The aesthetic is highly professional, technical, and polished, representing an advanced masterclass project." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAs4zujPjHT2e2fbF6IIPpuUJx3oOMNud8-XTY-w_CxLoO68o6U3N-MluxQOwkyqDxS1kRsxa6bpOcfkhbe2toXn9oujvopri3uoqd_bvWfZwvX1BFhK-sOx7dYpzDu2AySmdckRbsJvNh4folXWrF2jLgQPt1IFxiXxll2izAhyhCzmLvUEkCYcje3pARI6tUKeeHHxrUgHwMWYRVOdOyvVwzrweqUe6S1DiKmdrDXVfaVyBBpkMgm">
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-2">
+<span class="px-2 py-1 bg-tertiary-fixed-dim text-on-tertiary-fixed font-label-mono text-label-mono rounded">Pro Masterclass</span>
+<span class="material-symbols-outlined text-outline">lock</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-2">Parametric Structural Systems</h3>
+<p class="text-on-surface-variant mb-4">A comprehensive module covering algorithmic design, complex geometries, and automated structural documentation output.</p>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-mono text-label-mono text-outline">Prerequisite: Advanced Modelling</span>
+<button class="px-4 py-2 border border-outline text-primary font-button-text text-button-text rounded-lg hover:bg-surface-variant transition-colors opacity-50 cursor-not-allowed">Locked</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Column: Modules & Leaderboard -->
+<aside class="space-y-8">
+<!-- Learning Modules -->
+<section class="bg-surface-container-lowest border border-outline-variant/50 rounded-xl p-6 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-button-text text-button-text text-primary">Current Modules</h2>
+<button class="text-secondary hover:text-secondary-container"><span class="material-symbols-outlined">arrow_forward</span></button>
+</div>
+<div class="space-y-4">
+<!-- Module Item -->
+<div class="flex items-center gap-4 p-2 hover:bg-surface-variant/30 rounded-lg cursor-pointer transition-colors">
+<div class="w-12 h-12 bg-surface-variant rounded flex items-center justify-center text-primary border border-outline-variant/30">
+<span class="material-symbols-outlined">play_circle</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-button-text text-button-text text-on-surface">Lighting Analysis</h4>
+<p class="text-xs text-on-surface-variant font-label-mono">12 mins • Video</p>
+</div>
+</div>
+<!-- Module Item -->
+<div class="flex items-center gap-4 p-2 hover:bg-surface-variant/30 rounded-lg cursor-pointer transition-colors">
+<div class="w-12 h-12 bg-surface-variant rounded flex items-center justify-center text-primary border border-outline-variant/30">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-button-text text-button-text text-on-surface">Material Schedules</h4>
+<p class="text-xs text-on-surface-variant font-label-mono">PDF • 4 Pages</p>
+</div>
+</div>
+<!-- Module Item -->
+<div class="flex items-center gap-4 p-2 hover:bg-surface-variant/30 rounded-lg cursor-pointer transition-colors">
+<div class="w-12 h-12 bg-surface-variant rounded flex items-center justify-center text-primary border border-outline-variant/30">
+<span class="material-symbols-outlined">view_in_ar</span>
+</div>
+<div class="flex-1">
+<h4 class="text-sm font-button-text text-button-text text-on-surface">BIM Coordination</h4>
+<p class="text-xs text-on-surface-variant font-label-mono">Interactive Exercise</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Leaderboard Preview -->
+<section class="bg-primary-container text-on-primary-container rounded-xl p-6 shadow-sm border border-outline-variant/20">
+<h2 class="font-button-text text-button-text text-on-primary mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-fixed-dim">leaderboard</span>
+                        Studio Rankings
+                    </h2>
+<div class="space-y-4">
+<div class="flex items-center justify-between pb-2 border-b border-on-primary-fixed-variant/50">
+<div class="flex items-center gap-3">
+<span class="font-label-mono text-on-primary-fixed-variant">01</span>
+<span class="text-sm text-on-primary">E. Rohe</span>
+</div>
+<span class="font-label-mono text-tertiary-fixed-dim">9,420 pt</span>
+</div>
+<div class="flex items-center justify-between pb-2 border-b border-on-primary-fixed-variant/50">
+<div class="flex items-center gap-3">
+<span class="font-label-mono text-on-primary-fixed-variant">02</span>
+<span class="text-sm text-on-primary">L. Corbusier</span>
+</div>
+<span class="font-label-mono text-tertiary-fixed-dim">8,950 pt</span>
+</div>
+<div class="flex items-center justify-between pb-2 bg-on-primary-fixed-variant/20 p-2 rounded -mx-2">
+<div class="flex items-center gap-3">
+<span class="font-label-mono text-secondary-fixed">14</span>
+<span class="text-sm text-on-primary font-bold">You</span>
+</div>
+<span class="font-label-mono text-secondary-fixed">6,120 pt</span>
+</div>
+</div>
+</section>
+</aside>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+<div class="flex justify-around items-center h-20 px-margin_mobile">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_11}}">
+<span class="material-symbols-outlined mb-1">grid_view</span>
+<span class="font-label-mono text-label-mono">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_8}}">
+<span class="material-symbols-outlined mb-1">layers</span>
+<span class="font-label-mono text-label-mono">Drawings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_7}}">
+<span class="material-symbols-outlined filled mb-1">analytics</span>
+<span class="font-label-mono text-label-mono font-bold">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_6}}">
+<span class="material-symbols-outlined mb-1">settings</span>
+<span class="font-label-mono text-label-mono">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Footer Signature -->
+<footer class="mt-16 pb-8 text-center md:text-right px-margin_mobile md:px-margin_desktop pb-24 md:pb-8">
+<span class="text-[11px] font-body-md text-[#94A3B8]">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</span>
+</footer>
+
+
+
+
+</body></html>

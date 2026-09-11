@@ -1,0 +1,211 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Restore Access - Draughtsman Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-variant": "#e4e2e4",
+                      "on-secondary-fixed-variant": "#0040a2",
+                      "surface": "#fbf9fb",
+                      "surface-container-high": "#eae7ea",
+                      "on-secondary-fixed": "#001848",
+                      "outline": "#75777e",
+                      "on-secondary": "#ffffff",
+                      "on-surface-variant": "#44474d",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "on-tertiary-fixed": "#002114",
+                      "surface-bright": "#fbf9fb",
+                      "tertiary-container": "#002114",
+                      "surface-container": "#efedef",
+                      "on-primary": "#ffffff",
+                      "outline-variant": "#c5c6cd",
+                      "on-surface": "#1b1b1d",
+                      "on-background": "#1b1b1d",
+                      "error": "#ba1a1a",
+                      "on-primary-fixed-variant": "#39475f",
+                      "inverse-primary": "#b9c7e4",
+                      "on-primary-container": "#76849f",
+                      "error-container": "#ffdad6",
+                      "primary-fixed": "#d6e3ff",
+                      "secondary": "#0453cd",
+                      "inverse-on-surface": "#f2f0f2",
+                      "primary-container": "#0d1c32",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-fixed-dim": "#b2c5ff",
+                      "on-tertiary-fixed-variant": "#005137",
+                      "primary-fixed-dim": "#b9c7e4",
+                      "secondary-fixed": "#dae2ff",
+                      "surface-tint": "#515f78",
+                      "on-primary-fixed": "#0d1c32",
+                      "surface-container-low": "#f5f3f5",
+                      "tertiary-fixed": "#85f8c4",
+                      "tertiary": "#000000",
+                      "primary": "#000000",
+                      "inverse-surface": "#303032",
+                      "surface-dim": "#dbd9db",
+                      "tertiary-fixed-dim": "#68dba9",
+                      "on-error-container": "#93000a",
+                      "on-secondary-container": "#fefcff",
+                      "secondary-container": "#356ee7",
+                      "on-tertiary-container": "#069669",
+                      "background": "#fbf9fb",
+                      "surface-container-highest": "#e4e2e4"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin_desktop": "64px",
+                      "margin_mobile": "16px",
+                      "blueprint_unit": "40px",
+                      "base": "8px",
+                      "grid_gutter": "24px",
+                      "margin_tablet": "32px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "headline-display": [
+                              "Inter"
+                      ],
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "button-text": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-display": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-mono": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "button-text": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .blueprint-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(148, 163, 184, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+        }
+        .architectural-shadow {
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05), 0 20px 40px -10px rgba(0, 0, 0, 0.03);
+        }
+      </style>
+</head>
+<body class="bg-surface-bright min-h-screen font-body-md text-on-surface blueprint-grid flex flex-col justify-between">
+<!-- Main Content Area -->
+<main class="flex-grow flex items-center justify-center px-margin_mobile md:px-margin_desktop py-12">
+<div class="w-full max-w-md bg-surface-container-lowest border border-surface-variant rounded-xl p-8 architectural-shadow relative z-10">
+<!-- Logo/Brand Anchor -->
+<div class="flex justify-center mb-8">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-4xl text-primary mb-2" style="font-variation-settings: 'FILL' 0;">architecture</span>
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary tracking-tighter">DRAUGHTSMAN</h1>
+<span class="font-label-mono text-label-mono text-outline tracking-widest uppercase mt-1">Studio</span>
+</div>
+</div>
+<!-- Form Header -->
+<div class="text-center mb-8">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-2">Restore Access</h2>
+<p class="text-on-surface-variant font-body-md text-body-md">Enter your registered email address to receive a recovery code.</p>
+</div>
+<!-- Recovery Form -->
+<form action="#" class="space-y-6" method="POST">
+<div>
+<label class="block font-label-mono text-label-mono text-on-surface mb-2 uppercase" for="email">Registered Email</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: 'FILL' 0;">mail</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 bg-surface-container-low border border-surface-variant rounded-DEFAULT font-body-md text-body-md text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-secondary focus:border-secondary transition-colors" id="email" name="email" placeholder="architect@studio.com" required="" type="email">
+</div>
+</div>
+<div class="pt-2">
+<a href="{{DATA:SCREEN:SCREEN_2}}" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-DEFAULT shadow-sm bg-primary text-on-primary font-button-text text-button-text hover:bg-surface-tint focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors border-t border-t-white/20">Send Recovery Code</a>
+</div>
+</form>
+<!-- Links -->
+<div class="mt-8 text-center">
+<a class="inline-flex items-center text-on-surface-variant hover:text-primary font-label-mono text-label-mono transition-colors" href="{{DATA:SCREEN:SCREEN_4}}">
+<span class="material-symbols-outlined text-[16px] mr-1" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+                    Return to Login
+                </a>
+</div>
+</div>
+</main>
+<!-- Footer Signature -->
+<footer class="w-full py-6 px-margin_mobile md:px-margin_desktop flex justify-center md:justify-end border-t border-surface-variant/30 bg-surface-bright/80 backdrop-blur-sm z-0">
+<p class="text-[11px] font-body-md text-outline">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</footer>
+
+
+
+
+</body></html>

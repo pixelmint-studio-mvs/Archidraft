@@ -1,0 +1,351 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Draughtsman - Project Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-container": "#002114",
+                      "tertiary-fixed-dim": "#68dba9",
+                      "primary-container": "#0d1c32",
+                      "on-primary-container": "#76849f",
+                      "inverse-primary": "#b9c7e4",
+                      "on-secondary-fixed": "#001848",
+                      "outline-variant": "#c5c6cd",
+                      "inverse-on-surface": "#f2f0f2",
+                      "inverse-surface": "#303032",
+                      "primary-fixed": "#d6e3ff",
+                      "surface-tint": "#515f78",
+                      "on-primary-fixed": "#0d1c32",
+                      "on-tertiary-container": "#069669",
+                      "surface-variant": "#e4e2e4",
+                      "surface-container-high": "#eae7ea",
+                      "error": "#ba1a1a",
+                      "on-surface-variant": "#44474d",
+                      "surface-dim": "#dbd9db",
+                      "on-error-container": "#93000a",
+                      "surface-container-low": "#f5f3f5",
+                      "on-surface": "#1b1b1d",
+                      "primary-fixed-dim": "#b9c7e4",
+                      "background": "#fbf9fb",
+                      "primary": "#000000",
+                      "surface-container-highest": "#e4e2e4",
+                      "surface-container": "#efedef",
+                      "outline": "#75777e",
+                      "secondary-fixed-dim": "#b2c5ff",
+                      "tertiary-fixed": "#85f8c4",
+                      "secondary-container": "#356ee7",
+                      "on-background": "#1b1b1d",
+                      "on-error": "#ffffff",
+                      "surface-bright": "#fbf9fb",
+                      "secondary": "#0453cd",
+                      "tertiary": "#000000",
+                      "secondary-fixed": "#dae2ff",
+                      "error-container": "#ffdad6",
+                      "on-primary-fixed-variant": "#39475f",
+                      "surface": "#fbf9fb",
+                      "on-primary": "#ffffff",
+                      "on-secondary-fixed-variant": "#0040a2",
+                      "on-secondary-container": "#fefcff",
+                      "on-tertiary-fixed-variant": "#005137",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "on-tertiary-fixed": "#002114"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin_tablet": "32px",
+                      "base": "8px",
+                      "margin_mobile": "16px",
+                      "grid_gutter": "24px",
+                      "margin_desktop": "64px",
+                      "blueprint_unit": "40px"
+              },
+              "fontFamily": {
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "button-text": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-display": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "label-mono": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "button-text": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-display": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        /* Blueprint Grid Background */
+        body {
+            background-color: #fbf9fb; /* Warm White */
+            background-image: 
+                linear-gradient(to right, rgba(117, 119, 126, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(117, 119, 126, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px; /* Blueprint unit */
+        }
+        
+        /* Glassmorphism for navigation/toolbars */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+
+        /* Dual Shadow for Cards */
+        .card-shadow {
+            box-shadow: 
+                0 0 0 1px rgba(0, 0, 0, 0.05),
+                0 12px 24px -4px rgba(0, 0, 0, 0.03);
+        }
+        
+        .hairline-border {
+            border-width: 0.5px;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface text-body-md min-h-screen pt-20 pb-24 md:pb-8">
+<!-- TopAppBar from JSON -->
+<header class="fixed top-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm flex justify-between items-center px-margin_mobile md:px-margin_desktop py-4 hidden md:flex">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-icon="architecture" data-weight="fill" style="font-variation-settings: 'FILL' 1;">architecture</span>
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed">DRAUGHTSMAN</h1>
+</div>
+<nav class="flex gap-8">
+<a class="text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors cursor-pointer active:scale-95 duration-200 px-4 py-2 rounded-lg" href="#">Studio</a>
+<a class="text-secondary dark:text-secondary-fixed font-bold hover:bg-surface-variant/50 transition-colors cursor-pointer active:scale-95 duration-200 px-4 py-2 rounded-lg" href="#">Drawings</a>
+<a class="text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors cursor-pointer active:scale-95 duration-200 px-4 py-2 rounded-lg" href="#">Insights</a>
+<a class="text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors cursor-pointer active:scale-95 duration-200 px-4 py-2 rounded-lg" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of an architect, clean lighting, corporate modern style, isolated on a white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuABylHT9txcEHb-7cXLN6JOhNzy2voq2eOTyyiZ2-hZO_a3vkzqRJYwqh717HzRihe2g_Vm_zE4H0c_i23aB5mPLSc6tDzYvzZz7MRteLT7NY9r6DozfK84g8NHq5b6SrsHwEzriSmcvH-YiTGfYgiMCBXNBXPr8UDUieywQPxPsXTL0B44LaL5-7drw415YV0UTFfte7LC4tRRhpxF99_3mocswGi8xL0xHiMsFENhutLMEFw52yik">
+</div>
+</div>
+</header>
+<!-- Mobile Top Bar (Simplified for transactional/detail view if needed, but keeping main nav for now as it's Drawings context) -->
+<header class="fixed top-0 w-full z-50 bg-white/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm flex justify-between items-center px-margin_mobile py-4 md:hidden">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary cursor-pointer" data-icon="arrow_back">arrow_back</span>
+</div>
+<h1 class="font-label-mono text-label-mono tracking-tighter text-primary">PRJ-2024-089A</h1>
+<span class="material-symbols-outlined text-primary cursor-pointer" data-icon="more_vert">more_vert</span>
+</header>
+<!-- Main Content Canvas -->
+<main class="px-margin_mobile md:px-margin_desktop mx-auto max-w-7xl pt-8">
+<!-- Version Control Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="font-label-mono text-label-mono text-outline bg-surface-container-high px-2 py-1 rounded">PRJ-2024-089A</span>
+<span class="font-label-mono text-label-mono text-on-tertiary-container bg-tertiary-fixed px-2 py-1 rounded">STATUS: REVIEW</span>
+</div>
+<h2 class="font-headline-display text-headline-lg-mobile md:text-headline-display text-primary">Civic Center Pavilion</h2>
+</div>
+<div class="flex gap-4 w-full md:w-auto">
+<button class="flex-1 md:flex-none border border-primary text-primary font-button-text text-button-text px-6 py-3 rounded hover:bg-surface-variant transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+                    View History
+                </button>
+<button class="flex-1 md:flex-none bg-primary text-white font-button-text text-button-text px-6 py-3 rounded shadow-[inset_0_1px_0_rgba(255,255,255,0.2)] hover:bg-primary-container transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="rate_review">rate_review</span>
+                    Request Revision
+                </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-grid_gutter">
+<!-- Drawing Comparison Area (Span 8) -->
+<div class="lg:col-span-8 bg-surface-container-lowest rounded-xl card-shadow border border-outline-variant/30 p-8 flex flex-col min-h-[600px]">
+<!-- Toolbar -->
+<div class="flex justify-between items-center mb-6 pb-4 hairline-border border-b border-outline-variant/50">
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-surface-container-low rounded p-1">
+<button class="font-label-mono text-label-mono px-3 py-1.5 rounded bg-white shadow-sm text-primary">Split View</button>
+<button class="font-label-mono text-label-mono px-3 py-1.5 rounded text-outline hover:text-primary">Overlay</button>
+</div>
+</div>
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary" data-icon="zoom_in">zoom_in</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary" data-icon="zoom_out">zoom_out</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary ml-2" data-icon="fit_screen">fit_screen</span>
+</div>
+</div>
+<!-- Comparison Viewers -->
+<div class="flex-1 grid grid-cols-2 gap-4 relative">
+<!-- Previous v3 -->
+<div class="relative bg-surface-container-low rounded border border-outline-variant/30 overflow-hidden group">
+<div class="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur px-2 py-1 rounded font-label-mono text-label-mono text-on-surface-variant shadow-sm border border-outline-variant/20">
+                            Previous: v3
+                        </div>
+<img class="w-full h-full object-cover opacity-80 mix-blend-multiply" data-alt="Technical architectural blueprint of a civic pavilion, top-down view, clean black and white lines, complex geometry, professional engineering style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYYw-s2rp7kwgk-ooe8_5Y1NyzEAK303mp0fQOOE-Fqd-tNkDDAnegpnLdoQ4zdnMABWNv1TbISVt0FQfhcSc-VPcIEsPgAUYwCYgXhQGp3M-I8iw87bOF0SLRuD3bXALo1SBhUSxIRPqv9tn5rDnqAk-XjnW25Se_5GxdajgWeqf7ez7DT0FJS3Boe6o0L6RrxanD9kQ9_54rvxh7KVdsC8DASCtA-RtqmksEBXBjB02lVg89wkHm">
+</div>
+<!-- Current v4 -->
+<div class="relative bg-surface-container-low rounded border border-primary/20 overflow-hidden group">
+<div class="absolute top-4 left-4 z-10 bg-primary text-white px-2 py-1 rounded font-label-mono text-label-mono shadow-sm">
+                            Current: v4
+                        </div>
+<!-- Overlay diff highlight simulation -->
+<div class="absolute inset-0 border-4 border-tertiary-fixed-dim/30 pointer-events-none z-10"></div>
+<img class="w-full h-full object-cover mix-blend-multiply" data-alt="Technical architectural blueprint of a civic pavilion, top-down view, updated revision with slight structural changes, clean black and white lines, professional engineering style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuaXgK49FW0ojyLk7nw4OgaaLR1WoJlrQHZVQStF8rW0odLsEU9zqkRq1dWMmUTg5tYPoTM1zMELo18vJfAEZ9iBbxczYtBVyCGZeSXYuvMgQVyGUfZk9jEhZrIZ6dT5aL3D8ekxXVeqSlKbiYWnO0np4PJm9uNbOau3eK_F1Z88TIU0IouMVheEw1ucYIZ4bSp_vsjXNz44vdPVduo3eDlctPm5nPkcQwIMsl83Zl1uZVq5RFKTFW">
+</div>
+<!-- Slider Handle (Visual only) -->
+<div class="absolute left-1/2 top-0 bottom-0 w-1 bg-primary-fixed -translate-x-1/2 cursor-ew-resize hidden lg:flex flex-col justify-center items-center">
+<div class="w-6 h-10 bg-white border border-outline-variant/30 rounded flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[16px] text-outline" data-icon="drag_indicator">drag_indicator</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Side Panel (Span 4) -->
+<div class="lg:col-span-4 flex flex-col gap-grid_gutter">
+<!-- Metadata Card -->
+<div class="bg-surface-container-lowest rounded-xl card-shadow border border-outline-variant/30 p-8">
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg-mobile text-primary mb-6">Details</h3>
+<div class="space-y-4">
+<div>
+<p class="font-label-mono text-label-mono text-outline mb-1">AUTHOR</p>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Small avatar of a female senior architect, modern corporate lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwMTWFkQtevkxiuK2destaGtegzGYuB2y4_0jvP6RpGiClp0kvyYadAz41ukIuenVRSeVq1eA8P4JQ907ip0xVGiZZNEMiqoirjoyb9Q-58SJje7qSnBXK5LnXd7d5NOlCauEaYw8CknXvGAVVVsWgmYaqe_IuX4c6KcxSQmrQycQ0GRjwooRExqKM_fTaHuK8VFza5HEW-ss1isj2vIbbjlgLvnmwcW_GvT3XjnCMlDRKYQCPZvVf">
+</div>
+<p class="font-body-md text-body-md text-on-surface">Sarah Jenkins</p>
+</div>
+</div>
+<div class="hairline-border border-t border-outline-variant/30 pt-4">
+<p class="font-label-mono text-label-mono text-outline mb-1">LAST MODIFIED</p>
+<p class="font-body-md text-body-md text-on-surface">Oct 24, 2024 at 14:32 PST</p>
+</div>
+<div class="hairline-border border-t border-outline-variant/30 pt-4">
+<p class="font-label-mono text-label-mono text-outline mb-1">FILE SIZE &amp; FORMAT</p>
+<p class="font-body-md text-body-md text-on-surface">124 MB • .DWG</p>
+</div>
+</div>
+</div>
+<!-- Activity Log -->
+<div class="bg-surface-container-lowest rounded-xl card-shadow border border-outline-variant/30 p-8 flex-1">
+<h3 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg-mobile text-primary mb-6">Activity Audit</h3>
+<div class="relative pl-4 space-y-6 before:content-[''] before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[1px] before:bg-outline-variant/30">
+<!-- Log Item 1 -->
+<div class="relative">
+<div class="absolute -left-[20px] top-1 w-2 h-2 rounded-full bg-primary ring-4 ring-white"></div>
+<p class="font-label-mono text-label-mono text-outline mb-1">TODAY, 14:32</p>
+<p class="font-body-md text-body-md text-on-surface font-semibold">Version 4 Committed</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Adjusted load-bearing wall specifications on East wing.</p>
+</div>
+<!-- Log Item 2 -->
+<div class="relative">
+<div class="absolute -left-[20px] top-1 w-2 h-2 rounded-full bg-surface-variant ring-4 ring-white"></div>
+<p class="font-label-mono text-label-mono text-outline mb-1">YESTERDAY, 09:15</p>
+<p class="font-body-md text-body-md text-on-surface font-semibold">Comment Added</p>
+<div class="bg-surface-container-low p-3 rounded mt-2 border border-outline-variant/20">
+<p class="font-body-md text-body-md text-on-surface-variant text-sm italic">"Please verify the HVAC clearance in the central atrium." - M. Torres</p>
+</div>
+</div>
+<!-- Log Item 3 -->
+<div class="relative">
+<div class="absolute -left-[20px] top-1 w-2 h-2 rounded-full bg-surface-variant ring-4 ring-white"></div>
+<p class="font-label-mono text-label-mono text-outline mb-1">OCT 22, 16:45</p>
+<p class="font-body-md text-body-md text-on-surface font-semibold">Version 3 Approved</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Initial structural review passed.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar from JSON (Mobile Only, Drawings active) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] bg-white/60 dark:bg-black/60 backdrop-blur-xl flex justify-around items-center h-20 px-margin_mobile md:hidden">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="grid_view">grid_view</span>
+            Studio
+        </a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="layers">layers</span>
+            Drawings
+        </a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="analytics">analytics</span>
+            Insights
+        </a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out font-label-mono text-label-mono" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="settings">settings</span>
+            Settings
+        </a>
+</nav>
+<!-- System Signature -->
+<footer class="fixed bottom-4 right-4 hidden md:block">
+<p class="text-[11px] font-[Inter] font-light text-[#94A3B8]">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</footer>
+</body></html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Draughtsman Studio - Financials</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-container": "#002114",
+                      "tertiary-fixed-dim": "#68dba9",
+                      "primary-container": "#0d1c32",
+                      "on-primary-container": "#76849f",
+                      "inverse-primary": "#b9c7e4",
+                      "on-secondary-fixed": "#001848",
+                      "outline-variant": "#c5c6cd",
+                      "inverse-on-surface": "#f2f0f2",
+                      "inverse-surface": "#303032",
+                      "primary-fixed": "#d6e3ff",
+                      "surface-tint": "#515f78",
+                      "on-primary-fixed": "#0d1c32",
+                      "on-tertiary-container": "#069669",
+                      "surface-variant": "#e4e2e4",
+                      "surface-container-high": "#eae7ea",
+                      "error": "#ba1a1a",
+                      "on-surface-variant": "#44474d",
+                      "surface-dim": "#dbd9db",
+                      "on-error-container": "#93000a",
+                      "surface-container-low": "#f5f3f5",
+                      "on-surface": "#1b1b1d",
+                      "primary-fixed-dim": "#b9c7e4",
+                      "background": "#fbf9fb",
+                      "primary": "#000000",
+                      "surface-container-highest": "#e4e2e4",
+                      "surface-container": "#efedef",
+                      "outline": "#75777e",
+                      "secondary-fixed-dim": "#b2c5ff",
+                      "tertiary-fixed": "#85f8c4",
+                      "secondary-container": "#356ee7",
+                      "on-background": "#1b1b1d",
+                      "on-error": "#ffffff",
+                      "surface-bright": "#fbf9fb",
+                      "secondary": "#0453cd",
+                      "tertiary": "#000000",
+                      "secondary-fixed": "#dae2ff",
+                      "error-container": "#ffdad6",
+                      "on-primary-fixed-variant": "#39475f",
+                      "surface": "#fbf9fb",
+                      "on-primary": "#ffffff",
+                      "on-secondary-fixed-variant": "#0040a2",
+                      "on-secondary-container": "#fefcff",
+                      "on-tertiary-fixed-variant": "#005137",
+                      "on-secondary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "on-tertiary-fixed": "#002114"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin_tablet": "32px",
+                      "base": "8px",
+                      "margin_mobile": "16px",
+                      "grid_gutter": "24px",
+                      "margin_desktop": "64px",
+                      "blueprint_unit": "40px"
+              },
+              "fontFamily": {
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "button-text": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-display": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "label-mono": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "button-text": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-display": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #fbf9fb; /* Warm White */
+            background-image: 
+                linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px);
+            background-size: 40px 40px; /* Blueprint Grid */
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 1);
+        }
+
+        .lux-card {
+            background-color: #ffffff;
+            border: 1px solid #E2E8F0;
+            box-shadow: 
+                0 1px 2px 0 rgba(0, 0, 0, 0.05),
+                0 10px 30px -10px rgba(0, 0, 0, 0.03);
+        }
+
+        .btn-primary {
+            background-color: #0d1c32; /* Deep Midnight Blue */
+            color: #ffffff;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen font-body-md text-on-surface pb-32 md:pb-12 pt-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
+<div class="flex justify-between items-center px-margin_mobile md:px-margin_desktop py-4">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-weight="regular">architecture</span>
+<span class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed">DRAUGHTSMAN</span>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-md" href="#">Studio</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-md" href="#">Drawings</a>
+<a class="font-label-mono text-label-mono text-secondary dark:text-secondary-fixed font-bold px-3 py-2 rounded-md" href="#">Insights</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-md" href="#">Settings</a>
+</nav>
+<div class="flex items-center">
+<div class="w-10 h-10 rounded-full bg-surface-variant overflow-hidden cursor-pointer active:scale-95 duration-200" title="Architect Profile">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A sophisticated black and white portrait of a modern architect in a minimalist studio setting, clean lighting, high resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8XmNQoahfnexQQ9tH1hz9OxOnxxKvML9dtcblWn7d0ZwnYxd8Qi6709MZnDVE1OzWI7hu6To3-F-8qds3pf7sHpTnrcKW_lCkv45OjUQGF4UzPmTDzNJmnu06Pz2oj8YE3Gdm7aAK2OA_Wju_c8IpQw5lHzF08TQMKmdZA69CB0uramJNrG0ZJgIa0AOeA-8I_B2n3vYhX5oG9Uho0-MFD8OrBProwHgky_8jx3ivayHGIda2b7Mn">
+</div>
+</div>
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="max-w-[1440px] mx-auto px-margin_mobile md:px-margin_desktop pt-8">
+<header class="mb-12">
+<h1 class="font-headline-display text-headline-display text-primary mb-2">Financials</h1>
+<p class="font-label-mono text-label-mono text-outline uppercase">Project Alpha // FY2024</p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-grid_gutter mb-12">
+<!-- Value Overview (Bento Grids) -->
+<div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Total Value -->
+<div class="lux-card rounded-xl p-8 flex flex-col justify-between h-48 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+<div class="absolute -right-4 -top-4 text-surface-container-high opacity-50 transform rotate-12 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[120px]" data-weight="fill">account_balance_wallet</span>
+</div>
+<div class="z-10">
+<span class="font-label-mono text-label-mono text-outline uppercase block mb-4">Total Project Value</span>
+<span class="font-headline-display text-headline-display text-primary">$450,000</span>
+</div>
+<div class="z-10 mt-auto">
+<span class="font-label-mono text-label-mono text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +12% vs last phase
+                        </span>
+</div>
+</div>
+<!-- Outstanding Balance -->
+<div class="lux-card rounded-xl p-8 flex flex-col justify-between h-48 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+<div class="absolute -right-4 -top-4 text-surface-container-high opacity-50 transform -rotate-12 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[120px]" data-weight="fill">pending_actions</span>
+</div>
+<div class="z-10">
+<span class="font-label-mono text-label-mono text-outline uppercase block mb-4">Outstanding Balance</span>
+<span class="font-headline-display text-headline-display text-error">$65,200</span>
+</div>
+<div class="z-10 mt-auto flex items-center justify-between">
+<span class="font-label-mono text-label-mono text-outline">Due in 14 days</span>
+<button class="font-button-text text-button-text btn-primary px-4 py-2 rounded-lg cursor-pointer active:scale-95 duration-200">Settle</button>
+</div>
+</div>
+</div>
+<!-- Budget Consumption -->
+<div class="lg:col-span-4 lux-card rounded-xl p-8 flex flex-col justify-center">
+<span class="font-label-mono text-label-mono text-outline uppercase block mb-6">Budget Consumption</span>
+<div class="relative pt-1">
+<div class="flex mb-2 items-center justify-between">
+<div>
+<span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-secondary bg-secondary-fixed">
+                        Phase 3
+                      </span>
+</div>
+<div class="text-right">
+<span class="text-xs font-semibold inline-block text-secondary">
+                        68%
+                      </span>
+</div>
+</div>
+<div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-surface-container-high">
+<div class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-secondary" style="width:68%"></div>
+</div>
+</div>
+<div class="flex justify-between mt-4">
+<div>
+<p class="font-label-mono text-[10px] text-outline uppercase">Allocated</p>
+<p class="font-button-text text-primary">$300,000</p>
+</div>
+<div class="text-right">
+<p class="font-label-mono text-[10px] text-outline uppercase">Spent</p>
+<p class="font-button-text text-primary">$204,000</p>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-grid_gutter">
+<!-- Invoices List -->
+<div class="lg:col-span-8 lux-card rounded-xl overflow-hidden">
+<div class="p-6 border-b border-surface-variant flex justify-between items-center bg-surface-container-lowest">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">CAD-Ready Invoices</h2>
+<button class="text-secondary hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-surface-variant">
+<th class="font-label-mono text-label-mono text-outline uppercase py-4 px-6 font-medium">Inv ID</th>
+<th class="font-label-mono text-label-mono text-outline uppercase py-4 px-6 font-medium">Date</th>
+<th class="font-label-mono text-label-mono text-outline uppercase py-4 px-6 font-medium">Amount</th>
+<th class="font-label-mono text-label-mono text-outline uppercase py-4 px-6 font-medium">Status</th>
+<th class="font-label-mono text-label-mono text-outline uppercase py-4 px-6 font-medium text-right">Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-surface-variant/50 hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6 font-label-mono text-primary font-medium">INV-2024-089</td>
+<td class="py-4 px-6 font-body-md text-on-surface-variant">Oct 12, 2024</td>
+<td class="py-4 px-6 font-button-text text-primary">$24,500.00</td>
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 rounded-sm text-xs font-label-mono uppercase bg-surface-container text-on-surface">Unpaid</span>
+</td>
+<td class="py-4 px-6 text-right">
+<button class="text-outline hover:text-secondary transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined">download</span>
+</button>
+</td>
+</tr>
+<tr class="border-b border-surface-variant/50 hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6 font-label-mono text-primary font-medium">INV-2024-072</td>
+<td class="py-4 px-6 font-body-md text-on-surface-variant">Sep 28, 2024</td>
+<td class="py-4 px-6 font-button-text text-primary">$18,250.00</td>
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 rounded-sm text-xs font-label-mono uppercase bg-surface-container text-on-surface">Unpaid</span>
+</td>
+<td class="py-4 px-6 text-right">
+<button class="text-outline hover:text-secondary transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined">download</span>
+</button>
+</td>
+</tr>
+<tr class="border-b border-surface-variant/50 hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6 font-label-mono text-primary font-medium">INV-2024-045</td>
+<td class="py-4 px-6 font-body-md text-on-surface-variant">Aug 15, 2024</td>
+<td class="py-4 px-6 font-button-text text-primary">$42,000.00</td>
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 rounded-sm text-xs font-label-mono uppercase bg-tertiary-fixed-dim text-tertiary-container">Paid</span>
+</td>
+<td class="py-4 px-6 text-right">
+<button class="text-outline hover:text-secondary transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined">download</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6 font-label-mono text-primary font-medium">INV-2024-012</td>
+<td class="py-4 px-6 font-body-md text-on-surface-variant">Jul 01, 2024</td>
+<td class="py-4 px-6 font-button-text text-primary">$110,000.00</td>
+<td class="py-4 px-6">
+<span class="inline-flex items-center px-2 py-1 rounded-sm text-xs font-label-mono uppercase bg-tertiary-fixed-dim text-tertiary-container">Paid</span>
+</td>
+<td class="py-4 px-6 text-right">
+<button class="text-outline hover:text-secondary transition-colors cursor-pointer opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined">download</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Recent Payments -->
+<div class="lg:col-span-4 lux-card rounded-xl p-6">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary mb-6">Recent Payments</h2>
+<div class="space-y-6">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">check_circle</span>
+</div>
+<div>
+<p class="font-button-text text-primary">Wire Transfer - $42,000.00</p>
+<p class="font-label-mono text-xs text-outline mt-1">Processed Aug 17, 2024</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">check_circle</span>
+</div>
+<div>
+<p class="font-button-text text-primary">ACH - $110,000.00</p>
+<p class="font-label-mono text-xs text-outline mt-1">Processed Jul 03, 2024</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">receipt_long</span>
+</div>
+<div>
+<p class="font-button-text text-primary">Retainer Deposit - $25,000.00</p>
+<p class="font-label-mono text-xs text-outline mt-1">Processed Jan 15, 2024</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 font-label-mono text-label-mono uppercase text-secondary border border-secondary/30 rounded-lg hover:bg-secondary/5 transition-colors cursor-pointer">
+                    View Full History
+                </button>
+</div>
+</div>
+</main>
+<!-- Footer Signature -->
+<div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-40 hidden md:block">
+<p class="font-body-md text-[11px] text-outline">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</div>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)] h-20 px-margin_mobile flex justify-around items-center">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-label-mono text-[10px] mt-1">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="layers">layers</span>
+<span class="font-label-mono text-[10px] mt-1">Drawings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="analytics" data-weight="fill">analytics</span>
+<span class="font-label-mono text-[10px] mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-mono text-[10px] mt-1">Settings</span>
+</a>
+</nav>
+</body></html>

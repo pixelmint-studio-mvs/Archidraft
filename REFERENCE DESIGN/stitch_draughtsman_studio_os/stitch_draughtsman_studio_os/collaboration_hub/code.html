@@ -1,0 +1,290 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Draughtsman - Collaboration Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#002114",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "primary-container": "#0d1c32",
+                        "on-primary-container": "#76849f",
+                        "inverse-primary": "#b9c7e4",
+                        "on-secondary-fixed": "#001848",
+                        "outline-variant": "#c5c6cd",
+                        "inverse-on-surface": "#f2f0f2",
+                        "inverse-surface": "#303032",
+                        "primary-fixed": "#d6e3ff",
+                        "surface-tint": "#515f78",
+                        "on-primary-fixed": "#0d1c32",
+                        "on-tertiary-container": "#069669",
+                        "surface-variant": "#e4e2e4",
+                        "surface-container-high": "#eae7ea",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#44474d",
+                        "surface-dim": "#dbd9db",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f5f3f5",
+                        "on-surface": "#1b1b1d",
+                        "primary-fixed-dim": "#b9c7e4",
+                        "background": "#fbf9fb",
+                        "primary": "#000000",
+                        "surface-container-highest": "#e4e2e4",
+                        "surface-container": "#efedef",
+                        "outline": "#75777e",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "tertiary-fixed": "#85f8c4",
+                        "secondary-container": "#356ee7",
+                        "on-background": "#1b1b1d",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#fbf9fb",
+                        "secondary": "#0453cd",
+                        "tertiary": "#000000",
+                        "secondary-fixed": "#dae2ff",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#39475f",
+                        "surface": "#fbf9fb",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#0040a2",
+                        "on-secondary-container": "#fefcff",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#002114"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin_tablet": "32px",
+                        "base": "8px",
+                        "margin_mobile": "16px",
+                        "grid_gutter": "24px",
+                        "margin_desktop": "64px",
+                        "blueprint_unit": "40px"
+                    },
+                    "fontFamily": {
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "button-text": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-display": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "button-text": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .blueprint-grid {
+            background-image: linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        .hairline-border {
+            border-width: 0.5px;
+            border-color: #E2E8F0;
+        }
+        .soft-elevation {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.03);
+        }
+        /* Hide scrollbar for clean technical look */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c5c6cd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md blueprint-grid min-h-screen flex flex-col pt-[72px] pb-[80px] md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm flex justify-between items-center px-margin_mobile md:px-margin_desktop py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-icon="architecture">architecture</span>
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed">DRAUGHTSMAN</h1>
+</div>
+<!-- Desktop Nav -->
+<nav class="hidden md:flex gap-8">
+<a class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded" href="#">Studio</a>
+<a class="font-label-mono text-label-mono text-secondary dark:text-secondary-fixed font-bold hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded" href="#">Drawings</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded" href="#">Insights</a>
+<a class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 bg-surface-container-low px-3 py-1 rounded-full hairline-border">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+<span class="font-label-mono text-label-mono text-on-surface-variant">Live Workspace</span>
+</div>
+<img alt="Architect Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant/30" data-alt="A highly detailed professional headshot of an architect in a bright, modern studio. Elite corporate aesthetic, minimalist background, sharp focus, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4PGKCXX3848iKsRi0dxsd95xY7SsVJqqT_pTC2q7guilAav4Q_wZCLyXjZrwxdqlRN8qPqwwwDFw-ZI9QMWEN7r0_vQICryySoEid7JGdPk5I-2KXH12DZDwvJU9FUFkRIhDjVKAuiowLi4WAV9QZaaMABXZ_u9zuv8Ve9XOROwINFboR6yndY-ue2Jb0xD2Pqq0xxXb6lv7M0ugNPWsIeRSWPJnl5qjwb-d0VuqJfP2XaJHt3OES">
+</div>
+</header>
+<!-- Main Workspace -->
+<main class="flex-1 flex w-full max-w-7xl mx-auto px-margin_mobile md:px-margin_desktop py-6 gap-8 overflow-hidden h-[calc(100vh-72px)]">
+<!-- Threaded Comments Panel -->
+<div class="flex-1 flex flex-col bg-surface-container-lowest hairline-border soft-elevation rounded-xl overflow-hidden glass-panel h-full">
+<!-- Panel Header -->
+<div class="px-6 py-4 border-b hairline-border flex justify-between items-center bg-white/40">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="forum">forum</span>
+<h2 class="font-button-text text-button-text text-on-surface">Collaboration Hub</h2>
+<span class="font-label-mono text-label-mono bg-surface-container px-2 py-0.5 rounded text-on-surface-variant">#DWG-742</span>
+</div>
+<div class="flex gap-2">
+<button class="p-1 hover:bg-surface-variant/50 rounded transition-colors">
+<span class="material-symbols-outlined text-outline text-[20px]" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-1 hover:bg-surface-variant/50 rounded transition-colors">
+<span class="material-symbols-outlined text-outline text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Messages Area -->
+<div class="flex-1 overflow-y-auto p-6 space-y-6">
+<!-- Date Divider -->
+<div class="flex items-center gap-4">
+<div class="h-px bg-outline-variant/30 flex-1"></div>
+<span class="font-label-mono text-label-mono text-outline">Today</span>
+<div class="h-px bg-outline-variant/30 flex-1"></div>
+</div>
+<!-- Message 1 (Engineer) -->
+<div class="flex gap-4">
+<img alt="Engineer" class="w-8 h-8 rounded-full object-cover mt-1 flex-shrink-0" data-alt="Professional headshot of a structural engineer in a well-lit office, white shirt, focused expression, premium corporate style, light background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAx-849wgZTgsW617SKZhvN8BLnWy3WvTHFJTEWuXSEnQvnbL4qDd1Sg5t-4r83GGtzxh0THbiqjBENCQcXmSpDhPyglhwWsho95pB_cp3fElHI1-MuiomJO8x4yqNcPkcMIVT5deIJJ8FIUBMZ3WyfT3e3U_1BPoTxBPkL75bs7hXJ6D5hqcM5qyxjNrW-8Miab2x5vbVpUb7I30JUweZB4hPF8izvlmJLWCsYbBePEC0aKAeaBB-O">
+<div class="flex-1 space-y-2">
+<div class="flex items-baseline gap-2">
+<span class="font-button-text text-button-text text-on-surface">Sarah J. (Engineer)</span>
+<span class="font-label-mono text-label-mono text-outline">09:14 AM</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg rounded-tl-none hairline-border">
+<p class="text-on-surface-variant">The load-bearing calculations for column <span class="font-label-mono text-primary bg-primary/5 px-1 rounded">C-4</span> need a revision. We're showing a 15% discrepancy against the updated seismic parameters. I've attached the revised analysis.</p>
+<!-- File Attachment -->
+<div class="mt-3 flex items-center gap-3 bg-surface-container-lowest p-2 rounded border border-outline-variant/50 hover:border-primary/30 cursor-pointer transition-colors w-fit pr-4">
+<div class="bg-error/10 p-1.5 rounded">
+<span class="material-symbols-outlined text-error text-[18px]" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-mono text-label-mono text-on-surface">Seismic_Calc_v2.pdf</span>
+<span class="font-label-mono text-[10px] text-outline">2.4 MB</span>
+</div>
+</div>
+</div>
+<!-- Thread Reply -->
+<div class="flex items-center gap-2 pl-2 border-l border-outline-variant/30 mt-2">
+<img alt="Architect" class="w-6 h-6 rounded-full object-cover" data-alt="A highly detailed professional headshot of an architect in a bright, modern studio. Elite corporate aesthetic, minimalist background, sharp focus, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3i8OWOstKR_jdQKEu-L7ItJwhVljmTMkxj7skkBFfhZ8ecP9Xv5JxeT7qDpzhTStDeFGl3nSCYqww-CH1O81yk1QXZ4YCqj0CIdtdaBeZBkNhK4MlJhjRJa-ZaanD1ICLuJHN1J1wMC1tEHACVkuWv-3eXQSLqHWxSyPNs-yxeM6o8eK4lp73MGmfVsT9s9puDHBxqNgTeCEySwsIytPa9_pAkpB8A8MeYDngl7AP7KII_YvNbYYy">
+<span class="font-label-mono text-label-mono text-secondary-container hover:underline cursor-pointer">1 reply</span>
+</div>
+</div>
+</div>
+<!-- Message 2 (Draughtsman) -->
+<div class="flex gap-4">
+<img alt="Draughtsman" class="w-8 h-8 rounded-full object-cover mt-1 flex-shrink-0" data-alt="A highly detailed professional headshot of an architect in a bright, modern studio. Elite corporate aesthetic, minimalist background, sharp focus, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsiVhiSY6h4OHcQ93Rg3AstN4FvjbkhwdB4rcbvpCt5uefcQsOb3FEVz6CtVCMbfIwHS5dOa4C00TmUl2BdtBCibIJk88vfy3qGirTtoKHfQY6y656_H1bMeBaFdONdwXdMTozu-OsktP8KfxEgE2fpdYhO34kzlmR3DZoQGJ3TVRCMpyPF806zVV6rz8iNRVH0z61DiTe2uJHMgwBWwXVkjb_2mMkbU7kD252YjbyXsVrB4E94S1v">
+<div class="flex-1 space-y-2">
+<div class="flex items-baseline gap-2">
+<span class="font-button-text text-button-text text-on-surface">You</span>
+<span class="font-label-mono text-label-mono text-outline">09:45 AM</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg rounded-tl-none hairline-border">
+<p class="text-on-surface-variant"><span class="text-secondary-container font-medium">@Sarah J.</span> Understood. I've adjusted the reinforcement detailing on sheet S-102 to accommodate the new specs. Please review the updated DWG.</p>
+<!-- Voice Note -->
+<div class="mt-3 flex items-center gap-4 bg-surface-container-lowest p-2 rounded-full border border-outline-variant/50 w-64">
+<button class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<div class="flex-1 h-4 flex items-end gap-0.5 opacity-50">
+<!-- Fake waveform -->
+<div class="w-1 bg-primary h-2 rounded-t"></div>
+<div class="w-1 bg-primary h-3 rounded-t"></div>
+<div class="w-1 bg-primary h-1 rounded-t"></div>
+<div class="w-1 bg-primary h-4 rounded-t"></div>
+<div class="w-1 bg-primary h-2 rounded-t"></div>
+<div class="w-1 bg-primary h-3 rounded-t"></div>
+<div class="w-1 bg-primary h-1 rounded-t"></div>
+</div>
+<span class="font-label-mono text-[10px] text-outline pr-3">0:12</span>
+</div>
+<!-- DWG Attachment -->
+<div class="mt-3 flex items-center gap-3 bg-surface-container-lowest p-2 rounded border border-outline-variant/50 hover:border-primary/30 cursor-pointer transition-colors w-fit pr-4">
+<div class="bg-secondary-container/10 p-1.5 rounded">
+<span class="material-symbols-outlined text-secondary-container text-[18px]" data-icon="architecture">architecture</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-mono text-label-mono text-on-surface">S-102_RevB.dwg</span>
+<span class="font-label-mono text-[10px] text-outline">18.1 MB</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-4 border-t hairline-border bg-white/80">
+<div class="relative flex items-end gap-2 bg-surface-container-low rounded-lg p-2 hairline-border focus-within:border-secondary-container focus-within:shadow-[0_0_0_4px_rgba(53,110,231,0.1)] transition-all">
+<button class="p-2 text-outline hover:text-on-surface transition-colors rounded">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+</button>
+<textarea class="flex-1 bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[40px] py-2 text-body-md text-on-surface placeholder:text-outline" placeholder="Type a message or use @ to mention..."></textarea>
+<div class="flex items-center gap-1 pb-1 pr-1">
+<button class="p-2 text-outline hover:text-on-surface transition-colors rounded">
+<span class="material-symbols-outlined text-[20px]" data-icon="mic">mic</span>
+</button>
+<button class="p-2 bg-primary text-on-primary rounded hover:bg-primary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden flex justify-around items-center h-20 px-margin_mobile bg-white/60 dark:bg-black/60 backdrop-blur-xl fixed bottom-0 w-full z-50 rounded-t-xl shadow-[0_-4px_20px_rgba(0,0,0,0.03)] border-t border-white/20">
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="grid_view">grid_view</span>
+<span class="font-label-mono text-label-mono">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="layers">layers</span>
+<span class="font-label-mono text-label-mono">Drawings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="analytics">analytics</span>
+<span class="font-label-mono text-label-mono">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="settings">settings</span>
+<span class="font-label-mono text-label-mono">Settings</span>
+</a>
+</nav>
+<!-- Footer Signature -->
+<div class="fixed bottom-4 right-4 hidden md:block pointer-events-none">
+<p style="font-family: Inter; font-size: 11px; color: #94A3B8; font-weight: 300;">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</div>
+</body></html>

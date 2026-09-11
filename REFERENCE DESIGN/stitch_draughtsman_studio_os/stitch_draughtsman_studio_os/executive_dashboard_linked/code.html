@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Draughtsman Studio - Executive Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#c5c6cd",
+                        "secondary": "#0453cd",
+                        "on-primary-container": "#76849f",
+                        "secondary-fixed": "#dae2ff",
+                        "on-primary": "#ffffff",
+                        "outline": "#75777e",
+                        "on-secondary-fixed-variant": "#0040a2",
+                        "primary-container": "#0d1c32",
+                        "on-tertiary-container": "#069669",
+                        "on-primary-fixed": "#0d1c32",
+                        "inverse-on-surface": "#f2f0f2",
+                        "surface-variant": "#e4e2e4",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "surface-container-low": "#f5f3f5",
+                        "primary-fixed": "#d6e3ff",
+                        "error": "#ba1a1a",
+                        "surface": "#fbf9fb",
+                        "tertiary-fixed": "#85f8c4",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#001848",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#fefcff",
+                        "on-surface": "#1b1b1d",
+                        "tertiary-container": "#002114",
+                        "surface-dim": "#dbd9db",
+                        "background": "#fbf9fb",
+                        "primary": "#000000",
+                        "surface-container-high": "#eae7ea",
+                        "on-primary-fixed-variant": "#39475f",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#b2c5ff",
+                        "on-surface-variant": "#44474d",
+                        "on-tertiary-fixed": "#002114",
+                        "surface-container": "#efedef",
+                        "primary-fixed-dim": "#b9c7e4",
+                        "secondary-container": "#356ee7",
+                        "tertiary": "#000000",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e4e2e4",
+                        "inverse-primary": "#b9c7e4",
+                        "surface-tint": "#515f78",
+                        "inverse-surface": "#303032",
+                        "surface-bright": "#fbf9fb",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-background": "#1b1b1d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "grid_gutter": "24px",
+                        "margin_tablet": "32px",
+                        "margin_desktop": "64px",
+                        "blueprint_unit": "40px",
+                        "base": "8px",
+                        "margin_mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-display": ["Inter"],
+                        "body-md": ["Inter"],
+                        "button-text": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "button-text": ["14px", { "lineHeight": "20px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-mono": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .blueprint-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(117, 119, 126, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(117, 119, 126, 0.05) 1px, transparent 1px);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .glass-panel-dark {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .shadow-architectural {
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 20px 40px -10px rgba(0, 0, 0, 0.03);
+        }
+        .text-gradient {
+            background: linear-gradient(to right, #000000, #44474d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0 blueprint-grid font-body-md overflow-x-hidden">
+<!-- Top App Bar (Mobile & Desktop) -->
+<header class="fixed top-0 w-full z-50 bg-white/60 dark:bg-black/60 backdrop-blur-xl border-b border-outline-variant/30 shadow-sm">
+<div class="flex justify-between items-center px-margin_mobile md:px-margin_desktop py-4">
+<a class="flex items-center gap-2 cursor-pointer active:scale-95 duration-200 hover:bg-surface-variant/50 transition-colors p-2 rounded-lg" href="{{DATA:SCREEN:SCREEN_15}}">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed">architecture</span>
+</a>
+<a class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg tracking-tighter text-primary dark:text-on-primary-fixed" href="{{DATA:SCREEN:SCREEN_15}}">
+                DRAUGHTSMAN
+            </a>
+<a class="cursor-pointer active:scale-95 duration-200" href="{{DATA:SCREEN:SCREEN_7}}">
+<img alt="Architect Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant/30" data-alt="A professional headshot of an architect, corporate modern style, well-lit against a clean studio background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1GR77arbLU-ltzMyavGDpLaJvL4FtWwbUeoBXvLiS6wy_JOWoLd58x8G6E24mxYQjfRksjws8FlxpgcMS3J7P1teBlMBHjo0WgdrtbgDLAlCTHmJmVm8hn8zVp4_QottOWiHv7RbhkWfg2gL9dF-d-3Rf6Y93MkfX0fEGyhzCLwYzTCRFu4Q5jneN67J0Da2G36wXTlRYPaG5MkF2aIIPNSHqQ0eiRIZPMFdnOG7V-tz4H-Z1yIcl"/>
+</a>
+</div>
+</header>
+<!-- Main Content -->
+<main class="pt-[80px] px-margin_mobile md:px-margin_desktop max-w-7xl mx-auto space-y-grid_gutter mt-6">
+<!-- Welcome Section -->
+<section class="glass-panel shadow-architectural rounded-xl p-6 relative overflow-hidden">
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-secondary/5 rounded-full blur-3xl"></div>
+<div class="relative z-10">
+<h1 class="font-headline-display text-headline-display text-gradient mb-2">Studio Overview</h1>
+<p class="text-on-surface-variant font-body-md text-body-md max-w-md">Welcome back to the executive suite. System vitals are optimal. Here is your current studio performance.</p>
+<div class="mt-6 flex flex-wrap gap-4">
+<a class="bg-primary text-on-primary font-button-text text-button-text px-6 py-3 rounded-lg border-t border-white/20 active:scale-95 transition-transform shadow-md inline-block text-center" href="{{DATA:SCREEN:SCREEN_10}}">Generate Report</a>
+<a class="bg-transparent border border-primary text-primary font-button-text text-button-text px-6 py-3 rounded-lg active:scale-95 transition-transform hover:bg-primary/5 inline-block text-center" href="{{DATA:SCREEN:SCREEN_13}}">View Pipeline</a>
+</div>
+</div>
+</section>
+<!-- Key Metrics Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Metric 1: Revenue -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 shadow-architectural flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Total Revenue</p>
+<h2 class="font-headline-display text-headline-lg-mobile md:text-headline-display text-primary mt-1">$1.24M</h2>
+</div>
+<span class="material-symbols-outlined text-secondary">trending_up</span>
+</div>
+<div class="flex items-center gap-2 mt-4">
+<span class="text-on-tertiary-container font-label-mono text-[10px] bg-tertiary-fixed/30 px-2 py-1 rounded-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">arrow_upward</span> 12.5%
+                    </span>
+<span class="font-label-mono text-[10px] text-outline">vs last quarter</span>
+</div>
+</div>
+<!-- Metric 2: Active Projects -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 shadow-architectural flex flex-col justify-between h-40">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Active Projects</p>
+<h2 class="font-headline-display text-headline-lg-mobile md:text-headline-display text-primary mt-1">42</h2>
+</div>
+<span class="material-symbols-outlined text-outline">architecture</span>
+</div>
+<div class="w-full bg-surface-variant h-1 mt-6 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+<p class="font-label-mono text-[10px] text-outline mt-2 text-right">65% Capacity</p>
+</div>
+<!-- Metric 3: Team Productivity -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 shadow-architectural flex flex-col justify-between h-40 relative overflow-hidden group hover:border-secondary/30 transition-colors">
+<div class="absolute inset-0 bg-gradient-to-br from-transparent to-surface-variant/20"></div>
+<div class="relative z-10 flex justify-between items-start">
+<div>
+<p class="font-label-mono text-label-mono text-on-surface-variant uppercase tracking-wider">Productivity</p>
+<h2 class="font-headline-display text-headline-lg-mobile md:text-headline-display text-primary mt-1">94%</h2>
+</div>
+<span class="material-symbols-outlined text-on-tertiary-container">speed</span>
+</div>
+<div class="relative z-10 flex items-center gap-2 mt-4">
+<span class="text-on-tertiary-container font-label-mono text-[10px] bg-tertiary-fixed/30 px-2 py-1 rounded-sm flex items-center gap-1">
+                        Optimal
+                    </span>
+<span class="font-label-mono text-[10px] text-outline">Studio wide efficiency</span>
+</div>
+</div>
+</section>
+<!-- Charts & Activity Area (Bento Layout) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-grid_gutter">
+<!-- Monthly Growth Chart (Placeholder) -->
+<div class="md:col-span-2 bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-6 shadow-architectural flex flex-col min-h-[300px]">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">Monthly Growth</h3>
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors">more_horiz</button>
+</div>
+<div class="flex-grow relative bg-surface-container-low rounded-lg border border-outline-variant/20 flex items-end overflow-hidden p-4">
+<!-- Abstract Sparkline representation using divs -->
+<div class="absolute inset-0 flex items-end justify-between px-6 pb-6 pt-10">
+<div class="w-[8%] h-[30%] bg-surface-variant rounded-t-sm hover:bg-secondary/20 transition-colors"></div>
+<div class="w-[8%] h-[45%] bg-surface-variant rounded-t-sm hover:bg-secondary/20 transition-colors"></div>
+<div class="w-[8%] h-[40%] bg-surface-variant rounded-t-sm hover:bg-secondary/20 transition-colors"></div>
+<div class="w-[8%] h-[60%] bg-surface-variant rounded-t-sm hover:bg-secondary/20 transition-colors"></div>
+<div class="w-[8%] h-[55%] bg-surface-variant rounded-t-sm hover:bg-secondary/20 transition-colors"></div>
+<div class="w-[8%] h-[80%] bg-secondary/60 rounded-t-sm hover:bg-secondary/80 transition-colors relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-on-primary font-label-mono text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Peak</div>
+</div>
+<div class="w-[8%] h-[75%] bg-surface-variant rounded-t-sm hover:bg-secondary/20 transition-colors"></div>
+</div>
+<!-- Grid Lines -->
+<div class="absolute inset-0 pointer-events-none border-b border-outline-variant/20 flex flex-col justify-between pb-6 opacity-30">
+<div class="w-full border-b border-dashed border-outline-variant/50"></div>
+<div class="w-full border-b border-dashed border-outline-variant/50"></div>
+<div class="w-full border-b border-dashed border-outline-variant/50"></div>
+</div>
+</div>
+<div class="flex justify-between items-center mt-4 font-label-mono text-[10px] text-outline px-2">
+<span class="">Jan</span><span class="">Feb</span><span class="">Mar</span><span class="">Apr</span><span class="">May</span><span class="">Jun</span><span class="">Jul</span>
+</div>
+</div>
+<!-- Recent Activity List -->
+<div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-architectural overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-low/50">
+<h3 class="font-button-text text-button-text text-primary">Recent Submissions</h3>
+<span class="material-symbols-outlined text-[16px] text-outline">history</span>
+</div>
+<div class="p-0 overflow-y-auto max-h-[350px]">
+<!-- Item 1 -->
+<div class="p-4 border-b border-outline-variant/10 hover:bg-surface-variant/20 transition-colors cursor-pointer flex justify-between items-center" onclick="window.location.href='{{DATA:SCREEN:SCREEN_4}}'">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-outline">description</span>
+</div>
+<div>
+<p class="font-button-text text-[13px] text-on-surface">Tower B - Elev. Details</p>
+<p class="font-label-mono text-[10px] text-outline">PRJ-2023-89 • 2h ago</p>
+</div>
+</div>
+<span class="font-label-mono text-[9px] px-2 py-1 rounded bg-secondary-fixed text-on-secondary-fixed-variant border border-secondary/20">Under Review</span>
+</div>
+<!-- Item 2 -->
+<div class="p-4 border-b border-outline-variant/10 hover:bg-surface-variant/20 transition-colors cursor-pointer flex justify-between items-center" onclick="window.location.href='{{DATA:SCREEN:SCREEN_4}}'">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-outline">check_circle</span>
+</div>
+<div>
+<p class="font-button-text text-[13px] text-on-surface">Main Lobby RCP</p>
+<p class="font-label-mono text-[10px] text-outline">PRJ-2023-42 • 5h ago</p>
+</div>
+</div>
+<span class="font-label-mono text-[9px] px-2 py-1 rounded bg-tertiary-fixed/40 text-on-tertiary-fixed-variant border border-tertiary-fixed-dim/30">Approved</span>
+</div>
+<!-- Item 3 -->
+<div class="p-4 border-b border-outline-variant/10 hover:bg-surface-variant/20 transition-colors cursor-pointer flex justify-between items-center" onclick="window.location.href='{{DATA:SCREEN:SCREEN_4}}'">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-outline">edit_note</span>
+</div>
+<div>
+<p class="font-button-text text-[13px] text-on-surface">Facade Section A-A</p>
+<p class="font-label-mono text-[10px] text-outline">PRJ-2023-89 • 1d ago</p>
+</div>
+</div>
+<span class="font-label-mono text-[9px] px-2 py-1 rounded bg-error-container/50 text-on-error-container border border-error/20">Correcting</span>
+</div>
+<!-- Item 4 -->
+<div class="p-4 border-b border-outline-variant/10 hover:bg-surface-variant/20 transition-colors cursor-pointer flex justify-between items-center" onclick="window.location.href='{{DATA:SCREEN:SCREEN_4}}'">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px] text-outline">description</span>
+</div>
+<div>
+<p class="font-button-text text-[13px] text-on-surface">Site Plan Grading</p>
+<p class="font-label-mono text-[10px] text-outline">PRJ-2023-91 • 2d ago</p>
+</div>
+</div>
+<span class="font-label-mono text-[9px] px-2 py-1 rounded bg-secondary-fixed text-on-secondary-fixed-variant border border-secondary/20">Under Review</span>
+</div>
+</div>
+<div class="p-3 bg-surface-container-low border-t border-outline-variant/20 text-center">
+<button class="font-label-mono text-[11px] text-secondary hover:text-primary transition-colors uppercase tracking-wider w-full">View All Submissions</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Signature (Desktop Only) -->
+<footer class="hidden md:block fixed bottom-4 right-4 z-40 pointer-events-none">
+<p class="font-body-md text-[11px] text-outline font-light">UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS</p>
+</footer>
+<!-- Bottom Nav Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 rounded-t-xl bg-white/60 dark:bg-black/60 backdrop-blur-xl border-t border-white/20 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+<div class="flex justify-around items-center h-20 px-margin_mobile">
+<!-- Active Tab: Studio (Maps to Home/Dashboard) -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed bg-secondary-fixed/30 rounded-lg px-4 py-1 transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_14}}">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="font-label-mono text-label-mono mt-1">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_11}}">
+<span class="material-symbols-outlined">layers</span>
+<span class="font-label-mono text-label-mono mt-1">Drawings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_9}}">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-mono text-label-mono mt-1">Insights</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline dark:text-on-primary-container hover:text-primary dark:hover:text-primary-fixed transition-all duration-300 ease-in-out" href="{{DATA:SCREEN:SCREEN_10}}">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-mono text-label-mono mt-1">Settings</span>
+</a>
+</div>
+</nav>
+</body></html>
