@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "471564030203",
+    "project_id": "archi-draft",
+    "storage_bucket": "archi-draft.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471564030203:android:80a988e5a6c0be41e4e05e",
+        "android_client_info": {
+          "package_name": "com.draughtsmanstudio.archi_draft"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJBIycpPuTIbTG7kubbbuwZW2ZHMopM1k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

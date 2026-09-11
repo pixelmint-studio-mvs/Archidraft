@@ -47,7 +47,8 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# Firebase generated files
-android/app/google-services.json
-lib/firebase_options.dart
-firebase.json
+# Firebase client-side config files (Not ignored per SECRETS_POLICY.md)
+# android/app/google-services.json
+# lib/firebase_options.dart
+# firebase.json
+
