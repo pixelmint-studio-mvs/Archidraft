@@ -25,6 +25,10 @@ dependencies:
   # Ref: docs/06_design/BRAND_AND_DESIGN_DIRECTION.md
   google_fonts: ^8.2.1
 
+  # Firebase Core (Phase 2 — Firebase Integration)
+  # Ref: docs/04_development/TECH_STACK.md, DEVELOPMENT_ROADMAP.md Phase 2
+  firebase_core: ^3.13.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
