@@ -26,8 +26,8 @@ final firestoreProvider = Provider<FirebaseFirestore>((ref) {
 /// Provides the [AuthRepository] with injected Firebase instances.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
-    auth: ref.watch(firebaseAuthProvider),
-    firestore: ref.watch(firestoreProvider),
+    ref.watch(firebaseAuthProvider),
+    ref.watch(firestoreProvider),
   );
 });
 
@@ -52,14 +52,13 @@ final authStateChangesProvider = StreamProvider<User?>((ref) {
 /// Exposes an [AsyncValue<void>] state to track loading/error/success
 /// for UI feedback (loading spinners, error messages).
 final authControllerProvider =
-    StateNotifierProvider<AuthController, AsyncValue<void>>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
-});
+    NotifierProvider<AuthController, AsyncValue<void>>(AuthController.new);
 
-class AuthController extends StateNotifier<AsyncValue<void>> {
-  final AuthRepository _repository;
-
-  AuthController(this._repository) : super(const AsyncData(null));
+class AuthController extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() {
+    return const AsyncData(null);
+  }
 
   /// Registers a new user.
   Future<bool> register({
@@ -71,7 +70,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncLoading();
     try {
-      await _repository.registerWithEmailAndPassword(
+      await ref.read(authRepositoryProvider).registerWithEmailAndPassword(
         email: email,
         password: password,
         name: name,
@@ -93,7 +92,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncLoading();
     try {
-      await _repository.signInWithEmailAndPassword(
+      await ref.read(authRepositoryProvider).signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -109,7 +108,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<void> signOut() async {
     state = const AsyncLoading();
     try {
-      await _repository.signOut();
+      await ref.read(authRepositoryProvider).signOut();
       state = const AsyncData(null);
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -120,7 +119,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<bool> sendEmailVerification() async {
     state = const AsyncLoading();
     try {
-      await _repository.sendEmailVerification();
+      await ref.read(authRepositoryProvider).sendEmailVerification();
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -134,7 +133,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   /// Returns `true` if the email is now verified.
   Future<bool> checkEmailVerified() async {
     try {
-      return await _repository.reloadUser();
+      return await ref.read(authRepositoryProvider).reloadUser();
     } catch (_) {
       return false;
     }
@@ -144,7 +143,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<bool> sendPasswordResetEmail({required String email}) async {
     state = const AsyncLoading();
     try {
-      await _repository.sendPasswordResetEmail(email: email);
+      await ref.read(authRepositoryProvider).sendPasswordResetEmail(email: email);
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -168,7 +167,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 /// Automatically invalidates when auth state changes.
 final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
-  final user = authState.valueOrNull;
+  final user = authState.value;
   if (user == null) return null;
 
   final repository = ref.watch(authRepositoryProvider);

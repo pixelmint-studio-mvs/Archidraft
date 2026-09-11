@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +22,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: _GoRouterAuthNotifier(ref),
     redirect: (context, state) {
-      final user = authState.valueOrNull;
+      final user = authState.value;
       final isLoggedIn = user != null;
       final isEmailVerified = user?.emailVerified ?? false;
 
@@ -86,7 +85,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 /// [refreshListenable] mechanism.
 class _GoRouterAuthNotifier extends ChangeNotifier {
   _GoRouterAuthNotifier(this._ref) {
-    _ref.listen(authStateChangesProvider, (_, __) {
+    _ref.listen(authStateChangesProvider, (_, _) {
       notifyListeners();
     });
   }

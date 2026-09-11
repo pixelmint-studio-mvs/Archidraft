@@ -74,8 +74,8 @@ When you take over, **DO NOT randomly start building UI screens.** Follow the ro
   - Firebase correctly initialized in `main.dart`.
   - `.gitignore` updated to track client-side configurations.
 
-### Your Next Tasks (Phase 3: Authentication)
-- Proceed to Phase 3 (Authentication) per the `DEVELOPMENT_ROADMAP.md`.
+### Your Next Tasks (Phase 4: User Profiles & Onboarding)
+- Proceed to Phase 4 (User Profiles & Onboarding) per the `DEVELOPMENT_ROADMAP.md`.
 
 ### Follow the AI Protocol
 Before modifying any files, read `docs/07_ai_agents/AI_AGENT_PROTOCOL.md`. Ensure your outputs include the mandatory summary format (Files Modified, What Changed, Why, Testing Performed).

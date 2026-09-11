@@ -16,11 +16,7 @@ class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
-  AuthRepository({
-    required FirebaseAuth auth,
-    required FirebaseFirestore firestore,
-  })  : _auth = auth,
-        _firestore = firestore;
+  AuthRepository(this._auth, this._firestore);
 
   /// Stream of authentication state changes.
   ///
