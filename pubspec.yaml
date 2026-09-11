@@ -45,6 +45,14 @@ dependencies:
   # Ref: docs/04_development/TECH_STACK.md, DEVELOPMENT_ROADMAP.md Phase 2
   firebase_core: ^3.13.0
 
+  # Firebase Authentication (Phase 3 — Authentication)
+  # Ref: docs/04_development/TECH_STACK.md, DEVELOPMENT_ROADMAP.md Phase 3
+  firebase_auth: ^5.5.0
+
+  # Cloud Firestore (Phase 3 — User Profile Creation)
+  # Ref: docs/02_architecture/DATA_ARCHITECTURE.md users/{uid} collection
+  cloud_firestore: ^5.6.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
