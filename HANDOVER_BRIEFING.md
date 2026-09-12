@@ -3,19 +3,19 @@
 **To:** Next AI Agent
 **From:** Antigravity Architect Agent
 **Date:** September 11, 2026
-**Status:** Phase 5 Complete 🟢 (Ready for Phase 6)
+**Status:** Phase 6 Complete 🟢 (Ready for Phase 7)
 
 ---
 
 ## 📌 PROJECT CONTEXT
 **ARCHI DRAFT** is a professional, premium application for an architectural firm (Draughtsman Studio). It manages the entire workflow of architectural drafting projects between **Clients**, **Draughtsmen**, and **Admins**. 
 
-We have spent the session building Phase 5 (Client Project Brief Submission).
+We have spent the session building Phase 6 (Studio Admin & Task Allocation).
 
 ---
 
 ## 📂 CURRENT STATE OF THE PROJECT
-The project has completed **Phase 5 (Client Project Brief Submission)**. Phases 1, 2, 3, and 4 have been fully completed.
+The project has completed **Phase 6 (Studio Admin & Task Allocation)**. Phases 1 through 5 have been fully completed.
 
 ### Current Status
 
@@ -24,7 +24,8 @@ The project has completed **Phase 5 (Client Project Brief Submission)**. Phases 
 - **Phase 3 (Authentication):** COMPLETED. `AuthRepository`, `AuthController`, login/register UI, form validation, email verification routing, and auth state persistence.
 - **Phase 4 (User Profiles & Role Shells):** COMPLETED. Implemented `UserRole` enum, extended `UserProfile`, created `ProfileRepository`, built `AppTheme` with Stitch tokens, and created role-based `AppShell` with `ClientShell`, `DraughtsmanShell`, and `AdminShell`.
 - **Phase 5 (Client Project Brief Submission):** COMPLETED. Implemented `ProjectModel`, `ProjectFormController` (Riverpod) for multi-step form state management, `ProjectRepository` for data access. Set up `functions/` directory and implemented the `submitProject` Callable Cloud Function for secure state transitions. Built UI elements `ProjectCard`, `ProjectStatusChip`, `ClientProjectsScreen`, `ProjectFormStepper`, and `ProjectDetailScreen`.
-- **Next Up (Phase 6 - Studio Admin & Task Allocation):** PENDING. Focus on `AdminDashboardScreen`, reading submitted projects, implementing `assignDraughtsman` Cloud Function, and allocating projects to team members.
+- **Phase 6 (Studio Admin & Task Allocation):** COMPLETED. Implemented Cloudflare Workers backend for assignment workflows with D1 database batch transactions. Built Admin Project Detail Screen and Draughtsman Studio Screen UI according to Stitch design references. Fully tested idempotent assignment states and transitions.
+- **Next Up (Phase 7 - Client Workflow):** PENDING. Focus on Client Workflow.
 
 A comprehensive 23-file documentation suite has been meticulously prepared and organized into the `docs/` folder. This is the absolute source of truth for the project.
 
