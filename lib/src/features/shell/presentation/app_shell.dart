@@ -49,7 +49,6 @@ class AppShell extends ConsumerWidget {
           case UserRole.admin:
             return AdminShell(profile: profile, child: child);
           case null:
-          default:
             return const Scaffold(
               body: AppErrorWidget(
                 message: 'Invalid user role configuration.',

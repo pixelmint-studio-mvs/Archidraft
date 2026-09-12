@@ -1,4 +1,4 @@
-import '../../../../lib/src/features/profile/domain/user_role.dart';
+import 'package:archi_draft/src/features/profile/domain/user_role.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

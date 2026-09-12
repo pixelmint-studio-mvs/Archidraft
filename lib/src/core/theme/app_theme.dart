@@ -56,7 +56,7 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: AppColors.primary),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.surfaceContainerLowest,
       elevation: 0, // Handled by custom shadow in container
       shape: RoundedRectangleBorder(

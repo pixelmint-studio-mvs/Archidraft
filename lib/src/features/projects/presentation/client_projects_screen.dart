@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
-import '../../../../shared/widgets/app_state_widgets.dart';
-import '../../../profile/domain/user_role.dart';
-import '../../providers/project_providers.dart';
+import 'package:archi_draft/src/shared/widgets/app_state_widgets.dart';
+
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'widgets/project_card.dart';
 
 /// The client's main project list screen.

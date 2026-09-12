@@ -5,10 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
-import '../../domain/drawing_type.dart';
-import '../../domain/project_validators.dart';
-import '../../providers/project_form_controller.dart';
-import '../../providers/project_providers.dart';
+import '../domain/drawing_type.dart';
+import '../domain/project_validators.dart';
+import '../providers/project_form_controller.dart';
+import '../providers/project_providers.dart';
 import 'widgets/project_form_stepper.dart';
 import 'widgets/project_review_section.dart';
 

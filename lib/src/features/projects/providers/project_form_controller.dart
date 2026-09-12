@@ -291,7 +291,7 @@ class ProjectFormController extends Notifier<ProjectFormState> {
 
       // Generate a deterministic actionId for this submission attempt.
       // Using v5 (name-based) ensures the same actionId on retry.
-      final actionId = _uuid.v5(Uuid.NAMESPACE_URL, 'submit:${state.projectId}');
+      final actionId = _uuid.v5(Namespace.url.value, 'submit:${state.projectId}');
 
       await repository.submitProject(
         projectId: state.projectId!,

@@ -6,12 +6,12 @@ import 'package:intl/intl.dart';
 import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
-import '../../../../shared/widgets/app_state_widgets.dart';
-import '../../domain/drawing_type.dart';
-import '../../domain/project.dart';
-import '../../domain/project_status.dart';
-import '../../providers/project_form_controller.dart';
-import '../../providers/project_providers.dart';
+import 'package:archi_draft/src/shared/widgets/app_state_widgets.dart';
+import 'package:archi_draft/src/features/projects/domain/drawing_type.dart';
+import 'package:archi_draft/src/features/projects/domain/project.dart';
+import 'package:archi_draft/src/features/projects/domain/project_status.dart';
+import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'widgets/project_status_chip.dart';
 
 /// Detail screen for viewing a project.

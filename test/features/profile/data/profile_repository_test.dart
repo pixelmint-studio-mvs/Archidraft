@@ -1,6 +1,5 @@
-import '../../../../lib/src/features/auth/domain/user_profile.dart';
-import '../../../../lib/src/features/profile/data/profile_repository.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:archi_draft/src/features/auth/domain/user_profile.dart';
+import 'package:archi_draft/src/features/profile/data/profile_repository.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
