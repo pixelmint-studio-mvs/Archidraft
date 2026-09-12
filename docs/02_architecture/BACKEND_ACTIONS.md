@@ -1,6 +1,6 @@
 # BACKEND ACTIONS
 
-This table documents the contract for all critical backend actions. Critical actions are executed as Callable Cloud Functions running Transactions.
+This table documents the contract for all critical backend actions. Critical actions are executed as Cloudflare Worker API calls running Database Transactions.
 
 | Action | Actor | Preconditions (State Validation) | Database Changes | Activity Logging | Idempotency Requirement |
 |---|---|---|---|---|---|

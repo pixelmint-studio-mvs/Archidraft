@@ -10,22 +10,22 @@ import 'project_providers.dart';
 // ADMIN PROJECT STREAMS
 // ──────────────────────────────────────────
 
-/// Stream of projects in SUBMITTED state (Pending Approval)
-final pendingProjectsProvider = StreamProvider<List<Project>>((ref) {
+/// Future of projects in SUBMITTED state (Pending Approval)
+final pendingProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.watchProjectsByStatus('SUBMITTED');
+  return repository.getProjectsByStatus('SUBMITTED');
 });
 
-/// Stream of projects in WAITING_ASSIGNMENT state
-final unassignedProjectsProvider = StreamProvider<List<Project>>((ref) {
+/// Future of projects in WAITING_ASSIGNMENT state
+final unassignedProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.watchProjectsByStatus('WAITING_ASSIGNMENT');
+  return repository.getProjectsByStatus('WAITING_ASSIGNMENT');
 });
 
-/// Stream of projects in ACTIVE state
-final activeProjectsProvider = StreamProvider<List<Project>>((ref) {
+/// Future of projects in ACTIVE state
+final activeProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.watchProjectsByStatus('ACTIVE');
+  return repository.getProjectsByStatus('WAITING_ACCEPTANCE');
 });
 
 // ──────────────────────────────────────────
@@ -63,6 +63,9 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
         actionId: actionId,
       );
       
+      ref.invalidate(pendingProjectsProvider);
+      ref.invalidate(unassignedProjectsProvider);
+      
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -86,6 +89,8 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
         reason: reason,
       );
       
+      ref.invalidate(pendingProjectsProvider);
+      
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -108,6 +113,9 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
         actionId: actionId,
         draughtsmanId: draughtsmanId,
       );
+      
+      ref.invalidate(unassignedProjectsProvider);
+      ref.invalidate(activeProjectsProvider);
       
       state = const AsyncData(null);
       return true;

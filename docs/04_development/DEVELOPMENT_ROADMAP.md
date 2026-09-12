@@ -27,13 +27,13 @@ This document outlines the implementation sequence for ARCHI DRAFT. Do not skip 
 - **Completion Criteria:** Users can sign up and log in.
 
 ## PHASE 4: User Profiles
-- **Goal:** Save user data to Firestore.
+- **Goal:** Save user data to Cloudflare D1.
 - **Dependencies:** Phase 3.
-- **Deliverables:** `users/` collection integration, profile screens.
+- **Deliverables:** `users` table integration, profile screens.
 - **Completion Criteria:** Users can edit their details based on role.
 
-## PHASE 5: Firestore Data Models
-- **Goal:** Define Dart models for Firestore data.
+## PHASE 5: Cloudflare D1 Data Models
+- **Goal:** Define Dart models for Cloudflare D1 data.
 - **Dependencies:** Phase 4.
 - **Deliverables:** Dart classes for Project, Assignment, Version, Correction, Log.
 - **Completion Criteria:** Models serialize/deserialize correctly.
@@ -41,7 +41,7 @@ This document outlines the implementation sequence for ARCHI DRAFT. Do not skip 
 ## PHASE 6: Security Rules
 - **Goal:** Secure the database.
 - **Dependencies:** Phase 5.
-- **Deliverables:** `firestore.rules` and `storage.rules`.
+- **Deliverables:** D1 Database schema definitions and R2 bucket policies.
 - **Completion Criteria:** Unit tests pass for authorized and unauthorized access.
 
 ## PHASE 7: Client Workflow
@@ -65,7 +65,7 @@ This document outlines the implementation sequence for ARCHI DRAFT. Do not skip 
 ## PHASE 10: File Storage
 - **Goal:** Implement secure file uploads/downloads.
 - **Dependencies:** Phase 9.
-- **Deliverables:** Firebase Storage integration.
+- **Deliverables:** Cloudflare R2 integration.
 - **Completion Criteria:** Files upload correctly based on role folders.
 
 ## PHASE 11: Corrections
@@ -74,10 +74,10 @@ This document outlines the implementation sequence for ARCHI DRAFT. Do not skip 
 - **Deliverables:** Client correction request UI, Draughtsman resolution UI.
 - **Completion Criteria:** 3-round limit works, statuses update correctly.
 
-## PHASE 12: Cloud Functions
+## PHASE 12: Cloudflare Workers
 - **Goal:** Move critical actions and activity logs to backend.
 - **Dependencies:** Phase 11.
-- **Deliverables:** Callable functions for all critical state changes.
+- **Deliverables:** Cloudflare Worker API endpoints for all critical state changes.
 - **Completion Criteria:** Client SDK no longer performs direct state mutations for critical paths.
 
 ## PHASE 13: Testing & Security Audit

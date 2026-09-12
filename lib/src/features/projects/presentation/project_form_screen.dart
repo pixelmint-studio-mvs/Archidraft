@@ -543,7 +543,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items,
           onChanged: onChanged,
           validator: validator,

@@ -1,0 +1,23 @@
+{
+	"name": "backend",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"test": "vitest",
+		"cf-typegen": "wrangler types"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-plugin": "^1.0.0",
+		"@cloudflare/workers-types": "^5.20260911.1",
+		"typescript": "^5.9.3",
+		"vitest": "~4.1.0",
+		"wrangler": "^4"
+	},
+	"dependencies": {
+		"hono": "^4.13.7",
+		"jose": "^6.2.12"
+	}
+}

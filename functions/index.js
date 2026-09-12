@@ -195,7 +195,7 @@ exports.approveProject = functions.https.onCall(async (data, context) => {
 
   // Check Role
   const userDoc = await db.collection("users").doc(uid).get();
-  if (!userDoc.exists || userDoc.data().role !== "STUDIO_ADMIN") {
+  if (!userDoc.exists || userDoc.data().role !== "ADMIN") {
     throw new functions.https.HttpsError("permission-denied", "Only Studio Admins can approve projects.");
   }
 
@@ -226,7 +226,7 @@ exports.approveProject = functions.https.onCall(async (data, context) => {
     transaction.set(logRef, {
       actionType: "PROJECT_APPROVED",
       actorId: uid,
-      actorRole: "STUDIO_ADMIN",
+      actorRole: "ADMIN",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       details: "Studio Admin approved the project.",
     });
@@ -252,7 +252,7 @@ exports.rejectProject = functions.https.onCall(async (data, context) => {
 
   // Check Role
   const userDoc = await db.collection("users").doc(uid).get();
-  if (!userDoc.exists || userDoc.data().role !== "STUDIO_ADMIN") {
+  if (!userDoc.exists || userDoc.data().role !== "ADMIN") {
     throw new functions.https.HttpsError("permission-denied", "Only Studio Admins can reject projects.");
   }
 
@@ -264,7 +264,7 @@ exports.rejectProject = functions.https.onCall(async (data, context) => {
     
     const projectData = projectDoc.data();
 
-    if (projectData.status === "REJECTED" && projectData.lastActionId === actionId) {
+    if (projectData.status === "CANCELLED" && projectData.lastActionId === actionId) {
       return { success: true };
     }
 
@@ -273,7 +273,7 @@ exports.rejectProject = functions.https.onCall(async (data, context) => {
     }
 
     transaction.update(projectRef, {
-      status: "REJECTED",
+      status: "CANCELLED",
       lastActionId: actionId,
       rejectionReason: reason,
       rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -284,7 +284,7 @@ exports.rejectProject = functions.https.onCall(async (data, context) => {
     transaction.set(logRef, {
       actionType: "PROJECT_REJECTED",
       actorId: uid,
-      actorRole: "STUDIO_ADMIN",
+      actorRole: "ADMIN",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       details: "Studio Admin rejected the project. Reason: " + reason,
     });
@@ -310,7 +310,7 @@ exports.assignDraughtsman = functions.https.onCall(async (data, context) => {
 
   // Check Role
   const userDoc = await db.collection("users").doc(uid).get();
-  if (!userDoc.exists || userDoc.data().role !== "STUDIO_ADMIN") {
+  if (!userDoc.exists || userDoc.data().role !== "ADMIN") {
     throw new functions.https.HttpsError("permission-denied", "Only Studio Admins can assign draughtsmen.");
   }
 
@@ -328,7 +328,7 @@ exports.assignDraughtsman = functions.https.onCall(async (data, context) => {
     
     const projectData = projectDoc.data();
 
-    if (projectData.status === "ACTIVE" && projectData.lastActionId === actionId) {
+    if (projectData.status === "WAITING_ACCEPTANCE" && projectData.lastActionId === actionId) {
       return { success: true };
     }
 
@@ -337,7 +337,7 @@ exports.assignDraughtsman = functions.https.onCall(async (data, context) => {
     }
 
     transaction.update(projectRef, {
-      status: "ACTIVE",
+      status: "WAITING_ACCEPTANCE",
       lastActionId: actionId,
       draughtsmanId: draughtsmanId,
       draughtsmanName: draughtsmanDoc.data().name,
@@ -349,7 +349,7 @@ exports.assignDraughtsman = functions.https.onCall(async (data, context) => {
     transaction.set(logRef, {
       actionType: "DRAUGHTSMAN_ASSIGNED",
       actorId: uid,
-      actorRole: "STUDIO_ADMIN",
+      actorRole: "ADMIN",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       details: "Studio Admin assigned draughtsman: " + draughtsmanDoc.data().name,
     });

@@ -12,6 +12,8 @@ import 'project_status_chip.dart';
 ///
 /// Stitch design reference: White card, 1px outline border, 20-24px radius,
 /// generous padding. Technical precision with monospace labels.
+///
+/// Phase 7: Added contextual status description line below drawing type.
 class ProjectCard extends StatelessWidget {
   final Project project;
   final VoidCallback? onTap;
@@ -22,7 +24,10 @@ class ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = project.projectStatus ?? ProjectStatus.draft;
     final drawingType = project.drawingTypeEnum;
-    final createdAt = project.createdAt;
+    // Show the most relevant date: submittedAt for non-drafts, createdAt for drafts
+    final displayDate = (status != ProjectStatus.draft && project.submittedAt != null)
+        ? project.submittedAt
+        : project.createdAt;
 
     return GestureDetector(
       onTap: onTap,
@@ -36,14 +41,14 @@ class ProjectCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top row: status chip
+            // Top row: status chip + date
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 ProjectStatusChip(status: status),
-                if (createdAt != null)
+                if (displayDate != null)
                   Text(
-                    DateFormat('MMM d, yyyy').format(createdAt),
+                    DateFormat('MMM d, yyyy').format(displayDate),
                     style: AppTypography.labelMono.copyWith(
                       color: AppColors.outline,
                       fontSize: 10,
@@ -76,6 +81,18 @@ class ProjectCard extends StatelessWidget {
                 ),
               ),
 
+            const SizedBox(height: AppSpacing.sm),
+
+            // Contextual status description
+            Text(
+              _statusDescription(status),
+              style: AppTypography.bodySm.copyWith(
+                color: _statusDescriptionColor(status),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+
             const SizedBox(height: AppSpacing.md),
 
             // Project address
@@ -104,5 +121,41 @@ class ProjectCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Returns a user-friendly description of the current project status.
+  String _statusDescription(ProjectStatus status) {
+    switch (status) {
+      case ProjectStatus.draft:
+        return 'Draft — continue editing to submit';
+      case ProjectStatus.submitted:
+        return 'Awaiting studio review';
+      case ProjectStatus.waitingAssignment:
+        return 'Approved — awaiting draughtsman assignment';
+      case ProjectStatus.waitingAcceptance:
+        return 'Draughtsman assigned — awaiting acceptance';
+      case ProjectStatus.inProgress:
+        return 'Work in progress';
+      case ProjectStatus.underClientReview:
+        return 'Ready for your review';
+      case ProjectStatus.completed:
+        return 'Project completed';
+      case ProjectStatus.cancelled:
+        return 'Project cancelled';
+    }
+  }
+
+  /// Returns the text color for the status description.
+  Color _statusDescriptionColor(ProjectStatus status) {
+    switch (status) {
+      case ProjectStatus.underClientReview:
+        return AppColors.secondary;
+      case ProjectStatus.completed:
+        return AppColors.success;
+      case ProjectStatus.cancelled:
+        return AppColors.error;
+      default:
+        return AppColors.outline;
+    }
   }
 }

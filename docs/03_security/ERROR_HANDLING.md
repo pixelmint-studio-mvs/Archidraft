@@ -44,7 +44,7 @@ Technical Error → Application Error Handling → User-Friendly Message
 - **Recommended UI Behavior:** Dialog or Snackbar.
 
 ## EXAMPLES
-**DO NOT SHOW:** `FirebaseException: [cloud_firestore/permission-denied] The caller does not have permission to execute the specified operation.`
+**DO NOT SHOW:** `HttpException: [403 Forbidden] The caller does not have permission to execute the specified operation.`
 **SHOW:** "You don't have permission to perform this action."
 
 Do not expose internal system details.

@@ -8,9 +8,9 @@ This document defines the approved technology stack for ARCHI DRAFT.
 - **Primary Platform:** Android
 - **Future Platform:** Web
 - **Authentication:** Firebase Authentication
-- **Database:** Cloud Firestore
-- **File Storage:** Firebase Storage
-- **Critical Backend Logic:** Firebase Cloud Functions (Node.js)
+- **Database:** Cloudflare D1 (SQLite)
+- **File Storage:** Cloudflare R2
+- **Critical Backend Logic:** Cloudflare Workers (TypeScript/JavaScript)
 - **Version Control:** Git
 - **Repository Hosting:** GitHub/GitLab/Bitbucket (To be decided by the team)
 
@@ -28,7 +28,7 @@ Before adding ANY third-party package to `pubspec.yaml`, developers and AI agent
 ### Recommended Package Categories
 - **State Management:** `provider`, `riverpod`, or `bloc` (⚠️ TEAM DECISION REQUIRED)
 - **Routing:** `go_router`
-- **Firebase Integration:** `firebase_core`, `firebase_auth`, `cloud_firestore`, `firebase_storage`, `cloud_functions`
+- **Firebase Integration:** `firebase_core`, `firebase_auth`
 - **File Picking:** `file_picker`
 - **UUID Generation:** `uuid`
 - **Formatting:** `intl` (for dates/currency)

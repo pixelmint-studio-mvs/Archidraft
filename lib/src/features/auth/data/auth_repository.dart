@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/network/api_client.dart';
 import '../domain/user_profile.dart';
 
 /// Repository handling all Firebase Authentication and Firestore
@@ -15,9 +15,9 @@ import '../domain/user_profile.dart';
 /// client-side execution per the approved architecture.
 class AuthRepository {
   final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
+  final ApiClient _apiClient;
 
-  AuthRepository(this._auth, this._firestore);
+  AuthRepository(this._auth, this._apiClient);
 
   /// Stream of authentication state changes.
   ///
@@ -89,12 +89,12 @@ class AuthRepository {
       );
 
       debugPrint('║ DEBUG: About to write Firestore profile for uid=${user.uid}');
-      debugPrint('║ DEBUG: Profile data: ${profile.toFirestore()}');
+      debugPrint('║ DEBUG: Profile data: ${profile.toJson()}');
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .set(profile.toFirestore());
+      await _apiClient.post(
+        '/api/users',
+        body: profile.toJson(),
+      );
 
       debugPrint('║ DEBUG: Firestore profile write SUCCEEDED');
     } catch (e) {
@@ -103,10 +103,8 @@ class AuthRepository {
       debugPrint('║ REGISTRATION FIRESTORE ERROR');
       debugPrint('║ Type: ${e.runtimeType}');
       debugPrint('║ Error: $e');
-      if (e is FirebaseException) {
-        debugPrint('║ Code: ${e.code}');
-        debugPrint('║ Message: ${e.message}');
-        debugPrint('║ Plugin: ${e.plugin}');
+      if (e is Exception) {
+        debugPrint('║ Exception: $e');
       }
       debugPrint('╚══════════════════════════════════════════');
       // Cleanup: delete the Firebase Auth account if Firestore write fails
@@ -188,8 +186,12 @@ class AuthRepository {
   ///
   /// Returns `null` if the profile does not exist.
   Future<UserProfile?> getUserProfile(String uid) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return UserProfile.fromFirestore(doc);
+    try {
+      final data = await _apiClient.get('/api/users/$uid');
+      return UserProfile.fromJson(data);
+    } catch (e) {
+      debugPrint('Error getting user profile: $e');
+      return null;
+    }
   }
 }

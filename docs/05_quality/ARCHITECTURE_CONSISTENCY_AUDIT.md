@@ -31,7 +31,7 @@
 - **Affected Documents:** `BACKEND_ACTIONS.md`, `SYSTEM_ARCHITECTURE.md`
 - **Current Information:** Is this a Client SDK write or a Backend Action?
 - **Conflict:** Allowing direct Client SDK writes for versions bypasses activity logging.
-- **Resolution:** It is a Critical Backend Action (Callable Function). The Client app uploads the physical file to Storage (validated by Storage Rules), then calls `uploadVersion()` to create the database metadata and generate the `VERSION_UPLOADED` activity log securely.
+- **Resolution:** It is a Critical Backend Action. The Client app uploads the physical file to Cloudflare R2, then calls `uploadVersion()` on the Worker API to create the database metadata and generate the `VERSION_UPLOADED` activity log securely.
 - **Team Decision Required:** No (✅ VERIFIED CONSISTENT).
 
 ## Issue 6: Correction Counter Increment Timing
@@ -54,5 +54,5 @@
 ## Issue 9: Replaced Draughtsman Access
 - **Affected Documents:** `USER_ROLES.md`, `STATE_MACHINES.md`
 - **Current Information:** Old draughtsman loses access.
-- **Resolution:** Security rules dynamically check `project.currentAssignmentId` and `project.assignedDraughtsmanId`. When an Admin assigns a new Draughtsman, these pointers update, instantly revoking Firestore and Storage read/write access for the replaced Draughtsman.
+- **Resolution:** Security rules dynamically check `project.currentAssignmentId` and `project.assignedDraughtsmanId`. When an Admin assigns a new Draughtsman, these pointers update, instantly revoking D1 and R2 read/write access for the replaced Draughtsman.
 - **Team Decision Required:** No (✅ VERIFIED CONSISTENT).

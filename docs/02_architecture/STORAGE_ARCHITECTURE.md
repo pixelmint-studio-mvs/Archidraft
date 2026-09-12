@@ -1,6 +1,6 @@
 # STORAGE ARCHITECTURE
 
-## Approved Firebase Storage Architecture
+## Approved Cloudflare R2 Architecture
 
 ```text
 projects/

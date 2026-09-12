@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_client.dart';
+
 import '../../auth/domain/user_profile.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../data/profile_repository.dart';
@@ -9,9 +11,9 @@ import '../domain/user_role.dart';
 // REPOSITORY PROVIDER
 // ──────────────────────────────────────────
 
-/// Provides the [ProfileRepository] with injected Firestore instance.
+/// Provides the [ProfileRepository] with injected ApiClient instance.
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return ProfileRepository(ref.watch(firestoreProvider));
+  return ProfileRepository(ref.watch(apiClientProvider));
 });
 
 // ──────────────────────────────────────────
@@ -28,7 +30,7 @@ final currentUserRoleProvider = Provider<UserRole?>((ref) {
   return profileAsync.when(
     data: (profile) => UserRole.fromString(profile?.role),
     loading: () => null,
-    error: (_, __) => null,
+    error: (error, stackTrace) => null,
   );
 });
 

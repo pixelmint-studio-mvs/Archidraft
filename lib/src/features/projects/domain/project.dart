@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 import 'drawing_type.dart';
 import 'project_status.dart';
@@ -11,7 +11,8 @@ import 'project_status.dart';
 /// Field classifications:
 /// - Immutable: projectId, clientId, createdAt
 /// - Server-controlled: status, assignedDraughtsmanId, currentAssignmentId,
-///   correctionRound, submittedAt, completedAt
+///   correctionRound, submittedAt, completedAt, approvedAt, assignedAt,
+///   cancelledAt, rejectionReason, draughtsmanName, draughtsmanId, lastActionId
 /// - Client-editable (when status=DRAFT): projectName, projectAddress,
 ///   drawingName, drawingType, projectArea, estimatedAmount
 class Project {
@@ -40,6 +41,9 @@ class Project {
   final String clientId;
 
   /// UID of the assigned Draughtsman. Server-controlled.
+  /// Note: The backend writes this as both `draughtsmanId` and
+  /// `assignedDraughtsmanId` depending on the Cloud Function.
+  /// [fromFirestore] reads whichever is present.
   final String? assignedDraughtsmanId;
 
   /// ID of the current active assignment. Server-controlled.
@@ -57,8 +61,26 @@ class Project {
   /// Timestamp when the project was submitted. Set by submitProject().
   final DateTime? submittedAt;
 
-  /// Timestamp when the project was completed. Set in later phases.
+  /// Timestamp when the project was completed. Set by approveFinal().
   final DateTime? completedAt;
+
+  /// Timestamp when the project was approved by admin. Set by approveProject().
+  final DateTime? approvedAt;
+
+  /// Timestamp when a draughtsman was assigned. Set by assignDraughtsman().
+  final DateTime? assignedAt;
+
+  /// Timestamp when the project was cancelled. Set by cancelProject().
+  final DateTime? cancelledAt;
+
+  /// Reason provided by admin when rejecting a project. Set by rejectProject().
+  final String? rejectionReason;
+
+  /// Display name of the assigned draughtsman. Set by assignDraughtsman().
+  final String? draughtsmanName;
+
+  /// Last processed action ID for idempotency. Server-controlled.
+  final String? lastActionId;
 
   const Project({
     required this.projectId,
@@ -76,6 +98,12 @@ class Project {
     this.createdAt,
     this.submittedAt,
     this.completedAt,
+    this.approvedAt,
+    this.assignedAt,
+    this.cancelledAt,
+    this.rejectionReason,
+    this.draughtsmanName,
+    this.lastActionId,
   });
 
   /// Parses the [status] string into a [ProjectStatus] enum.
@@ -87,11 +115,17 @@ class Project {
   /// Whether this project can be edited by the client.
   bool get isEditable => projectStatus?.isEditable ?? false;
 
-  /// Creates a [Project] from a Firestore document snapshot.
-  factory Project.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  /// Whether this project can be cancelled by the client.
+  /// Only DRAFT and SUBMITTED projects are cancellable per cancelProject().
+  bool get isCancellable {
+    final s = projectStatus;
+    return s == ProjectStatus.draft || s == ProjectStatus.submitted;
+  }
+
+  /// Creates a [Project] from a JSON object (Cloudflare backend response).
+  factory Project.fromJson(Map<String, dynamic> data) {
     return Project(
-      projectId: doc.id,
+      projectId: data['id'] ?? data['projectId'] ?? '',
       projectName: data['projectName'] as String? ?? '',
       projectAddress: data['projectAddress'] as String? ?? '',
       drawingName: data['drawingName'] as String? ?? '',
@@ -99,21 +133,27 @@ class Project {
       projectArea: (data['projectArea'] as num?)?.toDouble(),
       estimatedAmount: (data['estimatedAmount'] as num?)?.toDouble(),
       clientId: data['clientId'] as String? ?? '',
-      assignedDraughtsmanId: data['assignedDraughtsmanId'] as String?,
+      assignedDraughtsmanId: data['assignedDraughtsmanId'] as String?
+          ?? data['draughtsmanId'] as String?,
       currentAssignmentId: data['currentAssignmentId'] as String?,
       status: data['status'] as String? ?? 'DRAFT',
       correctionRound: data['correctionRound'] as int? ?? 0,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      submittedAt: (data['submittedAt'] as Timestamp?)?.toDate(),
-      completedAt: (data['completedAt'] as Timestamp?)?.toDate(),
+      createdAt: data['createdAt'] != null ? DateTime.tryParse(data['createdAt']) : null,
+      submittedAt: data['submittedAt'] != null ? DateTime.tryParse(data['submittedAt']) : null,
+      completedAt: data['completedAt'] != null ? DateTime.tryParse(data['completedAt']) : null,
+      approvedAt: data['approvedAt'] != null ? DateTime.tryParse(data['approvedAt']) : null,
+      assignedAt: data['assignedAt'] != null ? DateTime.tryParse(data['assignedAt']) : null,
+      cancelledAt: data['cancelledAt'] != null ? DateTime.tryParse(data['cancelledAt']) : null,
+      rejectionReason: data['rejectionReason'] as String?,
+      draughtsmanName: data['draughtsmanName'] as String?,
+      lastActionId: data['lastActionId'] as String?,
     );
   }
 
-  /// Converts this [Project] to a Firestore map for initial creation.
+  /// Converts this [Project] to a map for initial creation via REST API.
   ///
-  /// Uses [FieldValue.serverTimestamp()] for `createdAt`.
   /// Sets `status` to DRAFT and `correctionRound` to 0.
-  Map<String, dynamic> toFirestoreCreate() {
+  Map<String, dynamic> toJsonCreate() {
     return {
       'projectName': projectName,
       'projectAddress': projectAddress,
@@ -124,7 +164,6 @@ class Project {
       'clientId': clientId,
       'status': 'DRAFT',
       'correctionRound': 0,
-      'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
@@ -168,6 +207,12 @@ class Project {
       createdAt: createdAt,
       submittedAt: submittedAt,
       completedAt: completedAt,
+      approvedAt: approvedAt,
+      assignedAt: assignedAt,
+      cancelledAt: cancelledAt,
+      rejectionReason: rejectionReason,
+      draughtsmanName: draughtsmanName,
+      lastActionId: lastActionId,
     );
   }
 }

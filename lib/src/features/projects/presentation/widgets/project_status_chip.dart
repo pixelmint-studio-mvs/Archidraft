@@ -31,7 +31,7 @@ class ProjectStatusChip extends StatelessWidget {
         border: Border.all(color: _borderColor, width: 0.5),
       ),
       child: Text(
-        status.toFirestoreString(),
+        status.displayName,
         style: AppTypography.labelMono.copyWith(
           color: _textColor,
           fontSize: 10,

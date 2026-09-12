@@ -30,4 +30,4 @@ The Firebase Admin SDK has absolute, bypass-level access to the entire database 
 3. Shared in screenshots or screen recordings.
 4. Hardcoded into the Flutter application code.
 
-*(Note: The Admin SDK should only run in secure server environments, such as Firebase Cloud Functions, where credentials are automatically provisioned by Google Cloud).*
+*(Note: The Admin SDK should only run in secure server environments, such as Cloudflare Workers, where credentials are securely provisioned via Secrets bindings).*

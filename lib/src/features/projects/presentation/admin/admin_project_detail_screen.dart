@@ -146,11 +146,11 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                 ),
               ),
             ],
-            if (status == ProjectStatus.active) ...[
+            if (status == ProjectStatus.waitingAcceptance) ...[
               Center(
                 child: Text(
                   'Assigned to: ${project.draughtsmanName}',
-                  style: AppTypography.bodyLg,
+                  style: AppTypography.bodyMd,
                 ),
               )
             ],

@@ -1,6 +1,6 @@
 # DATA ARCHITECTURE
 
-This document defines the conceptual Firestore structure. Do not invent fields without documentation.
+This document defines the conceptual Cloudflare D1 (SQLite) structure. Do not invent fields without documentation.
 
 ## Conceptual Structure
 
@@ -25,8 +25,11 @@ projects/{projectId}/
         {logId}
 ```
 
-## Relationships
-`USER` → `PROJECT` → `ASSIGNMENTS` → `DRAWING VERSIONS` → `CORRECTIONS` → `ACTIVITY LOGS`
+## Relationships (Relational DB)
+`USER` (1:N) `PROJECT` (1:N) `ASSIGNMENTS`
+`PROJECT` (1:N) `DRAWING VERSIONS`
+`DRAWING VERSIONS` (1:N) `CORRECTIONS`
+`PROJECT` (1:N) `ACTIVITY LOGS`
 
 ## Conceptual Fields
 

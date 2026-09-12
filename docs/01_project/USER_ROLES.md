@@ -49,7 +49,7 @@ The Draughtsman is the professional executing the work.
 - Modify user roles
 
 ## 3. ADMIN
-The Admin manages the entire platform. Admin authority must remain backend-controlled (e.g., via a Firestore `admins/` registry or specific unmodifiable User role).
+The Admin manages the entire platform. Admin authority must remain backend-controlled (e.g., via a Cloudflare D1 `admins` registry or specific unmodifiable User role).
 
 **Can:**
 - Review submitted projects

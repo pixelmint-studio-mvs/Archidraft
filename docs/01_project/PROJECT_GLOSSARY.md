@@ -13,7 +13,7 @@ To prevent misinterpretation, all developers and AI agents must use the followin
 - **Activity Log:** An immutable, server-generated record of a critical event (e.g., `PROJECT_SUBMITTED`).
 - **Project Status:** The current state of the main Project (see `STATE_MACHINES.md`).
 - **Assignment Status:** The current state of the Draughtsman's assignment (see `STATE_MACHINES.md`).
-- **Callable Function:** A Firebase Cloud Function triggered directly by the Flutter app. Used for all critical operations to ensure security.
-- **Firestore:** The NoSQL database used for application data.
-- **Storage Rules:** The security rules governing file uploads/downloads in Firebase Storage.
-- **Idempotency:** A design principle ensuring that if a Cloud Function is accidentally run twice for the same event (e.g., due to network retry), it does not create duplicate activity logs or corrupt the state.
+- **Worker API:** A Cloudflare Worker endpoint triggered directly by the Flutter app. Used for all critical operations to ensure security.
+- **Cloudflare D1:** The relational (SQLite) database used for application data.
+- **Bucket Policies:** The security rules governing file uploads/downloads in Cloudflare R2.
+- **Idempotency:** A design principle ensuring that if a Worker API is accidentally run twice for the same event (e.g., due to network retry), it does not create duplicate activity logs or corrupt the state.

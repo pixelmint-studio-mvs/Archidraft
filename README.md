@@ -22,10 +22,10 @@ Never modify architecture, states, roles, security principles, or workflows with
 - `CORE_WORKFLOW.md` - Step-by-step lifecycle of a project.
 - `USER_ROLES.md` - Exact permissions for Client, Admin, Draughtsman.
 - `STATE_MACHINES.md` - Immutable project, assignment, and correction enums.
-- `SYSTEM_ARCHITECTURE.md` - Hybrid client/server setup.
-- `DATA_ARCHITECTURE.md` - Firestore schema concepts.
-- `STORAGE_ARCHITECTURE.md` - Strict file separation in Firebase Storage.
-- `BACKEND_ACTIONS.md` - Contract for all critical Callable Cloud Functions.
+- `SYSTEM_ARCHITECTURE.md` - Hybrid client/server setup (Flutter + Cloudflare Workers + D1).
+- `DATA_ARCHITECTURE.md` - D1 Relational schema concepts.
+- `STORAGE_ARCHITECTURE.md` - Strict file separation in Cloudflare R2 (Pending).
+- `BACKEND_ACTIONS.md` - Contract for all critical Callable Cloudflare API Endpoints.
 - `SECURITY_ARCHITECTURE.md` - Immutable activity logs and identity verification.
 - `AI_AGENT_PROTOCOL.md` - Rules exclusively for AI assistants.
 - `DEVELOPMENT_RULES.md` - General coding rules.

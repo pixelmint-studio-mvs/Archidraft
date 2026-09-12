@@ -52,3 +52,8 @@ app.*.map.json
 # lib/firebase_options.dart
 # firebase.json
 
+
+# Temporary backups
+build_old/
+*ephemeral_old/
+*ephemeral_locked_*/

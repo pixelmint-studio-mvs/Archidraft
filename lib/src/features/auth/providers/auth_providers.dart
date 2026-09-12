@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/network/api_client.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,10 +14,7 @@ final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
   return FirebaseAuth.instance;
 });
 
-/// Provides the [FirebaseFirestore] instance.
-final firestoreProvider = Provider<FirebaseFirestore>((ref) {
-  return FirebaseFirestore.instance;
-});
+
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
@@ -27,7 +24,7 @@ final firestoreProvider = Provider<FirebaseFirestore>((ref) {
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     ref.watch(firebaseAuthProvider),
-    ref.watch(firestoreProvider),
+    ref.watch(apiClientProvider),
   );
 });
 
@@ -162,7 +159,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
 // USER PROFILE PROVIDER
 // ──────────────────────────────────────────
 
-/// Fetches the Firestore user profile for the currently authenticated user.
+/// Fetches the user profile for the currently authenticated user from D1.
 ///
 /// Automatically invalidates when auth state changes.
 final userProfileProvider = FutureProvider<UserProfile?>((ref) async {

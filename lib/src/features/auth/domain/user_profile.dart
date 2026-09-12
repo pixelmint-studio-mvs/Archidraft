@@ -1,13 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-/// Represents the user's profile data stored in Firestore `users/{uid}`.
+/// Represents the user's profile data stored in Cloudflare D1 `users` table.
 ///
 /// This model maps to the schema defined in DATA_ARCHITECTURE.md.
-/// Phase 3 fields: id, name, email, mobile, role, createdAt.
+/// Phase 3 fields: id, name, email, mobile, role, created_at.
 /// Phase 4 additions: qualification, dateOfBirth, address, companyName,
-/// collegeName, proofDocument, updatedAt.
+/// collegeName, proofDocument, updated_at.
 class UserProfile {
-  /// Firebase Auth UID — also the Firestore document ID.
+  /// Firebase Auth UID — also the D1 id.
   final String id;
 
   /// User's display name.
@@ -69,53 +67,44 @@ class UserProfile {
     this.updatedAt,
   });
 
-  /// Creates a [UserProfile] from a Firestore document snapshot.
-  factory UserProfile.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  /// Creates a [UserProfile] from a JSON map.
+  factory UserProfile.fromJson(Map<String, dynamic> data) {
     return UserProfile(
-      id: doc.id,
+      id: data['id'] as String? ?? '',
       name: data['name'] as String? ?? '',
       email: data['email'] as String? ?? '',
       mobile: data['mobile'] as String? ?? '',
       role: data['role'] as String? ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: data['created_at'] != null ? DateTime.parse(data['created_at']) : null,
       qualification: data['qualification'] as String?,
-      dateOfBirth: (data['dateOfBirth'] as Timestamp?)?.toDate(),
+      dateOfBirth: data['dateOfBirth'] != null ? DateTime.parse(data['dateOfBirth']) : null,
       address: data['address'] as String?,
       companyName: data['companyName'] as String?,
       collegeName: data['collegeName'] as String?,
       proofDocument: data['proofDocument'] as String?,
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      updatedAt: data['updated_at'] != null ? DateTime.parse(data['updated_at']) : null,
     );
   }
 
-  /// Converts this [UserProfile] to a Map for Firestore writes.
-  ///
-  /// Uses [FieldValue.serverTimestamp()] for `createdAt` to ensure
-  /// the timestamp is set by the server, not the client.
-  Map<String, dynamic> toFirestore() {
+  /// Converts this [UserProfile] to a JSON Map for API writes.
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'email': email,
       'mobile': mobile,
       'role': role,
-      'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
   /// Returns a Map of only the user-editable fields for profile updates.
-  ///
-  /// Does NOT include immutable fields (id, email, role, createdAt).
-  /// Automatically sets `updatedAt` to server timestamp.
   Map<String, dynamic> toEditableFieldsMap() {
     final map = <String, dynamic>{
       'name': name,
       'mobile': mobile,
-      'updatedAt': FieldValue.serverTimestamp(),
     };
     if (qualification != null) map['qualification'] = qualification;
-    if (dateOfBirth != null) map['dateOfBirth'] = Timestamp.fromDate(dateOfBirth!);
+    if (dateOfBirth != null) map['dateOfBirth'] = dateOfBirth!.toIso8601String();
     if (address != null) map['address'] = address;
     if (companyName != null) map['companyName'] = companyName;
     if (collegeName != null) map['collegeName'] = collegeName;
@@ -150,4 +139,3 @@ class UserProfile {
     );
   }
 }
-
