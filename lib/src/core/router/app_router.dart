@@ -10,6 +10,9 @@ import '../../features/auth/providers/auth_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/providers/profile_providers.dart';
+import '../../features/projects/presentation/client_projects_screen.dart';
+import '../../features/projects/presentation/project_detail_screen.dart';
+import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 
@@ -110,11 +113,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // ── CLIENT ROUTES ──
           GoRoute(
             path: '/client/projects',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Client Projects',
-              description: 'Manage and review your project submissions.',
-              icon: Icons.layers_outlined,
-            ),
+            builder: (context, state) => const ClientProjectsScreen(),
+          ),
+          GoRoute(
+            path: '/client/projects/new',
+            builder: (context, state) => const ProjectFormScreen(),
+          ),
+          GoRoute(
+            path: '/client/projects/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return ProjectDetailScreen(projectId: projectId);
+            },
           ),
           GoRoute(
             path: '/client/activity',

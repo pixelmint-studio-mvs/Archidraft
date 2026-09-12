@@ -1,0 +1,179 @@
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+const db = admin.firestore();
+
+/**
+ * submitProject Callable Function
+ * 
+ * Preconditions:
+ * - Caller is authenticated.
+ * - Caller has CLIENT role.
+ * - Project belongs to caller (`clientId == auth.uid`).
+ * - Project status is `DRAFT`.
+ * 
+ * Writes:
+ * - Updates project status to `SUBMITTED`, sets `submittedAt`.
+ * - Creates an activity log in `projects/{projectId}/activityLogs`.
+ * 
+ * Idempotency: Uses `actionId` to prevent duplicate submissions.
+ */
+exports.submitProject = functions.https.onCall(async (data, context) => {
+  // 1. Authentication check
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+        "unauthenticated",
+        "You must be signed in to submit a project."
+    );
+  }
+  const uid = context.auth.uid;
+
+  const { projectId, actionId } = data;
+  if (!projectId || !actionId) {
+    throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing projectId or actionId."
+    );
+  }
+
+  // 2. Role check
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists || userDoc.data().role !== "CLIENT") {
+    throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only clients can submit projects."
+    );
+  }
+
+  const projectRef = db.collection("projects").doc(projectId);
+
+  // Use a transaction for safe concurrent reads/writes
+  return db.runTransaction(async (transaction) => {
+    const projectDoc = await transaction.get(projectRef);
+
+    // 3. Project existence and ownership
+    if (!projectDoc.exists) {
+      throw new functions.https.HttpsError(
+          "not-found",
+          "Project not found."
+      );
+    }
+    
+    const projectData = projectDoc.data();
+    if (projectData.clientId !== uid) {
+      throw new functions.https.HttpsError(
+          "permission-denied",
+          "You do not have permission to submit this project."
+      );
+    }
+
+    // 4. Idempotency and State check
+    if (projectData.status === "SUBMITTED" && projectData.lastActionId === actionId) {
+      // Silently succeed if this exact action was already processed
+      return { success: true, message: "Project already submitted." };
+    }
+
+    if (projectData.status !== "DRAFT") {
+      throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Only DRAFT projects can be submitted."
+      );
+    }
+
+    // Optional: Validate required fields are present
+    const requiredFields = ["projectName", "projectAddress", "drawingName", "drawingType", "projectArea"];
+    for (const field of requiredFields) {
+      if (!projectData[field]) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            `Project is missing required field: ${field}`
+        );
+      }
+    }
+
+    // 5. Update Project Document
+    const updateData = {
+      status: "SUBMITTED",
+      submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastActionId: actionId,
+    };
+    transaction.update(projectRef, updateData);
+
+    // 6. Create Activity Log
+    const logRef = projectRef.collection("activityLogs").doc(actionId);
+    transaction.set(logRef, {
+      actionType: "PROJECT_SUBMITTED",
+      actorId: uid,
+      actorRole: "CLIENT",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: "Client submitted the project brief.",
+    });
+
+    return { success: true, projectId: projectId };
+  });
+});
+
+/**
+ * cancelProject Callable Function
+ * 
+ * Preconditions:
+ * - Caller is authenticated.
+ * - Caller has CLIENT role.
+ * - Project belongs to caller.
+ * - Project status is `DRAFT` or `SUBMITTED`.
+ */
+exports.cancelProject = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
+  }
+  const uid = context.auth.uid;
+
+  const { projectId, actionId } = data;
+  if (!projectId || !actionId) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing arguments.");
+  }
+
+  const projectRef = db.collection("projects").doc(projectId);
+
+  return db.runTransaction(async (transaction) => {
+    const projectDoc = await transaction.get(projectRef);
+
+    if (!projectDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Project not found.");
+    }
+    
+    const projectData = projectDoc.data();
+    if (projectData.clientId !== uid) {
+      throw new functions.https.HttpsError("permission-denied", "Permission denied.");
+    }
+
+    if (projectData.status === "CANCELLED" && projectData.lastActionId === actionId) {
+      return { success: true };
+    }
+
+    if (projectData.status !== "DRAFT" && projectData.status !== "SUBMITTED") {
+      throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Project cannot be cancelled in its current state."
+      );
+    }
+
+    transaction.update(projectRef, {
+      status: "CANCELLED",
+      lastActionId: actionId,
+      cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    const logRef = projectRef.collection("activityLogs").doc(actionId);
+    transaction.set(logRef, {
+      actionType: "PROJECT_CANCELLED",
+      actorId: uid,
+      actorRole: "CLIENT",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: "Client cancelled the project.",
+    });
+
+    return { success: true };
+  });
+});

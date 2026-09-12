@@ -1,32 +1,30 @@
 # ARCHI DRAFT — AGENT HANDOVER BRIEFING
 
-**To:** Next AI Agent (Claude / Assistant)
+**To:** Next AI Agent
 **From:** Antigravity Architect Agent
-**Date:** September 6, 2026
-**Status:** Phase 2 Complete 🟢 (Ready for Phase 3)
-**Status:** Phase 3 Complete 🟢 (Ready for Phase 4)
-**Status:** Phase 3 Complete 🟢
-**Status:** Phase 4 Complete 🟢 (Ready for Phase 5)
+**Date:** September 11, 2026
+**Status:** Phase 5 Complete 🟢 (Ready for Phase 6)
 
 ---
 
 ## 📌 PROJECT CONTEXT
 **ARCHI DRAFT** is a professional, premium application for an architectural firm (Draughtsman Studio). It manages the entire workflow of architectural drafting projects between **Clients**, **Draughtsmen**, and **Admins**. 
 
-We have spent the entire session strictly analyzing, planning, and building the core architecture and features.
+We have spent the session building Phase 5 (Client Project Brief Submission).
 
 ---
 
 ## 📂 CURRENT STATE OF THE PROJECT
-The project has completed **Phase 4 (User Profiles & Role Shells)**. Phases 1, 2, and 3 have been fully completed.
+The project has completed **Phase 5 (Client Project Brief Submission)**. Phases 1, 2, 3, and 4 have been fully completed.
 
 ### Current Status
 
 - **Phase 1 (Foundation):** COMPLETED. Core architecture, Riverpod setup, GoRouter configuration, environment variables, Firebase setup.
 - **Phase 2 (Firebase Setup):** COMPLETED. Authentication configured (Email/Password), Firestore configured (`users` collection), initial Security Rules.
 - **Phase 3 (Authentication):** COMPLETED. `AuthRepository`, `AuthController`, login/register UI, form validation, email verification routing, and auth state persistence.
-- **Phase 4 (User Profiles & Role Shells):** COMPLETED. Implemented `UserRole` enum, extended `UserProfile` with optional fields, created `ProfileRepository` with edit capabilities, built `AppTheme` with Stitch tokens, and created role-based `AppShell` with `ClientShell`, `DraughtsmanShell`, and `AdminShell`. Configured `firestore.rules`.
-- **Next Up (Phase 5 - Client Project Brief Submission):** PENDING. Focus on `ProjectModel`, multi-step form state (Riverpod), file attachment support, and `ProjectRepository`.
+- **Phase 4 (User Profiles & Role Shells):** COMPLETED. Implemented `UserRole` enum, extended `UserProfile`, created `ProfileRepository`, built `AppTheme` with Stitch tokens, and created role-based `AppShell` with `ClientShell`, `DraughtsmanShell`, and `AdminShell`.
+- **Phase 5 (Client Project Brief Submission):** COMPLETED. Implemented `ProjectModel`, `ProjectFormController` (Riverpod) for multi-step form state management, `ProjectRepository` for data access. Set up `functions/` directory and implemented the `submitProject` Callable Cloud Function for secure state transitions. Built UI elements `ProjectCard`, `ProjectStatusChip`, `ClientProjectsScreen`, `ProjectFormStepper`, and `ProjectDetailScreen`.
+- **Next Up (Phase 6 - Studio Admin & Task Allocation):** PENDING. Focus on `AdminDashboardScreen`, reading submitted projects, implementing `assignDraughtsman` Cloud Function, and allocating projects to team members.
 
 A comprehensive 23-file documentation suite has been meticulously prepared and organized into the `docs/` folder. This is the absolute source of truth for the project.
 
@@ -60,20 +58,6 @@ As you begin development, you MUST adhere to the following locked architectural 
 ## 🚀 YOUR IMMEDIATE NEXT STEPS
 
 When you take over, **DO NOT randomly start building UI screens.** Follow the roadmap systematically:
-
-### Completed Work (Claude)
-- **Phase 1 (Project Foundation):** Completed. Scaffolded the Flutter project, removed default counter, established architecture (`core`, `features`, `shared`), set up `flutter_riverpod` for state management, `go_router` for navigation, and `flex_color_scheme` with Google Fonts (Inter) for the base theme.
-- **Phase 2 (Firebase Integration) - In Progress:**
-  - Audited documentation and verified the environment.
-  - Successfully ran `flutterfire configure` for Android and Web platforms.
-  - Generated `firebase_options.dart` and `google-services.json`.
-  - Added `firebase_core` to `pubspec.yaml`.
-
-  - Firebase correctly initialized in `main.dart`.
-  - `.gitignore` updated to track client-side configurations.
-
-### Your Next Tasks (Phase 4: User Profiles & Onboarding)
-- Proceed to Phase 4 (User Profiles & Onboarding) per the `DEVELOPMENT_ROADMAP.md`.
 
 ### Follow the AI Protocol
 Before modifying any files, read `docs/07_ai_agents/AI_AGENT_PROTOCOL.md`. Ensure your outputs include the mandatory summary format (Files Modified, What Changed, Why, Testing Performed).

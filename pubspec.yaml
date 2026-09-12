@@ -53,6 +53,8 @@ dependencies:
   # Ref: docs/02_architecture/DATA_ARCHITECTURE.md users/{uid} collection
   cloud_firestore: ^5.6.0
   intl: ^0.20.3
+  uuid: ^4.6.0
+  cloud_functions: ^5.6.2
 
 dev_dependencies:
   flutter_test:

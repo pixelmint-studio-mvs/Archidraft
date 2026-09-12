@@ -28,5 +28,50 @@ service cloud.firestore {
                     && !request.resource.data.diff(resource.data).affectedKeys()
                         .hasAny(['id', 'email', 'role', 'createdAt']);
     }
+
+    // ──────────────────────────────────────────
+    // PHASE 5: Projects collection
+    // Ref: BACKEND_ACTIONS.md, SECURITY_ARCHITECTURE.md
+    // ──────────────────────────────────────────
+    match /projects/{projectId} {
+
+      // Helper: is the caller the project owner?
+      function isProjectOwner() {
+        return isAuthenticated() 
+          && resource.data.clientId == request.auth.uid;
+      }
+
+      // Helper: does the caller have the CLIENT role?
+      function isClient() {
+        return isAuthenticated()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CLIENT';
+      }
+
+      // READ: Owner only (for Phase 5).
+      // Future phases may add Admin and assigned Draughtsman read access.
+      allow read: if isProjectOwner();
+
+      // CREATE: Authenticated CLIENT only.
+      // Enforces: clientId must match auth.uid, status must be DRAFT, correctionRound must be 0.
+      allow create: if isAuthenticated()
+        && isClient()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'DRAFT'
+        && request.resource.data.correctionRound == 0;
+
+      // UPDATE: Owner only, and ONLY when status is DRAFT.
+      // Prevents modification of immutable and server-controlled fields.
+      // Note: Status transitions (DRAFT→SUBMITTED) are handled by Cloud Functions
+      // using the Admin SDK, which bypasses these rules.
+      allow update: if isProjectOwner()
+        && resource.data.status == 'DRAFT'
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['projectId', 'clientId', 'status', 'correctionRound',
+                     'assignedDraughtsmanId', 'currentAssignmentId',
+                     'createdAt', 'submittedAt', 'completedAt']);
+
+      // DELETE: Never allowed. Use cancelProject() Cloud Function instead.
+      allow delete: if false;
+    }
   }
 }
