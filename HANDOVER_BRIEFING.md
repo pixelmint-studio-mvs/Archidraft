@@ -2,37 +2,40 @@
 
 **To:** Next AI Agent
 **From:** Antigravity Architect Agent
-**Date:** September 11, 2026
-**Status:** Phase 6 Complete 🟢 (Ready for Phase 7)
+**Date:** September 13, 2026
+**Status:** Phase 7 Complete 🟢 (Ready for Phase 8 - R2 Integration)
 
 ---
 
 ## 📌 PROJECT CONTEXT
 **ARCHI DRAFT** is a professional, premium application for an architectural firm (Draughtsman Studio). It manages the entire workflow of architectural drafting projects between **Clients**, **Draughtsmen**, and **Admins**. 
 
-We have spent the session building Phase 6 (Studio Admin & Task Allocation).
+We have spent the latest session executing a massive **Cloudflare Backend Pivot**.
 
 ---
 
 ## 📂 CURRENT STATE OF THE PROJECT
-The project has completed **Phase 6 (Studio Admin & Task Allocation)**. Phases 1 through 5 have been fully completed.
+The project has successfully pivoted away from a Firebase-heavy backend. We have completed **Phase 7 (Cloudflare Architecture Verification & Migration)**. 
 
 ### Current Status
 
-- **Phase 1 (Foundation):** COMPLETED. Core architecture, Riverpod setup, GoRouter configuration, environment variables, Firebase setup.
-- **Phase 2 (Firebase Setup):** COMPLETED. Authentication configured (Email/Password), Firestore configured (`users` collection), initial Security Rules.
-- **Phase 3 (Authentication):** COMPLETED. `AuthRepository`, `AuthController`, login/register UI, form validation, email verification routing, and auth state persistence.
-- **Phase 4 (User Profiles & Role Shells):** COMPLETED. Implemented `UserRole` enum, extended `UserProfile`, created `ProfileRepository`, built `AppTheme` with Stitch tokens, and created role-based `AppShell` with `ClientShell`, `DraughtsmanShell`, and `AdminShell`.
-- **Phase 5 (Client Project Brief Submission):** COMPLETED. Implemented `ProjectModel`, `ProjectFormController` (Riverpod) for multi-step form state management, `ProjectRepository` for data access. Set up `functions/` directory and implemented the `submitProject` Callable Cloud Function for secure state transitions. Built UI elements `ProjectCard`, `ProjectStatusChip`, `ClientProjectsScreen`, `ProjectFormStepper`, and `ProjectDetailScreen`.
-- **Phase 6 (Studio Admin & Task Allocation):** COMPLETED. Implemented Cloudflare Workers backend for assignment workflows with D1 database batch transactions. Built Admin Project Detail Screen and Draughtsman Studio Screen UI according to Stitch design references. Fully tested idempotent assignment states and transitions.
-- **Next Up (Phase 7 - Client Workflow):** PENDING. Focus on Client Workflow.
+- **Phase 1-5:** COMPLETED. (Flutter Foundation, UI Shells, Client Project Brief Submission, Multi-step forms).
+- **Phase 6 (Studio Admin & Task Allocation):** COMPLETED. Implemented Cloudflare Workers backend for assignment workflows with D1 database batch transactions.
+- **Phase 7 (Cloudflare Backend Pivot & Firebase Removal):** COMPLETED.
+  - **Firebase Auth** remains the sole identity provider.
+  - **Firestore & Cloud Functions** have been COMPLETELY REMOVED from the Flutter client (`pubspec.yaml`).
+  - **Cloudflare Workers (Hono)** is now the authoritative application/backend layer.
+  - **Cloudflare D1** is now the authoritative relational application database for users, projects, and assignments.
+  - All profile-related logic in `AuthRepository` and `ProfileRepository` now routes through the `ApiClient` to the `/api/users` REST endpoints.
+- **Next Up (Phase 8 - Cloudflare R2 Storage):** PENDING. Focus on implementing R2 for project file/drawing storage (replacing Firebase Storage).
 
-A comprehensive 23-file documentation suite has been meticulously prepared and organized into the `docs/` folder. This is the absolute source of truth for the project.
+A comprehensive documentation suite has been prepared in the `docs/` folder. This is the absolute source of truth for the project.
 
 **Folder Structure:**
 ```text
 ARCHI_DRAFT/
 ├── README.md
+├── backend/ (Cloudflare Workers, Hono, D1 Schema, Wrangler config)
 ├── docs/
 │   ├── 01_project/ (Overview, Workflows, Roles)
 │   ├── 02_architecture/ (System, Data, States, Storage, Backend Actions)
@@ -48,11 +51,10 @@ ARCHI_DRAFT/
 ## 🏛️ CORE ARCHITECTURAL RULES TO KNOW
 As you begin development, you MUST adhere to the following locked architectural decisions:
 
-1. **Strict State Machines:** Project states (e.g., `DRAFT`, `WAITING_ASSIGNMENT`, `UNDER_CLIENT_REVIEW`, `COMPLETED`) and Correction states (`OPEN`, `IN_PROGRESS`, `RESOLVED`) are strictly defined. **DO NOT invent new enums or silently alter workflows.** See `STATE_MACHINES.md`.
-2. **Backend Authority:** UI does not equal security. All critical state transitions (submitting a project, assigning a draughtsman, requesting a correction) MUST be executed via **Callable Cloud Functions (Node.js)** using the Admin SDK. The client app never directly alters critical states. See `BACKEND_ACTIONS.md`.
-3. **Immutable Activity Logs:** Every state change generates an Activity Log via the backend. The client CANNOT write to the activity logs collection.
-4. **Storage Compartmentalization:** Firebase Storage is strictly divided at the folder level (`client_uploads/`, `draughtsman_versions/`, `correction_attachments/`). Users can only write to their designated folders to prevent malicious overwrites. See `STORAGE_ARCHITECTURE.md`.
-5. **Role-Based Access Control (RBAC):** Users are securely identified via `context.auth.uid` in Cloud Functions. Never trust a `userId` passed in a payload.
+1. **Cloudflare Authority:** The UI does not equal security. All critical state transitions (submitting a project, assigning a draughtsman) MUST be executed via the **Cloudflare Worker API**. The client app never directly alters critical states.
+2. **Provider State Management:** Because D1 is not a real-time database like Firestore, the client uses `FutureProvider`. UI mutations must manually call `ref.invalidate()` on the appropriate providers after a successful API mutation to fetch fresh data.
+3. **Strict State Machines:** Project states and correction states are strictly defined. **DO NOT invent new enums or silently alter workflows.**
+4. **Role-Based Access Control (RBAC):** Users are securely identified via JWT token verification in the Cloudflare Worker (`auth.ts` middleware verifies Firebase ID tokens). Never trust a `userId` passed in a JSON payload for authorization.
 
 ---
 
@@ -60,7 +62,9 @@ As you begin development, you MUST adhere to the following locked architectural 
 
 When you take over, **DO NOT randomly start building UI screens.** Follow the roadmap systematically:
 
-### Follow the AI Protocol
-Before modifying any files, read `docs/07_ai_agents/AI_AGENT_PROTOCOL.md`. Ensure your outputs include the mandatory summary format (Files Modified, What Changed, Why, Testing Performed).
+### 1. Phase 8 (Cloudflare R2 Storage)
+- Set up Cloudflare R2 for storing project blueprints and proof documents.
+- Integrate R2 into the `backend` Worker (presigned URLs or direct worker streaming).
+- Refactor the Flutter client to upload/download files via the API.
 
 Good luck. The blueprint is solid, secure, and ready for you to bring to life.
