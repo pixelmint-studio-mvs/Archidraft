@@ -177,3 +177,184 @@ exports.cancelProject = functions.https.onCall(async (data, context) => {
     return { success: true };
   });
 });
+
+/**
+ * approveProject Callable Function
+ * 
+ * Preconditions:
+ * - Caller is authenticated.
+ * - Caller has STUDIO_ADMIN role.
+ * - Project status is `SUBMITTED`.
+ */
+exports.approveProject = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
+  
+  const uid = context.auth.uid;
+  const { projectId, actionId } = data;
+  if (!projectId || !actionId) throw new functions.https.HttpsError("invalid-argument", "Missing arguments.");
+
+  // Check Role
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists || userDoc.data().role !== "STUDIO_ADMIN") {
+    throw new functions.https.HttpsError("permission-denied", "Only Studio Admins can approve projects.");
+  }
+
+  const projectRef = db.collection("projects").doc(projectId);
+
+  return db.runTransaction(async (transaction) => {
+    const projectDoc = await transaction.get(projectRef);
+    if (!projectDoc.exists) throw new functions.https.HttpsError("not-found", "Project not found.");
+    
+    const projectData = projectDoc.data();
+
+    if (projectData.status === "WAITING_ASSIGNMENT" && projectData.lastActionId === actionId) {
+      return { success: true };
+    }
+
+    if (projectData.status !== "SUBMITTED") {
+      throw new functions.https.HttpsError("failed-precondition", "Project is not in SUBMITTED state.");
+    }
+
+    transaction.update(projectRef, {
+      status: "WAITING_ASSIGNMENT",
+      lastActionId: actionId,
+      approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+      approvedBy: uid,
+    });
+
+    const logRef = projectRef.collection("activityLogs").doc(actionId);
+    transaction.set(logRef, {
+      actionType: "PROJECT_APPROVED",
+      actorId: uid,
+      actorRole: "STUDIO_ADMIN",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: "Studio Admin approved the project.",
+    });
+
+    return { success: true };
+  });
+});
+
+/**
+ * rejectProject Callable Function
+ * 
+ * Preconditions:
+ * - Caller is authenticated.
+ * - Caller has STUDIO_ADMIN role.
+ * - Project status is `SUBMITTED`.
+ */
+exports.rejectProject = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
+  
+  const uid = context.auth.uid;
+  const { projectId, actionId, reason } = data;
+  if (!projectId || !actionId || !reason) throw new functions.https.HttpsError("invalid-argument", "Missing arguments or reason.");
+
+  // Check Role
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists || userDoc.data().role !== "STUDIO_ADMIN") {
+    throw new functions.https.HttpsError("permission-denied", "Only Studio Admins can reject projects.");
+  }
+
+  const projectRef = db.collection("projects").doc(projectId);
+
+  return db.runTransaction(async (transaction) => {
+    const projectDoc = await transaction.get(projectRef);
+    if (!projectDoc.exists) throw new functions.https.HttpsError("not-found", "Project not found.");
+    
+    const projectData = projectDoc.data();
+
+    if (projectData.status === "REJECTED" && projectData.lastActionId === actionId) {
+      return { success: true };
+    }
+
+    if (projectData.status !== "SUBMITTED") {
+      throw new functions.https.HttpsError("failed-precondition", "Project is not in SUBMITTED state.");
+    }
+
+    transaction.update(projectRef, {
+      status: "REJECTED",
+      lastActionId: actionId,
+      rejectionReason: reason,
+      rejectedAt: admin.firestore.FieldValue.serverTimestamp(),
+      rejectedBy: uid,
+    });
+
+    const logRef = projectRef.collection("activityLogs").doc(actionId);
+    transaction.set(logRef, {
+      actionType: "PROJECT_REJECTED",
+      actorId: uid,
+      actorRole: "STUDIO_ADMIN",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: "Studio Admin rejected the project. Reason: " + reason,
+    });
+
+    return { success: true };
+  });
+});
+
+/**
+ * assignDraughtsman Callable Function
+ * 
+ * Preconditions:
+ * - Caller is authenticated.
+ * - Caller has STUDIO_ADMIN role.
+ * - Project status is `WAITING_ASSIGNMENT`.
+ */
+exports.assignDraughtsman = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
+  
+  const uid = context.auth.uid;
+  const { projectId, actionId, draughtsmanId } = data;
+  if (!projectId || !actionId || !draughtsmanId) throw new functions.https.HttpsError("invalid-argument", "Missing arguments.");
+
+  // Check Role
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists || userDoc.data().role !== "STUDIO_ADMIN") {
+    throw new functions.https.HttpsError("permission-denied", "Only Studio Admins can assign draughtsmen.");
+  }
+
+  // Validate draughtsman
+  const draughtsmanDoc = await db.collection("users").doc(draughtsmanId).get();
+  if (!draughtsmanDoc.exists || draughtsmanDoc.data().role !== "DRAUGHTSMAN") {
+    throw new functions.https.HttpsError("invalid-argument", "Invalid draughtsman ID.");
+  }
+
+  const projectRef = db.collection("projects").doc(projectId);
+
+  return db.runTransaction(async (transaction) => {
+    const projectDoc = await transaction.get(projectRef);
+    if (!projectDoc.exists) throw new functions.https.HttpsError("not-found", "Project not found.");
+    
+    const projectData = projectDoc.data();
+
+    if (projectData.status === "ACTIVE" && projectData.lastActionId === actionId) {
+      return { success: true };
+    }
+
+    if (projectData.status !== "WAITING_ASSIGNMENT") {
+      throw new functions.https.HttpsError("failed-precondition", "Project is not waiting for assignment.");
+    }
+
+    transaction.update(projectRef, {
+      status: "ACTIVE",
+      lastActionId: actionId,
+      draughtsmanId: draughtsmanId,
+      draughtsmanName: draughtsmanDoc.data().name,
+      assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+      assignedBy: uid,
+    });
+
+    const logRef = projectRef.collection("activityLogs").doc(actionId);
+    transaction.set(logRef, {
+      actionType: "DRAUGHTSMAN_ASSIGNED",
+      actorId: uid,
+      actorRole: "STUDIO_ADMIN",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      details: "Studio Admin assigned draughtsman: " + draughtsmanDoc.data().name,
+    });
+
+    return { success: true };
+  });
+});
+

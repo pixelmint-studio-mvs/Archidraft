@@ -96,4 +96,57 @@ class ProjectRepository {
       'actionId': actionId,
     });
   }
+
+  // ──────────────────────────────────────────
+  // ADMIN OPERATIONS
+  // ──────────────────────────────────────────
+
+  /// Returns a real-time stream of all projects with a specific status.
+  /// Used by Studio Admin to monitor project queues.
+  Stream<List<Project>> watchProjectsByStatus(String status) {
+    return _projectsRef
+        .where('status', isEqualTo: status)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Project.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> approveProject({
+    required String projectId,
+    required String actionId,
+  }) async {
+    final callable = _functions.httpsCallable('approveProject');
+    await callable.call<dynamic>({
+      'projectId': projectId,
+      'actionId': actionId,
+    });
+  }
+
+  Future<void> rejectProject({
+    required String projectId,
+    required String actionId,
+    required String reason,
+  }) async {
+    final callable = _functions.httpsCallable('rejectProject');
+    await callable.call<dynamic>({
+      'projectId': projectId,
+      'actionId': actionId,
+      'reason': reason,
+    });
+  }
+
+  Future<void> assignDraughtsman({
+    required String projectId,
+    required String actionId,
+    required String draughtsmanId,
+  }) async {
+    final callable = _functions.httpsCallable('assignDraughtsman');
+    await callable.call<dynamic>({
+      'projectId': projectId,
+      'actionId': actionId,
+      'draughtsmanId': draughtsmanId,
+    });
+  }
 }

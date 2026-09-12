@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../domain/user_profile.dart';
 
@@ -68,8 +69,15 @@ class AuthRepository {
     }
 
     try {
-      // Send email verification
-      await user.sendEmailVerification();
+      // Send email verification — non-critical, don't block registration
+      try {
+        await user.sendEmailVerification();
+        debugPrint('║ DEBUG: sendEmailVerification() SUCCEEDED');
+      } catch (emailErr) {
+        debugPrint('║ DEBUG: sendEmailVerification() FAILED: $emailErr');
+        // Don't rethrow — email verification failure should NOT
+        // block registration or cause auth account deletion
+      }
 
       // Create Firestore user profile
       final profile = UserProfile(
@@ -80,11 +88,27 @@ class AuthRepository {
         role: role,
       );
 
+      debugPrint('║ DEBUG: About to write Firestore profile for uid=${user.uid}');
+      debugPrint('║ DEBUG: Profile data: ${profile.toFirestore()}');
+
       await _firestore
           .collection('users')
           .doc(user.uid)
           .set(profile.toFirestore());
+
+      debugPrint('║ DEBUG: Firestore profile write SUCCEEDED');
     } catch (e) {
+      // TEMPORARY DEBUG: Capture actual error for diagnosis
+      debugPrint('╔══════════════════════════════════════════');
+      debugPrint('║ REGISTRATION FIRESTORE ERROR');
+      debugPrint('║ Type: ${e.runtimeType}');
+      debugPrint('║ Error: $e');
+      if (e is FirebaseException) {
+        debugPrint('║ Code: ${e.code}');
+        debugPrint('║ Message: ${e.message}');
+        debugPrint('║ Plugin: ${e.plugin}');
+      }
+      debugPrint('╚══════════════════════════════════════════');
       // Cleanup: delete the Firebase Auth account if Firestore write fails
       // to prevent orphaned auth accounts without profiles.
       await user.delete();

@@ -1,0 +1,30 @@
+# ARCHI DRAFT — Handover Summary
+
+This summary details the exact progress made so that Claude Opus can seamlessly continue the work.
+
+## 1. Phase 5 Completion & Cleanup
+- **Audit Approved & Pushed:** The Phase 5 completion audit was fully approved. A final cleanup commit (`eea1a9c`: `fix: resolve Phase 5 audit compilation issues`) was created and successfully pushed to `origin/feature/client-project-brief`. 
+- **Codebase State:** The working tree is 100% clean, `flutter analyze` shows 0 issues, `flutter test test` passes 65/65 tests, and the app builds successfully for the web.
+
+## 2. Phase 6 Implementation Plan (Approved)
+- **Status:** The Phase 6 Implementation Plan for the Studio Admin & Task Allocation workflow has been written, revised multiple times based on strict user constraints, and **fully approved**.
+- **Key Architectures Agreed Upon:**
+  - **Draughtsman Live Querying:** Admin uses a live backend-verified list to assign `DRAUGHTSMAN` roles.
+  - **Strict State Validations:** `acceptAssignment` and `rejectAssignment` strictly validate `currentAssignmentId`, `assignedDraughtsmanId`, ownership, and exact state matches.
+  - **Reassignment / Replaced State:** If an Admin reassigns an active project, the old assignment immediately becomes `REPLACED` (blocking the old Draughtsman), a new `PENDING` assignment is created, and the project becomes `WAITING_ACCEPTANCE`.
+  - **Transaction Boundaries:** All state-mutating actions (approve, reject, assign, accept) **MUST** run completely inside a single `db.runTransaction()`. Read-only dashboard queries can use standard Firestore reads.
+  - **Idempotency Matrix:** Strict requirements defined. Must add `lastActionId` to the Dart `Project` model, as it is currently missing.
+- **Artifact:** The complete plan is saved in the `implementation_plan.md` artifact. **No Phase 6 code has been written yet.**
+
+## 3. Current Task: Registration Screen Bug Investigation
+- **The Issue:** The user reported that submitting the Create Account form on the web app simply displays `Error occurred` (which maps to the generic *"An unexpected error occurred. Please try again later."*).
+- **Environment:** App is currently running as a background daemon via `flutter run -d web-server --web-port=8080`.
+- **Investigation Progress:**
+  - Used an automated browser agent to test the UI flow on `localhost:8080/#/login`. Form validation works correctly. 
+  - Reviewed `lib/src/features/auth/data/auth_repository.dart`. The `registerWithEmailAndPassword` method creates the Auth account, then attempts to write the `UserProfile` to Firestore: `await _firestore.collection('users').doc(user.uid).set(profile.toFirestore());`. If it fails, it deletes the Auth account and rethrows.
+  - Reviewed `lib/src/core/utils/auth_error_mapper.dart`. Any `FirebaseException` is generically masked as *"An unexpected error occurred. Please try again later."* to prevent account enumeration, which hides the actual developer error.
+  - Reviewed `firestore.rules`. The `users` collection allows profile creation if `request.resource.data.keys().hasAll(['id', 'name', 'email', 'mobile', 'role', 'createdAt'])`.
+- **Next Steps for Opus:**
+  1. Temporarily expose the actual Firebase error string or print it to the console in `register_screen.dart` or `auth_providers.dart` to determine exactly why the backend is rejecting the registration.
+  2. Determine if the error is a `firestore.rules` rejection (e.g., mismatched keys/types) or a Firebase Emulators / Authentication misconfiguration.
+  3. Fix the root cause according to the strict debugging constraints provided by the user. Do not begin Phase 6 until this registration bug is resolved.

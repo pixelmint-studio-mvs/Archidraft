@@ -13,6 +13,8 @@ import '../../features/profile/providers/profile_providers.dart';
 import '../../features/projects/presentation/client_projects_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
+import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
+import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 
@@ -172,11 +174,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // ── ADMIN ROUTES ──
           GoRoute(
             path: '/admin/dashboard',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Admin Dashboard',
-              description: 'Platform overview and metrics.',
-              icon: Icons.dashboard_outlined,
-            ),
+            builder: (context, state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/admin/projects/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return AdminProjectDetailScreen(projectId: projectId);
+            },
           ),
           GoRoute(
             path: '/admin/users',

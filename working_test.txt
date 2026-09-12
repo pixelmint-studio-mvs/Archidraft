@@ -1,0 +1,169 @@
+Archi Draft Preview Checklist
+
+Before starting Phase 6, check whether the current Phase 5 app works correctly. You do not need to test Admin allocation yet.
+
+1. App startup
+App opens without crashing.
+Splash/loading screen does not get stuck.
+No red error screen.
+No Firebase initialization error.
+No blank white screen.
+App works after refreshing the browser.
+Browser console has no serious errors.
+2. Landing and login
+Logo and app name display correctly.
+Fonts, colors, spacing, and buttons match the Stitch design.
+Login screen is visually aligned.
+Email field works.
+Password field works.
+Password visibility toggle works, if included.
+Validation appears for empty or invalid fields.
+Wrong login details show a clear error.
+Successful login navigates to the correct portal.
+Loading state appears while signing in.
+User cannot repeatedly submit the login form while loading.
+3. Registration, if included
+Registration screen opens.
+Required fields validate correctly.
+Password rules are clear.
+Duplicate email errors are handled.
+Successful registration creates the correct user account.
+New users receive the default role.
+Users cannot select or assign themselves the Admin role.
+After registration, the app navigates correctly.
+4. Role-based navigation
+
+Test with the available test accounts.
+
+Client account
+Client sees only the Client portal.
+Client does not see Admin screens.
+Client does not see Draughtsman screens.
+Bottom navigation or side navigation works.
+Profile/logout actions work.
+Other roles, if test accounts exist
+Student sees the Student shell.
+Draughtsman sees the Draughtsman shell.
+Admin sees the Admin shell.
+Unauthorized users cannot manually open another role’s route.
+5. Client dashboard
+Dashboard opens without errors.
+Empty state looks correct when there are no projects.
+Project cards display correctly.
+Project status chips are readable.
+Loading state works.
+Error state works.
+Refreshing reloads the project list.
+Layout works on both narrow and wide screens.
+No text is cut off.
+No buttons overflow the screen.
+6. Create project flow
+
+Test the complete form carefully.
+
+Project information
+Project name field works.
+Project description field works.
+Required-field validation works.
+Long text does not break the layout.
+Drawing requirements
+Drawing type selection works.
+Multiple drawing types can be selected if intended.
+Selected options remain selected when navigating between steps.
+Invalid or empty selections are handled clearly.
+Dimensions
+Dimension fields accept valid values.
+Invalid numbers are rejected.
+Empty required dimensions show errors.
+Units are clear.
+Very large values do not break the screen.
+Review step
+Review screen shows the entered information correctly.
+Back navigation preserves entered data.
+Edit actions return to the correct step.
+Submit button works once.
+Loading state appears during submission.
+Success feedback is clear.
+The created project appears in the project list.
+7. Project data and Firebase
+
+After creating a project, verify:
+
+Project is saved in Firestore.
+Project belongs to the correct client.
+Project initially has status DRAFT.
+Project has the expected default correction round.
+Project appears after app refresh.
+Project details match the submitted form.
+Dates and timestamps display correctly.
+No duplicate project is created by double-clicking Submit.
+A client cannot see another client’s project.
+8. Project details screen
+Correct project information is shown.
+Status chip is correct.
+Drawing requirements are displayed.
+Dimensions are displayed.
+Empty optional fields are handled cleanly.
+Back button works.
+Refreshing the page preserves the correct project.
+Long project names and descriptions wrap properly.
+9. Visual design check
+
+Compare the running app with the Stitch design.
+
+Correct logo and branding.
+Correct background colors.
+Correct primary and secondary colors.
+Correct typography hierarchy.
+Correct button shape and size.
+Correct card radius and borders.
+Correct spacing between sections.
+Correct icons.
+Correct empty states.
+Correct loading indicators.
+Correct error messages.
+Consistent design across all screens.
+No obvious placeholder text.
+No debug labels or unfinished UI.
+10. Responsive layout
+
+Test at least these browser sizes:
+
+Mobile width, approximately 320–375 px.
+Tablet width, approximately 768 px.
+Desktop width, approximately 1280 px.
+
+Check:
+
+No horizontal scrolling.
+No clipped text.
+No overlapping buttons.
+Forms remain usable.
+Navigation remains accessible.
+Cards resize correctly.
+Dialogs and modals fit on screen.
+Keyboard navigation works where possible.
+11. Error and edge-case testing
+
+Try these deliberately:
+
+Submit an empty form.
+Enter invalid email.
+Enter an incorrect password.
+Disconnect or simulate poor internet.
+Refresh while a page is loading.
+Press Submit multiple times quickly.
+Open a project, then return to the dashboard.
+Enter very long text.
+Enter invalid numbers.
+Log out and press the browser Back button.
+Try opening a protected route while logged out.
+
+The app should show a useful message instead of crashing.
+
+12. Logout and session behavior
+Logout button works.
+User returns to the login screen.
+Protected screens cannot be accessed after logout.
+Refreshing after logout does not restore the protected screen.
+Login again returns to the correct role-based portal.

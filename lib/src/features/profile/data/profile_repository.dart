@@ -49,4 +49,11 @@ class ProfileRepository {
     final doc = await _usersRef.doc(uid).get();
     return doc.exists;
   }
+
+  /// Fetches all users with the DRAUGHTSMAN role.
+  /// Used by Studio Admin for assignment.
+  Future<List<UserProfile>> getDraughtsmen() async {
+    final query = await _usersRef.where('role', isEqualTo: 'DRAUGHTSMAN').get();
+    return query.docs.map((doc) => UserProfile.fromFirestore(doc)).toList();
+  }
 }
