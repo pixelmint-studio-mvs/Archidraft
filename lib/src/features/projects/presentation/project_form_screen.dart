@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
+
 import '../domain/drawing_type.dart';
 import '../domain/project_validators.dart';
 import '../providers/project_form_controller.dart';
@@ -69,7 +70,8 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
       if (next.isSubmitted && !(prev?.isSubmitted ?? false)) {
         _showSuccessAndNavigate();
       }
-      if (next.errorMessage != null && next.errorMessage != prev?.errorMessage) {
+      if (next.errorMessage != null &&
+          next.errorMessage != prev?.errorMessage) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
@@ -185,9 +187,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Tell us about your project. This information helps us understand the scope.',
-            style: AppTypography.bodyMd.copyWith(
-              color: AppColors.outline,
-            ),
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: AppSpacing.xxl),
           _buildTextField(
@@ -232,9 +232,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Specify the type of architectural drawing you need.',
-            style: AppTypography.bodyMd.copyWith(
-              color: AppColors.outline,
-            ),
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: AppSpacing.xxl),
           _buildTextField(
@@ -248,9 +246,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
           const SizedBox(height: AppSpacing.xl),
           _buildDropdown(
             label: 'Drawing Type',
-            value: formState.drawingType.isEmpty
-                ? null
-                : formState.drawingType,
+            value: formState.drawingType.isEmpty ? null : formState.drawingType,
             items: DrawingType.values.map((type) {
               return DropdownMenuItem(
                 value: type.toFirestoreString(),
@@ -286,9 +282,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Provide the project area and optionally your budget estimate.',
-            style: AppTypography.bodyMd.copyWith(
-              color: AppColors.outline,
-            ),
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: AppSpacing.xxl),
           _buildTextField(
@@ -312,7 +306,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             isOptional: true,
           ),
           const SizedBox(height: AppSpacing.xxl),
-          
+
           Text(
             'Reference Files',
             style: AppTypography.headlineLgMobile.copyWith(
@@ -322,12 +316,10 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Attach any relevant sketches, inspiration, or site photos.',
-            style: AppTypography.bodyMd.copyWith(
-              color: AppColors.outline,
-            ),
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: AppSpacing.md),
-          
+
           if (formState.projectId == null)
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -348,23 +340,32 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               ),
             )
           else ...[
-            ref.watch(projectFilesProvider(formState.projectId!)).when(
-              loading: () => const CircularProgressIndicator(),
-              error: (err, _) => Text('Error loading files: $err'),
-              data: (files) {
-                final clientFiles = files.where((f) => f.category == 'client_upload').toList();
-                if (clientFiles.isEmpty) {
-                  return const Text('No files attached yet.');
-                }
-                return Column(
-                  children: clientFiles.map((f) => FileAttachmentCard(file: f)).toList(),
-                );
-              },
-            ),
+            ref
+                .watch(projectFilesProvider(formState.projectId!))
+                .when(
+                  loading: () => const CircularProgressIndicator(),
+                  error: (err, _) => Text('Error loading files: $err'),
+                  data: (files) {
+                    final clientFiles = files
+                        .where((f) => f.category == 'client_upload')
+                        .toList();
+                    if (clientFiles.isEmpty) {
+                      return const Text('No files attached yet.');
+                    }
+                    return Column(
+                      children: clientFiles
+                          .map((f) => FileAttachmentCard(file: f))
+                          .toList(),
+                    );
+                  },
+                ),
             const SizedBox(height: AppSpacing.md),
             SizedBox(
               width: double.infinity,
-              child: FileUploadButton(projectId: formState.projectId!, category: 'client_upload'),
+              child: FileUploadButton(
+                projectId: formState.projectId!,
+                category: 'client_upload',
+              ),
             ),
           ],
         ],
@@ -399,8 +400,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   foregroundColor: AppColors.onSurface,
                   side: const BorderSide(color: AppColors.outlineVariant),
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.xl,
@@ -427,8 +427,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.xl,
@@ -438,9 +437,12 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Next', style: AppTypography.buttonText.copyWith(
-                      color: AppColors.onSecondary,
-                    )),
+                    Text(
+                      'Next',
+                      style: AppTypography.buttonText.copyWith(
+                        color: AppColors.onSecondary,
+                      ),
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     const Icon(Icons.arrow_forward_rounded, size: 16),
                   ],
@@ -449,7 +451,8 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             else
               // Submit button on review step
               FilledButton(
-                onPressed: formState.isSubmitting || !formState.isReadyForSubmission
+                onPressed:
+                    formState.isSubmitting || !formState.isReadyForSubmission
                     ? null
                     : () => _showSubmitConfirmation(controller),
                 style: FilledButton.styleFrom(
@@ -457,8 +460,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: AppColors.outlineVariant,
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.xxl,
@@ -569,10 +571,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              borderSide: const BorderSide(
-                color: AppColors.error,
-                width: 1.5,
-              ),
+              borderSide: const BorderSide(color: AppColors.error, width: 1.5),
             ),
             errorStyle: AppTypography.bodySm.copyWith(
               color: AppColors.error,
@@ -688,9 +687,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             },
             child: Text(
               'Discard',
-              style: AppTypography.buttonText.copyWith(
-                color: AppColors.error,
-              ),
+              style: AppTypography.buttonText.copyWith(color: AppColors.error),
             ),
           ),
           FilledButton(
@@ -702,9 +699,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                 this.context.go('/client/projects');
               }
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.secondary,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.secondary),
             child: Text(
               'Save & Exit',
               style: AppTypography.buttonText.copyWith(
@@ -748,14 +743,10 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               Navigator.of(context).pop();
               controller.submitProject();
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.success,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
             child: Text(
               'Confirm Submit',
-              style: AppTypography.buttonText.copyWith(
-                color: Colors.white,
-              ),
+              style: AppTypography.buttonText.copyWith(color: Colors.white),
             ),
           ),
         ],
@@ -768,8 +759,11 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_rounded,
-                color: Colors.white, size: 20),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               'Project submitted successfully!',
@@ -785,5 +779,3 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     context.go('/client/projects');
   }
 }
-
-

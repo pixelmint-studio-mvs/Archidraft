@@ -72,19 +72,21 @@ class _ProjectListTab extends ConsumerWidget {
             final crossAxisCount = constraints.maxWidth >= 1024
                 ? 3
                 : constraints.maxWidth >= 600
-                    ? 2
-                    : 1;
+                ? 2
+                : 1;
 
             if (crossAxisCount == 1) {
               return ListView.separated(
                 padding: const EdgeInsets.all(AppSpacing.marginMobile),
                 itemCount: projects.length,
-                separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.md),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: AppSpacing.md),
                 itemBuilder: (context, index) {
                   final project = projects[index];
                   return ProjectCard(
                     project: project,
-                    onTap: () => context.go('/admin/projects/${project.projectId}'),
+                    onTap: () =>
+                        context.go('/admin/projects/${project.projectId}'),
                   );
                 },
               );
@@ -103,7 +105,8 @@ class _ProjectListTab extends ConsumerWidget {
                 final project = projects[index];
                 return ProjectCard(
                   project: project,
-                  onTap: () => context.go('/admin/projects/${project.projectId}'),
+                  onTap: () =>
+                      context.go('/admin/projects/${project.projectId}'),
                 );
               },
             );
@@ -115,7 +118,8 @@ class _ProjectListTab extends ConsumerWidget {
 
   AsyncValue _getProvider(WidgetRef ref) {
     if (status == 'SUBMITTED') return ref.watch(pendingProjectsProvider);
-    if (status == 'WAITING_ASSIGNMENT') return ref.watch(unassignedProjectsProvider);
+    if (status == 'WAITING_ASSIGNMENT')
+      return ref.watch(unassignedProjectsProvider);
     return ref.watch(activeProjectsProvider);
   }
 

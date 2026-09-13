@@ -1,5 +1,3 @@
-
-
 import 'drawing_type.dart';
 import 'project_status.dart';
 
@@ -107,9 +105,15 @@ class Project {
       currentAssignmentId: data['current_assignment_id'] as String?,
       status: data['status'] as String? ?? 'DRAFT',
       correctionRound: data['correction_round'] as int? ?? 0,
-      createdAt: data['created_at'] != null ? DateTime.tryParse(data['created_at']) : null,
-      submittedAt: data['submitted_at'] != null ? DateTime.tryParse(data['submitted_at']) : null,
-      completedAt: data['completed_at'] != null ? DateTime.tryParse(data['completed_at']) : null,
+      createdAt: data['created_at'] != null
+          ? DateTime.tryParse(data['created_at'])
+          : null,
+      submittedAt: data['submitted_at'] != null
+          ? DateTime.tryParse(data['submitted_at'])
+          : null,
+      completedAt: data['completed_at'] != null
+          ? DateTime.tryParse(data['completed_at'])
+          : null,
       lastActionId: data['last_action_id'] as String?,
     );
   }

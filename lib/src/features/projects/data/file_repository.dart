@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../api/data/api_client.dart';
 import '../domain/project_file.dart';
 import '../../api/providers/api_providers.dart';
@@ -37,7 +38,10 @@ class FileRepository {
   }
 
   Future<void> downloadFile(String fileId, String savePath) async {
-    return await _apiClient.downloadFileStream('/api/files/$fileId/download', savePath);
+    return await _apiClient.downloadFileStream(
+      '/api/files/$fileId/download',
+      savePath,
+    );
   }
 }
 

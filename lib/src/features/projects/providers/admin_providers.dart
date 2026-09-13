@@ -44,7 +44,8 @@ final draughtsmenListProvider = FutureProvider<List<UserProfile>>((ref) async {
 
 final adminActionsControllerProvider =
     NotifierProvider<AdminActionsController, AsyncValue<void>>(
-        AdminActionsController.new);
+      AdminActionsController.new,
+    );
 
 class AdminActionsController extends Notifier<AsyncValue<void>> {
   @override
@@ -57,12 +58,9 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
     try {
       final repository = ref.read(projectRepositoryProvider);
       final actionId = const Uuid().v4();
-      
-      await repository.approveProject(
-        projectId: projectId,
-        actionId: actionId,
-      );
-      
+
+      await repository.approveProject(projectId: projectId, actionId: actionId);
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -79,13 +77,13 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
     try {
       final repository = ref.read(projectRepositoryProvider);
       final actionId = const Uuid().v4();
-      
+
       await repository.rejectProject(
         projectId: projectId,
         actionId: actionId,
         reason: reason,
       );
-      
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -102,13 +100,13 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
     try {
       final repository = ref.read(projectRepositoryProvider);
       final actionId = const Uuid().v4();
-      
+
       await repository.assignDraughtsman(
         projectId: projectId,
         actionId: actionId,
         draughtsmanId: draughtsmanId,
       );
-      
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -125,13 +123,13 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
     try {
       final repository = ref.read(projectRepositoryProvider);
       final actionId = const Uuid().v4();
-      
+
       await repository.reassignDraughtsman(
         projectId: projectId,
         actionId: actionId,
         draughtsmanId: draughtsmanId,
       );
-      
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {

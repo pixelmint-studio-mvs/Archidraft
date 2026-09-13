@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
+
 import '../../domain/project.dart';
 import '../../domain/project_status.dart';
 import 'project_status_chip.dart';

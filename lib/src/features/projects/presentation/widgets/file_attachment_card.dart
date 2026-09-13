@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../../domain/project_file.dart';
 import '../../data/file_repository.dart';
 
@@ -29,7 +30,10 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       if (kIsWeb) {
         // On web, api_client_web.dart handles downloading via Blob and anchor tag.
         // We pass the filename as savePath since directory paths don't matter on Web.
-        await repository.downloadFile(widget.file.id, widget.file.sanitizedName);
+        await repository.downloadFile(
+          widget.file.id,
+          widget.file.sanitizedName,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Download started in browser')),
@@ -37,22 +41,20 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       } else {
         final dir = await getApplicationDocumentsDirectory();
         final filePath = '${dir.path}/${widget.file.sanitizedName}';
-        
+
         // Streams directly to disk, avoiding memory bloat
         await repository.downloadFile(widget.file.id, filePath);
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Downloaded to $filePath')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Downloaded to $filePath')));
 
         await OpenFilex.open(filePath);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download failed: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Download failed: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -70,12 +72,20 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       child: ListTile(
         leading: const Icon(Icons.insert_drive_file),
         title: Text(widget.file.originalName),
-        subtitle: Text('${(widget.file.size / 1024).toStringAsFixed(1)} KB • ${widget.file.category}'),
+        subtitle: Text(
+          '${(widget.file.size / 1024).toStringAsFixed(1)} KB • ${widget.file.category}',
+        ),
         trailing: _isDownloading
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : IconButton(
                 icon: const Icon(Icons.download),
-                onPressed: widget.file.status == 'COMPLETED' ? _downloadFile : null,
+                onPressed: widget.file.status == 'COMPLETED'
+                    ? _downloadFile
+                    : null,
               ),
       ),
     );

@@ -10,21 +10,26 @@ class ProjectRepository {
   ProjectRepository(this._apiClient);
 
   Future<String> createDraft(Project project) async {
-    final response = await _apiClient.post('/api/projects', body: project.toFirestoreCreate());
+    final response = await _apiClient.post(
+      '/api/projects',
+      body: project.toFirestoreCreate(),
+    );
     return response['id'];
   }
 
   Future<void> updateDraft(Project project) async {
-    await _apiClient.post('/api/projects', body: {
-      'id': project.projectId,
-      ...project.toEditableFieldsMap(),
-    });
+    await _apiClient.post(
+      '/api/projects',
+      body: {'id': project.projectId, ...project.toEditableFieldsMap()},
+    );
   }
 
   Future<Project?> getProject(String projectId) async {
     try {
       final response = await _apiClient.get('/api/projects'); // the API returns all, we should really add a /api/projects/:id route. I'll filter here for now.
-      final projects = (response as List).map((p) => Project.fromMap(p)).toList();
+      final projects = (response as List)
+          .map((p) => Project.fromMap(p))
+          .toList();
       return projects.firstWhere((p) => p.projectId == projectId);
     } catch (e) {
       return null;
@@ -40,14 +45,17 @@ class ProjectRepository {
     required String projectId,
     required String actionId,
   }) async {
-    await _apiClient.post('/api/projects/submit', body: {
-      'projectId': projectId,
-      'actionId': actionId,
-    });
+    await _apiClient.post(
+      '/api/projects/submit',
+      body: {'projectId': projectId, 'actionId': actionId},
+    );
   }
 
   Future<List<Project>> getProjectsByStatus(String status) async {
-    final response = await _apiClient.get('/api/projects', queryParams: {'status': status});
+    final response = await _apiClient.get(
+      '/api/projects',
+      queryParams: {'status': status},
+    );
     return (response as List).map((p) => Project.fromMap(p)).toList();
   }
 
@@ -55,10 +63,10 @@ class ProjectRepository {
     required String projectId,
     required String actionId,
   }) async {
-    await _apiClient.post('/api/projects/approve', body: {
-      'projectId': projectId,
-      'actionId': actionId,
-    });
+    await _apiClient.post(
+      '/api/projects/approve',
+      body: {'projectId': projectId, 'actionId': actionId},
+    );
   }
 
   Future<void> rejectProject({
@@ -66,11 +74,10 @@ class ProjectRepository {
     required String actionId,
     required String reason,
   }) async {
-    await _apiClient.post('/api/projects/reject', body: {
-      'projectId': projectId,
-      'actionId': actionId,
-      'reason': reason,
-    });
+    await _apiClient.post(
+      '/api/projects/reject',
+      body: {'projectId': projectId, 'actionId': actionId, 'reason': reason},
+    );
   }
 
   Future<void> assignDraughtsman({
@@ -78,11 +85,14 @@ class ProjectRepository {
     required String actionId,
     required String draughtsmanId,
   }) async {
-    await _apiClient.post('/api/projects/assign', body: {
-      'projectId': projectId,
-      'actionId': actionId,
-      'draughtsmanId': draughtsmanId,
-    });
+    await _apiClient.post(
+      '/api/projects/assign',
+      body: {
+        'projectId': projectId,
+        'actionId': actionId,
+        'draughtsmanId': draughtsmanId,
+      },
+    );
   }
 
   Future<void> reassignDraughtsman({
@@ -90,10 +100,23 @@ class ProjectRepository {
     required String actionId,
     required String draughtsmanId,
   }) async {
-    await _apiClient.post('/api/projects/reassign', body: {
-      'projectId': projectId,
-      'actionId': actionId,
-      'draughtsmanId': draughtsmanId,
-    });
+    await _apiClient.post(
+      '/api/projects/reassign',
+      body: {
+        'projectId': projectId,
+        'actionId': actionId,
+        'draughtsmanId': draughtsmanId,
+      },
+    );
+  }
+
+  Future<void> submitDrawing({
+    required String projectId,
+    required String actionId,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/submit-drawing',
+      body: {'projectId': projectId, 'actionId': actionId},
+    );
   }
 }

@@ -17,6 +17,7 @@ import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
 import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
@@ -154,6 +155,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final assignment = state.extra as Assignment;
               return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+            },
+          ),
+          GoRoute(
+            path: '/draughtsman/workspace/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return DraughtsmanWorkspaceScreen(projectId: projectId);
             },
           ),
           GoRoute(

@@ -12,6 +12,7 @@ import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
+
 import 'widgets/project_status_chip.dart';
 import 'widgets/file_attachment_card.dart';
 import 'widgets/file_upload_button.dart';
@@ -38,9 +39,7 @@ class ProjectDetailScreen extends ConsumerWidget {
         surfaceTintColor: Colors.transparent,
         title: Text(
           'Project Details',
-          style: AppTypography.buttonText.copyWith(
-            color: AppColors.onSurface,
-          ),
+          style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
@@ -48,17 +47,14 @@ class ProjectDetailScreen extends ConsumerWidget {
         ),
       ),
       body: projectAsync.when(
-        loading: () =>
-            const AppLoadingIndicator(message: 'Loading project...'),
+        loading: () => const AppLoadingIndicator(message: 'Loading project...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load project.',
           onRetry: () => ref.invalidate(projectProvider(projectId)),
         ),
         data: (project) {
           if (project == null) {
-            return const AppErrorWidget(
-              message: 'Project not found.',
-            );
+            return const AppErrorWidget(message: 'Project not found.');
           }
           return _buildProjectDetail(context, ref, project);
         },
@@ -109,9 +105,7 @@ class ProjectDetailScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Submitted on ${DateFormat('MMMM d, yyyy \'at\' h:mm a').format(project.submittedAt!)}',
-              style: AppTypography.bodySm.copyWith(
-                color: AppColors.outline,
-              ),
+              style: AppTypography.bodySm.copyWith(color: AppColors.outline),
             ),
           ],
 
@@ -134,8 +128,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               _DetailField('Drawing Name', project.drawingName),
               _DetailField(
                 'Drawing Type',
-                project.drawingTypeEnum?.displayName ??
-                    project.drawingType,
+                project.drawingTypeEnum?.displayName ?? project.drawingType,
               ),
             ],
           ),
@@ -169,29 +162,55 @@ class ProjectDetailScreen extends ConsumerWidget {
             customContent: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ref.watch(projectFilesProvider(project.projectId)).when(
-                  loading: () => const Padding(padding: EdgeInsets.all(AppSpacing.md), child: CircularProgressIndicator()),
-                  error: (err, stack) => Padding(padding: const EdgeInsets.all(AppSpacing.md), child: Text('Error loading files: $err', style: TextStyle(color: AppColors.error))),
-                  data: (files) {
-                    final clientFiles = files.where((f) => f.category == 'client_upload').toList();
-                    if (clientFiles.isEmpty) {
-                      return Padding(
+                ref
+                    .watch(projectFilesProvider(project.projectId))
+                    .when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(AppSpacing.md),
+                        child: CircularProgressIndicator(),
+                      ),
+                      error: (err, stack) => Padding(
                         padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text('No reference files attached.', style: AppTypography.bodyMd.copyWith(color: AppColors.outline)),
-                      );
-                    }
-                    return Column(
-                      children: clientFiles.map((f) => FileAttachmentCard(file: f)).toList(),
-                    );
-                  },
-                ),
+                        child: Text(
+                          'Error loading files: $err',
+                          style: TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                      data: (files) {
+                        final clientFiles = files
+                            .where((f) => f.category == 'client_upload')
+                            .toList();
+                        if (clientFiles.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Text(
+                              'No reference files attached.',
+                              style: AppTypography.bodyMd.copyWith(
+                                color: AppColors.outline,
+                              ),
+                            ),
+                          );
+                        }
+                        return Column(
+                          children: clientFiles
+                              .map((f) => FileAttachmentCard(file: f))
+                              .toList(),
+                        );
+                      },
+                    ),
                 if (status == ProjectStatus.draft) ...[
                   const SizedBox(height: AppSpacing.md),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                     child: SizedBox(
                       width: double.infinity,
-                      child: FileUploadButton(projectId: project.projectId, category: 'client_upload'),
+                      child: FileUploadButton(
+                        projectId: project.projectId,
+                        category: 'client_upload',
+                      ),
                     ),
                   ),
                 ],
@@ -218,12 +237,9 @@ class ProjectDetailScreen extends ConsumerWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AppSpacing.lg,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   ),
                 ),
               ),
@@ -263,10 +279,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                 top: Radius.circular(AppSpacing.radiusXl),
               ),
               border: Border(
-                bottom: BorderSide(
-                  color: AppColors.outlineVariant,
-                  width: 0.5,
-                ),
+                bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5),
               ),
             ),
             child: Text(

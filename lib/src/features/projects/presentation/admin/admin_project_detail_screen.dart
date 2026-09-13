@@ -68,14 +68,21 @@ class AdminProjectDetailScreen extends ConsumerWidget {
               if (project.createdAt != null)
                 Text(
                   DateFormat('MMM d, yyyy').format(project.createdAt!),
-                  style: AppTypography.labelMono.copyWith(color: AppColors.outline),
+                  style: AppTypography.labelMono.copyWith(
+                    color: AppColors.outline,
+                  ),
                 ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            project.projectName.isEmpty ? 'Untitled Project' : project.projectName,
-            style: AppTypography.headlineLg.copyWith(color: AppColors.onSurface, fontSize: 28),
+            project.projectName.isEmpty
+                ? 'Untitled Project'
+                : project.projectName,
+            style: AppTypography.headlineLg.copyWith(
+              color: AppColors.onSurface,
+              fontSize: 28,
+            ),
           ),
           const SizedBox(height: AppSpacing.xxl),
 
@@ -93,7 +100,10 @@ class AdminProjectDetailScreen extends ConsumerWidget {
             title: 'DRAWING REQUIREMENTS',
             fields: [
               _DetailField('Drawing Name', project.drawingName),
-              _DetailField('Drawing Type', project.drawingTypeEnum?.displayName ?? project.drawingType),
+              _DetailField(
+                'Drawing Type',
+                project.drawingTypeEnum?.displayName ?? project.drawingType,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -101,8 +111,18 @@ class AdminProjectDetailScreen extends ConsumerWidget {
           _buildDetailSection(
             title: 'DIMENSIONS & BUDGET',
             fields: [
-              _DetailField('Project Area', project.projectArea != null ? '${project.projectArea} sq ft' : 'Not specified'),
-              _DetailField('Estimated Budget', project.estimatedAmount != null ? '${project.estimatedAmount}' : 'Not specified'),
+              _DetailField(
+                'Project Area',
+                project.projectArea != null
+                    ? '${project.projectArea} sq ft'
+                    : 'Not specified',
+              ),
+              _DetailField(
+                'Estimated Budget',
+                project.estimatedAmount != null
+                    ? '${project.estimatedAmount}'
+                    : 'Not specified',
+              ),
             ],
           ),
 
@@ -146,7 +166,8 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                 ),
               ),
             ],
-            if (status == ProjectStatus.inProgress || status == ProjectStatus.waitingAcceptance) ...[
+            if (status == ProjectStatus.inProgress ||
+                status == ProjectStatus.waitingAcceptance) ...[
               Center(
                 child: Column(
                   children: [
@@ -157,19 +178,22 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       'Status: ${status == ProjectStatus.waitingAcceptance ? 'Waiting Acceptance' : 'Accepted (In Progress)'}',
-                      style: AppTypography.labelMono.copyWith(color: AppColors.outline),
+                      style: AppTypography.labelMono.copyWith(
+                        color: AppColors.outline,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: () => _showReassignDialog(context, ref, project),
+                        onPressed: () =>
+                            _showReassignDialog(context, ref, project),
                         child: const Text('Reassign Draughtsman'),
                       ),
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ],
 
@@ -179,7 +203,10 @@ class AdminProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailSection({required String title, required List<_DetailField> fields}) {
+  Widget _buildDetailSection({
+    required String title,
+    required List<_DetailField> fields,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
@@ -191,13 +218,25 @@ class AdminProjectDetailScreen extends ConsumerWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.md,
+            ),
             decoration: BoxDecoration(
               color: AppColors.surfaceContainerLow,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusXl)),
-              border: Border(bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(AppSpacing.radiusXl),
+              ),
+              border: Border(
+                bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5),
+              ),
             ),
-            child: Text(title, style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant)),
+            child: Text(
+              title,
+              style: AppTypography.labelMono.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.xl),
@@ -209,9 +248,18 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(field.label, style: AppTypography.labelMono.copyWith(color: AppColors.outline, fontSize: 10)),
+                      Text(
+                        field.label,
+                        style: AppTypography.labelMono.copyWith(
+                          color: AppColors.outline,
+                          fontSize: 10,
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.xs),
-                      Text(field.value.isEmpty ? '—' : field.value, style: AppTypography.bodyMd),
+                      Text(
+                        field.value.isEmpty ? '—' : field.value,
+                        style: AppTypography.bodyMd,
+                      ),
                     ],
                   ),
                 );
@@ -223,10 +271,17 @@ class AdminProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _handleApprove(BuildContext context, WidgetRef ref, Project project) async {
-    final success = await ref.read(adminActionsControllerProvider.notifier).approveProject(project.projectId);
+  void _handleApprove(
+    BuildContext context,
+    WidgetRef ref,
+    Project project,
+  ) async {
+    final success = await ref
+        .read(adminActionsControllerProvider.notifier)
+        .approveProject(project.projectId);
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Project approved!')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Project approved!')));
       context.pop();
     }
   }
@@ -243,16 +298,22 @@ class AdminProjectDetailScreen extends ConsumerWidget {
           maxLines: 3,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () async {
               final reason = reasonController.text.trim();
               if (reason.isEmpty) return;
               Navigator.pop(context); // close dialog
-              final success = await ref.read(adminActionsControllerProvider.notifier)
+              final success = await ref
+                  .read(adminActionsControllerProvider.notifier)
                   .rejectProject(projectId: project.projectId, reason: reason);
               if (success && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Project rejected')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Project rejected')),
+                );
                 context.pop();
               }
             },
@@ -279,7 +340,8 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                   loading: () => const CircularProgressIndicator(),
                   error: (e, _) => Text('Error: $e'),
                   data: (draughtsmen) {
-                    if (draughtsmen.isEmpty) return const Text('No draughtsmen found.');
+                    if (draughtsmen.isEmpty)
+                      return const Text('No draughtsmen found.');
                     return ListView.builder(
                       shrinkWrap: true,
                       itemCount: draughtsmen.length,
@@ -290,10 +352,16 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                           subtitle: Text(d.email),
                           onTap: () async {
                             Navigator.pop(context);
-                            final success = await ref.read(adminActionsControllerProvider.notifier)
-                                .assignDraughtsman(projectId: project.projectId, draughtsmanId: d.id);
+                            final success = await ref
+                                .read(adminActionsControllerProvider.notifier)
+                                .assignDraughtsman(
+                                  projectId: project.projectId,
+                                  draughtsmanId: d.id,
+                                );
                             if (success && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assigned!')));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Assigned!')),
+                              );
                             }
                           },
                         );
@@ -309,7 +377,11 @@ class AdminProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showReassignDialog(BuildContext context, WidgetRef ref, Project project) {
+  void _showReassignDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Project project,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
@@ -324,22 +396,30 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                   loading: () => const CircularProgressIndicator(),
                   error: (e, _) => Text('Error: $e'),
                   data: (draughtsmen) {
-                    if (draughtsmen.isEmpty) return const Text('No draughtsmen found.');
+                    if (draughtsmen.isEmpty)
+                      return const Text('No draughtsmen found.');
                     return ListView.builder(
                       shrinkWrap: true,
                       itemCount: draughtsmen.length,
                       itemBuilder: (context, index) {
                         final d = draughtsmen[index];
-                        if (d.id == project.assignedDraughtsmanId) return const SizedBox.shrink();
+                        if (d.id == project.assignedDraughtsmanId)
+                          return const SizedBox.shrink();
                         return ListTile(
                           title: Text(d.name),
                           subtitle: Text(d.email),
                           onTap: () async {
                             Navigator.pop(context);
-                            final success = await ref.read(adminActionsControllerProvider.notifier)
-                                .reassignDraughtsman(projectId: project.projectId, draughtsmanId: d.id);
+                            final success = await ref
+                                .read(adminActionsControllerProvider.notifier)
+                                .reassignDraughtsman(
+                                  projectId: project.projectId,
+                                  draughtsmanId: d.id,
+                                );
                             if (success && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reassigned!')));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Reassigned!')),
+                              );
                             }
                           },
                         );

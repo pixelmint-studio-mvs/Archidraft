@@ -71,8 +71,8 @@ class ProjectFormStepper extends StatelessWidget {
             color: isCompleted
                 ? AppColors.secondary
                 : isActive
-                    ? AppColors.surfaceContainerLowest
-                    : AppColors.surfaceContainerLowest,
+                ? AppColors.surfaceContainerLowest
+                : AppColors.surfaceContainerLowest,
             shape: BoxShape.circle,
             border: Border.all(
               color: isCompleted || isActive
@@ -91,9 +91,7 @@ class ProjectFormStepper extends StatelessWidget {
                 : Text(
                     '${stepIndex + 1}',
                     style: AppTypography.buttonText.copyWith(
-                      color: isActive
-                          ? AppColors.secondary
-                          : AppColors.outline,
+                      color: isActive ? AppColors.secondary : AppColors.outline,
                       fontSize: 12,
                     ),
                   ),
@@ -108,8 +106,8 @@ class ProjectFormStepper extends StatelessWidget {
               color: isActive
                   ? AppColors.secondary
                   : isCompleted
-                      ? AppColors.onSurface
-                      : AppColors.outline,
+                  ? AppColors.onSurface
+                  : AppColors.outline,
               fontSize: 8,
             ),
             textAlign: TextAlign.center,

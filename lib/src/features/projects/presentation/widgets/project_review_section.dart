@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
+
 import '../../domain/drawing_type.dart';
 import '../../providers/project_form_controller.dart';
 
@@ -35,9 +36,7 @@ class ProjectReviewSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Please review all details before submitting.',
-            style: AppTypography.bodyMd.copyWith(
-              color: AppColors.outline,
-            ),
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
           ),
           const SizedBox(height: AppSpacing.xl),
 
@@ -48,7 +47,9 @@ class ProjectReviewSection extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.errorContainer,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
@@ -136,7 +137,9 @@ class ProjectReviewSection extends StatelessWidget {
         color: AppColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         border: Border.all(
-          color: isValid ? AppColors.outlineVariant : AppColors.error.withValues(alpha: 0.5),
+          color: isValid
+              ? AppColors.outlineVariant
+              : AppColors.error.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -155,10 +158,7 @@ class ProjectReviewSection extends StatelessWidget {
                 top: Radius.circular(AppSpacing.radiusXl),
               ),
               border: Border(
-                bottom: BorderSide(
-                  color: AppColors.outlineVariant,
-                  width: 0.5,
-                ),
+                bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5),
               ),
             ),
             child: Row(

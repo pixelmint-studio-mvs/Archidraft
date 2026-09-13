@@ -33,10 +33,17 @@ class AppShell extends ConsumerWidget {
       ),
       data: (profile) {
         if (profile == null) {
-          return const Scaffold(
+          return Scaffold(
             body: AppEmptyState(
               title: 'Profile Missing',
-              subtitle: 'Could not load your user profile.',
+              subtitle: 'Could not load your user profile.\nPlease try logging out and creating a new account.',
+              action: FilledButton.icon(
+                onPressed: () {
+                  ref.read(authControllerProvider.notifier).signOut();
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign Out'),
+              ),
             ),
           );
         }

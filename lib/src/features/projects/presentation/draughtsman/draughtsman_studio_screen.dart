@@ -31,7 +31,8 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
         ],
       ),
       body: assignmentsAsync.when(
-        loading: () => const AppLoadingIndicator(message: 'Loading assignments...'),
+        loading: () =>
+            const AppLoadingIndicator(message: 'Loading assignments...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load assignments.',
           onRetry: () => ref.invalidate(draughtsmanAssignmentsProvider),
@@ -45,9 +46,15 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
             );
           }
 
-          final pending = assignments.where((a) => a.assignmentStatus == AssignmentStatus.pending).toList();
-          final accepted = assignments.where((a) => a.assignmentStatus == AssignmentStatus.accepted).toList();
-          final completed = assignments.where((a) => a.assignmentStatus == AssignmentStatus.completed).toList();
+          final pending = assignments
+              .where((a) => a.assignmentStatus == AssignmentStatus.pending)
+              .toList();
+          final accepted = assignments
+              .where((a) => a.assignmentStatus == AssignmentStatus.accepted)
+              .toList();
+          final completed = assignments
+              .where((a) => a.assignmentStatus == AssignmentStatus.completed)
+              .toList();
 
           return CustomScrollView(
             slivers: [
@@ -55,7 +62,8 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
                 _buildSectionHeader('Pending Acceptance (${pending.length})'),
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _AssignmentCard(assignment: pending[index]),
+                    (context, index) =>
+                        _AssignmentCard(assignment: pending[index]),
                     childCount: pending.length,
                   ),
                 ),
@@ -64,7 +72,8 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
                 _buildSectionHeader('In Progress (${accepted.length})'),
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _AssignmentCard(assignment: accepted[index]),
+                    (context, index) =>
+                        _AssignmentCard(assignment: accepted[index]),
                     childCount: accepted.length,
                   ),
                 ),
@@ -73,7 +82,8 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
                 _buildSectionHeader('Completed (${completed.length})'),
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _AssignmentCard(assignment: completed[index]),
+                    (context, index) =>
+                        _AssignmentCard(assignment: completed[index]),
                     childCount: completed.length,
                   ),
                 ),
@@ -92,7 +102,9 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Text(
           title,
-          style: AppTypography.headlineLgMobile.copyWith(color: AppColors.onSurface),
+          style: AppTypography.headlineLgMobile.copyWith(
+            color: AppColors.onSurface,
+          ),
         ),
       ),
     );
@@ -107,7 +119,10 @@ class _AssignmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       color: AppColors.surfaceContainerLowest,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -115,7 +130,10 @@ class _AssignmentCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
       child: InkWell(
-        onTap: () => context.push('/draughtsman/assignments/${assignment.id}', extra: assignment),
+        onTap: () => context.push(
+          '/draughtsman/assignments/${assignment.id}',
+          extra: assignment,
+        ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -129,14 +147,19 @@ class _AssignmentCard extends StatelessWidget {
                     'Project ID: ${assignment.projectId}', // ideally we fetch the project details to show name, but keeping it simple
                     style: AppTypography.buttonText,
                   ),
-                  _AssignmentStatusChip(status: assignment.assignmentStatus ?? AssignmentStatus.pending),
+                  _AssignmentStatusChip(
+                    status:
+                        assignment.assignmentStatus ?? AssignmentStatus.pending,
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
               if (assignment.createdAt != null)
                 Text(
                   'Assigned on: ${DateFormat('MMM d, yyyy').format(assignment.createdAt!)}',
-                  style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                  style: AppTypography.bodySm.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
             ],
           ),
@@ -179,7 +202,10 @@ class _AssignmentStatusChip extends StatelessWidget {
       ),
       child: Text(
         status.displayName,
-        style: AppTypography.labelMonoSm.copyWith(color: color, fontWeight: FontWeight.bold),
+        style: AppTypography.labelMonoSm.copyWith(
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

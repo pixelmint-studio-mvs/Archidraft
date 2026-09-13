@@ -8,6 +8,7 @@ import 'package:archi_draft/src/core/theme/app_typography.dart';
 import 'package:archi_draft/src/shared/widgets/app_state_widgets.dart';
 
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
+
 import 'widgets/project_card.dart';
 
 /// The client's main project list screen.
@@ -26,9 +27,8 @@ class ClientProjectsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: projectsAsync.when(
-        loading: () => const AppLoadingIndicator(
-          message: 'Loading projects...',
-        ),
+        loading: () =>
+            const AppLoadingIndicator(message: 'Loading projects...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load projects. Please try again.',
           onRetry: () => ref.invalidate(clientProjectsProvider),
@@ -93,9 +93,7 @@ class ClientProjectsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Start by creating your first project brief.\nTap the button below to get started.',
-              style: AppTypography.bodyMd.copyWith(
-                color: AppColors.outline,
-              ),
+              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xxl),
@@ -127,8 +125,8 @@ class ClientProjectsScreen extends ConsumerWidget {
         final crossAxisCount = constraints.maxWidth >= 1024
             ? 3
             : constraints.maxWidth >= 600
-                ? 2
-                : 1;
+            ? 2
+            : 1;
 
         if (crossAxisCount == 1) {
           // Mobile: simple list
@@ -176,8 +174,7 @@ class ClientProjectsScreen extends ConsumerWidget {
             final project = projects[index];
             return ProjectCard(
               project: project,
-              onTap: () =>
-                  context.go('/client/projects/${project.projectId}'),
+              onTap: () => context.go('/client/projects/${project.projectId}'),
             );
           },
         );

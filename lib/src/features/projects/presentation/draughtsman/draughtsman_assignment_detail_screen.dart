@@ -15,7 +15,10 @@ import '../../providers/project_providers.dart';
 class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
   final Assignment assignment;
 
-  const DraughtsmanAssignmentDetailScreen({super.key, required this.assignment});
+  const DraughtsmanAssignmentDetailScreen({
+    super.key,
+    required this.assignment,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,7 +35,8 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
         ),
       ),
       body: projectAsync.when(
-        loading: () => const AppLoadingIndicator(message: 'Loading project details...'),
+        loading: () =>
+            const AppLoadingIndicator(message: 'Loading project details...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load project.',
           onRetry: () => ref.invalidate(projectProvider(assignment.projectId)),
@@ -57,8 +61,13 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            project.projectName.isEmpty ? 'Untitled Project' : project.projectName,
-            style: AppTypography.headlineLg.copyWith(color: AppColors.onSurface, fontSize: 28),
+            project.projectName.isEmpty
+                ? 'Untitled Project'
+                : project.projectName,
+            style: AppTypography.headlineLg.copyWith(
+              color: AppColors.onSurface,
+              fontSize: 28,
+            ),
           ),
           const SizedBox(height: AppSpacing.xxl),
 
@@ -67,11 +76,19 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
             children: [
               _InfoRow('Address', project.projectAddress),
               _InfoRow('Drawing Name', project.drawingName),
-              _InfoRow('Drawing Type', project.drawingTypeEnum?.displayName ?? project.drawingType),
-              _InfoRow('Project Area', project.projectArea != null ? '${project.projectArea} sq ft' : 'Not specified'),
+              _InfoRow(
+                'Drawing Type',
+                project.drawingTypeEnum?.displayName ?? project.drawingType,
+              ),
+              _InfoRow(
+                'Project Area',
+                project.projectArea != null
+                    ? '${project.projectArea} sq ft'
+                    : 'Not specified',
+              ),
             ],
           ),
-          
+
           const SizedBox(height: AppSpacing.xxl),
 
           if (isLoading)
@@ -106,8 +123,7 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () {
-                  // TODO: Navigate to active workspace
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Workspace coming in next phase')));
+                  context.push('/draughtsman/workspace/${project.projectId}');
                 },
                 child: const Text('Open Workspace'),
               ),
@@ -118,7 +134,10 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoCard({required String title, required List<Widget> children}) {
+  Widget _buildInfoCard({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
@@ -138,23 +157,29 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
   }
 
   void _handleAccept(BuildContext context, WidgetRef ref) async {
-    final success = await ref.read(draughtsmanActionsControllerProvider.notifier).acceptAssignment(
-      assignmentId: assignment.id,
-      projectId: assignment.projectId,
-    );
+    final success = await ref
+        .read(draughtsmanActionsControllerProvider.notifier)
+        .acceptAssignment(
+          assignmentId: assignment.id,
+          projectId: assignment.projectId,
+        );
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assignment Accepted!')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Assignment Accepted!')));
       context.pop(); // go back
     }
   }
 
   void _handleReject(BuildContext context, WidgetRef ref) async {
-    final success = await ref.read(draughtsmanActionsControllerProvider.notifier).rejectAssignment(
-      assignmentId: assignment.id,
-      projectId: assignment.projectId,
-    );
+    final success = await ref
+        .read(draughtsmanActionsControllerProvider.notifier)
+        .rejectAssignment(
+          assignmentId: assignment.id,
+          projectId: assignment.projectId,
+        );
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assignment Rejected')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Assignment Rejected')));
       context.pop();
     }
   }

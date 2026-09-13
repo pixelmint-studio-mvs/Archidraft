@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { verifyFirebaseToken } from './auth';
 
 type Bindings = {
@@ -11,6 +12,8 @@ type Variables = {
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+app.use('*', cors());
 
 // Auth Middleware
 app.use('*', async (c, next) => {
@@ -165,6 +168,31 @@ app.post('/api/projects/submit', async (c) => {
   return c.json({ success: true });
 });
 
+app.post('/api/projects/submit-drawing', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, actionId } = body;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can submit drawings' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
+  if (project.status === 'UNDER_CLIENT_REVIEW' && project.last_action_id === actionId) return c.json({ success: true });
+  if (project.status !== 'IN_PROGRESS') return c.json({ error: 'Project is not in IN_PROGRESS state' }, 400);
+
+  const batch = [
+    db.prepare(`UPDATE projects SET status = 'UNDER_CLIENT_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', 'Draughtsman submitted the drawing for client review.'
+    )
+  ];
+  await db.batch(batch);
+  return c.json({ success: true });
+});
+
 app.post('/api/projects/approve', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
@@ -261,7 +289,7 @@ app.post('/api/projects/reassign', async (c) => {
   if (project.last_action_id === actionId) return c.json({ success: true });
   
   // Can reassign if waiting acceptance, in progress, or waiting assignment
-  if (!['WAITING_ACCEPTANCE', 'IN_PROGRESS', 'WAITING_ASSIGNMENT'].includes(project.status)) {
+  if (!['WAITING_ACCEPTANCE', 'IN_PROGRESS', 'WAITING_ASSIGNMENT'].includes(project.status as string)) {
     return c.json({ error: 'Project cannot be reassigned in its current state' }, 400);
   }
 
@@ -513,7 +541,7 @@ app.get('/api/files/:fileId/download', async (c) => {
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
-  const object = await c.env.STORAGE.get(fileMeta.object_key);
+  const object = await c.env.STORAGE.get(fileMeta.object_key as string);
   if (!object) return c.json({ error: 'File object missing in R2' }, 404);
 
   const headers = new Headers();

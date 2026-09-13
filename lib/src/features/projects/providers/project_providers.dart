@@ -10,13 +10,11 @@ import '../domain/project.dart';
 // ──────────────────────────────────────────
 
 final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
-  return ProjectRepository(
-    ref.watch(apiClientProvider),
-  );
+  return ProjectRepository(ref.watch(apiClientProvider));
 });
 
 // ──────────────────────────────────────────
-// CLIENT PROJECTS 
+// CLIENT PROJECTS
 // ──────────────────────────────────────────
 
 /// Fetches the authenticated client's projects.
@@ -33,8 +31,10 @@ final clientProjectsProvider = FutureProvider<List<Project>>((ref) async {
 // SINGLE PROJECT
 // ──────────────────────────────────────────
 
-final projectProvider =
-    FutureProvider.family<Project?, String>((ref, projectId) {
+final projectProvider = FutureProvider.family<Project?, String>((
+  ref,
+  projectId,
+) {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getProject(projectId);
 });

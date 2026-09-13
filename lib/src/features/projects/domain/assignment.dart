@@ -25,8 +25,12 @@ class Assignment {
       projectId: data['project_id'] as String? ?? '',
       draughtsmanId: data['draughtsman_id'] as String? ?? '',
       status: data['status'] as String? ?? 'PENDING',
-      createdAt: data['created_at'] != null ? DateTime.tryParse(data['created_at']) : null,
-      updatedAt: data['updated_at'] != null ? DateTime.tryParse(data['updated_at']) : null,
+      createdAt: data['created_at'] != null
+          ? DateTime.tryParse(data['created_at'])
+          : null,
+      updatedAt: data['updated_at'] != null
+          ? DateTime.tryParse(data['updated_at'])
+          : null,
     );
   }
 
@@ -39,9 +43,7 @@ class Assignment {
     };
   }
 
-  Assignment copyWith({
-    String? status,
-  }) {
+  Assignment copyWith({String? status}) {
     return Assignment(
       id: id,
       projectId: projectId,

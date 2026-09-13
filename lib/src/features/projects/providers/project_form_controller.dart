@@ -71,8 +71,7 @@ class ProjectFormState {
       ProjectValidators.estimatedAmount(estimatedAmount) == null;
 
   /// Whether all required fields across all steps are valid.
-  bool get isReadyForSubmission =>
-      isStep1Valid && isStep2Valid && isStep3Valid;
+  bool get isReadyForSubmission => isStep1Valid && isStep2Valid && isStep3Valid;
 
   /// Validation for a specific step (0-indexed).
   bool isStepValid(int step) {
@@ -137,7 +136,8 @@ class ProjectFormState {
 
 final projectFormControllerProvider =
     NotifierProvider<ProjectFormController, ProjectFormState>(
-        ProjectFormController.new);
+      ProjectFormController.new,
+    );
 
 /// Controller for the multi-step project form.
 ///
@@ -177,14 +177,20 @@ class ProjectFormController extends Notifier<ProjectFormState> {
   bool nextStep() {
     if (state.currentStep >= state.totalSteps - 1) return false;
     if (!state.isStepValid(state.currentStep)) return false;
-    state = state.copyWith(currentStep: state.currentStep + 1, clearError: true);
+    state = state.copyWith(
+      currentStep: state.currentStep + 1,
+      clearError: true,
+    );
     return true;
   }
 
   /// Goes back to the previous step. Always works.
   void previousStep() {
     if (state.currentStep <= 0) return;
-    state = state.copyWith(currentStep: state.currentStep - 1, clearError: true);
+    state = state.copyWith(
+      currentStep: state.currentStep - 1,
+      clearError: true,
+    );
   }
 
   /// Jumps to a specific step (for "Edit" from review screen).
@@ -291,7 +297,10 @@ class ProjectFormController extends Notifier<ProjectFormState> {
 
       // Generate a deterministic actionId for this submission attempt.
       // Using v5 (name-based) ensures the same actionId on retry.
-      final actionId = _uuid.v5(Namespace.url.value, 'submit:${state.projectId}');
+      final actionId = _uuid.v5(
+        Namespace.url.value,
+        'submit:${state.projectId}',
+      );
 
       await repository.submitProject(
         projectId: state.projectId!,
