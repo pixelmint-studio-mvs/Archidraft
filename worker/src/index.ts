@@ -297,7 +297,7 @@ app.post('/api/projects/request-correction', async (c) => {
     `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', \`Client requested correction (Round \${newRound}).\`
+      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction (Round ${newRound}).`
     )
   ];
   await db.batch(batch);
