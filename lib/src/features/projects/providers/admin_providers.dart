@@ -11,21 +11,21 @@ import 'project_providers.dart';
 // ──────────────────────────────────────────
 
 /// Stream of projects in SUBMITTED state (Pending Approval)
-final pendingProjectsProvider = StreamProvider<List<Project>>((ref) {
+final pendingProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.watchProjectsByStatus('SUBMITTED');
+  return repository.getProjectsByStatus('SUBMITTED');
 });
 
 /// Stream of projects in WAITING_ASSIGNMENT state
-final unassignedProjectsProvider = StreamProvider<List<Project>>((ref) {
+final unassignedProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.watchProjectsByStatus('WAITING_ASSIGNMENT');
+  return repository.getProjectsByStatus('WAITING_ASSIGNMENT');
 });
 
-/// Stream of projects in ACTIVE state
-final activeProjectsProvider = StreamProvider<List<Project>>((ref) {
+/// Stream of projects in IN_PROGRESS state
+final activeProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.watchProjectsByStatus('ACTIVE');
+  return repository.getProjectsByStatus('IN_PROGRESS');
 });
 
 // ──────────────────────────────────────────
@@ -104,6 +104,29 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
       final actionId = const Uuid().v4();
       
       await repository.assignDraughtsman(
+        projectId: projectId,
+        actionId: actionId,
+        draughtsmanId: draughtsmanId,
+      );
+      
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> reassignDraughtsman({
+    required String projectId,
+    required String draughtsmanId,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final actionId = const Uuid().v4();
+      
+      await repository.reassignDraughtsman(
         projectId: projectId,
         actionId: actionId,
         draughtsmanId: draughtsmanId,

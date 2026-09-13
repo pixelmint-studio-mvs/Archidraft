@@ -1,0 +1,12 @@
+name = "archi-draft-worker"
+main = "src/index.ts"
+compatibility_date = "2023-10-30"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "archi-draft-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "archi-draft-storage"

@@ -65,7 +65,7 @@ This document outlines the implementation sequence for ARCHI DRAFT. Do not skip 
 ## PHASE 10: File Storage
 - **Goal:** Implement secure file uploads/downloads.
 - **Dependencies:** Phase 9.
-- **Deliverables:** Firebase Storage integration.
+- **Deliverables:** Cloudflare R2 integration.
 - **Completion Criteria:** Files upload correctly based on role folders.
 
 ## PHASE 11: Corrections
@@ -74,10 +74,10 @@ This document outlines the implementation sequence for ARCHI DRAFT. Do not skip 
 - **Deliverables:** Client correction request UI, Draughtsman resolution UI.
 - **Completion Criteria:** 3-round limit works, statuses update correctly.
 
-## PHASE 12: Cloud Functions
+## PHASE 12: Cloudflare Workers
 - **Goal:** Move critical actions and activity logs to backend.
 - **Dependencies:** Phase 11.
-- **Deliverables:** Callable functions for all critical state changes.
+- **Deliverables:** Worker endpoints for all critical state changes.
 - **Completion Criteria:** Client SDK no longer performs direct state mutations for critical paths.
 
 ## PHASE 13: Testing & Security Audit

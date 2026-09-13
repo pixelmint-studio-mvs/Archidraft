@@ -146,11 +146,28 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                 ),
               ),
             ],
-            if (status == ProjectStatus.active) ...[
+            if (status == ProjectStatus.inProgress || status == ProjectStatus.waitingAcceptance) ...[
               Center(
-                child: Text(
-                  'Assigned to: ${project.draughtsmanName}',
-                  style: AppTypography.bodyLg,
+                child: Column(
+                  children: [
+                    Text(
+                      'Assigned to: ${project.assignedDraughtsmanId ?? 'Unknown'}',
+                      style: AppTypography.bodyMd,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Status: ${status == ProjectStatus.waitingAcceptance ? 'Waiting Acceptance' : 'Accepted (In Progress)'}',
+                      style: AppTypography.labelMono.copyWith(color: AppColors.outline),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => _showReassignDialog(context, ref, project),
+                        child: const Text('Reassign Draughtsman'),
+                      ),
+                    ),
+                  ],
                 ),
               )
             ],
@@ -277,6 +294,52 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                                 .assignDraughtsman(projectId: project.projectId, draughtsmanId: d.id);
                             if (success && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assigned!')));
+                            }
+                          },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showReassignDialog(BuildContext context, WidgetRef ref, Project project) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reassign Draughtsman'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Consumer(
+              builder: (context, ref, child) {
+                final draughtsmenAsync = ref.watch(draughtsmenListProvider);
+                return draughtsmenAsync.when(
+                  loading: () => const CircularProgressIndicator(),
+                  error: (e, _) => Text('Error: $e'),
+                  data: (draughtsmen) {
+                    if (draughtsmen.isEmpty) return const Text('No draughtsmen found.');
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: draughtsmen.length,
+                      itemBuilder: (context, index) {
+                        final d = draughtsmen[index];
+                        if (d.id == project.assignedDraughtsmanId) return const SizedBox.shrink();
+                        return ListTile(
+                          title: Text(d.name),
+                          subtitle: Text(d.email),
+                          onTap: () async {
+                            Navigator.pop(context);
+                            final success = await ref.read(adminActionsControllerProvider.notifier)
+                                .reassignDraughtsman(projectId: project.projectId, draughtsmanId: d.id);
+                            if (success && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reassigned!')));
                             }
                           },
                         );

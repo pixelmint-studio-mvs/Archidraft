@@ -9,8 +9,11 @@ import '../domain/drawing_type.dart';
 import '../domain/project_validators.dart';
 import '../providers/project_form_controller.dart';
 import '../providers/project_providers.dart';
+import '../providers/file_providers.dart';
 import 'widgets/project_form_stepper.dart';
 import 'widgets/project_review_section.dart';
+import 'widgets/file_upload_button.dart';
+import 'widgets/file_attachment_card.dart';
 
 /// Multi-step project brief form.
 ///
@@ -308,6 +311,62 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             textInputAction: TextInputAction.done,
             isOptional: true,
           ),
+          const SizedBox(height: AppSpacing.xxl),
+          
+          Text(
+            'Reference Files',
+            style: AppTypography.headlineLgMobile.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Attach any relevant sketches, inspiration, or site photos.',
+            style: AppTypography.bodyMd.copyWith(
+              color: AppColors.outline,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          
+          if (formState.projectId == null)
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: Column(
+                children: [
+                  const Text('Please save your project draft to attach files.'),
+                  const SizedBox(height: AppSpacing.sm),
+                  FilledButton.tonal(
+                    onPressed: () => controller.saveDraft(),
+                    child: const Text('Save Draft Now'),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            ref.watch(projectFilesProvider(formState.projectId!)).when(
+              loading: () => const CircularProgressIndicator(),
+              error: (err, _) => Text('Error loading files: $err'),
+              data: (files) {
+                final clientFiles = files.where((f) => f.category == 'client_upload').toList();
+                if (clientFiles.isEmpty) {
+                  return const Text('No files attached yet.');
+                }
+                return Column(
+                  children: clientFiles.map((f) => FileAttachmentCard(file: f)).toList(),
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: FileUploadButton(projectId: formState.projectId!, category: 'client_upload'),
+            ),
+          ],
         ],
       ),
     );
@@ -543,7 +602,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           items: items,
           onChanged: onChanged,
           validator: validator,

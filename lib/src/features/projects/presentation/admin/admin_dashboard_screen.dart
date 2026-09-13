@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
+import '../../domain/project.dart';
 import '../../providers/admin_providers.dart';
 import '../widgets/project_card.dart';
 
@@ -34,7 +35,7 @@ class AdminDashboardScreen extends StatelessWidget {
           children: [
             _ProjectListTab(status: 'SUBMITTED'),
             _ProjectListTab(status: 'WAITING_ASSIGNMENT'),
-            _ProjectListTab(status: 'ACTIVE'),
+            _ProjectListTab(status: 'IN_PROGRESS'),
           ],
         ),
       ),
@@ -78,7 +79,7 @@ class _ProjectListTab extends ConsumerWidget {
               return ListView.separated(
                 padding: const EdgeInsets.all(AppSpacing.marginMobile),
                 itemCount: projects.length,
-                separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
+                separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.md),
                 itemBuilder: (context, index) {
                   final project = projects[index];
                   return ProjectCard(
@@ -118,7 +119,7 @@ class _ProjectListTab extends ConsumerWidget {
     return ref.watch(activeProjectsProvider);
   }
 
-  ProviderOrFamily _getProviderRef() {
+  FutureProvider<List<Project>> _getProviderRef() {
     if (status == 'SUBMITTED') return pendingProjectsProvider;
     if (status == 'WAITING_ASSIGNMENT') return unassignedProjectsProvider;
     return activeProjectsProvider;

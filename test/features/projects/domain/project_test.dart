@@ -20,27 +20,27 @@ void main() {
       final editable = testProject.toEditableFieldsMap();
       
       expect(editable.length, 6);
-      expect(editable['projectName'], 'Test Project');
-      expect(editable['projectAddress'], '123 Main St');
-      expect(editable['drawingName'], 'Ground Floor');
-      expect(editable['drawingType'], 'FLOOR_PLAN');
-      expect(editable['projectArea'], 1500);
-      expect(editable['estimatedAmount'], 5000);
+      expect(editable['project_name'], 'Test Project');
+      expect(editable['project_address'], '123 Main St');
+      expect(editable['drawing_name'], 'Ground Floor');
+      expect(editable['drawing_type'], 'FLOOR_PLAN');
+      expect(editable['project_area'], 1500);
+      expect(editable['estimated_amount'], 5000);
       
       // Should NOT contain server-controlled or immutable fields
-      expect(editable.containsKey('projectId'), false);
-      expect(editable.containsKey('clientId'), false);
+      expect(editable.containsKey('id'), false);
+      expect(editable.containsKey('client_id'), false);
       expect(editable.containsKey('status'), false);
     });
 
     test('toFirestoreCreate sets initial defaults', () {
       final createMap = testProject.toFirestoreCreate();
       
-      expect(createMap['projectName'], 'Test Project');
-      expect(createMap['clientId'], 'client-123');
-      expect(createMap['status'], 'DRAFT');
-      expect(createMap['correctionRound'], 0);
-      expect(createMap.containsKey('createdAt'), true);
+      expect(createMap['project_name'], 'Test Project');
+      expect(createMap['client_id'], 'client-123');
+      expect(createMap.containsKey('status'), false);
+      expect(createMap.containsKey('correction_round'), false);
+      expect(createMap.containsKey('created_at'), false);
     });
 
     test('copyWith updates specified fields', () {

@@ -34,10 +34,22 @@ class ClientProjectsScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(clientProjectsProvider),
         ),
         data: (projects) {
-          if (projects.isEmpty) {
-            return _buildEmptyState(context);
-          }
-          return _buildProjectList(context, projects);
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(clientProjectsProvider);
+              try {
+                await ref.read(clientProjectsProvider.future);
+              } catch (_) {}
+            },
+            child: projects.isEmpty
+                ? Stack(
+                    children: [
+                      ListView(), // for pull to refresh to work when empty
+                      _buildEmptyState(context),
+                    ],
+                  )
+                : _buildProjectList(context, projects),
+          );
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -128,7 +140,7 @@ class ClientProjectsScreen extends ConsumerWidget {
               100, // Space for FAB
             ),
             itemCount: projects.length,
-            separatorBuilder: (_, __) =>
+            separatorBuilder: (context, index) =>
                 const SizedBox(height: AppSpacing.md),
             itemBuilder: (context, index) {
               final project = projects[index];

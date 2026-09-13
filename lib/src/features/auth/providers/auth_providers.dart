@@ -1,33 +1,26 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/auth_repository.dart';
 import '../domain/user_profile.dart';
+import '../../api/providers/api_providers.dart';
 
 // ──────────────────────────────────────────
 // FIREBASE INSTANCE PROVIDERS
 // ──────────────────────────────────────────
 
-/// Provides the [FirebaseAuth] instance.
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
   return FirebaseAuth.instance;
-});
-
-/// Provides the [FirebaseFirestore] instance.
-final firestoreProvider = Provider<FirebaseFirestore>((ref) {
-  return FirebaseFirestore.instance;
 });
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
 // ──────────────────────────────────────────
 
-/// Provides the [AuthRepository] with injected Firebase instances.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     ref.watch(firebaseAuthProvider),
-    ref.watch(firestoreProvider),
+    ref.watch(apiClientProvider),
   );
 });
 
@@ -35,10 +28,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 // AUTH STATE STREAM
 // ──────────────────────────────────────────
 
-/// Reactive stream of authentication state.
-///
-/// Emits [User] when logged in, `null` when logged out.
-/// Used by GoRouter redirect to determine navigation.
 final authStateChangesProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges();
 });
@@ -47,10 +36,6 @@ final authStateChangesProvider = StreamProvider<User?>((ref) {
 // AUTH CONTROLLER
 // ──────────────────────────────────────────
 
-/// Controller for authentication actions (login, register, logout, etc.).
-///
-/// Exposes an [AsyncValue<void>] state to track loading/error/success
-/// for UI feedback (loading spinners, error messages).
 final authControllerProvider =
     NotifierProvider<AuthController, AsyncValue<void>>(AuthController.new);
 
@@ -60,7 +45,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     return const AsyncData(null);
   }
 
-  /// Registers a new user.
   Future<bool> register({
     required String email,
     required String password,
@@ -85,7 +69,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Signs in with email and password.
   Future<bool> signIn({
     required String email,
     required String password,
@@ -104,7 +87,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Signs out the current user.
   Future<void> signOut() async {
     state = const AsyncLoading();
     try {
@@ -115,7 +97,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Sends a verification email to the current user.
   Future<bool> sendEmailVerification() async {
     state = const AsyncLoading();
     try {
@@ -128,9 +109,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Reloads user data and checks email verification status.
-  ///
-  /// Returns `true` if the email is now verified.
   Future<bool> checkEmailVerified() async {
     try {
       return await ref.read(authRepositoryProvider).reloadUser();
@@ -139,7 +117,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Sends a password reset email.
   Future<bool> sendPasswordResetEmail({required String email}) async {
     state = const AsyncLoading();
     try {
@@ -152,7 +129,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Resets the controller state to idle.
   void resetState() {
     state = const AsyncData(null);
   }
@@ -162,9 +138,6 @@ class AuthController extends Notifier<AsyncValue<void>> {
 // USER PROFILE PROVIDER
 // ──────────────────────────────────────────
 
-/// Fetches the Firestore user profile for the currently authenticated user.
-///
-/// Automatically invalidates when auth state changes.
 final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
   final user = authState.value;

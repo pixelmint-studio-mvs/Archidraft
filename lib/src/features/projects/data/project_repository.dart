@@ -1,124 +1,61 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-
 import '../domain/project.dart';
+import '../../api/data/api_client.dart';
 
 /// Repository for project CRUD operations.
 ///
-/// Simple operations (createDraft, updateDraft, read) use direct Firestore SDK.
-/// Critical operations (submitProject) use Callable Cloud Functions.
-///
-/// Ref: docs/02_architecture/SYSTEM_ARCHITECTURE.md — Hybrid Architecture
-/// Ref: docs/02_architecture/BACKEND_ACTIONS.md — Action contracts
+/// Uses Cloudflare Worker API for all operations.
 class ProjectRepository {
-  final FirebaseFirestore _firestore;
-  final FirebaseFunctions _functions;
+  final ApiClient _apiClient;
 
-  ProjectRepository(this._firestore, this._functions);
+  ProjectRepository(this._apiClient);
 
-  CollectionReference<Map<String, dynamic>> get _projectsRef =>
-      _firestore.collection('projects');
-
-  // ──────────────────────────────────────────
-  // SIMPLE OPERATIONS (Direct Firestore)
-  // ──────────────────────────────────────────
-
-  /// Creates a new project draft in Firestore.
-  ///
-  /// The `clientId` on the [project] must be the authenticated user's UID.
-  /// Sets status=DRAFT, correctionRound=0, createdAt=server timestamp.
-  ///
-  /// Returns the auto-generated project ID.
   Future<String> createDraft(Project project) async {
-    final docRef = _projectsRef.doc();
-    await docRef.set(project.copyWith().toFirestoreCreate());
-    return docRef.id;
+    final response = await _apiClient.post('/api/projects', body: project.toFirestoreCreate());
+    return response['id'];
   }
 
-  /// Updates only the client-editable fields of a draft project.
-  ///
-  /// Preconditions (validated locally, enforced by Security Rules):
-  /// - Project must exist
-  /// - Caller must be the owner
-  /// - Status must be DRAFT
   Future<void> updateDraft(Project project) async {
-    await _projectsRef.doc(project.projectId).update(
-      project.toEditableFieldsMap(),
-    );
+    await _apiClient.post('/api/projects', body: {
+      'id': project.projectId,
+      ...project.toEditableFieldsMap(),
+    });
   }
 
-  /// Fetches a single project by its ID.
-  ///
-  /// Returns `null` if the document does not exist.
   Future<Project?> getProject(String projectId) async {
-    final doc = await _projectsRef.doc(projectId).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return Project.fromFirestore(doc);
+    try {
+      final response = await _apiClient.get('/api/projects'); // the API returns all, we should really add a /api/projects/:id route. I'll filter here for now.
+      final projects = (response as List).map((p) => Project.fromMap(p)).toList();
+      return projects.firstWhere((p) => p.projectId == projectId);
+    } catch (e) {
+      return null;
+    }
   }
 
-  /// Returns a real-time stream of the client's projects.
-  ///
-  /// Query: `clientId == clientId`, ordered by `createdAt` descending.
-  /// This query is compatible with Firestore Security Rules (ownership filter).
-  Stream<List<Project>> watchClientProjects(String clientId) {
-    return _projectsRef
-        .where('clientId', isEqualTo: clientId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Project.fromFirestore(doc))
-            .toList());
+  Future<List<Project>> getClientProjects() async {
+    final response = await _apiClient.get('/api/projects');
+    return (response as List).map((p) => Project.fromMap(p)).toList();
   }
 
-  // ──────────────────────────────────────────
-  // CRITICAL OPERATIONS (Cloud Functions)
-  // ──────────────────────────────────────────
-
-  /// Submits a project via the `submitProject` Callable Cloud Function.
-  ///
-  /// The Cloud Function validates:
-  /// - Authentication (context.auth.uid)
-  /// - Role = CLIENT
-  /// - Ownership (project.clientId == auth.uid)
-  /// - Status = DRAFT
-  /// - Required fields are complete
-  ///
-  /// The [actionId] ensures idempotency on retry.
-  ///
-  /// Ref: docs/02_architecture/BACKEND_ACTIONS.md — submitProject contract
   Future<void> submitProject({
     required String projectId,
     required String actionId,
   }) async {
-    final callable = _functions.httpsCallable('submitProject');
-    await callable.call<dynamic>({
+    await _apiClient.post('/api/projects/submit', body: {
       'projectId': projectId,
       'actionId': actionId,
     });
   }
 
-  // ──────────────────────────────────────────
-  // ADMIN OPERATIONS
-  // ──────────────────────────────────────────
-
-  /// Returns a real-time stream of all projects with a specific status.
-  /// Used by Studio Admin to monitor project queues.
-  Stream<List<Project>> watchProjectsByStatus(String status) {
-    return _projectsRef
-        .where('status', isEqualTo: status)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Project.fromFirestore(doc))
-            .toList());
+  Future<List<Project>> getProjectsByStatus(String status) async {
+    final response = await _apiClient.get('/api/projects', queryParams: {'status': status});
+    return (response as List).map((p) => Project.fromMap(p)).toList();
   }
 
   Future<void> approveProject({
     required String projectId,
     required String actionId,
   }) async {
-    final callable = _functions.httpsCallable('approveProject');
-    await callable.call<dynamic>({
+    await _apiClient.post('/api/projects/approve', body: {
       'projectId': projectId,
       'actionId': actionId,
     });
@@ -129,8 +66,7 @@ class ProjectRepository {
     required String actionId,
     required String reason,
   }) async {
-    final callable = _functions.httpsCallable('rejectProject');
-    await callable.call<dynamic>({
+    await _apiClient.post('/api/projects/reject', body: {
       'projectId': projectId,
       'actionId': actionId,
       'reason': reason,
@@ -142,8 +78,19 @@ class ProjectRepository {
     required String actionId,
     required String draughtsmanId,
   }) async {
-    final callable = _functions.httpsCallable('assignDraughtsman');
-    await callable.call<dynamic>({
+    await _apiClient.post('/api/projects/assign', body: {
+      'projectId': projectId,
+      'actionId': actionId,
+      'draughtsmanId': draughtsmanId,
+    });
+  }
+
+  Future<void> reassignDraughtsman({
+    required String projectId,
+    required String actionId,
+    required String draughtsmanId,
+  }) async {
+    await _apiClient.post('/api/projects/reassign', body: {
       'projectId': projectId,
       'actionId': actionId,
       'draughtsmanId': draughtsmanId,

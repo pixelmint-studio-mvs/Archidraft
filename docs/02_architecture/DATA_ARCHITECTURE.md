@@ -1,6 +1,6 @@
 # DATA ARCHITECTURE
 
-This document defines the conceptual Firestore structure. Do not invent fields without documentation.
+This document defines the conceptual Cloudflare D1 structure. Do not invent fields without documentation.
 
 ## Conceptual Structure
 

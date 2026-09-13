@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 import 'drawing_type.dart';
 import 'project_status.dart';
@@ -60,6 +60,10 @@ class Project {
   /// Timestamp when the project was completed. Set in later phases.
   final DateTime? completedAt;
 
+  /// Identifier for the last critical action performed on this project.
+  /// Used for idempotency.
+  final String? lastActionId;
+
   const Project({
     required this.projectId,
     required this.projectName,
@@ -76,6 +80,7 @@ class Project {
     this.createdAt,
     this.submittedAt,
     this.completedAt,
+    this.lastActionId,
   });
 
   /// Parses the [status] string into a [ProjectStatus] enum.
@@ -87,58 +92,50 @@ class Project {
   /// Whether this project can be edited by the client.
   bool get isEditable => projectStatus?.isEditable ?? false;
 
-  /// Creates a [Project] from a Firestore document snapshot.
-  factory Project.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  /// Creates a [Project] from a Map (API response).
+  factory Project.fromMap(Map<String, dynamic> data) {
     return Project(
-      projectId: doc.id,
-      projectName: data['projectName'] as String? ?? '',
-      projectAddress: data['projectAddress'] as String? ?? '',
-      drawingName: data['drawingName'] as String? ?? '',
-      drawingType: data['drawingType'] as String? ?? '',
-      projectArea: (data['projectArea'] as num?)?.toDouble(),
-      estimatedAmount: (data['estimatedAmount'] as num?)?.toDouble(),
-      clientId: data['clientId'] as String? ?? '',
-      assignedDraughtsmanId: data['assignedDraughtsmanId'] as String?,
-      currentAssignmentId: data['currentAssignmentId'] as String?,
+      projectId: data['id'] as String? ?? '',
+      projectName: data['project_name'] as String? ?? '',
+      projectAddress: data['project_address'] as String? ?? '',
+      drawingName: data['drawing_name'] as String? ?? '',
+      drawingType: data['drawing_type'] as String? ?? '',
+      projectArea: (data['project_area'] as num?)?.toDouble(),
+      estimatedAmount: (data['estimated_amount'] as num?)?.toDouble(),
+      clientId: data['client_id'] as String? ?? '',
+      assignedDraughtsmanId: data['draughtsman_id'] as String?,
+      currentAssignmentId: data['current_assignment_id'] as String?,
       status: data['status'] as String? ?? 'DRAFT',
-      correctionRound: data['correctionRound'] as int? ?? 0,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      submittedAt: (data['submittedAt'] as Timestamp?)?.toDate(),
-      completedAt: (data['completedAt'] as Timestamp?)?.toDate(),
+      correctionRound: data['correction_round'] as int? ?? 0,
+      createdAt: data['created_at'] != null ? DateTime.tryParse(data['created_at']) : null,
+      submittedAt: data['submitted_at'] != null ? DateTime.tryParse(data['submitted_at']) : null,
+      completedAt: data['completed_at'] != null ? DateTime.tryParse(data['completed_at']) : null,
+      lastActionId: data['last_action_id'] as String?,
     );
   }
 
-  /// Converts this [Project] to a Firestore map for initial creation.
-  ///
-  /// Uses [FieldValue.serverTimestamp()] for `createdAt`.
-  /// Sets `status` to DRAFT and `correctionRound` to 0.
+  /// Converts this [Project] to a map for initial creation via API.
   Map<String, dynamic> toFirestoreCreate() {
     return {
-      'projectName': projectName,
-      'projectAddress': projectAddress,
-      'drawingName': drawingName,
-      'drawingType': drawingType,
-      'projectArea': projectArea,
-      'estimatedAmount': estimatedAmount,
-      'clientId': clientId,
-      'status': 'DRAFT',
-      'correctionRound': 0,
-      'createdAt': FieldValue.serverTimestamp(),
+      'project_name': projectName,
+      'project_address': projectAddress,
+      'drawing_name': drawingName,
+      'drawing_type': drawingType,
+      'project_area': projectArea,
+      'estimated_amount': estimatedAmount,
+      'client_id': clientId,
     };
   }
 
   /// Returns a Map of only the client-editable fields for draft updates.
-  ///
-  /// Does NOT include immutable or server-controlled fields.
   Map<String, dynamic> toEditableFieldsMap() {
     return {
-      'projectName': projectName,
-      'projectAddress': projectAddress,
-      'drawingName': drawingName,
-      'drawingType': drawingType,
-      'projectArea': projectArea,
-      'estimatedAmount': estimatedAmount,
+      'project_name': projectName,
+      'project_address': projectAddress,
+      'drawing_name': drawingName,
+      'drawing_type': drawingType,
+      'project_area': projectArea,
+      'estimated_amount': estimatedAmount,
     };
   }
 
@@ -151,6 +148,7 @@ class Project {
     double? projectArea,
     double? estimatedAmount,
     String? status,
+    String? lastActionId,
   }) {
     return Project(
       projectId: projectId,
@@ -168,6 +166,7 @@ class Project {
       createdAt: createdAt,
       submittedAt: submittedAt,
       completedAt: completedAt,
+      lastActionId: lastActionId ?? this.lastActionId,
     );
   }
 }

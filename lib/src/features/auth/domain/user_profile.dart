@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 /// Represents the user's profile data stored in Firestore `users/{uid}`.
 ///
@@ -69,56 +69,47 @@ class UserProfile {
     this.updatedAt,
   });
 
-  /// Creates a [UserProfile] from a Firestore document snapshot.
-  factory UserProfile.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  /// Creates a [UserProfile] from a Map (API response).
+  factory UserProfile.fromMap(Map<String, dynamic> data) {
     return UserProfile(
-      id: doc.id,
+      id: data['id'] as String? ?? '',
       name: data['name'] as String? ?? '',
       email: data['email'] as String? ?? '',
       mobile: data['mobile'] as String? ?? '',
       role: data['role'] as String? ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: data['created_at'] != null ? DateTime.tryParse(data['created_at']) : null,
       qualification: data['qualification'] as String?,
-      dateOfBirth: (data['dateOfBirth'] as Timestamp?)?.toDate(),
+      dateOfBirth: data['date_of_birth'] != null ? DateTime.tryParse(data['date_of_birth']) : null,
       address: data['address'] as String?,
-      companyName: data['companyName'] as String?,
-      collegeName: data['collegeName'] as String?,
-      proofDocument: data['proofDocument'] as String?,
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      companyName: data['company_name'] as String?,
+      collegeName: data['college_name'] as String?,
+      proofDocument: data['proof_document'] as String?,
+      updatedAt: data['updated_at'] != null ? DateTime.tryParse(data['updated_at']) : null,
     );
   }
 
-  /// Converts this [UserProfile] to a Map for Firestore writes.
-  ///
-  /// Uses [FieldValue.serverTimestamp()] for `createdAt` to ensure
-  /// the timestamp is set by the server, not the client.
-  Map<String, dynamic> toFirestore() {
+  /// Converts this [UserProfile] to a Map for API writes.
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
       'email': email,
       'mobile': mobile,
       'role': role,
-      'createdAt': FieldValue.serverTimestamp(),
     };
   }
 
   /// Returns a Map of only the user-editable fields for profile updates.
-  ///
-  /// Does NOT include immutable fields (id, email, role, createdAt).
-  /// Automatically sets `updatedAt` to server timestamp.
   Map<String, dynamic> toEditableFieldsMap() {
     final map = <String, dynamic>{
       'name': name,
       'mobile': mobile,
-      'updatedAt': FieldValue.serverTimestamp(),
     };
     if (qualification != null) map['qualification'] = qualification;
-    if (dateOfBirth != null) map['dateOfBirth'] = Timestamp.fromDate(dateOfBirth!);
+    if (dateOfBirth != null) map['date_of_birth'] = dateOfBirth!.toIso8601String();
     if (address != null) map['address'] = address;
-    if (companyName != null) map['companyName'] = companyName;
-    if (collegeName != null) map['collegeName'] = collegeName;
+    if (companyName != null) map['company_name'] = companyName;
+    if (collegeName != null) map['college_name'] = collegeName;
     return map;
   }
 

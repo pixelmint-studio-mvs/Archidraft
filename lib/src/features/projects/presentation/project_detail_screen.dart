@@ -7,12 +7,14 @@ import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
 import 'package:archi_draft/src/shared/widgets/app_state_widgets.dart';
-import 'package:archi_draft/src/features/projects/domain/drawing_type.dart';
 import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 import 'widgets/project_status_chip.dart';
+import 'widgets/file_attachment_card.dart';
+import 'widgets/file_upload_button.dart';
 
 /// Detail screen for viewing a project.
 ///
@@ -160,6 +162,45 @@ class ProjectDetailScreen extends ConsumerWidget {
 
           const SizedBox(height: AppSpacing.xxl),
 
+          // Reference Files Section
+          _buildDetailSection(
+            title: 'REFERENCE FILES',
+            fields: [],
+            customContent: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ref.watch(projectFilesProvider(project.projectId)).when(
+                  loading: () => const Padding(padding: EdgeInsets.all(AppSpacing.md), child: CircularProgressIndicator()),
+                  error: (err, stack) => Padding(padding: const EdgeInsets.all(AppSpacing.md), child: Text('Error loading files: $err', style: TextStyle(color: AppColors.error))),
+                  data: (files) {
+                    final clientFiles = files.where((f) => f.category == 'client_upload').toList();
+                    if (clientFiles.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Text('No reference files attached.', style: AppTypography.bodyMd.copyWith(color: AppColors.outline)),
+                      );
+                    }
+                    return Column(
+                      children: clientFiles.map((f) => FileAttachmentCard(file: f)).toList(),
+                    );
+                  },
+                ),
+                if (status == ProjectStatus.draft) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FileUploadButton(projectId: project.projectId, category: 'client_upload'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.xxl),
+
           // Action Buttons
           if (status == ProjectStatus.draft) ...[
             // Continue Editing Button
@@ -198,6 +239,7 @@ class ProjectDetailScreen extends ConsumerWidget {
   Widget _buildDetailSection({
     required String title,
     required List<_DetailField> fields,
+    Widget? customContent,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -268,6 +310,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               }).toList(),
             ),
           ),
+          if (customContent != null) customContent,
         ],
       ),
     );

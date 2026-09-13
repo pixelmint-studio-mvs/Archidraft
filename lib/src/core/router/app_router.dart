@@ -15,6 +15,9 @@ import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
+import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 
@@ -144,11 +147,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // ── DRAUGHTSMAN ROUTES ──
           GoRoute(
             path: '/draughtsman/studio',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Draughtsman Studio',
-              description: 'Your workspace for active drafting tasks.',
-              icon: Icons.grid_view_rounded,
-            ),
+            builder: (context, state) => const DraughtsmanStudioScreen(),
+          ),
+          GoRoute(
+            path: '/draughtsman/assignments/:assignmentId',
+            builder: (context, state) {
+              final assignment = state.extra as Assignment;
+              return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+            },
           ),
           GoRoute(
             path: '/draughtsman/drawings',

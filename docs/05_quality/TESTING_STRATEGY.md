@@ -30,16 +30,14 @@ This is extremely important. We must rigorously test failure states:
 - **Rejected Assignment:** Ensure the Draughtsman cannot act.
 - **Replaced Draughtsman:** Ensure the replaced Draughtsman loses all access immediately.
 - **Fourth Correction Attempt:** Ensure the 4th request is rejected by the backend.
-- **Duplicate Request:** Ensure Cloud Function Idempotency logic prevents double logging.
+- **Duplicate Request:** Ensure Cloudflare Worker Idempotency logic prevents double logging.
 - **Network Retry:** Ensure duplicate actions are handled safely.
 - **Unauthorized File Upload:** Client uploading to Draughtsman folders.
 - **Unauthorized File Download:** Attempting to fetch files from unassigned projects.
 
 ## 5. SECURITY TESTING
 Verify backend rule enforcement:
-- Firestore Security Rules
-- Firebase Storage Rules
-- Role Permissions in Callable Functions
+- Cloudflare Worker Authorization Logic
 - Project Ownership Enforcement
 - Assignment Authorization Checks
 - Activity Log Immutability

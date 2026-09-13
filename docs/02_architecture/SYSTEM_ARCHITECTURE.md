@@ -4,14 +4,14 @@
 - **Flutter Application:** Handles UI, user interaction, authentication state, authorized reads, and simple operations.
 
 ## BACKEND
-Use a **hybrid architecture** combining direct Firestore operations with Callable Cloud Functions.
+Use a **hybrid architecture** combining direct D1 metadata operations via the Cloudflare Worker API.
 
-### 1. Simple Operations
-*(Flutter → Direct Firestore SDK)*
-Operations that involve a single document and simple whitelist validation (e.g., saving a draft, updating a user profile).
+### 1. Operations
+*(Flutter → Cloudflare Worker API → D1 / R2)*
+All state changes and file storage operations are mediated by the Worker API.
 
 ### 2. Critical Operations
-*(Flutter → Callable Cloud Functions → Firebase Admin SDK → Firestore)*
+*(Flutter → Cloudflare Worker API)*
 Critical actions must validate:
 - Authentication (`context.auth`)
 - User role

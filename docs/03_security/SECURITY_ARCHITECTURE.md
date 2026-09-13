@@ -4,7 +4,7 @@
 **UI ≠ SECURITY.** A hidden button is not security. 
 
 Real security comes from:
-Firebase Authentication + Firestore Security Rules + Firebase Storage Rules + Callable Cloud Functions
+Firebase Authentication + Cloudflare Worker Authorization + D1 Logic
 
 ## ROLE SECURITY
 Users cannot:
@@ -25,4 +25,4 @@ Client applications must not:
 
 ## IDENTITY SECURITY
 **Never trust `userId` sent by the client for critical operations.**
-The backend must natively identify the authenticated actor using `context.auth.uid` inside Callable Cloud Functions. Do not accept a `userId` parameter in the payload if you are using it to determine who is taking the action.
+The backend must natively identify the authenticated actor using the verified Firebase token inside Cloudflare Worker endpoints. Do not accept a `userId` parameter in the payload if you are using it to determine who is taking the action.

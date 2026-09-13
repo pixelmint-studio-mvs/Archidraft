@@ -51,10 +51,12 @@ dependencies:
 
   # Cloud Firestore (Phase 3 — User Profile Creation)
   # Ref: docs/02_architecture/DATA_ARCHITECTURE.md users/{uid} collection
-  cloud_firestore: ^5.6.0
   intl: ^0.20.3
   uuid: ^4.6.0
-  cloud_functions: ^5.6.2
+  http: ^1.6.0
+  file_picker: ^8.1.2
+  path_provider: ^2.1.4
+  open_filex: ^4.5.0
 
 dev_dependencies:
   flutter_test:
@@ -66,12 +68,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  fake_cloud_firestore: ^3.1.0
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
 
   # The following line ensures that the Material Icons font is
