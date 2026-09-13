@@ -185,6 +185,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
 
   const batch = [
     db.prepare(`UPDATE projects SET status = 'UNDER_CLIENT_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'OPEN'`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', 'Draughtsman submitted the drawing for client review.'
     )
@@ -239,6 +240,68 @@ app.post('/api/projects/reject', async (c) => {
   ];
   await db.batch(batch);
   return c.json({ success: true });
+});
+
+app.post('/api/projects/approve-final', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, actionId } = body;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can approve final drawings' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  if (project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  if (project.status === 'COMPLETED' && project.last_action_id === actionId) return c.json({ success: true });
+  if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
+
+  const batch = [
+    db.prepare(`UPDATE projects SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
+    )
+  ];
+  await db.batch(batch);
+  return c.json({ success: true });
+});
+
+app.post('/api/projects/request-correction', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, actionId, correctionId, targetVersionId, description } = body;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can request corrections' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  if (project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  
+  if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
+  if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
+
+  const currentRound = (project.correction_round as number) || 0;
+  if (currentRound >= 3) {
+    return c.json({ error: 'Maximum correction rounds (3) exceeded' }, 400);
+  }
+
+  const newRound = currentRound + 1;
+
+  const batch = [
+    db.prepare(`
+      INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'OPEN')
+    `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
+    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', \`Client requested correction (Round \${newRound}).\`
+    )
+  ];
+  await db.batch(batch);
+  return c.json({ success: true, newRound });
 });
 
 app.post('/api/projects/assign', async (c) => {
@@ -408,6 +471,40 @@ app.get('/api/projects/:projectId/files', async (c) => {
   return c.json(results);
 });
 
+app.get('/api/projects/:projectId/drawing_versions', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+
+  const { results } = await db.prepare('SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ? ORDER BY dv.version_number DESC').bind(projectId).all();
+  return c.json(results);
+});
+
+app.get('/api/projects/:projectId/corrections', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+
+  const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
+  return c.json(results);
+});
+
 app.post('/api/projects/:projectId/files', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
@@ -507,6 +604,17 @@ app.post('/api/projects/:projectId/files', async (c) => {
     // Update status to COMPLETED and save actual byte count
     await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(byteCount, actionId).run();
     
+    if (category === 'draughtsman_version') {
+      const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
+      const vNum = ((latest?.v as number) || 0) + 1;
+      const corr = await db.prepare('SELECT id FROM corrections WHERE project_id = ? AND status = "OPEN"').bind(projectId).first();
+      
+      await db.prepare(`
+        INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(uuidv4(), projectId, actionId, vNum, uid, (corr?.id as string) || null).run();
+    }
+
     // Log activity
     await db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), projectId, 'FILE_UPLOADED', uid, user.role, `Uploaded ${category} file: ${sanitizedName}`

@@ -14,6 +14,7 @@ import '../../providers/assignment_providers.dart';
 import '../widgets/project_status_chip.dart';
 import '../widgets/file_attachment_card.dart';
 import '../widgets/file_upload_button.dart';
+import '../../domain/correction.dart';
 
 class DraughtsmanWorkspaceScreen extends ConsumerWidget {
   final String projectId;
@@ -85,6 +86,44 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: AppSpacing.xxl),
+
+          // Active Correction Alert (If any)
+          if (status == ProjectStatus.inProgress)
+            ref.watch(projectCorrectionsProvider(projectId)).maybeWhen(
+              data: (corrections) {
+                try {
+                  final activeCorrection = corrections.firstWhere((c) => c.status == CorrectionStatus.open);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorContainer,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      border: Border.all(color: AppColors.error),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: AppColors.error),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text('ACTIVE CORRECTION (Round ${activeCorrection.roundNumber})', 
+                              style: AppTypography.labelMono.copyWith(color: AppColors.onErrorContainer, fontWeight: FontWeight.bold)
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(activeCorrection.description, style: AppTypography.bodyMd.copyWith(color: AppColors.onErrorContainer)),
+                      ],
+                    ),
+                  );
+                } catch (_) {
+                  return const SizedBox.shrink();
+                }
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
 
           // Draughtsman Drawing Versions
           _buildFilesSection(

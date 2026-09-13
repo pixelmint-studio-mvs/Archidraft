@@ -4,6 +4,8 @@ import '../../auth/providers/auth_providers.dart';
 import '../../api/providers/api_providers.dart';
 import '../data/project_repository.dart';
 import '../domain/project.dart';
+import '../domain/correction.dart';
+import '../domain/drawing_version.dart';
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
@@ -37,4 +39,20 @@ final projectProvider = FutureProvider.family<Project?, String>((
 ) {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getProject(projectId);
+});
+
+final projectDrawingVersionsProvider = FutureProvider.family<List<DrawingVersion>, String>((
+  ref,
+  projectId,
+) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getDrawingVersions(projectId);
+});
+
+final projectCorrectionsProvider = FutureProvider.family<List<Correction>, String>((
+  ref,
+  projectId,
+) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getCorrections(projectId);
 });

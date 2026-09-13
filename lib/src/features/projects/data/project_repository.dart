@@ -1,4 +1,6 @@
 import '../domain/project.dart';
+import '../domain/correction.dart';
+import '../domain/drawing_version.dart';
 import '../../api/data/api_client.dart';
 
 /// Repository for project CRUD operations.
@@ -118,5 +120,50 @@ class ProjectRepository {
       '/api/projects/submit-drawing',
       body: {'projectId': projectId, 'actionId': actionId},
     );
+  }
+
+  Future<void> approveFinal({
+    required String projectId,
+    required String actionId,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/approve-final',
+      body: {'projectId': projectId, 'actionId': actionId},
+    );
+  }
+
+  Future<void> requestCorrection({
+    required String projectId,
+    required String actionId,
+    required String correctionId,
+    required String targetVersionId,
+    required String description,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/request-correction',
+      body: {
+        'projectId': projectId,
+        'actionId': actionId,
+        'correctionId': correctionId,
+        'targetVersionId': targetVersionId,
+        'description': description,
+      },
+    );
+  }
+
+  Future<List<DrawingVersion>> getDrawingVersions(String projectId) async {
+    final response = await _apiClient.get('/api/projects/$projectId/drawing_versions');
+    if (response is List) {
+      return response.map((json) => DrawingVersion.fromJson(json)).toList();
+    }
+    return [];
+  }
+
+  Future<List<Correction>> getCorrections(String projectId) async {
+    final response = await _apiClient.get('/api/projects/$projectId/corrections');
+    if (response is List) {
+      return response.map((json) => Correction.fromJson(json)).toList();
+    }
+    return [];
   }
 }

@@ -16,6 +16,8 @@ import 'package:archi_draft/src/features/projects/providers/file_providers.dart'
 import 'widgets/project_status_chip.dart';
 import 'widgets/file_attachment_card.dart';
 import 'widgets/file_upload_button.dart';
+import 'widgets/correction_dialog.dart';
+import 'package:uuid/uuid.dart';
 
 /// Detail screen for viewing a project.
 ///
@@ -154,6 +156,161 @@ class ProjectDetailScreen extends ConsumerWidget {
           ),
 
           const SizedBox(height: AppSpacing.xxl),
+
+          // DRAWING VERSIONS SECTION (For UNDER_CLIENT_REVIEW or COMPLETED)
+          if (status == ProjectStatus.underClientReview || status == ProjectStatus.completed) ...[
+            _buildDetailSection(
+              title: 'DRAWING VERSIONS',
+              fields: [],
+              customContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ref.watch(projectDrawingVersionsProvider(project.projectId)).when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.all(AppSpacing.md),
+                      child: CircularProgressIndicator(),
+                    ),
+                    error: (err, stack) => Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Text('Error loading versions: $err', style: TextStyle(color: AppColors.error)),
+                    ),
+                    data: (versions) {
+                      if (versions.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Text('No drawings submitted yet.', style: TextStyle(color: AppColors.outline)),
+                        );
+                      }
+                      
+                      final currentVersion = versions.first;
+
+                      return Column(
+                        children: [
+                          // Latest Version
+                          ListTile(
+                            title: Text('Version ${currentVersion.versionNumber} (Latest)', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Uploaded: ${DateFormat('MMM d, yyyy').format(currentVersion.createdAt)}'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.download),
+                              onPressed: () {
+                                // download currentVersion.fileId
+                              },
+                            ),
+                          ),
+                          
+                          // Actions if UNDER_CLIENT_REVIEW
+                          if (status == ProjectStatus.underClientReview)
+                            Padding(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => CorrectionDialog(
+                                            projectId: project.projectId,
+                                            targetVersionId: currentVersion.id,
+                                          ),
+                                        );
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.error,
+                                        side: const BorderSide(color: AppColors.error),
+                                      ),
+                                      child: const Text('Request Correction'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Approve Final Drawing'),
+                                            content: const Text('Are you sure you want to approve this drawing? This marks the project as COMPLETED.'),
+                                            actions: [
+                                              TextButton(onPressed: () => context.pop(false), child: const Text('Cancel')),
+                                              FilledButton(onPressed: () => context.pop(true), child: const Text('Approve')),
+                                            ],
+                                          ),
+                                        );
+                                        
+                                        if (confirm == true) {
+                                          try {
+                                            await ref.read(projectRepositoryProvider).approveFinal(
+                                              projectId: project.projectId,
+                                              actionId: const Uuid().v4(),
+                                            );
+                                            ref.invalidate(projectProvider(project.projectId));
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                                            }
+                                          }
+                                        }
+                                      },
+                                      child: const Text('Approve Final'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          
+                          if (versions.length > 1) ...[
+                            const Divider(),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                              child: Text('Previous Versions', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.outline)),
+                            ),
+                            ...versions.skip(1).map((v) => ListTile(
+                              title: Text('Version ${v.versionNumber}', style: AppTypography.bodyMd),
+                              subtitle: Text(DateFormat('MMM d, yyyy').format(v.createdAt)),
+                            )),
+                          ]
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+            
+            // CORRECTIONS SECTION
+            _buildDetailSection(
+              title: 'CORRECTIONS HISTORY',
+              fields: [],
+              customContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ref.watch(projectCorrectionsProvider(project.projectId)).when(
+                    loading: () => const Padding(padding: EdgeInsets.all(AppSpacing.md), child: CircularProgressIndicator()),
+                    error: (err, stack) => Padding(padding: const EdgeInsets.all(AppSpacing.md), child: Text('Error: $err')),
+                    data: (corrections) {
+                      if (corrections.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Text('No corrections requested.', style: TextStyle(color: AppColors.outline)),
+                        );
+                      }
+                      
+                      return Column(
+                        children: corrections.map((c) => ListTile(
+                          title: Text('Round ${c.roundNumber} - ${c.status.label}', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${c.description}\nRequested: ${DateFormat('MMM d, yyyy').format(c.createdAt)}'),
+                          isThreeLine: true,
+                        )).toList(),
+                      );
+                    }
+                  ),
+                ]
+              )
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
 
           // Reference Files Section
           _buildDetailSection(
