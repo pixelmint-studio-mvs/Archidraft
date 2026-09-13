@@ -52,3 +52,6 @@ app.*.map.json
 # lib/firebase_options.dart
 # firebase.json
 
+# Cloudflare Wrangler local state
+.wrangler/
+worker/.wrangler/
