@@ -5,7 +5,8 @@ compatibility_date = "2023-10-30"
 [[d1_databases]]
 binding = "DB"
 database_name = "archi-draft-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "af8d3312-5f6e-46ce-bcc1-dfa91e484cc0"
+# location = "weur" # Location hint for D1 (e.g. wnam, enam, weur, eeur, apac, oc)
 
 [[r2_buckets]]
 binding = "STORAGE"
