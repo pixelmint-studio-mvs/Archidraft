@@ -13,11 +13,7 @@ class BlueprintBackground extends StatelessWidget {
       color: AppColors.background,
       child: Stack(
         children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _BlueprintPainter(),
-            ),
-          ),
+          Positioned.fill(child: CustomPaint(painter: _BlueprintPainter())),
           child,
         ],
       ),
@@ -28,9 +24,10 @@ class BlueprintBackground extends StatelessWidget {
 class _BlueprintPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    // Stitch spec: grid lines are #E4E2E4 (surfaceVariant) at 60% opacity, 40px grid
     final paint = Paint()
-      ..color = const Color(0xFFE2E8F0).withOpacity(0.5)
-      ..strokeWidth = 0.5;
+      ..color = AppColors.surfaceVariant.withValues(alpha: 0.6)
+      ..strokeWidth = 1.0;
 
     const double gridSize = 40.0;
 

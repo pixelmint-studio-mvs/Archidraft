@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/forgot_password_screen.dart';
+import '../../features/auth/presentation/landing_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/role_selection_screen.dart';
 import '../../features/auth/presentation/verify_email_screen.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../features/profile/domain/user_role.dart';
@@ -32,7 +34,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateChangesProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/landing',
     refreshListenable: _GoRouterAuthNotifier(ref),
     redirect: (context, state) {
       final user = authState.value;
@@ -42,15 +44,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final currentPath = state.matchedLocation;
 
       // Public routes that don't require authentication
-      const publicPaths = ['/login', '/register', '/forgot-password'];
+      const publicPaths = [
+        '/landing',
+        '/role-selection',
+        '/login',
+        '/register',
+        '/forgot-password',
+      ];
       final isPublicRoute = publicPaths.contains(currentPath);
 
       // Not logged in
       if (!isLoggedIn) {
         // Already on a public route — stay there
         if (isPublicRoute) return null;
-        // Trying to access protected route — redirect to login
-        return '/login';
+        // Trying to access protected route — redirect to landing
+        return '/landing';
       }
 
       // Logged in but email not verified
@@ -68,7 +76,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final role = ref.read(currentUserRoleProvider);
 
       // Redirect from public routes, verify-email, or root to the role dashboard
-      if (isPublicRoute || currentPath == '/verify-email' || currentPath == '/') {
+      if (isPublicRoute ||
+          currentPath == '/verify-email' ||
+          currentPath == '/') {
         if (role == UserRole.client) return '/client/projects';
         if (role == UserRole.draughtsman) return '/draughtsman/studio';
         if (role == UserRole.admin) return '/admin/dashboard';
@@ -80,21 +90,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (currentPath.startsWith('/client') && role != UserRole.client) {
         return '/'; // Redirect unauthorized access
       }
-      if (currentPath.startsWith('/draughtsman') && role != UserRole.draughtsman) {
-        return '/'; 
+      if (currentPath.startsWith('/draughtsman') &&
+          role != UserRole.draughtsman) {
+        return '/';
       }
       if (currentPath.startsWith('/admin') && role != UserRole.admin) {
-        return '/'; 
+        return '/';
       }
 
       // Allow access
       return null;
     },
     routes: [
+      // ── PUBLIC ROUTES ──
       GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        path: '/landing',
+        builder: (context, state) => const LandingScreen(),
       ),
+      GoRoute(
+        path: '/role-selection',
+        builder: (context, state) => const RoleSelectionScreen(),
+      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
