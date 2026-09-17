@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/user_profile.dart';
+import '../../../notifications/presentation/widgets/notifications_badge.dart';
 
 /// Top App Bar using the Stitch glass effect.
 ///
@@ -77,11 +78,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded),
-                      color: AppColors.onSurfaceVariant,
-                      onPressed: () {},
-                    ),
+                    const NotificationsBadge(),
                     const SizedBox(width: AppSpacing.sm),
                     if (profile != null)
                       Container(

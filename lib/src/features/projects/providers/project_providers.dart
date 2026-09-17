@@ -6,6 +6,7 @@ import '../data/project_repository.dart';
 import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
+import '../domain/activity_log.dart';
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
@@ -55,4 +56,12 @@ final projectCorrectionsProvider = FutureProvider.family<List<Correction>, Strin
 ) {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getCorrections(projectId);
+});
+
+final projectActivityLogsProvider = FutureProvider.family<List<ActivityLog>, String>((
+  ref,
+  projectId,
+) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.fetchActivityLogs(projectId);
 });

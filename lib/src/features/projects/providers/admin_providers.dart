@@ -4,7 +4,10 @@ import 'package:uuid/uuid.dart';
 import '../../auth/domain/user_profile.dart';
 import '../../profile/providers/profile_providers.dart';
 import '../domain/project.dart';
+import '../domain/assignment.dart';
+import '../domain/admin_dashboard_metrics.dart';
 import 'project_providers.dart';
+import 'assignment_providers.dart';
 
 // ──────────────────────────────────────────
 // ADMIN PROJECT STREAMS
@@ -36,6 +39,21 @@ final activeProjectsProvider = FutureProvider<List<Project>>((ref) async {
 final draughtsmenListProvider = FutureProvider<List<UserProfile>>((ref) async {
   final repository = ref.watch(profileRepositoryProvider);
   return repository.getDraughtsmen();
+});
+
+// ──────────────────────────────────────────
+// ADMIN METRICS & DATA
+// ──────────────────────────────────────────
+
+final adminDashboardMetricsProvider = FutureProvider<AdminDashboardMetrics>((ref) async {
+  final repository = ref.watch(projectRepositoryProvider);
+  final data = await repository.getDashboardMetrics();
+  return AdminDashboardMetrics.fromMap(data);
+});
+
+final allAssignmentsProvider = FutureProvider<List<Assignment>>((ref) async {
+  final repository = ref.watch(assignmentRepositoryProvider);
+  return repository.getAssignments();
 });
 
 // ──────────────────────────────────────────

@@ -188,6 +188,9 @@ app.post('/api/projects/submit-drawing', async (c) => {
     db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'OPEN'`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', 'Draughtsman submitted the drawing for client review.'
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.client_id, projectId, 'DRAWING_SUBMITTED', 'Drawing Submitted', 'A drawing has been submitted for your review.'
     )
   ];
   await db.batch(batch);
@@ -258,9 +261,12 @@ app.post('/api/projects/approve-final', async (c) => {
   if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
 
   const batch = [
-    db.prepare(`UPDATE projects SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.draughtsman_id, projectId, 'PROJECT_COMPLETED', 'Project Approved', 'The client has approved the final drawing.'
     )
   ];
   await db.batch(batch);
@@ -298,6 +304,9 @@ app.post('/api/projects/request-correction', async (c) => {
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction (Round ${newRound}).`
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.draughtsman_id, projectId, 'CORRECTION_REQUESTED', 'Correction Requested', `Client has requested a correction (Round ${newRound}).`
     )
   ];
   await db.batch(batch);
@@ -328,6 +337,9 @@ app.post('/api/projects/assign', async (c) => {
     db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin assigned draughtsman: ' + dMan.name
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), draughtsmanId, projectId, 'DRAUGHTSMAN_ASSIGNED', 'New Assignment', 'You have been assigned to a new project.'
     )
   ];
   await db.batch(batch);
@@ -399,6 +411,9 @@ app.post('/api/assignments/accept', async (c) => {
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, 'DRAUGHTSMAN', 'Draughtsman accepted the assignment.'
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.client_id, projectId, 'ASSIGNMENT_ACCEPTED', 'Project In Progress', 'A draughtsman has accepted and started your project.'
     )
   ];
   await db.batch(batch);
@@ -443,10 +458,49 @@ app.get('/api/assignments', async (c) => {
   const user = await getUser(db, uid);
   
   if (!user) return c.json({ error: 'User not found' }, 404);
-  if (user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can view assignments' }, 403);
+  if (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+
+  if (user.role === 'STUDIO_ADMIN') {
+    const { results } = await db.prepare('SELECT * FROM assignments ORDER BY created_at DESC').all();
+    return c.json(results);
+  }
 
   const { results } = await db.prepare('SELECT * FROM assignments WHERE draughtsman_id = ? ORDER BY created_at DESC').bind(uid).all();
   return c.json(results);
+});
+
+// ==========================================
+// ADMIN DASHBOARD
+// ==========================================
+
+app.get('/api/admin/dashboard', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  
+  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+
+  const batch = [
+    db.prepare('SELECT COUNT(*) as c FROM projects'),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status IN ('IN_PROGRESS', 'WAITING_ACCEPTANCE', 'UNDER_CLIENT_REVIEW')"),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'WAITING_ASSIGNMENT'"),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'UNDER_CLIENT_REVIEW'"),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'COMPLETED'"),
+    db.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'DRAUGHTSMAN'"),
+    db.prepare("SELECT COUNT(*) as c FROM assignments WHERE status = 'PENDING'")
+  ];
+
+  const results = await db.batch(batch);
+
+  return c.json({
+    totalProjects: (results[0].results?.[0] as any)?.c || 0,
+    activeProjects: (results[1].results?.[0] as any)?.c || 0,
+    projectsAwaitingAssignment: (results[2].results?.[0] as any)?.c || 0,
+    projectsUnderClientReview: (results[3].results?.[0] as any)?.c || 0,
+    completedProjects: (results[4].results?.[0] as any)?.c || 0,
+    activeDraughtsmen: (results[5].results?.[0] as any)?.c || 0,
+    pendingAssignments: (results[6].results?.[0] as any)?.c || 0,
+  });
 });
 
 // ==========================================
@@ -658,6 +712,42 @@ app.get('/api/files/:fileId/download', async (c) => {
   headers.set('Content-Disposition', `attachment; filename="${fileMeta.sanitized_name}"`);
 
   return new Response(object.body, { headers });
+});
+
+app.get('/api/projects/:projectId/activity', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const projectId = c.req.param('projectId');
+
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+
+  const logs = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC').bind(projectId).all();
+  return c.json(logs.results);
+});
+
+app.get('/api/notifications', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const notifs = await db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC').bind(uid).all();
+  return c.json(notifs.results);
+});
+
+app.post('/api/notifications/:id/read', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const id = c.req.param('id');
+  const notif = await db.prepare('SELECT * FROM notifications WHERE id = ?').bind(id).first();
+  if (!notif) return c.json({ error: 'Notification not found' }, 404);
+  if (notif.user_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').bind(id).run();
+  return c.json({ success: true });
 });
 
 export default app;

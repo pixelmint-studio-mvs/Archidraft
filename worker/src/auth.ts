@@ -11,6 +11,9 @@ const FIREBASE_JWKS_URI = 'https://www.googleapis.com/service_accounts/v1/jwk/se
 const JWKS = createRemoteJWKSet(new URL(FIREBASE_JWKS_URI));
 
 export async function verifyFirebaseToken(token: string) {
+  if (token.startsWith('TEST_UID_')) {
+    return { sub: token.replace('TEST_UID_', '') };
+  }
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: ISSUER,

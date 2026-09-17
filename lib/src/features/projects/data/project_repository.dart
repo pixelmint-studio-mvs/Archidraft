@@ -1,6 +1,7 @@
 import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
+import '../domain/activity_log.dart';
 import '../../api/data/api_client.dart';
 
 /// Repository for project CRUD operations.
@@ -41,6 +42,11 @@ class ProjectRepository {
   Future<List<Project>> getClientProjects() async {
     final response = await _apiClient.get('/api/projects');
     return (response as List).map((p) => Project.fromMap(p)).toList();
+  }
+
+  Future<Map<String, dynamic>> getDashboardMetrics() async {
+    final response = await _apiClient.get('/api/admin/dashboard');
+    return response as Map<String, dynamic>;
   }
 
   Future<void> submitProject({
@@ -163,6 +169,14 @@ class ProjectRepository {
     final response = await _apiClient.get('/api/projects/$projectId/corrections');
     if (response is List) {
       return response.map((json) => Correction.fromJson(json)).toList();
+    }
+    return [];
+  }
+
+  Future<List<ActivityLog>> fetchActivityLogs(String projectId) async {
+    final response = await _apiClient.get('/api/projects/$projectId/activity');
+    if (response is List) {
+      return response.map((json) => ActivityLog.fromJson(json)).toList();
     }
     return [];
   }

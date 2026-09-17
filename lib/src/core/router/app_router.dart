@@ -17,6 +17,9 @@ import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
+import '../../features/projects/presentation/admin/admin_projects_screen.dart';
+import '../../features/projects/presentation/admin/admin_assignments_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
@@ -133,6 +136,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
+          // ── COMMON ROUTES ──
+          GoRoute(
+            path: '/notifications',
+            builder: (context, state) => const NotificationsScreen(),
+          ),
           // ── CLIENT ROUTES ──
           GoRoute(
             path: '/client/projects',
@@ -206,6 +214,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/dashboard',
             builder: (context, state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/admin/projects',
+            builder: (context, state) => const AdminProjectsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/assignments',
+            builder: (context, state) => const AdminAssignmentsScreen(),
           ),
           GoRoute(
             path: '/admin/projects/:projectId',

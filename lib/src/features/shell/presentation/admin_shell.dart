@@ -22,6 +22,16 @@ class AdminShell extends StatelessWidget {
       route: '/admin/dashboard',
     ),
     NavDestination(
+      label: 'Projects',
+      icon: Icons.folder_outlined,
+      route: '/admin/projects',
+    ),
+    NavDestination(
+      label: 'Assignments',
+      icon: Icons.assignment_outlined,
+      route: '/admin/assignments',
+    ),
+    NavDestination(
       label: 'Users',
       icon: Icons.people_outline_rounded,
       route: '/admin/users',
@@ -36,8 +46,10 @@ class AdminShell extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/admin/dashboard')) return 0;
-    if (location.startsWith('/admin/users')) return 1;
-    if (location.startsWith('/admin/system')) return 2;
+    if (location.startsWith('/admin/projects')) return 1;
+    if (location.startsWith('/admin/assignments')) return 2;
+    if (location.startsWith('/admin/users')) return 3;
+    if (location.startsWith('/admin/system')) return 4;
     return 0; // Default
   }
 

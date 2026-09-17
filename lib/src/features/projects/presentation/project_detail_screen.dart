@@ -13,7 +13,9 @@ import 'package:archi_draft/src/features/projects/providers/project_form_control
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 
+import 'admin/admin_project_detail_screen.dart';
 import 'widgets/project_status_chip.dart';
+import 'widgets/activity_timeline.dart';
 import 'widgets/file_attachment_card.dart';
 import 'widgets/file_upload_button.dart';
 import 'widgets/correction_dialog.dart';
@@ -198,6 +200,32 @@ class ProjectDetailScreen extends ConsumerWidget {
                             ),
                           ),
                           
+                          // Notice about Redline Viewer gap
+                          if (status == ProjectStatus.underClientReview)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                              child: Container(
+                                padding: const EdgeInsets.all(AppSpacing.sm),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Expanded(
+                                      child: Text(
+                                        'Note: The integrated Redline/Markup viewer is planned for a future update. For now, please download the file to review and describe your corrections below.',
+                                        style: AppTypography.bodySm.copyWith(color: AppColors.primary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            
                           // Actions if UNDER_CLIENT_REVIEW
                           if (status == ProjectStatus.underClientReview)
                             Padding(
@@ -308,6 +336,17 @@ class ProjectDetailScreen extends ConsumerWidget {
                   ),
                 ]
               )
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+
+            // AUDIT / TIMELINE SECTION
+            _buildDetailSection(
+              title: 'ACTIVITY TIMELINE',
+              fields: [],
+              customContent: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: ActivityTimeline(projectId: project.projectId),
+              ),
             ),
             const SizedBox(height: AppSpacing.xxl),
           ],
