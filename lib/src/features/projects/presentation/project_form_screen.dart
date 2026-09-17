@@ -416,8 +416,12 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
             if (formState.currentStep < formState.totalSteps - 1)
               FilledButton(
                 onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    controller.nextStep();
+                  print('Next button pressed. Validating form...');
+                  final isValid = _formKey.currentState?.validate() ?? false;
+                  print('Form validation result: $isValid');
+                  if (isValid) {
+                    final nextSuccess = controller.nextStep();
+                    print('nextStep() returned $nextSuccess');
                     setState(() => _autovalidate = false);
                   } else {
                     setState(() => _autovalidate = true);
@@ -532,6 +536,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
+          key: ValueKey(label),
           initialValue: value,
           onChanged: onChanged,
           validator: validator,
@@ -601,6 +606,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<String>(
+          key: ValueKey(label),
           initialValue: value,
           items: items,
           onChanged: onChanged,

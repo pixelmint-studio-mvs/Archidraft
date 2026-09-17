@@ -117,6 +117,23 @@ app.get('/api/projects', async (c) => {
   return c.json(results);
 });
 
+app.get('/api/projects/:projectId', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+
+  return c.json(project);
+});
+
 // Save a draft project
 app.post('/api/projects', async (c) => {
   const uid = c.get('uid');
@@ -445,7 +462,13 @@ app.get('/api/assignments', async (c) => {
   if (!user) return c.json({ error: 'User not found' }, 404);
   if (user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can view assignments' }, 403);
 
-  const { results } = await db.prepare('SELECT * FROM assignments WHERE draughtsman_id = ? ORDER BY created_at DESC').bind(uid).all();
+  const { results } = await db.prepare(`
+    SELECT a.*, p.project_name, p.project_address, p.drawing_type 
+    FROM assignments a 
+    JOIN projects p ON a.project_id = p.id 
+    WHERE a.draughtsman_id = ? 
+    ORDER BY a.created_at DESC
+  `).bind(uid).all();
   return c.json(results);
 });
 

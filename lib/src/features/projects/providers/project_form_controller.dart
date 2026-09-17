@@ -175,12 +175,27 @@ class ProjectFormController extends Notifier<ProjectFormState> {
   /// Advances to the next step if the current step is valid.
   /// Returns `true` if navigation succeeded.
   bool nextStep() {
-    if (state.currentStep >= state.totalSteps - 1) return false;
-    if (!state.isStepValid(state.currentStep)) return false;
+    print('nextStep called. currentStep: ${state.currentStep}');
+    if (state.currentStep >= state.totalSteps - 1) {
+      print('Failed: currentStep >= totalSteps');
+      return false;
+    }
+    
+    final isValid = state.isStepValid(state.currentStep);
+    print('isStepValid(${state.currentStep}) = $isValid');
+    if (state.currentStep == 1) {
+      print('isStep2Valid details:');
+      print('drawingName: "${state.drawingName}" -> validator: ${ProjectValidators.drawingName(state.drawingName)}');
+      print('drawingType: "${state.drawingType}" -> validator: ${ProjectValidators.drawingType(state.drawingType)}');
+    }
+
+    if (!isValid) return false;
+    
     state = state.copyWith(
       currentStep: state.currentStep + 1,
       clearError: true,
     );
+    print('Moved to step ${state.currentStep}');
     return true;
   }
 

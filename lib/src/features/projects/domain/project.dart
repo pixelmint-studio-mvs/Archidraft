@@ -90,31 +90,40 @@ class Project {
   /// Whether this project can be edited by the client.
   bool get isEditable => projectStatus?.isEditable ?? false;
 
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   /// Creates a [Project] from a Map (API response).
   factory Project.fromMap(Map<String, dynamic> data) {
     return Project(
-      projectId: data['id'] as String? ?? '',
-      projectName: data['project_name'] as String? ?? '',
-      projectAddress: data['project_address'] as String? ?? '',
-      drawingName: data['drawing_name'] as String? ?? '',
-      drawingType: data['drawing_type'] as String? ?? '',
-      projectArea: (data['project_area'] as num?)?.toDouble(),
-      estimatedAmount: (data['estimated_amount'] as num?)?.toDouble(),
-      clientId: data['client_id'] as String? ?? '',
-      assignedDraughtsmanId: data['draughtsman_id'] as String?,
-      currentAssignmentId: data['current_assignment_id'] as String?,
-      status: data['status'] as String? ?? 'DRAFT',
-      correctionRound: data['correction_round'] as int? ?? 0,
+      projectId: data['id']?.toString() ?? '',
+      projectName: data['project_name']?.toString() ?? '',
+      projectAddress: data['project_address']?.toString() ?? '',
+      drawingName: data['drawing_name']?.toString() ?? '',
+      drawingType: data['drawing_type']?.toString() ?? '',
+      projectArea: _parseDouble(data['project_area']),
+      estimatedAmount: _parseDouble(data['estimated_amount']),
+      clientId: data['client_id']?.toString() ?? '',
+      assignedDraughtsmanId: data['draughtsman_id']?.toString(),
+      currentAssignmentId: data['current_assignment_id']?.toString(),
+      status: data['status']?.toString() ?? 'DRAFT',
+      correctionRound: data['correction_round'] is int 
+          ? data['correction_round'] as int 
+          : int.tryParse(data['correction_round']?.toString() ?? '') ?? 0,
       createdAt: data['created_at'] != null
-          ? DateTime.tryParse(data['created_at'])
+          ? DateTime.tryParse(data['created_at'].toString())
           : null,
       submittedAt: data['submitted_at'] != null
-          ? DateTime.tryParse(data['submitted_at'])
+          ? DateTime.tryParse(data['submitted_at'].toString())
           : null,
       completedAt: data['completed_at'] != null
-          ? DateTime.tryParse(data['completed_at'])
+          ? DateTime.tryParse(data['completed_at'].toString())
           : null,
-      lastActionId: data['last_action_id'] as String?,
+      lastActionId: data['last_action_id']?.toString(),
     );
   }
 

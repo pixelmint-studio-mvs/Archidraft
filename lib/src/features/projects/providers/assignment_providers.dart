@@ -105,4 +105,34 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  Future<bool> uploadDrawingStream({
+    required String projectId,
+    required Stream<List<int>> stream,
+    required int length,
+    required String fileName,
+    required String contentType,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final actionId = const Uuid().v4();
+
+      await repository.uploadDrawingStream(
+        projectId: projectId,
+        stream: stream,
+        length: length,
+        fileName: fileName,
+        contentType: contentType,
+        actionId: actionId,
+      );
+
+      ref.invalidate(projectDrawingVersionsProvider(projectId));
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
 }

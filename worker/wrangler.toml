@@ -1,11 +1,12 @@
 name = "archi-draft-worker"
 main = "src/index.ts"
 compatibility_date = "2023-10-30"
+account_id = "06fbb6f8b2e1e65612347252ea10574c"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "archi-draft-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "af8d3312-5f6e-46ce-bcc1-dfa91e484cc0"
 
 [[r2_buckets]]
 binding = "STORAGE"
