@@ -1,18 +1,13 @@
-
-
 class DrawingVersion {
   final String id;
   final String projectId;
   final String fileId;
   final int versionNumber;
   final String uploadedBy;
-  final String? correctionId;
-  final DateTime createdAt;
-  
-  // Joined fields from files table
   final String? originalName;
   final String? sanitizedName;
-  final int? size;
+  final int size;
+  final DateTime? createdAt;
 
   const DrawingVersion({
     required this.id,
@@ -20,25 +15,25 @@ class DrawingVersion {
     required this.fileId,
     required this.versionNumber,
     required this.uploadedBy,
-    this.correctionId,
-    required this.createdAt,
     this.originalName,
     this.sanitizedName,
-    this.size,
+    this.size = 0,
+    this.createdAt,
   });
 
-  factory DrawingVersion.fromJson(Map<String, dynamic> json) {
+  factory DrawingVersion.fromMap(Map<String, dynamic> data) {
     return DrawingVersion(
-      id: json['id'] as String,
-      projectId: json['project_id'] as String,
-      fileId: json['file_id'] as String,
-      versionNumber: json['version_number'] as int,
-      uploadedBy: json['uploaded_by'] as String,
-      correctionId: json['correction_id'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      originalName: json['original_name'] as String?,
-      sanitizedName: json['sanitized_name'] as String?,
-      size: json['size'] as int?,
+      id: data['id'] as String? ?? '',
+      projectId: data['project_id'] as String? ?? '',
+      fileId: data['file_id'] as String? ?? '',
+      versionNumber: data['version_number'] as int? ?? 1,
+      uploadedBy: data['uploaded_by'] as String? ?? '',
+      originalName: data['original_name'] as String?,
+      sanitizedName: data['sanitized_name'] as String?,
+      size: data['size'] as int? ?? 0,
+      createdAt: data['created_at'] != null
+          ? DateTime.tryParse(data['created_at'])
+          : null,
     );
   }
 }

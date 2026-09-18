@@ -142,11 +142,33 @@ class _AssignmentCard extends StatelessWidget {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Project ID: ${assignment.projectId}', // ideally we fetch the project details to show name, but keeping it simple
-                    style: AppTypography.buttonText,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          assignment.projectName ?? 'Project ${assignment.projectId.substring(0, 8)}',
+                          style: AppTypography.headlineSmMobile,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (assignment.projectAddress != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            assignment.projectAddress!,
+                            style: AppTypography.bodySm.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ]
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: AppSpacing.md),
                   _AssignmentStatusChip(
                     status:
                         assignment.assignmentStatus ?? AssignmentStatus.pending,
@@ -154,13 +176,25 @@ class _AssignmentCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              if (assignment.createdAt != null)
-                Text(
-                  'Assigned on: ${DateFormat('MMM d, yyyy').format(assignment.createdAt!)}',
-                  style: AppTypography.bodySm.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (assignment.drawingType != null)
+                    Text(
+                      assignment.drawingType!,
+                      style: AppTypography.labelMono,
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  if (assignment.createdAt != null)
+                    Text(
+                      DateFormat('MMM d, yyyy').format(assignment.createdAt!),
+                      style: AppTypography.bodySm.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

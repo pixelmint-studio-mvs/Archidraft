@@ -29,11 +29,8 @@ class ProjectRepository {
 
   Future<Project?> getProject(String projectId) async {
     try {
-      final response = await _apiClient.get('/api/projects'); // the API returns all, we should really add a /api/projects/:id route. I'll filter here for now.
-      final projects = (response as List)
-          .map((p) => Project.fromMap(p))
-          .toList();
-      return projects.firstWhere((p) => p.projectId == projectId);
+      final response = await _apiClient.get('/api/projects/$projectId');
+      return Project.fromMap(response);
     } catch (e) {
       return null;
     }

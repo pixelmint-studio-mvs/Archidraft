@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -119,15 +121,7 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
               ],
             ),
           ] else if (status == AssignmentStatus.accepted) ...[
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  context.push('/draughtsman/workspace/${project.projectId}');
-                },
-                child: const Text('Open Workspace'),
-              ),
-            ),
+            _EngineerSubmissionPortal(project: project),
           ],
         ],
       ),
@@ -214,5 +208,114 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _EngineerSubmissionPortal extends ConsumerWidget {
+  final Project project;
+
+  const _EngineerSubmissionPortal({required this.project});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final versionsAsync = ref.watch(projectDrawingVersionsProvider(project.projectId));
+    final isLoading = ref.watch(draughtsmanActionsControllerProvider).isLoading;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Engineer Submission Portal',
+          style: AppTypography.headlineSm.copyWith(color: AppColors.onSurface),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        
+        OutlinedButton.icon(
+          onPressed: isLoading ? null : () => _handleUpload(context, ref),
+          icon: const Icon(Icons.upload_file),
+          label: const Text('Upload CAD Drawing'),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        
+        versionsAsync.when(
+          loading: () => const CircularProgressIndicator(),
+          error: (e, _) => Text('Error loading versions: $e'),
+          data: (versions) {
+            if (versions.isEmpty) {
+              return const Text('No drawings uploaded yet.');
+            }
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: versions.length,
+              itemBuilder: (context, index) {
+                final v = versions[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.insert_drive_file, color: AppColors.primary),
+                  title: Text(v.originalName ?? 'Unknown File', style: AppTypography.bodyMd),
+                  subtitle: Text('Version ${v.versionNumber} • ${v.createdAt != null ? DateFormat('MMM d, yyyy').format(v.createdAt!) : ''}'),
+                );
+              },
+            );
+          },
+        ),
+        
+        const SizedBox(height: AppSpacing.xxl),
+        
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: isLoading ? null : () => _handleSubmit(context, ref),
+            child: const Text('Submit for Client Review'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleUpload(BuildContext context, WidgetRef ref) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'zip'],
+      withReadStream: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.readStream == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File stream not available on this platform.')));
+      }
+      return;
+    }
+
+    final success = await ref.read(draughtsmanActionsControllerProvider.notifier).uploadDrawingStream(
+      projectId: project.projectId,
+      stream: file.readStream!,
+      length: file.size,
+      fileName: file.name,
+      contentType: 'application/octet-stream',
+    );
+
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File uploaded successfully')));
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload failed')));
+    }
+  }
+
+  Future<void> _handleSubmit(BuildContext context, WidgetRef ref) async {
+    final versions = ref.read(projectDrawingVersionsProvider(project.projectId)).value ?? [];
+    if (versions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload at least one drawing first.')));
+      return;
+    }
+
+    final success = await ref.read(draughtsmanActionsControllerProvider.notifier).submitDrawing(projectId: project.projectId);
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted for client review.')));
+      context.pop();
+    }
   }
 }
