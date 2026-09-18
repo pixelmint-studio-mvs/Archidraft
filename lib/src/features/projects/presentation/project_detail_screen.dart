@@ -198,7 +198,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                           // Latest Version
                           ListTile(
                             title: Text('Version ${currentVersion.versionNumber} (Latest)', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Uploaded: ${DateFormat('MMM d, yyyy').format(currentVersion.createdAt)}'),
+                            subtitle: Text('Uploaded: ${DateFormat('MMM d, yyyy').format(currentVersion.createdAt ?? DateTime.now())}'),
                             trailing: IconButton(
                               icon: const Icon(Icons.download),
                               onPressed: () {
@@ -302,7 +302,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                             ),
                             ...versions.skip(1).map((v) => ListTile(
                               title: Text('Version ${v.versionNumber}', style: AppTypography.bodyMd),
-                              subtitle: Text(DateFormat('MMM d, yyyy').format(v.createdAt)),
+                              subtitle: Text(DateFormat('MMM d, yyyy').format(v.createdAt ?? DateTime.now())),
                             )),
                           ]
                         ],

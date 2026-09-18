@@ -125,6 +125,24 @@ class ProjectRepository {
     );
   }
 
+  Future<void> uploadDrawingStream({
+    required String projectId,
+    required Stream<List<int>> stream,
+    required int length,
+    required String fileName,
+    required String contentType,
+    required String actionId,
+  }) async {
+    await _apiClient.postFileStream(
+      '/api/projects/$projectId/files?category=drawing',
+      stream,
+      length,
+      fileName: fileName,
+      contentType: contentType,
+      actionId: actionId,
+    );
+  }
+
   Future<void> approveFinal({
     required String projectId,
     required String actionId,
@@ -157,7 +175,9 @@ class ProjectRepository {
   Future<List<DrawingVersion>> getDrawingVersions(String projectId) async {
     final response = await _apiClient.get('/api/projects/$projectId/drawing_versions');
     if (response is List) {
-      return response.map((json) => DrawingVersion.fromJson(json)).toList();
+      return response
+          .map((item) => DrawingVersion.fromMap(item as Map<String, dynamic>))
+          .toList();
     }
     return [];
   }

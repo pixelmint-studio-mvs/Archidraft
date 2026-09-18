@@ -226,7 +226,7 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
       children: [
         Text(
           'Engineer Submission Portal',
-          style: AppTypography.headlineSm.copyWith(color: AppColors.onSurface),
+          style: AppTypography.headlineSmMobile.copyWith(color: AppColors.onSurface),
         ),
         const SizedBox(height: AppSpacing.lg),
         
@@ -275,28 +275,22 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
   }
 
   Future<void> _handleUpload(BuildContext context, WidgetRef ref) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'zip'],
-      withReadStream: true,
     );
-    if (result == null || result.files.isEmpty) return;
+    if (result.isEmpty) return;
 
-    final file = result.files.first;
-    if (file.readStream == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File stream not available on this platform.')));
-      }
-      return;
-    }
+    final file = result.first;
+    final fileStream = file.readAsByteStream();
 
     final success = await ref.read(draughtsmanActionsControllerProvider.notifier).uploadDrawingStream(
-      projectId: project.projectId,
-      stream: file.readStream!,
-      length: file.size,
-      fileName: file.name,
-      contentType: 'application/octet-stream',
-    );
+          projectId: project.projectId,
+          stream: fileStream,
+          length: file.lengthSync() ?? 0,
+          fileName: file.name,
+          contentType: 'application/octet-stream',
+        );
 
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File uploaded successfully')));

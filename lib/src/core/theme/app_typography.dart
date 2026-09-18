@@ -36,6 +36,14 @@ class AppTypography {
     height: 32 / 24,
   );
 
+  /// Small headline (mobile) — 20px, SemiBold
+  /// Usage: Sub-section headings (mobile)
+  static TextStyle headlineSmMobile = GoogleFonts.inter(
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    height: 28 / 20,
+  );
+
   /// Body medium — 16px, Regular
   /// Usage: Body text, descriptions, paragraphs
   static TextStyle bodyMd = GoogleFonts.inter(

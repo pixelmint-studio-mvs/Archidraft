@@ -22,42 +22,34 @@ class FileUploadButton extends ConsumerStatefulWidget {
 
 class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
   bool _isUploading = false;
-  final _uuid = const Uuid();
+  int _fileSize = 0;
+  final Uuid _uuid = const Uuid();
 
   // Cache to ensure retries of the same file pick reuse the same actionId.
   final Map<String, String> _actionIdCache = {};
 
   Future<void> _pickAndUpload() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip'],
-      withReadStream: true,
-      withData: false, // Using streams to avoid high memory usage
     );
 
-    if (result == null || result.files.isEmpty) return;
+    if (result.isEmpty) return;
 
-    final file = result.files.first;
+    final file = result.first;
 
-    if (file.size > 50 * 1024 * 1024) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('File exceeds 50MB limit')));
-      return;
-    }
-
-    final stream = file.readStream;
-    if (stream == null) {
+    final fileSize = file.lengthSync() ?? 0;
+    if (fileSize > 50 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to read file stream')),
+        const SnackBar(content: Text('File must be less than 50MB')),
       );
       return;
     }
 
     setState(() {
       _isUploading = true;
+      _fileSize = fileSize;
     });
 
     try {
@@ -76,7 +68,7 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
 
       // Generate a deterministic actionId for this upload attempt based on file properties.
       // If the exact same file selection fails, it reuses the actionId to satisfy idempotency.
-      final cacheKey = '${file.name}_${file.size}';
+      final cacheKey = '${file.name}_$fileSize';
       final actionId = _actionIdCache.putIfAbsent(cacheKey, () => _uuid.v4());
 
       await repository.uploadFile(
@@ -84,8 +76,8 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
         category: widget.category,
         fileName: file.name,
         contentType: contentType,
-        stream: stream,
-        length: file.size,
+        stream: file.readAsByteStream(),
+        length: fileSize,
         actionId: actionId,
       );
 
@@ -109,6 +101,7 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
       if (mounted) {
         setState(() {
           _isUploading = false;
+          _fileSize = 0;
         });
       }
     }
@@ -119,10 +112,18 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
     return ElevatedButton.icon(
       onPressed: _isUploading ? null : _pickAndUpload,
       icon: _isUploading
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_fileSize > 0)
+                  Text('${(_fileSize / 1024 / 1024).toStringAsFixed(2)} MB'),
+                const SizedBox(width: 8),
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
             )
           : const Icon(Icons.upload_file),
       label: const Text('Upload File'),
