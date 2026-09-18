@@ -13,7 +13,11 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-app.use('*', cors());
+app.use('*', cors({
+  origin: '*',
+  allowHeaders: ['X-File-Name', 'X-Action-Id', 'Content-Type', 'Authorization', 'Content-Length'],
+  allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
+}));
 
 // Auth Middleware
 app.use('*', async (c, next) => {
@@ -594,8 +598,9 @@ app.post('/api/projects/:projectId/files', async (c) => {
   const actionId = c.req.header('X-Action-Id');
   if (!actionId) return c.json({ error: 'X-Action-Id header is required' }, 400);
 
-  const fileName = c.req.header('X-File-Name');
-  if (!fileName) return c.json({ error: 'X-File-Name header is required' }, 400);
+  const rawFileName = c.req.header('X-File-Name');
+  if (!rawFileName) return c.json({ error: 'X-File-Name header is required' }, 400);
+  const fileName = decodeURIComponent(rawFileName);
 
   // Validate extension server-side
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -658,28 +663,19 @@ app.post('/api/projects/:projectId/files', async (c) => {
     if (!c.req.raw.body) throw new Error('Empty body');
 
     const MAX_SIZE = 50 * 1024 * 1024;
-    let byteCount = 0;
+    const contentLengthHeader = c.req.header('Content-Length');
+    const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+    
+    if (contentLength > MAX_SIZE) {
+      throw new Error('File exceeds 50MB limit');
+    }
 
-    // True server-side 50MB limit using TransformStream
-    const transform = new TransformStream({
-      transform(chunk, controller) {
-        byteCount += chunk.length;
-        if (byteCount > MAX_SIZE) {
-          controller.error(new Error('File exceeds 50MB limit'));
-        } else {
-          controller.enqueue(chunk);
-        }
-      }
-    });
-
-    const streamToR2 = c.req.raw.body.pipeThrough(transform);
-
-    await c.env.STORAGE.put(objectKey, streamToR2, {
+    await c.env.STORAGE.put(objectKey, c.req.raw.body, {
       httpMetadata: { contentType: contentType }
     });
 
     // Update status to COMPLETED and save actual byte count
-    await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(byteCount, actionId).run();
+    await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(contentLength, actionId).run();
     
     if (category === 'draughtsman_version') {
       const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
@@ -735,6 +731,46 @@ app.get('/api/files/:fileId/download', async (c) => {
   headers.set('Content-Disposition', `attachment; filename="${fileMeta.sanitized_name}"`);
 
   return new Response(object.body, { headers });
+});
+
+app.delete('/api/projects/:projectId/files/:fileId', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const fileId = c.req.param('fileId');
+
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  // Authorization checks
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+
+  const fileMeta = await db.prepare('SELECT * FROM files WHERE id = ? AND project_id = ?').bind(fileId, projectId).first();
+  if (!fileMeta) return c.json({ error: 'File not found or does not belong to project' }, 404);
+
+  try {
+    // Delete from R2
+    if (fileMeta.object_key) {
+      await c.env.STORAGE.delete(fileMeta.object_key as string);
+    }
+    
+    // Delete from D1
+    await db.prepare('DELETE FROM files WHERE id = ?').bind(fileId).run();
+
+    // Log activity
+    await db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), projectId, 'FILE_DELETED', uid, user.role, `Deleted file: ${fileMeta.sanitized_name}`
+    ).run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('Delete failed:', err);
+    return c.json({ error: 'Delete failed' }, 500);
+  }
 });
 
 app.get('/api/projects/:projectId/activity', async (c) => {

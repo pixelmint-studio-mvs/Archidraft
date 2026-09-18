@@ -41,6 +41,16 @@ class ApiClient {
     return _handleResponse(response);
   }
 
+  Future<dynamic> delete(String path) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      uri,
+      headers: headers,
+    );
+    return _handleResponse(response);
+  }
+
   Future<dynamic> patch(String path, {Map<String, dynamic>? body}) async {
     final uri = Uri.parse('$baseUrl$path');
     final headers = await _getHeaders();
@@ -71,18 +81,13 @@ class ApiClient {
     }
     final token = await user.getIdToken();
     
-    final request = http.StreamedRequest('POST', uri)
+    final request = http.Request('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Content-Type'] = contentType
-      ..headers['X-File-Name'] = fileName
-      ..headers['X-Action-Id'] = actionId
-      ..headers['Content-Length'] = length.toString();
+      ..headers['X-File-Name'] = Uri.encodeComponent(fileName)
+      ..headers['X-Action-Id'] = actionId;
 
-    stream.listen(
-      (data) => request.sink.add(data),
-      onDone: () => request.sink.close(),
-      onError: (e) => request.sink.addError(e),
-    );
+    request.bodyBytes = await http.ByteStream(stream).toBytes();
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
@@ -109,7 +114,7 @@ class ApiClient {
     }
   }
 
-  Future<void> downloadFileStream(String path, String savePath) async {
+  Future<void> downloadFileStream(String path, String savePath, {bool openInBrowser = false}) async {
     final uri = Uri.parse('$baseUrl$path');
     final user = _firebaseAuth.currentUser;
     if (user == null) {
@@ -125,7 +130,7 @@ class ApiClient {
       final response = await client.send(request);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        await platform_io.saveFileStream(response.stream, savePath);
+        await platform_io.saveFileStream(response.stream, savePath, openInBrowser: openInBrowser);
       } else {
         final errorBody = await response.stream.bytesToString();
         throw Exception('API Error: ${response.statusCode} - $errorBody');

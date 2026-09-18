@@ -37,11 +37,16 @@ class FileRepository {
     return ProjectFile.fromJson(response);
   }
 
-  Future<void> downloadFile(String fileId, String savePath) async {
+  Future<void> downloadFile(String fileId, String savePath, {bool openInBrowser = false}) async {
     return await _apiClient.downloadFileStream(
       '/api/files/$fileId/download',
       savePath,
+      openInBrowser: openInBrowser,
     );
+  }
+
+  Future<void> deleteFile(String projectId, String fileId) async {
+    await _apiClient.delete('/api/projects/$projectId/files/$fileId');
   }
 }
 

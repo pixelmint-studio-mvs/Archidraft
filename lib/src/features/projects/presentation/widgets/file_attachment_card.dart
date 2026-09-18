@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../domain/project_file.dart';
 import '../../data/file_repository.dart';
+import '../../providers/file_providers.dart';
 
 class FileAttachmentCard extends ConsumerStatefulWidget {
   final ProjectFile file;
@@ -18,6 +19,88 @@ class FileAttachmentCard extends ConsumerStatefulWidget {
 
 class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
   bool _isDownloading = false;
+  bool _isDeleting = false;
+
+  Future<void> _openFile() async {
+    setState(() {
+      _isDownloading = true;
+    });
+
+    try {
+      final repository = ref.read(fileRepositoryProvider);
+
+      if (kIsWeb) {
+        await repository.downloadFile(
+          widget.file.id,
+          widget.file.sanitizedName,
+          openInBrowser: true,
+        );
+      } else {
+        final dir = await getApplicationDocumentsDirectory();
+        final filePath = '${dir.path}/${widget.file.sanitizedName}';
+
+        await repository.downloadFile(widget.file.id, filePath);
+        await OpenFilex.open(filePath);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Open failed: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteFile() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete File'),
+        content: Text('Are you sure you want to delete "${widget.file.originalName}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      final repository = ref.read(fileRepositoryProvider);
+      await repository.deleteFile(widget.file.projectId, widget.file.id);
+      
+      ref.invalidate(projectFilesProvider(widget.file.projectId));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    }
+  }
 
   Future<void> _downloadFile() async {
     setState(() {
@@ -48,8 +131,6 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
         if (!mounted) return;
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Downloaded to $filePath')));
-
-        await OpenFilex.open(filePath);
       }
     } catch (e) {
       if (!mounted) return;
@@ -75,17 +156,38 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
         subtitle: Text(
           '${(widget.file.size / 1024).toStringAsFixed(1)} KB • ${widget.file.category}',
         ),
-        trailing: _isDownloading
+        trailing: _isDownloading || _isDeleting
             ? const SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : IconButton(
-                icon: const Icon(Icons.download),
-                onPressed: widget.file.status == 'COMPLETED'
-                    ? _downloadFile
-                    : null,
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.open_in_new),
+                    tooltip: 'Open',
+                    onPressed: widget.file.status == 'COMPLETED'
+                        ? _openFile
+                        : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.download),
+                    tooltip: 'Download',
+                    onPressed: widget.file.status == 'COMPLETED'
+                        ? _downloadFile
+                        : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Delete',
+                    color: Theme.of(context).colorScheme.error,
+                    onPressed: widget.file.status == 'COMPLETED'
+                        ? _deleteFile
+                        : null,
+                  ),
+                ],
               ),
       ),
     );
