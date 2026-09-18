@@ -98,13 +98,13 @@ class Project {
       projectAddress: data['project_address'] as String? ?? '',
       drawingName: data['drawing_name'] as String? ?? '',
       drawingType: data['drawing_type'] as String? ?? '',
-      projectArea: (data['project_area'] as num?)?.toDouble(),
-      estimatedAmount: (data['estimated_amount'] as num?)?.toDouble(),
+      projectArea: _parseDouble(data['project_area']),
+      estimatedAmount: _parseDouble(data['estimated_amount']),
       clientId: data['client_id'] as String? ?? '',
       assignedDraughtsmanId: data['draughtsman_id'] as String?,
       currentAssignmentId: data['current_assignment_id'] as String?,
       status: data['status'] as String? ?? 'DRAFT',
-      correctionRound: data['correction_round'] as int? ?? 0,
+      correctionRound: _parseInt(data['correction_round']) ?? 0,
       createdAt: data['created_at'] != null
           ? DateTime.tryParse(data['created_at'])
           : null,
@@ -116,6 +116,21 @@ class Project {
           : null,
       lastActionId: data['last_action_id'] as String?,
     );
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   /// Converts this [Project] to a map for initial creation via API.

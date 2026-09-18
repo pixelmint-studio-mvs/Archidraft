@@ -13,6 +13,7 @@ import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/providers/profile_providers.dart';
 import '../../features/projects/presentation/client_projects_screen.dart';
+import '../../features/projects/presentation/financials_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
@@ -158,6 +159,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: '/client/projects/:projectId/financials',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return FinancialsScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
             path: '/client/activity',
             builder: (context, state) => const PlaceholderScreen(
               title: 'Activity',
@@ -228,6 +236,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final projectId = state.pathParameters['projectId']!;
               return AdminProjectDetailScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: '/admin/projects/:projectId/financials',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return FinancialsScreen(projectId: projectId);
             },
           ),
           GoRoute(

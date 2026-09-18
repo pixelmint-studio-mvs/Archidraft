@@ -31,6 +31,13 @@ class AdminProjectDetailScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.go('/admin/dashboard'),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.attach_money),
+            tooltip: 'Financials',
+            onPressed: () => context.push('/admin/projects/$projectId/financials'),
+          ),
+        ],
       ),
       body: projectAsync.when(
         loading: () => const AppLoadingIndicator(message: 'Loading project...'),

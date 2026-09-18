@@ -6,8 +6,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
 import '../../domain/project.dart';
-import '../../providers/admin_providers.dart';
 import '../../providers/project_providers.dart';
+
 import '../widgets/project_card.dart';
 
 class AdminProjectsScreen extends StatelessWidget {

@@ -12,14 +12,14 @@ import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
+import 'package:uuid/uuid.dart';
 
-import 'admin/admin_project_detail_screen.dart';
+
 import 'widgets/project_status_chip.dart';
 import 'widgets/activity_timeline.dart';
 import 'widgets/file_attachment_card.dart';
 import 'widgets/file_upload_button.dart';
 import 'widgets/correction_dialog.dart';
-import 'package:uuid/uuid.dart';
 
 /// Detail screen for viewing a project.
 ///
@@ -49,6 +49,13 @@ class ProjectDetailScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.go('/client/projects'),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.attach_money),
+            tooltip: 'Financials',
+            onPressed: () => context.push('/client/projects/$projectId/financials'),
+          ),
+        ],
       ),
       body: projectAsync.when(
         loading: () => const AppLoadingIndicator(message: 'Loading project...'),

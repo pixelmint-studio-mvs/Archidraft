@@ -750,4 +750,213 @@ app.post('/api/notifications/:id/read', async (c) => {
   return c.json({ success: true });
 });
 
+// ==========================================
+// FINANCIALS API
+// ==========================================
+
+app.get('/api/projects/:projectId/financials', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role !== 'CLIENT' && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+
+  const { results: invoices } = await db.prepare('SELECT * FROM invoices WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
+  
+  const { results: payments } = await db.prepare(`
+    SELECT p.* FROM payments p 
+    JOIN invoices i ON p.invoice_id = i.id 
+    WHERE i.project_id = ? ORDER BY p.processed_at DESC
+  `).bind(projectId).all();
+
+  const now = new Date().getTime();
+  
+  let paidAmount = 0;
+  payments.forEach((p: any) => paidAmount += (p.amount as number));
+  
+  const mappedInvoices = invoices.map((inv: any) => {
+    let currentStatus = inv.status;
+    const dueTime = new Date(inv.due_date).getTime();
+    if ((currentStatus === 'ISSUED' || currentStatus === 'PARTIALLY_PAID') && now > dueTime) {
+      currentStatus = 'OVERDUE';
+    }
+    return { ...inv, status: currentStatus };
+  });
+
+  return c.json({
+    total_value: project.total_value,
+    paid_amount: paidAmount,
+    outstanding_balance: project.total_value !== null ? (project.total_value as number) - paidAmount : null,
+    invoices: mappedInvoices,
+    payments: payments
+  });
+});
+
+app.patch('/api/projects/:projectId/financials/total_value', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const body = await c.req.json();
+  const newTotalValue = body.total_value;
+
+  const sumInvRes = await db.prepare('SELECT SUM(amount) as sum FROM invoices WHERE project_id = ?').bind(projectId).first();
+  const sumInvoiced = (sumInvRes?.sum as number) || 0;
+  
+  const sumPayRes = await db.prepare(`
+    SELECT SUM(p.amount) as sum FROM payments p JOIN invoices i ON p.invoice_id = i.id WHERE i.project_id = ?
+  `).bind(projectId).first();
+  const sumPaid = (sumPayRes?.sum as number) || 0;
+
+  if (newTotalValue === null) {
+    if (sumInvoiced > 0 || sumPaid > 0) {
+      return c.json({ error: 'Cannot set total_value to null because invoices or payments exist.' }, 400);
+    }
+  } else {
+    if (typeof newTotalValue !== 'number' || newTotalValue < 0) {
+      return c.json({ error: 'Invalid total_value' }, 400);
+    }
+    if (newTotalValue < sumInvoiced) {
+      return c.json({ error: 'New total_value cannot be less than total invoiced amount' }, 400);
+    }
+    if (newTotalValue < sumPaid) {
+      return c.json({ error: 'New total_value cannot be less than total paid amount' }, 400);
+    }
+  }
+
+  await db.prepare('UPDATE projects SET total_value = ? WHERE id = ?').bind(newTotalValue, projectId).run();
+  
+  await db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+    uuidv4(), projectId, 'TOTAL_VALUE_UPDATED', uid, 'STUDIO_ADMIN', `Updated total value to ${newTotalValue}`
+  ).run();
+
+  return c.json({ success: true, total_value: newTotalValue });
+});
+
+app.post('/api/projects/:projectId/invoices', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (project.total_value === null) {
+    return c.json({ error: 'Project total_value is not set' }, 400);
+  }
+
+  const body = await c.req.json();
+  const amount = body.amount;
+  const due_date = body.due_date;
+
+  if (typeof amount !== 'number' || amount <= 0) {
+    return c.json({ error: 'Invalid invoice amount' }, 400);
+  }
+  if (!due_date) return c.json({ error: 'Missing due_date' }, 400);
+
+  const sumInvRes = await db.prepare('SELECT SUM(amount) as sum FROM invoices WHERE project_id = ?').bind(projectId).first();
+  const sumInvoiced = (sumInvRes?.sum as number) || 0;
+
+  if (amount + sumInvoiced > (project.total_value as number)) {
+    return c.json({ error: 'Invoice amount exceeds remaining project total_value' }, 400);
+  }
+
+  const invoiceId = uuidv4();
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  let invoiceNumber = `INV-${today}-${crypto.randomUUID().split('-')[0]}`;
+
+  let retryCount = 0;
+  while(true) {
+    try {
+      await db.prepare(`
+        INSERT INTO invoices (id, project_id, invoice_number, amount, currency, status, due_date, created_at)
+        VALUES (?, ?, ?, ?, 'INR', 'ISSUED', ?, CURRENT_TIMESTAMP)
+      `).bind(invoiceId, projectId, invoiceNumber, amount, new Date(due_date).toISOString()).run();
+      break;
+    } catch (e: any) {
+      if (e.message && e.message.includes('UNIQUE constraint failed') && retryCount < 5) {
+        retryCount++;
+        invoiceNumber = `INV-${today}-${crypto.randomUUID().split('-')[0]}`;
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  await db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+    uuidv4(), projectId, 'INVOICE_CREATED', uid, 'STUDIO_ADMIN', `Created invoice ${invoiceNumber} for ${amount} INR`
+  ).run();
+
+  return c.json({ success: true, id: invoiceId, invoice_number: invoiceNumber });
+});
+
+app.post('/api/invoices/:invoiceId/payments', async (c) => {
+  const uid = c.get('uid');
+  const invoiceId = c.req.param('invoiceId');
+  const db = c.env.DB;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+
+  const invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').bind(invoiceId).first();
+  if (!invoice) return c.json({ error: 'Invoice not found' }, 404);
+
+  if (invoice.status !== 'ISSUED' && invoice.status !== 'PARTIALLY_PAID') {
+    return c.json({ error: 'Invoice is not payable' }, 400);
+  }
+
+  const body = await c.req.json();
+  const amount = body.amount;
+  const payment_method = body.payment_method || 'MANUAL';
+
+  if (typeof amount !== 'number' || amount <= 0) {
+    return c.json({ error: 'Invalid payment amount' }, 400);
+  }
+
+  const sumPayRes = await db.prepare('SELECT SUM(amount) as sum FROM payments WHERE invoice_id = ?').bind(invoiceId).first();
+  const sumPaid = (sumPayRes?.sum as number) || 0;
+
+  const remainingBalance = (invoice.amount as number) - sumPaid;
+
+  if (amount > remainingBalance) {
+    return c.json({ error: 'Payment amount exceeds invoice remaining balance' }, 400);
+  }
+
+  const newSumPaid = sumPaid + amount;
+  const newStatus = (newSumPaid >= (invoice.amount as number)) ? 'PAID' : 'PARTIALLY_PAID';
+
+  const paymentId = uuidv4();
+
+  const batch = [
+    db.prepare(`
+      INSERT INTO payments (id, invoice_id, amount, payment_method, processed_at, recorded_by)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+    `).bind(paymentId, invoiceId, amount, payment_method, uid),
+    db.prepare('UPDATE invoices SET status = ? WHERE id = ?').bind(newStatus, invoiceId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), invoice.project_id, 'PAYMENT_RECORDED', uid, 'STUDIO_ADMIN', `Recorded payment of ${amount} INR against ${invoice.invoice_number}`
+    )
+  ];
+
+  await db.batch(batch);
+
+  return c.json({ success: true, payment_id: paymentId, new_status: newStatus });
+});
+
 export default app;
