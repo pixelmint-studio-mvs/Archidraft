@@ -54,7 +54,8 @@ abstract class Invoice with _$Invoice {
     @JsonKey(name: 'updated_at') DateTime? updatedAt,
   }) = _Invoice;
 
-  factory Invoice.fromJson(Map<String, dynamic> json) => _$InvoiceFromJson(json);
+  factory Invoice.fromJson(Map<String, dynamic> json) =>
+      _$InvoiceFromJson(json);
 }
 
 @freezed
@@ -68,15 +69,19 @@ abstract class Payment with _$Payment {
     @JsonKey(name: 'recorded_by') required String recordedBy,
   }) = _Payment;
 
-  factory Payment.fromJson(Map<String, dynamic> json) => _$PaymentFromJson(json);
+  factory Payment.fromJson(Map<String, dynamic> json) =>
+      _$PaymentFromJson(json);
 }
 
 @freezed
 abstract class ProjectFinancials with _$ProjectFinancials {
   const factory ProjectFinancials({
-    @JsonKey(name: 'total_value', fromJson: _parseDoubleNullable) double? totalValue,
-    @JsonKey(name: 'paid_amount', fromJson: _parseDouble) required double paidAmount,
-    @JsonKey(name: 'outstanding_balance', fromJson: _parseDoubleNullable) double? outstandingBalance,
+    @JsonKey(name: 'total_value', fromJson: _parseDoubleNullable)
+    double? totalValue,
+    @JsonKey(name: 'paid_amount', fromJson: _parseDouble)
+    required double paidAmount,
+    @JsonKey(name: 'outstanding_balance', fromJson: _parseDoubleNullable)
+    double? outstandingBalance,
     @Default([]) List<Invoice> invoices,
     @Default([]) List<Payment> payments,
   }) = _ProjectFinancials;

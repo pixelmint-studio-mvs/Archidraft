@@ -7,7 +7,9 @@ class FinancialsRepository {
   FinancialsRepository(this._apiClient);
 
   Future<ProjectFinancials> getProjectFinancials(String projectId) async {
-    final response = await _apiClient.get('/api/projects/$projectId/financials');
+    final response = await _apiClient.get(
+      '/api/projects/$projectId/financials',
+    );
     return ProjectFinancials.fromJson(response as Map<String, dynamic>);
   }
 
@@ -26,12 +28,9 @@ class FinancialsRepository {
   }) async {
     final response = await _apiClient.post(
       '/api/projects/$projectId/invoices',
-      body: {
-        'amount': amount,
-        'due_date': dueDate.toIso8601String(),
-      },
+      body: {'amount': amount, 'due_date': dueDate.toIso8601String()},
     );
-    
+
     return Invoice(
       id: response['id'],
       projectId: projectId,
@@ -56,7 +55,7 @@ class FinancialsRepository {
         'payment_method': _getPaymentMethodString(paymentMethod),
       },
     );
-    
+
     // Returning a partial payment object since the API only returns { success, payment_id, new_status }.
     // We will typically just invalidate the provider.
     return Payment(

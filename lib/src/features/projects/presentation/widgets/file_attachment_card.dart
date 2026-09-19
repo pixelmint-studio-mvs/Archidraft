@@ -60,7 +60,9 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete File'),
-        content: Text('Are you sure you want to delete "${widget.file.originalName}"?'),
+        content: Text(
+          'Are you sure you want to delete "${widget.file.originalName}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -87,7 +89,7 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
     try {
       final repository = ref.read(fileRepositoryProvider);
       await repository.deleteFile(widget.file.projectId, widget.file.id);
-      
+
       ref.invalidate(projectFilesProvider(widget.file.projectId));
     } catch (e) {
       if (!mounted) return;

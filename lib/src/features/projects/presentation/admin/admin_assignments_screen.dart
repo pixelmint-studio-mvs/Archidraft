@@ -18,11 +18,10 @@ class AdminAssignmentsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('All Assignments'),
-      ),
+      appBar: AppBar(title: const Text('All Assignments')),
       body: assignmentsAsync.when(
-        loading: () => const AppLoadingIndicator(message: 'Loading assignments...'),
+        loading: () =>
+            const AppLoadingIndicator(message: 'Loading assignments...'),
         error: (e, _) => AppErrorWidget(
           message: 'Failed to load assignments.',
           onRetry: () => ref.invalidate(allAssignmentsProvider),
@@ -39,7 +38,11 @@ class AdminAssignmentsScreen extends ConsumerWidget {
 
           // Sort by creation date descending
           final sortedAssignments = List<Assignment>.from(assignments)
-            ..sort((a, b) => (b.createdAt ?? DateTime.now()).compareTo(a.createdAt ?? DateTime.now()));
+            ..sort(
+              (a, b) => (b.createdAt ?? DateTime.now()).compareTo(
+                a.createdAt ?? DateTime.now(),
+              ),
+            );
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -48,7 +51,8 @@ class AdminAssignmentsScreen extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(AppSpacing.md),
               itemCount: sortedAssignments.length,
-              separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
+              separatorBuilder: (context, index) =>
+                  const SizedBox(height: AppSpacing.sm),
               itemBuilder: (context, index) {
                 final assignment = sortedAssignments[index];
                 return _AdminAssignmentCard(assignment: assignment);
@@ -93,7 +97,9 @@ class _AdminAssignmentCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Draughtsman ID: ${assignment.draughtsmanId}',
-              style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+              style: AppTypography.bodySm.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             if (assignment.createdAt != null)
@@ -101,7 +107,8 @@ class _AdminAssignmentCard extends StatelessWidget {
                 'Assigned on: ${DateFormat.yMMMd().format(assignment.createdAt!)}',
                 style: AppTypography.bodySm.copyWith(color: AppColors.outline),
               ),
-            if (assignment.status == 'COMPLETED' && assignment.updatedAt != null) ...[
+            if (assignment.status == 'COMPLETED' &&
+                assignment.updatedAt != null) ...[
               const SizedBox(height: AppSpacing.xs),
               Text(
                 'Completed on: ${DateFormat.yMMMd().format(assignment.updatedAt!)}',

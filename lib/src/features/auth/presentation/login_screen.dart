@@ -11,7 +11,9 @@ import '../providers/auth_providers.dart';
 import 'widgets/auth_form_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final String? preselectedRole;
+
+  const LoginScreen({super.key, this.preselectedRole});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -64,7 +66,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 32.0,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: GlassCard(
@@ -84,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
-                        
+
                         Text(
                           'Secure Login',
                           style: theme.textTheme.headlineLarge?.copyWith(
@@ -121,7 +126,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           prefixIcon: Icons.lock_outline,
                           obscureText: true,
                           textInputAction: TextInputAction.done,
-                          validator: (value) => Validators.required(value, 'Password'),
+                          validator: (value) =>
+                              Validators.required(value, 'Password'),
                           onFieldSubmitted: (_) => _handleLogin(),
                           enabled: !isLoading,
                         ),
@@ -130,7 +136,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: isLoading ? null : () => context.push('/forgot-password'),
+                            onPressed: isLoading
+                                ? null
+                                : () => context.push('/forgot-password'),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.onSurfaceVariant,
                             ),
@@ -168,12 +176,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             ),
                             TextButton(
-                              onPressed: isLoading ? null : () => context.push('/register'),
+                              onPressed: isLoading
+                                  ? null
+                                  : () => context.push(
+                                      '/register',
+                                      extra: widget.preselectedRole,
+                                    ),
                               style: TextButton.styleFrom(
                                 foregroundColor: AppColors.secondary,
-                                textStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                                textStyle: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              child: const Text('REQUEST ACCESS'),
+                              child: const Text('REGISTER'),
                             ),
                           ],
                         ),

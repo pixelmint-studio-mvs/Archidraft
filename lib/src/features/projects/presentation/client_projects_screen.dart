@@ -52,7 +52,8 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
     );
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // Let ResponsiveScaffold background show
+      backgroundColor:
+          Colors.transparent, // Let ResponsiveScaffold background show
       body: projectsAsync.when(
         loading: () =>
             const AppLoadingIndicator(message: 'Loading projects...'),
@@ -82,9 +83,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
                   child: _buildActionsSection(context, projects),
                 ),
                 // ── Metric Strip ──
-                SliverToBoxAdapter(
-                  child: _buildMetricStrip(statsAsync),
-                ),
+                SliverToBoxAdapter(child: _buildMetricStrip(statsAsync)),
                 // ── Section Header ──
                 SliverToBoxAdapter(
                   child: Padding(
@@ -129,21 +128,18 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
                       120, // Space for FAB
                     ),
                     sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final project = filtered[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                                bottom: AppSpacing.md),
-                            child: _StitchProjectCard(
-                              project: project,
-                              onTap: () => context.go(
-                                  '/client/projects/${project.projectId}'),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final project = filtered[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: _StitchProjectCard(
+                            project: project,
+                            onTap: () => context.go(
+                              '/client/projects/${project.projectId}',
                             ),
-                          );
-                        },
-                        childCount: filtered.length,
-                      ),
+                          ),
+                        );
+                      }, childCount: filtered.length),
                     ),
                   ),
               ],
@@ -323,11 +319,13 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
           .where((p) => p.projectStatus == ProjectStatus.underClientReview)
           .length,
       _FilterOption.inDrafting: projects
-          .where((p) =>
-              p.projectStatus == ProjectStatus.submitted ||
-              p.projectStatus == ProjectStatus.inProgress ||
-              p.projectStatus == ProjectStatus.waitingAssignment ||
-              p.projectStatus == ProjectStatus.waitingAcceptance)
+          .where(
+            (p) =>
+                p.projectStatus == ProjectStatus.submitted ||
+                p.projectStatus == ProjectStatus.inProgress ||
+                p.projectStatus == ProjectStatus.waitingAssignment ||
+                p.projectStatus == ProjectStatus.waitingAcceptance,
+          )
           .length,
       _FilterOption.approved: projects
           .where((p) => p.projectStatus == ProjectStatus.completed)
@@ -365,7 +363,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
                           BoxShadow(
                             color: AppColors.primary.withValues(alpha: 0.15),
                             blurRadius: 4,
-                          )
+                          ),
                         ]
                       : null,
                 ),
@@ -425,10 +423,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
         0,
       ),
       child: statsAsync.when(
-        loading: () => const SizedBox(
-          height: 80,
-          child: AppLoadingIndicator(),
-        ),
+        loading: () => const SizedBox(height: 80, child: AppLoadingIndicator()),
         error: (e, st) => const SizedBox.shrink(),
         data: (stats) => Row(
           children: [
@@ -482,8 +477,11 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.filter_list_off_rounded,
-                  size: 48, color: AppColors.outlineVariant),
+              Icon(
+                Icons.filter_list_off_rounded,
+                size: 48,
+                color: AppColors.outlineVariant,
+              ),
               const SizedBox(height: AppSpacing.lg),
               Text(
                 'No Projects in This Category',
@@ -576,11 +574,13 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
             .toList();
       case _FilterOption.inDrafting:
         return projects
-            .where((p) =>
-                p.projectStatus == ProjectStatus.submitted ||
-                p.projectStatus == ProjectStatus.inProgress ||
-                p.projectStatus == ProjectStatus.waitingAssignment ||
-                p.projectStatus == ProjectStatus.waitingAcceptance)
+            .where(
+              (p) =>
+                  p.projectStatus == ProjectStatus.submitted ||
+                  p.projectStatus == ProjectStatus.inProgress ||
+                  p.projectStatus == ProjectStatus.waitingAssignment ||
+                  p.projectStatus == ProjectStatus.waitingAcceptance,
+            )
             .toList();
       case _FilterOption.approved:
         return projects
@@ -642,10 +642,7 @@ class _StitchProjectCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Stitch: colored top accent line based on status
-            Container(
-              height: 4,
-              color: _accentColor(status),
-            ),
+            Container(height: 4, color: _accentColor(status)),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(

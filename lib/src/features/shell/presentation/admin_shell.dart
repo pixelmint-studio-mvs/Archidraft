@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../auth/domain/user_profile.dart';
 import 'widgets/app_bottom_nav.dart';
 import 'widgets/responsive_scaffold.dart';
@@ -9,11 +10,7 @@ class AdminShell extends StatelessWidget {
   final Widget child;
   final UserProfile profile;
 
-  const AdminShell({
-    super.key,
-    required this.child,
-    required this.profile,
-  });
+  const AdminShell({super.key, required this.child, required this.profile});
 
   static const _destinations = [
     NavDestination(

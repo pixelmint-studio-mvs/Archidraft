@@ -1,5 +1,3 @@
-
-
 /// Represents the user's profile data stored in Firestore `users/{uid}`.
 ///
 /// This model maps to the schema defined in DATA_ARCHITECTURE.md.
@@ -77,14 +75,18 @@ class UserProfile {
       email: data['email'] as String? ?? '',
       mobile: data['mobile'] as String? ?? '',
       role: data['role'] as String? ?? '',
-      createdAt: data['created_at'] != null ? DateTime.tryParse(data['created_at']) : null,
+      createdAt: data['created_at'] != null
+          ? DateTime.tryParse(data['created_at'])
+          : null,
       qualification: data['qualification'] as String?,
       dateOfBirth: data['date_of_birth'] != null ? DateTime.tryParse(data['date_of_birth']) : null,
       address: data['address'] as String?,
       companyName: data['company_name'] as String?,
       collegeName: data['college_name'] as String?,
       proofDocument: data['proof_document'] as String?,
-      updatedAt: data['updated_at'] != null ? DateTime.tryParse(data['updated_at']) : null,
+      updatedAt: data['updated_at'] != null
+          ? DateTime.tryParse(data['updated_at'])
+          : null,
     );
   }
 
@@ -141,4 +143,3 @@ class UserProfile {
     );
   }
 }
-

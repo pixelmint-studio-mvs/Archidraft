@@ -180,17 +180,21 @@ class ProjectFormController extends Notifier<ProjectFormState> {
       print('Failed: currentStep >= totalSteps');
       return false;
     }
-    
+
     final isValid = state.isStepValid(state.currentStep);
     print('isStepValid(${state.currentStep}) = $isValid');
     if (state.currentStep == 1) {
       print('isStep2Valid details:');
-      print('drawingName: "${state.drawingName}" -> validator: ${ProjectValidators.drawingName(state.drawingName)}');
-      print('drawingType: "${state.drawingType}" -> validator: ${ProjectValidators.drawingType(state.drawingType)}');
+      print(
+        'drawingName: "${state.drawingName}" -> validator: ${ProjectValidators.drawingName(state.drawingName)}',
+      );
+      print(
+        'drawingType: "${state.drawingType}" -> validator: ${ProjectValidators.drawingType(state.drawingType)}',
+      );
     }
 
     if (!isValid) return false;
-    
+
     state = state.copyWith(
       currentStep: state.currentStep + 1,
       clearError: true,

@@ -36,7 +36,11 @@ class FinancialsScreen extends ConsumerWidget {
       ),
       floatingActionButton: isAdmin && financialsAsync.hasValue
           ? FloatingActionButton.extended(
-              onPressed: () => _showCreateInvoiceDialog(context, ref, financialsAsync.value!),
+              onPressed: () => _showCreateInvoiceDialog(
+                context,
+                ref,
+                financialsAsync.value!,
+              ),
               icon: const Icon(Icons.add),
               label: const Text('Create Invoice'),
             )
@@ -44,7 +48,12 @@ class FinancialsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, ProjectFinancials financials, bool isAdmin) {
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    ProjectFinancials financials,
+    bool isAdmin,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -52,7 +61,9 @@ class FinancialsScreen extends ConsumerWidget {
         const SizedBox(height: 24),
         Text('Invoices', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        ...financials.invoices.map((inv) => _buildInvoiceCard(context, ref, inv, isAdmin)),
+        ...financials.invoices.map(
+          (inv) => _buildInvoiceCard(context, ref, inv, isAdmin),
+        ),
         const SizedBox(height: 24),
         Text('Payments', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
@@ -61,14 +72,19 @@ class FinancialsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildOverviewCards(BuildContext context, ProjectFinancials financials) {
+  Widget _buildOverviewCards(
+    BuildContext context,
+    ProjectFinancials financials,
+  ) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
     return Row(
       children: [
         Expanded(
           child: _StatCard(
             title: 'Total Value',
-            value: financials.totalValue != null ? currencyFormat.format(financials.totalValue) : 'Not Set',
+            value: financials.totalValue != null
+                ? currencyFormat.format(financials.totalValue)
+                : 'Not Set',
             color: Colors.blue.shade100,
           ),
         ),
@@ -84,7 +100,9 @@ class FinancialsScreen extends ConsumerWidget {
         Expanded(
           child: _StatCard(
             title: 'Balance',
-            value: financials.outstandingBalance != null ? currencyFormat.format(financials.outstandingBalance) : '-',
+            value: financials.outstandingBalance != null
+                ? currencyFormat.format(financials.outstandingBalance)
+                : '-',
             color: Colors.orange.shade100,
           ),
         ),
@@ -92,7 +110,12 @@ class FinancialsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInvoiceCard(BuildContext context, WidgetRef ref, Invoice invoice, bool isAdmin) {
+  Widget _buildInvoiceCard(
+    BuildContext context,
+    WidgetRef ref,
+    Invoice invoice,
+    bool isAdmin,
+  ) {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
     final dateFormat = DateFormat.yMMMd();
 
@@ -125,28 +148,42 @@ class FinancialsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(invoice.invoiceNumber, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  invoice.invoiceNumber,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Chip(
                   label: Text(invoice.status.name.toUpperCase()),
                   backgroundColor: statusColor.withOpacity(0.2),
-                  labelStyle: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold),
+                  labelStyle: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('Amount: ${currencyFormat.format(invoice.amount)}', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Amount: ${currencyFormat.format(invoice.amount)}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             Text('Due Date: ${dateFormat.format(invoice.dueDate)}'),
-            if (isAdmin && (invoice.status == InvoiceStatus.issued || invoice.status == InvoiceStatus.partiallyPaid || invoice.status == InvoiceStatus.overdue)) ...[
+            if (isAdmin &&
+                (invoice.status == InvoiceStatus.issued ||
+                    invoice.status == InvoiceStatus.partiallyPaid ||
+                    invoice.status == InvoiceStatus.overdue)) ...[
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
-                  onPressed: () => _showRecordPaymentDialog(context, ref, invoice),
+                  onPressed: () =>
+                      _showRecordPaymentDialog(context, ref, invoice),
                   icon: const Icon(Icons.payment, size: 18),
                   label: const Text('Record Payment'),
                 ),
               ),
-            ]
+            ],
           ],
         ),
       ),
@@ -165,13 +202,20 @@ class FinancialsScreen extends ConsumerWidget {
           child: Icon(Icons.check, color: Colors.white),
         ),
         title: Text(currencyFormat.format(payment.amount)),
-        subtitle: Text('${payment.paymentMethod.name.toUpperCase()} on ${dateFormat.format(payment.processedAt)}'),
-        trailing: Text(payment.recordedBy), // In reality, fetch user name. We just show UID or 'admin'.
+        subtitle: Text(
+          '${payment.paymentMethod.name.toUpperCase()} on ${dateFormat.format(payment.processedAt)}',
+        ),
+        trailing: Text(
+          payment.recordedBy,
+        ), // In reality, fetch user name. We just show UID or 'admin'.
       ),
     );
   }
 
-  Future<void> _showSetTotalValueDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showSetTotalValueDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final controller = TextEditingController();
     await showDialog(
       context: context,
@@ -186,18 +230,24 @@ class FinancialsScreen extends ConsumerWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
           FilledButton(
             onPressed: () async {
               final val = double.tryParse(controller.text);
               if (val != null && val >= 0) {
                 try {
-                  await ref.read(financialsRepositoryProvider).setTotalValue(projectId, val);
+                  await ref
+                      .read(financialsRepositoryProvider)
+                      .setTotalValue(projectId, val);
                   ref.invalidate(projectFinancialsProvider(projectId));
                   if (context.mounted) Navigator.pop(context);
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text('Error: $e')));
                   }
                 }
               }
@@ -209,7 +259,11 @@ class FinancialsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showCreateInvoiceDialog(BuildContext context, WidgetRef ref, ProjectFinancials financials) async {
+  Future<void> _showCreateInvoiceDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ProjectFinancials financials,
+  ) async {
     final amountController = TextEditingController();
     DateTime? selectedDate = DateTime.now().add(const Duration(days: 7));
 
@@ -223,7 +277,10 @@ class FinancialsScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (financials.totalValue == null)
-                  const Text('Warning: Project Total Value is not set.', style: TextStyle(color: Colors.red)),
+                  const Text(
+                    'Warning: Project Total Value is not set.',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 TextField(
                   controller: amountController,
                   keyboardType: TextInputType.number,
@@ -235,7 +292,9 @@ class FinancialsScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Text('Due Date: ${DateFormat.yMMMd().format(selectedDate!)}'),
+                    Text(
+                      'Due Date: ${DateFormat.yMMMd().format(selectedDate!)}',
+                    ),
                     const Spacer(),
                     TextButton(
                       onPressed: () async {
@@ -243,7 +302,9 @@ class FinancialsScreen extends ConsumerWidget {
                           context: context,
                           initialDate: selectedDate!,
                           firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
                         );
                         if (date != null) {
                           setState(() => selectedDate = date);
@@ -256,13 +317,18 @@ class FinancialsScreen extends ConsumerWidget {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL'),
+              ),
               FilledButton(
                 onPressed: () async {
                   final val = double.tryParse(amountController.text);
                   if (val != null && val > 0) {
                     try {
-                      await ref.read(financialsRepositoryProvider).createInvoice(
+                      await ref
+                          .read(financialsRepositoryProvider)
+                          .createInvoice(
                             projectId: projectId,
                             amount: val,
                             dueDate: selectedDate!,
@@ -271,7 +337,8 @@ class FinancialsScreen extends ConsumerWidget {
                       if (context.mounted) Navigator.pop(context);
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text('Error: $e')));
                       }
                     }
                   }
@@ -285,7 +352,11 @@ class FinancialsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showRecordPaymentDialog(BuildContext context, WidgetRef ref, Invoice invoice) async {
+  Future<void> _showRecordPaymentDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Invoice invoice,
+  ) async {
     final amountController = TextEditingController();
     PaymentMethod selectedMethod = PaymentMethod.bankTransfer;
 
@@ -311,8 +382,17 @@ class FinancialsScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<PaymentMethod>(
                   value: selectedMethod,
-                  decoration: const InputDecoration(labelText: 'Payment Method'),
-                  items: PaymentMethod.values.map((m) => DropdownMenuItem(value: m, child: Text(m.name.toUpperCase()))).toList(),
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Method',
+                  ),
+                  items: PaymentMethod.values
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(m.name.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => selectedMethod = val);
                   },
@@ -320,13 +400,18 @@ class FinancialsScreen extends ConsumerWidget {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CANCEL'),
+              ),
               FilledButton(
                 onPressed: () async {
                   final val = double.tryParse(amountController.text);
                   if (val != null && val > 0) {
                     try {
-                      await ref.read(financialsRepositoryProvider).recordPayment(
+                      await ref
+                          .read(financialsRepositoryProvider)
+                          .recordPayment(
                             invoiceId: invoice.id,
                             amount: val,
                             paymentMethod: selectedMethod,
@@ -335,7 +420,8 @@ class FinancialsScreen extends ConsumerWidget {
                       if (context.mounted) Navigator.pop(context);
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text('Error: $e')));
                       }
                     }
                   }
@@ -355,7 +441,11 @@ class _StatCard extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _StatCard({required this.title, required this.value, required this.color});
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -368,9 +458,17 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black87)),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: Colors.black87),
+          ),
           const SizedBox(height: 8),
-          Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
         ],
       ),
     );

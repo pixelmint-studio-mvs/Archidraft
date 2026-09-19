@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -40,11 +41,7 @@ class PlaceholderScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(
-                icon,
-                size: 64,
-                color: AppColors.outlineVariant,
-              ),
+              child: Icon(icon, size: 64, color: AppColors.outlineVariant),
             ),
             const SizedBox(height: AppSpacing.xxl),
             Text(

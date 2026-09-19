@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -28,7 +29,7 @@ class ActivityTimeline extends ConsumerWidget {
           itemBuilder: (context, index) {
             final log = logs[index];
             final isLast = index == logs.length - 1;
-            
+
             return IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -48,7 +49,9 @@ class ActivityTimeline extends ConsumerWidget {
                         Expanded(
                           child: Container(
                             width: 2,
-                            color: AppColors.outlineVariant.withValues(alpha: 0.5),
+                            color: AppColors.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                     ],
@@ -62,12 +65,16 @@ class ActivityTimeline extends ConsumerWidget {
                         children: [
                           Text(
                             log.details,
-                            style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
+                            style: AppTypography.bodyMd.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${log.actorRole} • ${DateFormat('MMM d, y h:mm a').format(log.createdAt)}',
-                            style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+                            style: AppTypography.labelMono.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -80,7 +87,10 @@ class ActivityTimeline extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Text('Error loading activity: $err', style: AppTypography.bodyMd.copyWith(color: AppColors.error)),
+      error: (err, _) => Text(
+        'Error loading activity: $err',
+        style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+      ),
     );
   }
 }

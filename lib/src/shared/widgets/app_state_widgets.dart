@@ -77,10 +77,7 @@ class AppErrorWidget extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(
-                  'Retry',
-                  style: AppTypography.buttonText,
-                ),
+                label: Text('Retry', style: AppTypography.buttonText),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.secondary,
                   side: const BorderSide(color: AppColors.outlineVariant),
@@ -126,11 +123,7 @@ class AppEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 56,
-              color: AppColors.outlineVariant,
-            ),
+            Icon(icon, size: 56, color: AppColors.outlineVariant),
             const SizedBox(height: AppSpacing.lg),
             Text(
               title,
@@ -143,9 +136,7 @@ class AppEmptyState extends StatelessWidget {
               const SizedBox(height: AppSpacing.sm),
               Text(
                 subtitle!,
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.outline,
-                ),
+                style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
                 textAlign: TextAlign.center,
               ),
             ],

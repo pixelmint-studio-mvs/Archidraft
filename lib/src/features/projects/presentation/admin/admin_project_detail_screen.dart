@@ -35,7 +35,8 @@ class AdminProjectDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.attach_money),
             tooltip: 'Financials',
-            onPressed: () => context.push('/admin/projects/$projectId/financials'),
+            onPressed: () =>
+                context.push('/admin/projects/$projectId/financials'),
           ),
         ],
       ),

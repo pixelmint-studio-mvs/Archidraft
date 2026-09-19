@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../auth/domain/user_profile.dart';
 import 'widgets/app_bottom_nav.dart';
 import 'widgets/responsive_scaffold.dart';

@@ -27,6 +27,8 @@ import '../../features/projects/presentation/draughtsman/draughtsman_workspace_s
 import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
+import '../../features/training/presentation/student_training_screen.dart';
+import '../../features/training/presentation/training_module_detail_screen.dart';
 
 /// Provides the GoRouter configuration with authentication-aware redirects.
 ///
@@ -65,6 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/landing';
       }
 
+      // 2. Verified User Enforcement
       // Logged in but email not verified
       if (!isEmailVerified) {
         if (currentPath == '/verify-email') return null;
@@ -86,6 +89,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (role == UserRole.client) return '/client/projects';
         if (role == UserRole.draughtsman) return '/draughtsman/studio';
         if (role == UserRole.admin) return '/admin/dashboard';
+        if (role == UserRole.student) return '/student/dashboard';
         // If role is null or unknown, stay on root to show error state in AppShell
         return '/';
       }
@@ -99,6 +103,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/';
       }
       if (currentPath.startsWith('/admin') && role != UserRole.admin) {
+        return '/';
+      }
+      if (currentPath.startsWith('/student') && role != UserRole.student) {
         return '/';
       }
 
@@ -115,10 +122,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/role-selection',
         builder: (context, state) => const RoleSelectionScreen(),
       ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) {
+          final role = state.extra as String?;
+          return LoginScreen(preselectedRole: role);
+        },
+      ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          final role = state.extra as String?;
+          return RegisterScreen(preselectedRole: role);
+        },
       ),
       GoRoute(
         path: '/forgot-password',
@@ -260,6 +276,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               description: 'Configure platform-wide settings.',
               icon: Icons.settings_system_daydream_outlined,
             ),
+          ),
+
+          // ── STUDENT ROUTES ──
+          GoRoute(
+            path: '/student/dashboard',
+            builder: (context, state) => const StudentTrainingScreen(),
+          ),
+          GoRoute(
+            path: '/student/training/:moduleId',
+            builder: (context, state) {
+              final moduleId = state.pathParameters['moduleId']!;
+              return TrainingModuleDetailScreen(moduleId: moduleId);
+            },
+          ),
+          GoRoute(
+            path: '/student/assignments/:assignmentId',
+            builder: (context, state) {
+              final assignment = state.extra as Assignment;
+              return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+            },
+          ),
+          GoRoute(
+            path: '/student/profile',
+            builder: (context, state) => const ProfileScreen(),
           ),
         ],
       ),

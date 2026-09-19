@@ -20,11 +20,12 @@ class AuthRepository {
     required String name,
     required String mobile,
     required String role,
+    String? collegeName,
   }) async {
-    if (role != 'CLIENT' && role != 'DRAUGHTSMAN') {
+    if (role != 'CLIENT' && role != 'DRAUGHTSMAN' && role != 'STUDENT') {
       throw FirebaseAuthException(
         code: 'invalid-role',
-        message: 'Invalid role. Only CLIENT and DRAUGHTSMAN are permitted.',
+        message: 'Invalid role. Only CLIENT, DRAUGHTSMAN, and STUDENT are permitted.',
       );
     }
 
@@ -48,16 +49,19 @@ class AuthRepository {
         // Ignored
       }
 
-      // Call Cloudflare API to save user
-      // Note: the ApiClient automatically includes the Firebase token in the header.
-      // So the API will extract `uid` from the token and create the user in D1.
-      await _apiClient.post('/api/users', body: {
+      // Call Cloudflare API to save user.
+      // The ApiClient automatically includes the Firebase token so the Worker
+      // extracts uid from the token and creates the user in D1.
+      final body = <String, dynamic>{
         'email': email.trim(),
         'name': name.trim(),
         'mobile': mobile.trim(),
         'role': role,
-      });
-      
+      };
+      if (collegeName != null && collegeName.isNotEmpty) {
+        body['college_name'] = collegeName.trim();
+      }
+      await _apiClient.post('/api/users', body: body);
     } catch (e) {
       await user.delete();
       rethrow;
@@ -103,24 +107,8 @@ class AuthRepository {
       final response = await _apiClient.get('/api/users/me');
       return UserProfile.fromMap(response);
     } catch (e) {
-      // Self-heal: If the backend throws a 404/error but the user is logged into Firebase,
-      // it means the local D1 database was wiped/reset. Let's automatically recreate their profile.
-      final user = _auth.currentUser;
-      if (user != null && user.uid == uid) {
-        try {
-          await _apiClient.post('/api/users', body: {
-            'email': user.email ?? 'unknown@example.com',
-            'name': user.displayName ?? 'Recovered User',
-            'mobile': user.phoneNumber ?? '',
-            'role': 'CLIENT', // Default fallback role
-          });
-          // Retry fetching
-          final retryResponse = await _apiClient.get('/api/users/me');
-          return UserProfile.fromMap(retryResponse);
-        } catch (_) {
-          return null;
-        }
-      }
+      // Return null if the user profile doesn't exist on the backend yet
+      // This is expected during the middle of the registration flow.
       return null;
     }
   }

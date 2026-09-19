@@ -46,13 +46,15 @@ async function getUser(db: D1Database, uid: string) {
 app.post('/api/users', async (c) => {
   const uid = c.get('uid');
   const body = await c.req.json();
-  const { email, name, role } = body;
+  const { email, name, role, mobile, college_name } = body;
 
   const db = c.env.DB;
   const existing = await getUser(db, uid);
   if (!existing) {
-    await db.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)')
-      .bind(uid, email, name, role || 'CLIENT')
+    await db.prepare(
+      'INSERT INTO users (id, email, name, role, mobile, college_name) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+      .bind(uid, email, name, role || 'CLIENT', mobile || null, college_name || null)
       .run();
   } else {
     // Only update name, not role (role is privileged)

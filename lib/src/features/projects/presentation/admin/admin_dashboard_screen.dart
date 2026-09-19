@@ -15,9 +15,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-      ),
+      appBar: AppBar(title: const Text('Admin Dashboard')),
       body: metricsAsync.when(
         loading: () => const AppLoadingIndicator(message: 'Loading metrics...'),
         error: (e, _) => AppErrorWidget(
@@ -32,19 +30,47 @@ class AdminDashboardScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.lg),
               children: [
-                _buildMetricCard('Total Projects', metrics.totalProjects, Icons.folder_outlined),
+                _buildMetricCard(
+                  'Total Projects',
+                  metrics.totalProjects,
+                  Icons.folder_outlined,
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildMetricCard('Active Projects', metrics.activeProjects, Icons.trending_up),
+                _buildMetricCard(
+                  'Active Projects',
+                  metrics.activeProjects,
+                  Icons.trending_up,
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildMetricCard('Awaiting Assignment', metrics.projectsAwaitingAssignment, Icons.person_add_outlined),
+                _buildMetricCard(
+                  'Awaiting Assignment',
+                  metrics.projectsAwaitingAssignment,
+                  Icons.person_add_outlined,
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildMetricCard('Under Client Review', metrics.projectsUnderClientReview, Icons.rate_review_outlined),
+                _buildMetricCard(
+                  'Under Client Review',
+                  metrics.projectsUnderClientReview,
+                  Icons.rate_review_outlined,
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildMetricCard('Completed Projects', metrics.completedProjects, Icons.check_circle_outline),
+                _buildMetricCard(
+                  'Completed Projects',
+                  metrics.completedProjects,
+                  Icons.check_circle_outline,
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildMetricCard('Active Draughtsmen', metrics.activeDraughtsmen, Icons.people_outline),
+                _buildMetricCard(
+                  'Active Draughtsmen',
+                  metrics.activeDraughtsmen,
+                  Icons.people_outline,
+                ),
                 const SizedBox(height: AppSpacing.md),
-                _buildMetricCard('Pending Assignments', metrics.pendingAssignments, Icons.assignment_late_outlined),
+                _buildMetricCard(
+                  'Pending Assignments',
+                  metrics.pendingAssignments,
+                  Icons.assignment_late_outlined,
+                ),
               ],
             ),
           );

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../api/data/api_client.dart';
 import '../../api/providers/api_providers.dart';
 import '../domain/notification_model.dart';
@@ -26,7 +27,8 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   return NotificationRepository(apiClient);
 });
 
-final notificationsProvider = FutureProvider.autoDispose<List<NotificationModel>>((ref) async {
-  final repository = ref.watch(notificationRepositoryProvider);
-  return await repository.fetchNotifications();
-});
+final notificationsProvider =
+    FutureProvider.autoDispose<List<NotificationModel>>((ref) async {
+      final repository = ref.watch(notificationRepositoryProvider);
+      return await repository.fetchNotifications();
+    });

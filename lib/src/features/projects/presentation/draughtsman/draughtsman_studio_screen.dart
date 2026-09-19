@@ -149,7 +149,8 @@ class _AssignmentCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          assignment.projectName ?? 'Project ${assignment.projectId.substring(0, 8)}',
+                          assignment.projectName ??
+                              'Project ${assignment.projectId.substring(0, 8)}',
                           style: AppTypography.headlineSmMobile,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -164,7 +165,7 @@ class _AssignmentCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ]
+                        ],
                       ],
                     ),
                   ),

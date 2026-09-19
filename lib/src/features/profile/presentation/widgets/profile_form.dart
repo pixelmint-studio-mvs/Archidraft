@@ -22,7 +22,7 @@ class ProfileForm extends ConsumerStatefulWidget {
 
 class _ProfileFormState extends ConsumerState<ProfileForm> {
   final _formKey = GlobalKey<FormState>();
-  
+
   late TextEditingController _nameController;
   late TextEditingController _mobileController;
   late TextEditingController _addressController;
@@ -38,9 +38,15 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
     _nameController = TextEditingController(text: widget.profile.name);
     _mobileController = TextEditingController(text: widget.profile.mobile);
     _addressController = TextEditingController(text: widget.profile.address);
-    _companyController = TextEditingController(text: widget.profile.companyName);
-    _qualificationController = TextEditingController(text: widget.profile.qualification);
-    _collegeController = TextEditingController(text: widget.profile.collegeName);
+    _companyController = TextEditingController(
+      text: widget.profile.companyName,
+    );
+    _qualificationController = TextEditingController(
+      text: widget.profile.qualification,
+    );
+    _collegeController = TextEditingController(
+      text: widget.profile.collegeName,
+    );
     _selectedDateOfBirth = widget.profile.dateOfBirth;
   }
 
@@ -83,18 +89,26 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     // Hide keyboard
     FocusScope.of(context).unfocus();
 
     final updatedProfile = widget.profile.copyWith(
       name: _nameController.text.trim(),
       mobile: _mobileController.text.trim(),
-      address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+      address: _addressController.text.trim().isEmpty
+          ? null
+          : _addressController.text.trim(),
       dateOfBirth: _selectedDateOfBirth,
-      companyName: _companyController.text.trim().isEmpty ? null : _companyController.text.trim(),
-      qualification: _qualificationController.text.trim().isEmpty ? null : _qualificationController.text.trim(),
-      collegeName: _collegeController.text.trim().isEmpty ? null : _collegeController.text.trim(),
+      companyName: _companyController.text.trim().isEmpty
+          ? null
+          : _companyController.text.trim(),
+      qualification: _qualificationController.text.trim().isEmpty
+          ? null
+          : _qualificationController.text.trim(),
+      collegeName: _collegeController.text.trim().isEmpty
+          ? null
+          : _collegeController.text.trim(),
     );
 
     final success = await ref
@@ -106,7 +120,9 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
         SnackBar(
           content: Text(
             'Profile updated successfully',
-            style: AppTypography.bodyMd.copyWith(color: AppColors.onTertiaryContainer),
+            style: AppTypography.bodyMd.copyWith(
+              color: AppColors.onTertiaryContainer,
+            ),
           ),
           backgroundColor: AppColors.tertiaryFixed,
           behavior: SnackBarBehavior.floating,
@@ -131,10 +147,12 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
         children: [
           Text(
             'Personal Details',
-            style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
+            style: AppTypography.headlineLgMobile.copyWith(
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          
+
           AuthFormField(
             controller: _nameController,
             label: 'FULL NAME',
@@ -143,7 +161,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             keyboardType: TextInputType.name,
           ),
           const SizedBox(height: AppSpacing.md),
-          
+
           AuthFormField(
             controller: _mobileController,
             label: 'MOBILE NUMBER',
@@ -152,7 +170,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: AppSpacing.md),
-          
+
           GestureDetector(
             onTap: _selectDateOfBirth,
             child: AbsorbPointer(
@@ -169,7 +187,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          
+
           AuthFormField(
             controller: _addressController,
             label: 'ADDRESS (Optional)',
@@ -178,11 +196,13 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             keyboardType: TextInputType.streetAddress,
           ),
           const SizedBox(height: AppSpacing.xl),
-          
+
           if (isClient) ...[
             Text(
               'Business Details',
-              style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
+              style: AppTypography.headlineLgMobile.copyWith(
+                color: AppColors.primary,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             AuthFormField(
@@ -197,7 +217,9 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
           if (isDraughtsman) ...[
             Text(
               'Professional Details',
-              style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
+              style: AppTypography.headlineLgMobile.copyWith(
+                color: AppColors.primary,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             AuthFormField(
@@ -222,12 +244,16 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
               decoration: BoxDecoration(
                 color: AppColors.errorContainer,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.3),
+                ),
               ),
               child: Text(
                 // For a real app, map the error using AuthErrorMapper or ProfileErrorMapper
                 'Failed to update profile. Please try again.',
-                style: AppTypography.bodySm.copyWith(color: AppColors.onErrorContainer),
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.onErrorContainer,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.lg),

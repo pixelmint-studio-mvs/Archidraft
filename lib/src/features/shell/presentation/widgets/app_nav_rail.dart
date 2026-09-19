@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -47,20 +48,23 @@ class AppNavRail extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xxxl),
-            
+
             // Destinations
             Expanded(
               child: ListView.separated(
                 itemCount: destinations.length,
-                separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.xl),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: AppSpacing.xl),
                 itemBuilder: (context, index) {
                   final dest = destinations[index];
                   final isSelected = index == selectedIndex;
-                  
+
                   return InkWell(
                     onTap: () => onDestinationSelected(index),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -70,12 +74,20 @@ class AppNavRail extends StatelessWidget {
                               vertical: AppSpacing.sm,
                             ),
                             decoration: BoxDecoration(
-                              color: isSelected ? AppColors.secondaryFixed.withValues(alpha: 0.3) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                              color: isSelected
+                                  ? AppColors.secondaryFixed.withValues(
+                                      alpha: 0.3,
+                                    )
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusMd,
+                              ),
                             ),
                             child: Icon(
                               dest.icon,
-                              color: isSelected ? AppColors.secondary : AppColors.outline,
+                              color: isSelected
+                                  ? AppColors.secondary
+                                  : AppColors.outline,
                               size: 24,
                             ),
                           ),
@@ -83,7 +95,9 @@ class AppNavRail extends StatelessWidget {
                           Text(
                             dest.label,
                             style: AppTypography.labelMonoSm.copyWith(
-                              color: isSelected ? AppColors.secondary : AppColors.outline,
+                              color: isSelected
+                                  ? AppColors.secondary
+                                  : AppColors.outline,
                             ),
                             textAlign: TextAlign.center,
                           ),

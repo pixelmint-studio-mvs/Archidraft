@@ -21,7 +21,8 @@ class AdminDashboardMetrics {
     return AdminDashboardMetrics(
       totalProjects: map['totalProjects'] as int? ?? 0,
       activeProjects: map['activeProjects'] as int? ?? 0,
-      projectsAwaitingAssignment: map['projectsAwaitingAssignment'] as int? ?? 0,
+      projectsAwaitingAssignment:
+          map['projectsAwaitingAssignment'] as int? ?? 0,
       projectsUnderClientReview: map['projectsUnderClientReview'] as int? ?? 0,
       completedProjects: map['completedProjects'] as int? ?? 0,
       activeDraughtsmen: map['activeDraughtsmen'] as int? ?? 0,

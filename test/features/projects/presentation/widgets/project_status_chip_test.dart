@@ -7,14 +7,12 @@ void main() {
   testWidgets('ProjectStatusChip displays correct text', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: ProjectStatusChip(status: ProjectStatus.draft),
-        ),
+        home: Scaffold(body: ProjectStatusChip(status: ProjectStatus.draft)),
       ),
     );
 
     expect(find.text('DRAFT'), findsOneWidget);
-    
+
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(

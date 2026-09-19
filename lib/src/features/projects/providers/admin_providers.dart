@@ -45,7 +45,9 @@ final draughtsmenListProvider = FutureProvider<List<UserProfile>>((ref) async {
 // ADMIN METRICS & DATA
 // ──────────────────────────────────────────
 
-final adminDashboardMetricsProvider = FutureProvider<AdminDashboardMetrics>((ref) async {
+final adminDashboardMetricsProvider = FutureProvider<AdminDashboardMetrics>((
+  ref,
+) async {
   final repository = ref.watch(projectRepositoryProvider);
   final data = await repository.getDashboardMetrics();
   return AdminDashboardMetrics.fromMap(data);

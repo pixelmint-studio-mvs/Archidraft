@@ -49,30 +49,34 @@ class ClientDashboardStats {
   });
 }
 
-final clientDashboardStatsProvider = Provider<AsyncValue<ClientDashboardStats>>((ref) {
-  final projectsAsync = ref.watch(clientProjectsProvider);
-  return projectsAsync.whenData((projects) {
-    final active = projects
-        .where((p) =>
-            p.projectStatus == ProjectStatus.submitted ||
-            p.projectStatus == ProjectStatus.waitingAssignment ||
-            p.projectStatus == ProjectStatus.waitingAcceptance ||
-            p.projectStatus == ProjectStatus.inProgress)
-        .length;
-    final pendingReview = projects
-        .where((p) => p.projectStatus == ProjectStatus.underClientReview)
-        .length;
-    final completed = projects
-        .where((p) => p.projectStatus == ProjectStatus.completed)
-        .length;
-    return ClientDashboardStats(
-      total: projects.length,
-      active: active,
-      pendingReview: pendingReview,
-      completed: completed,
-    );
-  });
-});
+final clientDashboardStatsProvider = Provider<AsyncValue<ClientDashboardStats>>(
+  (ref) {
+    final projectsAsync = ref.watch(clientProjectsProvider);
+    return projectsAsync.whenData((projects) {
+      final active = projects
+          .where(
+            (p) =>
+                p.projectStatus == ProjectStatus.submitted ||
+                p.projectStatus == ProjectStatus.waitingAssignment ||
+                p.projectStatus == ProjectStatus.waitingAcceptance ||
+                p.projectStatus == ProjectStatus.inProgress,
+          )
+          .length;
+      final pendingReview = projects
+          .where((p) => p.projectStatus == ProjectStatus.underClientReview)
+          .length;
+      final completed = projects
+          .where((p) => p.projectStatus == ProjectStatus.completed)
+          .length;
+      return ClientDashboardStats(
+        total: projects.length,
+        active: active,
+        pendingReview: pendingReview,
+        completed: completed,
+      );
+    });
+  },
+);
 
 // ──────────────────────────────────────────
 final projectProvider = FutureProvider.family<Project?, String>((
@@ -83,26 +87,20 @@ final projectProvider = FutureProvider.family<Project?, String>((
   return repository.getProject(projectId);
 });
 
-final projectDrawingVersionsProvider = FutureProvider.family<List<DrawingVersion>, String>((
-  ref,
-  projectId,
-) {
-  final repository = ref.watch(projectRepositoryProvider);
-  return repository.getDrawingVersions(projectId);
-});
+final projectDrawingVersionsProvider =
+    FutureProvider.family<List<DrawingVersion>, String>((ref, projectId) {
+      final repository = ref.watch(projectRepositoryProvider);
+      return repository.getDrawingVersions(projectId);
+    });
 
-final projectCorrectionsProvider = FutureProvider.family<List<Correction>, String>((
-  ref,
-  projectId,
-) {
-  final repository = ref.watch(projectRepositoryProvider);
-  return repository.getCorrections(projectId);
-});
+final projectCorrectionsProvider =
+    FutureProvider.family<List<Correction>, String>((ref, projectId) {
+      final repository = ref.watch(projectRepositoryProvider);
+      return repository.getCorrections(projectId);
+    });
 
-final projectActivityLogsProvider = FutureProvider.family<List<ActivityLog>, String>((
-  ref,
-  projectId,
-) {
-  final repository = ref.watch(projectRepositoryProvider);
-  return repository.fetchActivityLogs(projectId);
-});
+final projectActivityLogsProvider =
+    FutureProvider.family<List<ActivityLog>, String>((ref, projectId) {
+      final repository = ref.watch(projectRepositoryProvider);
+      return repository.fetchActivityLogs(projectId);
+    });

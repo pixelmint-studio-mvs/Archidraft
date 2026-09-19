@@ -18,7 +18,7 @@ void main() {
 
     test('toEditableFieldsMap only includes editable fields', () {
       final editable = testProject.toEditableFieldsMap();
-      
+
       expect(editable.length, 6);
       expect(editable['project_name'], 'Test Project');
       expect(editable['project_address'], '123 Main St');
@@ -26,7 +26,7 @@ void main() {
       expect(editable['drawing_type'], 'FLOOR_PLAN');
       expect(editable['project_area'], 1500);
       expect(editable['estimated_amount'], 5000);
-      
+
       // Should NOT contain server-controlled or immutable fields
       expect(editable.containsKey('id'), false);
       expect(editable.containsKey('client_id'), false);
@@ -35,7 +35,7 @@ void main() {
 
     test('toFirestoreCreate sets initial defaults', () {
       final createMap = testProject.toFirestoreCreate();
-      
+
       expect(createMap['project_name'], 'Test Project');
       expect(createMap['client_id'], 'client-123');
       expect(createMap.containsKey('status'), false);
@@ -48,10 +48,10 @@ void main() {
         projectName: 'Updated Name',
         status: 'SUBMITTED',
       );
-      
+
       expect(updated.projectName, 'Updated Name');
       expect(updated.status, 'SUBMITTED');
-      
+
       // Unchanged fields remain the same
       expect(updated.projectId, 'proj-123');
       expect(updated.clientId, 'client-123');

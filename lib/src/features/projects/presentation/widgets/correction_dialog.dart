@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
-
 import '../../../../core/theme/app_spacing.dart';
 
 import '../../providers/project_providers.dart';
@@ -42,17 +41,19 @@ class _CorrectionDialogState extends ConsumerState<CorrectionDialog> {
       final actionId = const Uuid().v4();
       final correctionId = const Uuid().v4();
 
-      await ref.read(projectRepositoryProvider).requestCorrection(
-        projectId: widget.projectId,
-        actionId: actionId,
-        correctionId: correctionId,
-        targetVersionId: widget.targetVersionId,
-        description: description,
-      );
+      await ref
+          .read(projectRepositoryProvider)
+          .requestCorrection(
+            projectId: widget.projectId,
+            actionId: actionId,
+            correctionId: correctionId,
+            targetVersionId: widget.targetVersionId,
+            description: description,
+          );
 
       ref.invalidate(projectProvider(widget.projectId));
       ref.invalidate(projectCorrectionsProvider(widget.projectId));
-      
+
       if (mounted) {
         context.pop();
         ScaffoldMessenger.of(context).showSnackBar(

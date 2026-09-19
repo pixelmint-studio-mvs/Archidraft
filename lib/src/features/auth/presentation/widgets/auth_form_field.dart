@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
+
 /// A styled, reusable form field for authentication screens.
 ///
 /// Wraps [TextFormField] with consistent styling, optional
@@ -47,6 +49,7 @@ class _AuthFormFieldState extends State<AuthFormField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: widget.controller,
+      style: const TextStyle(color: AppColors.onSurface),
       obscureText: _isObscured,
       keyboardType: widget.keyboardType,
       textInputAction: widget.textInputAction,
@@ -55,9 +58,13 @@ class _AuthFormFieldState extends State<AuthFormField> {
       enabled: widget.enabled,
       decoration: InputDecoration(
         labelText: widget.label,
+        labelStyle: const TextStyle(color: AppColors.onSurfaceVariant),
         hintText: widget.hint,
+        hintStyle: TextStyle(
+          color: AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
         prefixIcon: widget.prefixIcon != null
-            ? Icon(widget.prefixIcon)
+            ? Icon(widget.prefixIcon, color: AppColors.outline)
             : null,
         suffixIcon: widget.obscureText
             ? IconButton(

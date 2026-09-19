@@ -111,8 +111,8 @@ class Project {
       assignedDraughtsmanId: data['draughtsman_id']?.toString(),
       currentAssignmentId: data['current_assignment_id']?.toString(),
       status: data['status']?.toString() ?? 'DRAFT',
-      correctionRound: data['correction_round'] is int 
-          ? data['correction_round'] as int 
+      correctionRound: data['correction_round'] is int
+          ? data['correction_round'] as int
           : int.tryParse(data['correction_round']?.toString() ?? '') ?? 0,
       createdAt: data['created_at'] != null
           ? DateTime.tryParse(data['created_at'].toString())

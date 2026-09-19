@@ -173,7 +173,9 @@ class ProjectRepository {
   }
 
   Future<List<DrawingVersion>> getDrawingVersions(String projectId) async {
-    final response = await _apiClient.get('/api/projects/$projectId/drawing_versions');
+    final response = await _apiClient.get(
+      '/api/projects/$projectId/drawing_versions',
+    );
     if (response is List) {
       return response
           .map((item) => DrawingVersion.fromMap(item as Map<String, dynamic>))
@@ -183,7 +185,9 @@ class ProjectRepository {
   }
 
   Future<List<Correction>> getCorrections(String projectId) async {
-    final response = await _apiClient.get('/api/projects/$projectId/corrections');
+    final response = await _apiClient.get(
+      '/api/projects/$projectId/corrections',
+    );
     if (response is List) {
       return response.map((json) => Correction.fromJson(json)).toList();
     }

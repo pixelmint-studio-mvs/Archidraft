@@ -37,7 +37,11 @@ class FileRepository {
     return ProjectFile.fromJson(response);
   }
 
-  Future<void> downloadFile(String fileId, String savePath, {bool openInBrowser = false}) async {
+  Future<void> downloadFile(
+    String fileId,
+    String savePath, {
+    bool openInBrowser = false,
+  }) async {
     return await _apiClient.downloadFileStream(
       '/api/files/$fileId/download',
       savePath,

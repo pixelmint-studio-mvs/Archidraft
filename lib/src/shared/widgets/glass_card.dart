@@ -1,5 +1,7 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 
@@ -7,11 +9,7 @@ class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
 
-  const GlassCard({
-    super.key,
-    required this.child,
-    this.padding,
-  });
+  const GlassCard({super.key, required this.child, this.padding});
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +22,7 @@ class GlassCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.glassWhite,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            border: Border.all(
-              color: AppColors.glassBorder,
-              width: 1.0,
-            ),
+            border: Border.all(color: AppColors.glassBorder, width: 1.0),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withOpacity(0.05),

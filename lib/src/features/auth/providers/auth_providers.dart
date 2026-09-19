@@ -51,16 +51,20 @@ class AuthController extends Notifier<AsyncValue<void>> {
     required String name,
     required String mobile,
     required String role,
+    String? collegeName,
   }) async {
     state = const AsyncLoading();
     try {
-      await ref.read(authRepositoryProvider).registerWithEmailAndPassword(
-        email: email,
-        password: password,
-        name: name,
-        mobile: mobile,
-        role: role,
-      );
+      await ref
+          .read(authRepositoryProvider)
+          .registerWithEmailAndPassword(
+            email: email,
+            password: password,
+            name: name,
+            mobile: mobile,
+            role: role,
+            collegeName: collegeName,
+          );
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -69,16 +73,12 @@ class AuthController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     state = const AsyncLoading();
     try {
-      await ref.read(authRepositoryProvider).signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      await ref
+          .read(authRepositoryProvider)
+          .signInWithEmailAndPassword(email: email, password: password);
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -120,7 +120,9 @@ class AuthController extends Notifier<AsyncValue<void>> {
   Future<bool> sendPasswordResetEmail({required String email}) async {
     state = const AsyncLoading();
     try {
-      await ref.read(authRepositoryProvider).sendPasswordResetEmail(email: email);
+      await ref
+          .read(authRepositoryProvider)
+          .sendPasswordResetEmail(email: email);
       state = const AsyncData(null);
       return true;
     } catch (e, st) {

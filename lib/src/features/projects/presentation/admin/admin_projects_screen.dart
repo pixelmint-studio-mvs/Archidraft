@@ -125,7 +125,10 @@ class _ProjectListTab extends ConsumerWidget {
   }
 }
 
-final projectsByStatusProvider = FutureProvider.family<List<Project>, String>((ref, status) async {
+final projectsByStatusProvider = FutureProvider.family<List<Project>, String>((
+  ref,
+  status,
+) async {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getProjectsByStatus(status);
 });

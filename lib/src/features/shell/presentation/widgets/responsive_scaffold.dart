@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/constants/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/domain/user_profile.dart';
@@ -47,10 +48,7 @@ class ResponsiveScaffold extends StatelessWidget {
             body: Stack(
               children: [
                 background,
-                SafeArea(
-                  bottom: false,
-                  child: body,
-                ),
+                SafeArea(bottom: false, child: body),
               ],
             ),
             bottomNavigationBar: AppBottomNav(
@@ -94,7 +92,7 @@ class ResponsiveScaffold extends StatelessWidget {
         final desktopNavItems = List.generate(destinations.length, (index) {
           final dest = destinations[index];
           final isSelected = index == selectedIndex;
-          
+
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: InkWell(
@@ -105,14 +103,20 @@ class ResponsiveScaffold extends StatelessWidget {
                   Icon(
                     dest.icon,
                     size: 20,
-                    color: isSelected ? AppColors.secondary : AppColors.onSurfaceVariant,
+                    color: isSelected
+                        ? AppColors.secondary
+                        : AppColors.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     dest.label,
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? AppColors.secondary : AppColors.onSurfaceVariant,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? AppColors.secondary
+                          : AppColors.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -124,10 +128,7 @@ class ResponsiveScaffold extends StatelessWidget {
         return Scaffold(
           extendBodyBehindAppBar: true,
           backgroundColor: AppColors.background,
-          appBar: AppTopBar(
-            profile: profile,
-            navigationItems: desktopNavItems,
-          ),
+          appBar: AppTopBar(profile: profile, navigationItems: desktopNavItems),
           body: Stack(
             children: [
               background,

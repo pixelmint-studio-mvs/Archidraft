@@ -8,6 +8,7 @@ import '../../profile/providers/profile_providers.dart';
 import 'admin_shell.dart';
 import 'client_shell.dart';
 import 'draughtsman_shell.dart';
+import 'student_shell.dart';
 
 /// AppShell determines which role-specific shell to display based on
 /// the currently authenticated user's role.
@@ -55,11 +56,11 @@ class AppShell extends ConsumerWidget {
             return DraughtsmanShell(profile: profile, child: child);
           case UserRole.admin:
             return AdminShell(profile: profile, child: child);
+          case UserRole.student:
+            return StudentShell(profile: profile, child: child);
           case null:
             return const Scaffold(
-              body: AppErrorWidget(
-                message: 'Invalid user role configuration.',
-              ),
+              body: AppErrorWidget(message: 'Invalid user role configuration.'),
             );
         }
       },

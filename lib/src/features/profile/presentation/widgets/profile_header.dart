@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -12,8 +13,14 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Generate initials for the avatar placeholder
-    final initials = profile.name.isNotEmpty 
-        ? profile.name.trim().split(' ').take(2).map((s) => s.isNotEmpty ? s[0] : '').join().toUpperCase()
+    final initials = profile.name.isNotEmpty
+        ? profile.name
+              .trim()
+              .split(' ')
+              .take(2)
+              .map((s) => s.isNotEmpty ? s[0] : '')
+              .join()
+              .toUpperCase()
         : '?';
 
     return Row(
@@ -32,9 +39,7 @@ class ProfileHeader extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             initials,
-            style: AppTypography.headlineLg.copyWith(
-              color: AppColors.primary,
-            ),
+            style: AppTypography.headlineLg.copyWith(color: AppColors.primary),
           ),
         ),
         const SizedBox(width: AppSpacing.xl),

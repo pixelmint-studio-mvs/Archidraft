@@ -218,7 +218,9 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final versionsAsync = ref.watch(projectDrawingVersionsProvider(project.projectId));
+    final versionsAsync = ref.watch(
+      projectDrawingVersionsProvider(project.projectId),
+    );
     final isLoading = ref.watch(draughtsmanActionsControllerProvider).isLoading;
 
     return Column(
@@ -226,17 +228,19 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
       children: [
         Text(
           'Engineer Submission Portal',
-          style: AppTypography.headlineSmMobile.copyWith(color: AppColors.onSurface),
+          style: AppTypography.headlineSmMobile.copyWith(
+            color: AppColors.onSurface,
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        
+
         OutlinedButton.icon(
           onPressed: isLoading ? null : () => _handleUpload(context, ref),
           icon: const Icon(Icons.upload_file),
           label: const Text('Upload CAD Drawing'),
         ),
         const SizedBox(height: AppSpacing.xl),
-        
+
         versionsAsync.when(
           loading: () => const CircularProgressIndicator(),
           error: (e, _) => Text('Error loading versions: $e'),
@@ -252,17 +256,25 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
                 final v = versions[index];
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.insert_drive_file, color: AppColors.primary),
-                  title: Text(v.originalName ?? 'Unknown File', style: AppTypography.bodyMd),
-                  subtitle: Text('Version ${v.versionNumber} • ${v.createdAt != null ? DateFormat('MMM d, yyyy').format(v.createdAt!) : ''}'),
+                  leading: Icon(
+                    Icons.insert_drive_file,
+                    color: AppColors.primary,
+                  ),
+                  title: Text(
+                    v.originalName ?? 'Unknown File',
+                    style: AppTypography.bodyMd,
+                  ),
+                  subtitle: Text(
+                    'Version ${v.versionNumber} • ${v.createdAt != null ? DateFormat('MMM d, yyyy').format(v.createdAt!) : ''}',
+                  ),
                 );
               },
             );
           },
         ),
-        
+
         const SizedBox(height: AppSpacing.xxl),
-        
+
         SizedBox(
           width: double.infinity,
           child: FilledButton(
@@ -284,7 +296,9 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
     final file = result.first;
     final fileStream = file.readAsByteStream();
 
-    final success = await ref.read(draughtsmanActionsControllerProvider.notifier).uploadDrawingStream(
+    final success = await ref
+        .read(draughtsmanActionsControllerProvider.notifier)
+        .uploadDrawingStream(
           projectId: project.projectId,
           stream: fileStream,
           length: file.lengthSync() ?? 0,
@@ -293,22 +307,34 @@ class _EngineerSubmissionPortal extends ConsumerWidget {
         );
 
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File uploaded successfully')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File uploaded successfully')),
+      );
     } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload failed')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Upload failed')));
     }
   }
 
   Future<void> _handleSubmit(BuildContext context, WidgetRef ref) async {
-    final versions = ref.read(projectDrawingVersionsProvider(project.projectId)).value ?? [];
+    final versions =
+        ref.read(projectDrawingVersionsProvider(project.projectId)).value ?? [];
     if (versions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload at least one drawing first.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload at least one drawing first.'),
+        ),
+      );
       return;
     }
 
-    final success = await ref.read(draughtsmanActionsControllerProvider.notifier).submitDrawing(projectId: project.projectId);
+    final success = await ref
+        .read(draughtsmanActionsControllerProvider.notifier)
+        .submitDrawing(projectId: project.projectId);
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted for client review.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Submitted for client review.')),
+      );
       context.pop();
     }
   }

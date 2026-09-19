@@ -5,37 +5,46 @@ import '../../auth/domain/user_profile.dart';
 import 'widgets/app_bottom_nav.dart';
 import 'widgets/responsive_scaffold.dart';
 
-/// Navigation shell for the Client role.
-class ClientShell extends StatelessWidget {
+/// Navigation shell for the Student role.
+///
+/// Group 1: Provides Dashboard + Profile navigation.
+/// Groups 2-5 will extend this with Training, Projects, etc.
+class StudentShell extends StatelessWidget {
   final Widget child;
   final UserProfile profile;
 
-  const ClientShell({super.key, required this.child, required this.profile});
+  const StudentShell({super.key, required this.child, required this.profile});
 
   static const _destinations = [
     NavDestination(
-      label: 'Projects',
+      label: 'Studio',
+      icon: Icons.architecture,
+      route: '/student/dashboard',
+    ),
+    NavDestination(
+      label: 'Drawings',
       icon: Icons.layers_outlined,
-      route: '/client/projects',
+      route: '/student/drawings',
     ),
     NavDestination(
-      label: 'Activity',
-      icon: Icons.history_rounded,
-      route: '/client/activity',
+      label: 'Insights',
+      icon: Icons.analytics_outlined,
+      route: '/student/insights',
     ),
     NavDestination(
-      label: 'Profile',
-      icon: Icons.person_outline_rounded,
-      route: '/client/profile',
+      label: 'Settings',
+      icon: Icons.settings_outlined,
+      route: '/student/profile',
     ),
   ];
 
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
-    if (location.startsWith('/client/projects')) return 0;
-    if (location.startsWith('/client/activity')) return 1;
-    if (location.startsWith('/client/profile')) return 2;
-    return 0; // Default
+    if (location.startsWith('/student/dashboard')) return 0;
+    if (location.startsWith('/student/drawings')) return 1;
+    if (location.startsWith('/student/insights')) return 2;
+    if (location.startsWith('/student/profile')) return 3;
+    return 0;
   }
 
   void _onDestinationSelected(BuildContext context, int index) {

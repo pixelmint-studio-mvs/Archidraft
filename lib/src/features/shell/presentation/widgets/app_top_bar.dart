@@ -1,13 +1,16 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/user_profile.dart';
 import '../../../notifications/presentation/widgets/notifications_badge.dart';
 import '../../../auth/providers/auth_providers.dart';
+import '../../../profile/providers/profile_providers.dart';
 
 /// Top App Bar using the Stitch glass effect.
 ///
@@ -16,11 +19,7 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
   final UserProfile? profile;
   final List<Widget>? navigationItems;
 
-  const AppTopBar({
-    super.key,
-    this.profile,
-    this.navigationItems,
-  });
+  const AppTopBar({super.key, this.profile, this.navigationItems});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,7 +50,9 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.xs),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
                       ),
                       child: const Icon(
                         Icons.architecture_rounded,
@@ -60,16 +61,24 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'DRAUGHTSMAN',
-                      style: AppTypography.headlineLgMobile.copyWith(
-                        color: AppColors.primary,
-                        letterSpacing: -0.5,
-                      ),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final role = ref.watch(currentUserRoleProvider);
+                        final title = role != null 
+                            ? role.toString().split('.').last.toUpperCase()
+                            : 'ARCHIDRAFT';
+                        return Text(
+                          title,
+                          style: AppTypography.headlineLgMobile.copyWith(
+                            color: AppColors.primary,
+                            letterSpacing: -0.5,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
-                
+
                 // Desktop Navigation (if provided)
                 if (navigationItems != null)
                   Row(
@@ -88,7 +97,9 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                         offset: const Offset(0, 48),
                         onSelected: (value) {
                           if (value == 'profile') {
-                            context.go('/client/profile');
+                            final role = ref.read(currentUserRoleProvider);
+                            final rolePath = role != null ? role.toString().split('.').last : 'client';
+                            context.go('/$rolePath/profile');
                           } else if (value == 'logout') {
                             ref.read(authControllerProvider.notifier).signOut();
                           }
@@ -98,12 +109,12 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                             value: 'profile',
                             child: Row(
                               children: [
-                                const Icon(Icons.person_outline_rounded, size: 20),
-                                const SizedBox(width: AppSpacing.sm),
-                                Text(
-                                  'My Profile',
-                                  style: AppTypography.bodyMd,
+                                const Icon(
+                                  Icons.person_outline_rounded,
+                                  size: 20,
                                 ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Text('My Profile', style: AppTypography.bodyMd),
                               ],
                             ),
                           ),
@@ -112,11 +123,17 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                             value: 'logout',
                             child: Row(
                               children: [
-                                const Icon(Icons.logout_rounded, size: 20, color: AppColors.error),
+                                const Icon(
+                                  Icons.logout_rounded,
+                                  size: 20,
+                                  color: AppColors.error,
+                                ),
                                 const SizedBox(width: AppSpacing.sm),
                                 Text(
                                   'Sign Out',
-                                  style: AppTypography.bodyMd.copyWith(color: AppColors.error),
+                                  style: AppTypography.bodyMd.copyWith(
+                                    color: AppColors.error,
+                                  ),
                                 ),
                               ],
                             ),
@@ -129,12 +146,16 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                             color: AppColors.surfaceContainerHigh,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                              color: AppColors.outlineVariant.withValues(
+                                alpha: 0.3,
+                              ),
                             ),
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            profile!.name.isNotEmpty ? profile!.name[0].toUpperCase() : '?',
+                            profile!.name.isNotEmpty
+                                ? profile!.name[0].toUpperCase()
+                                : '?',
                             style: AppTypography.buttonText.copyWith(
                               color: AppColors.primary,
                             ),

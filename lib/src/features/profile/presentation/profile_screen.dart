@@ -24,7 +24,9 @@ class ProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(
           'My Profile',
-          style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
+          style: AppTypography.headlineLgMobile.copyWith(
+            color: AppColors.primary,
+          ),
         ),
         actions: [
           IconButton(
@@ -75,7 +77,9 @@ class ProfileScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: AppColors.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.primary.withValues(alpha: 0.03),
@@ -87,14 +91,16 @@ class ProfileScreen extends ConsumerWidget {
                   child: ProfileHeader(profile: profile),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                
+
                 // Profile Form Card
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.xl),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceContainerLowest,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.primary.withValues(alpha: 0.03),

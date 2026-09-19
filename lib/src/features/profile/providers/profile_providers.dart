@@ -20,7 +20,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 
 final currentUserRoleProvider = Provider<UserRole?>((ref) {
   final profileAsync = ref.watch(userProfileProvider);
-  
+
   return profileAsync.when(
     data: (profile) => UserRole.fromString(profile?.role),
     loading: () => null,
@@ -34,7 +34,8 @@ final currentUserRoleProvider = Provider<UserRole?>((ref) {
 
 final profileEditingControllerProvider =
     NotifierProvider<ProfileEditingController, AsyncValue<void>>(
-        ProfileEditingController.new);
+      ProfileEditingController.new,
+    );
 
 class ProfileEditingController extends Notifier<AsyncValue<void>> {
   @override
@@ -46,9 +47,9 @@ class ProfileEditingController extends Notifier<AsyncValue<void>> {
     state = const AsyncLoading();
     try {
       await ref.read(profileRepositoryProvider).updateProfile(updatedProfile);
-      
+
       ref.invalidate(userProfileProvider);
-      
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {

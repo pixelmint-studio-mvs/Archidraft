@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -33,7 +34,9 @@ class NotificationsScreen extends ConsumerWidget {
               final n = notifications[index];
               return Card(
                 elevation: 0,
-                color: n.isRead ? AppColors.surface : AppColors.primaryContainer.withValues(alpha: 0.3),
+                color: n.isRead
+                    ? AppColors.surface
+                    : AppColors.primaryContainer.withValues(alpha: 0.3),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   side: BorderSide(
@@ -45,7 +48,9 @@ class NotificationsScreen extends ConsumerWidget {
                   title: Text(
                     n.title,
                     style: AppTypography.bodyMd.copyWith(
-                      fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
+                      fontWeight: n.isRead
+                          ? FontWeight.normal
+                          : FontWeight.bold,
                     ),
                   ),
                   subtitle: Column(
@@ -56,7 +61,9 @@ class NotificationsScreen extends ConsumerWidget {
                       const SizedBox(height: 4),
                       Text(
                         DateFormat('MMM d, y h:mm a').format(n.createdAt),
-                        style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+                        style: AppTypography.labelMono.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -65,13 +72,17 @@ class NotificationsScreen extends ConsumerWidget {
                       : IconButton(
                           icon: const Icon(Icons.check_circle_outline),
                           onPressed: () async {
-                            await ref.read(notificationRepositoryProvider).markAsRead(n.id);
+                            await ref
+                                .read(notificationRepositoryProvider)
+                                .markAsRead(n.id);
                             ref.invalidate(notificationsProvider);
                           },
                         ),
                   onTap: () async {
                     if (!n.isRead) {
-                      await ref.read(notificationRepositoryProvider).markAsRead(n.id);
+                      await ref
+                          .read(notificationRepositoryProvider)
+                          .markAsRead(n.id);
                       ref.invalidate(notificationsProvider);
                     }
                     if (n.projectId != null && context.mounted) {
