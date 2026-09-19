@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
 import '../../domain/project.dart';
 import '../../domain/project_status.dart';
+import '../../../../features/auth/providers/auth_providers.dart';
 import '../../providers/project_providers.dart';
 import '../../providers/file_providers.dart';
 import '../../providers/assignment_providers.dart';
@@ -24,11 +25,11 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectAsync = ref.watch(projectProvider(projectId));
+    final userProfileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest,
         title: const Text('Workspace'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
@@ -46,6 +47,40 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
           if (project == null) {
             return const AppErrorWidget(message: 'Project not found.');
           }
+
+          final userProfile = userProfileAsync.value;
+          final role = userProfile?.role;
+
+          if (role == 'DRAUGHTSMAN') {
+            final status = project.projectStatus ?? ProjectStatus.draft;
+            if (status.index < ProjectStatus.inProgress.index) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.lock_rounded, size: 64, color: AppColors.error),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Workspace Locked',
+                      style: AppTypography.headlineLgMobile,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'You must accept the assignment before accessing the workspace.',
+                      style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    FilledButton(
+                      onPressed: () => context.pop(),
+                      child: const Text('Go Back'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+
           return _buildWorkspace(context, ref, project);
         },
       ),
@@ -57,6 +92,11 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
     final isLoadingAction = ref
         .watch(draughtsmanActionsControllerProvider)
         .isLoading;
+    final correctionsAsync = ref.watch(projectCorrectionsProvider(projectId));
+    final hasOpenCorrection = correctionsAsync.maybeWhen(
+      data: (corrections) => corrections.any((c) => c.status == CorrectionStatus.open),
+      orElse: () => false,
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -74,6 +114,11 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
               fontSize: 28,
             ),
           ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Project Requirements
+          _buildRequirementsCard(project),
+
           const SizedBox(height: AppSpacing.xxl),
 
           // Client Reference Files
@@ -89,32 +134,45 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
 
           // Active Correction Alert (If any)
           if (status == ProjectStatus.inProgress)
-            ref.watch(projectCorrectionsProvider(projectId)).maybeWhen(
+            correctionsAsync.maybeWhen(
               data: (corrections) {
                 try {
-                  final activeCorrection = corrections.firstWhere((c) => c.status == CorrectionStatus.open);
+                  final activeCorrection = corrections.firstWhere((c) => c.status == CorrectionStatus.open || c.status == CorrectionStatus.inProgress);
+                  final isOpen = activeCorrection.status == CorrectionStatus.open;
                   return Container(
                     margin: const EdgeInsets.only(bottom: AppSpacing.xxl),
                     padding: const EdgeInsets.all(AppSpacing.lg),
                     decoration: BoxDecoration(
-                      color: AppColors.errorContainer,
+                      color: isOpen ? AppColors.errorContainer : AppColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                      border: Border.all(color: AppColors.error),
+                      border: Border.all(color: isOpen ? AppColors.error : AppColors.primary),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.warning_amber_rounded, color: AppColors.error),
+                            Icon(isOpen ? Icons.warning_amber_rounded : Icons.info_outline_rounded, color: isOpen ? AppColors.error : AppColors.primary),
                             const SizedBox(width: AppSpacing.sm),
                             Text('ACTIVE CORRECTION (Round ${activeCorrection.roundNumber})', 
-                              style: AppTypography.labelMono.copyWith(color: AppColors.onErrorContainer, fontWeight: FontWeight.bold)
+                              style: AppTypography.labelMono.copyWith(color: isOpen ? AppColors.onErrorContainer : AppColors.onSurface, fontWeight: FontWeight.bold)
                             ),
                           ],
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Text(activeCorrection.description, style: AppTypography.bodyMd.copyWith(color: AppColors.onErrorContainer)),
+                        Text(activeCorrection.description, style: AppTypography.bodyMd.copyWith(color: isOpen ? AppColors.onErrorContainer : AppColors.onSurface)),
+                        if (isOpen) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          FilledButton(
+                            onPressed: isLoadingAction ? null : () {
+                              ref.read(draughtsmanActionsControllerProvider.notifier).startCorrection(
+                                projectId: projectId,
+                                correctionId: activeCorrection.id,
+                              );
+                            },
+                            child: const Text('Start Working'),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -125,6 +183,20 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
               orElse: () => const SizedBox.shrink(),
             ),
 
+          if (status == ProjectStatus.inProgress &&
+              correctionsAsync.hasValue &&
+              correctionsAsync.value!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+              child: _buildFilesSection(
+                context,
+                ref,
+                title: 'CORRECTION ATTACHMENTS',
+                category: 'correction_attachment',
+                emptyMessage: 'No attachments provided for correction.',
+              ),
+            ),
+
           // Draughtsman Drawing Versions
           _buildFilesSection(
             context,
@@ -132,7 +204,7 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
             title: 'YOUR DRAWINGS',
             category: 'draughtsman_version',
             emptyMessage: 'No drawings uploaded yet.',
-            showUploadButton: status == ProjectStatus.inProgress,
+            showUploadButton: status == ProjectStatus.inProgress && !hasOpenCorrection,
           ),
 
           const SizedBox(height: AppSpacing.xxl),
@@ -295,5 +367,60 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
       );
       context.pop();
     }
+  }
+
+  Widget _buildRequirementsCard(Project project) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PROJECT REQUIREMENTS',
+            style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _RequirementRow(label: 'Drawing Type', value: project.drawingType.isNotEmpty ? project.drawingType : 'Not specified'),
+          const SizedBox(height: AppSpacing.md),
+          _RequirementRow(label: 'Project Area', value: (project.projectArea != null && project.projectArea! > 0) ? '${project.projectArea} sq ft' : 'Not specified'),
+          const SizedBox(height: AppSpacing.md),
+          _RequirementRow(label: 'Address', value: project.projectAddress.isNotEmpty ? project.projectAddress : 'Not specified'),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequirementRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _RequirementRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+          ),
+        ),
+      ],
+    );
   }
 }

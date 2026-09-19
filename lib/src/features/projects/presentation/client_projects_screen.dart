@@ -25,7 +25,7 @@ class ClientProjectsScreen extends ConsumerWidget {
     final projectsAsync = ref.watch(clientProjectsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Colors.transparent,
       body: projectsAsync.when(
         loading: () =>
             const AppLoadingIndicator(message: 'Loading projects...'),

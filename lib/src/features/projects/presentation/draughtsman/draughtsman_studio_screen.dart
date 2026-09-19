@@ -19,9 +19,8 @@ class DraughtsmanStudioScreen extends ConsumerWidget {
     final assignmentsAsync = ref.watch(draughtsmanAssignmentsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest,
         title: const Text('Draughtsman Studio'),
         actions: [
           IconButton(

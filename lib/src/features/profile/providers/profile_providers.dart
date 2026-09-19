@@ -29,6 +29,18 @@ final currentUserRoleProvider = Provider<UserRole?>((ref) {
 });
 
 // ──────────────────────────────────────────
+// PROFILE COMPLETENESS PROVIDER
+// ──────────────────────────────────────────
+
+final isProfileCompleteProvider = Provider<bool>((ref) {
+  final profileAsync = ref.watch(userProfileProvider);
+  return profileAsync.maybeWhen(
+    data: (profile) => profile != null && ProfileRepository.isProfileComplete(profile),
+    orElse: () => false,
+  );
+});
+
+// ──────────────────────────────────────────
 // PROFILE EDITING CONTROLLER
 // ──────────────────────────────────────────
 

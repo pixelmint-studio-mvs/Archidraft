@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/data/api_client.dart';
+import '../../api/providers/api_providers.dart';
 
 final storageRepositoryProvider = Provider<StorageRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -46,16 +47,19 @@ class StorageRepository {
   Future<ProjectFile> uploadFile({
     required String projectId,
     required String fileName,
-    String? filePath,
-    List<int>? fileBytes,
+    required Stream<List<int>> fileStream,
+    required int length,
+    required String actionId,
+    String? contentType,
     String category = 'client_uploads',
   }) async {
-    final response = await _apiClient.postMultipart(
-      '/storage/upload/$projectId',
+    final response = await _apiClient.postFileStream(
+      '/storage/upload/$projectId?category=$category',
+      fileStream,
+      length,
       fileName: fileName,
-      filePath: filePath,
-      fileBytes: fileBytes,
-      category: category,
+      contentType: contentType ?? 'application/octet-stream',
+      actionId: actionId,
     );
 
     // After uploading, fetch the latest list or return the new file info

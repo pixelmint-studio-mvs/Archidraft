@@ -105,4 +105,30 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  Future<bool> startCorrection({
+    required String projectId,
+    required String correctionId,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final actionId = const Uuid().v4();
+
+      await repository.startCorrection(
+        projectId: projectId,
+        correctionId: correctionId,
+        actionId: actionId,
+      );
+
+      ref.invalidate(projectProvider(projectId));
+      ref.invalidate(projectCorrectionsProvider(projectId));
+
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
 }

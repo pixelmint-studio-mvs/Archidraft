@@ -135,7 +135,7 @@ class ProjectRepository {
   Future<void> requestCorrection({
     required String projectId,
     required String actionId,
-    required String correctionId,
+    required String correctionId, // Note: not used by backend currently
     required String targetVersionId,
     required String description,
   }) async {
@@ -144,12 +144,23 @@ class ProjectRepository {
       body: {
         'projectId': projectId,
         'actionId': actionId,
-        'correctionId': correctionId,
         'targetVersionId': targetVersionId,
         'description': description,
       },
     );
   }
+
+  Future<void> startCorrection({
+    required String projectId,
+    required String correctionId,
+    required String actionId,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/$projectId/corrections/$correctionId/start',
+      body: {'actionId': actionId},
+    );
+  }
+
 
   Future<List<DrawingVersion>> getDrawingVersions(String projectId) async {
     final response = await _apiClient.get('/api/projects/$projectId/drawing_versions');
@@ -165,5 +176,15 @@ class ProjectRepository {
       return response.map((json) => Correction.fromJson(json)).toList();
     }
     return [];
+  }
+
+  Future<void> cancelProject({
+    required String projectId,
+    required String actionId,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/cancel',
+      body: {'projectId': projectId, 'actionId': actionId},
+    );
   }
 }

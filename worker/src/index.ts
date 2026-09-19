@@ -38,21 +38,32 @@ async function getUser(db: D1Database, uid: string) {
   return await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
 }
 
-// User Profile sync
+// User Profile sync — called immediately after Firebase registration.
+// SECURITY: Role must be CLIENT or DRAUGHTSMAN. ADMIN cannot be self-created.
 app.post('/api/users', async (c) => {
   const uid = c.get('uid');
   const body = await c.req.json();
-  const { email, name, role } = body;
+  const { email, name, mobile, role } = body;
+
+  // Enforce role allowlist at the backend level.
+  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN'];
+  const safeRole = allowedRoles.includes(role) ? role : null;
+  if (!safeRole) {
+    return c.json({ error: 'Invalid role. Only CLIENT and DRAUGHTSMAN are permitted.' }, 400);
+  }
 
   const db = c.env.DB;
   const existing = await getUser(db, uid);
   if (!existing) {
-    await db.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)')
-      .bind(uid, email, name, role || 'CLIENT')
+    await db.prepare('INSERT INTO users (id, email, name, mobile, role) VALUES (?, ?, ?, ?, ?)')
+      .bind(uid, email, name, mobile ?? '', safeRole)
       .run();
   } else {
-    // Only update name, not role (role is privileged)
-    await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(name, uid).run();
+    // On subsequent calls (e.g. retry after email verification), only update
+    // safe non-privileged fields. Role is NEVER updated here.
+    await db.prepare('UPDATE users SET name = ?, mobile = COALESCE(?, mobile) WHERE id = ?')
+      .bind(name, mobile ?? null, uid)
+      .run();
   }
   return c.json({ success: true });
 });
@@ -63,6 +74,49 @@ app.get('/api/users/me', async (c) => {
   if (!user) return c.json({ error: 'User not found' }, 404);
   return c.json(user);
 });
+
+// Update authenticated user's own editable profile fields.
+// SECURITY: role and email are NOT in the allowed set — they cannot be changed here.
+app.patch('/api/users/me', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+
+  const {
+    name,
+    mobile,
+    qualification,
+    dateOfBirth,
+    address,
+    companyName,
+    collegeName,
+  } = body;
+
+  await db.prepare(`
+    UPDATE users SET
+      name = COALESCE(?, name),
+      mobile = COALESCE(?, mobile),
+      qualification = COALESCE(?, qualification),
+      date_of_birth = COALESCE(?, date_of_birth),
+      address = COALESCE(?, address),
+      company_name = COALESCE(?, company_name),
+      college_name = COALESCE(?, college_name),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(
+    name ?? null,
+    mobile ?? null,
+    qualification ?? null,
+    dateOfBirth ?? null,
+    address ?? null,
+    companyName ?? null,
+    collegeName ?? null,
+    uid,
+  ).run();
+
+  return c.json({ success: true });
+});
+
 
 app.get('/api/users', async (c) => {
   const uid = c.get('uid');
@@ -183,11 +237,89 @@ app.post('/api/projects/submit-drawing', async (c) => {
   if (project.status === 'UNDER_CLIENT_REVIEW' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'IN_PROGRESS') return c.json({ error: 'Project is not in IN_PROGRESS state' }, 400);
 
+  // 1. Verify a valid drawing version exists
+  const latestVersion = await db.prepare('SELECT * FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1').bind(projectId).first();
+  if (!latestVersion) return c.json({ error: 'No drawing version uploaded yet.' }, 400);
+
+  // 2. No invalid correction state blocks submission (e.g. unstarted OPEN corrections)
+  const openCorrection = await db.prepare('SELECT * FROM corrections WHERE project_id = ? AND status = ?').bind(projectId, 'OPEN').first();
+  if (openCorrection) return c.json({ error: 'Cannot submit with unstarted corrections. Start the correction first.' }, 400);
+
   const batch = [
     db.prepare(`UPDATE projects SET status = 'UNDER_CLIENT_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
-    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'OPEN'`).bind(projectId),
+    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'IN_PROGRESS'`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', 'Draughtsman submitted the drawing for client review.'
+      actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', `Draughtsman submitted drawing version ${latestVersion.version_number} for client review.`
+    )
+  ];
+  await db.batch(batch);
+  return c.json({ success: true });
+});
+
+app.post('/api/projects/request-correction', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, actionId, description, targetVersionId } = body;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can request corrections' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  if (project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
+  if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
+
+  // Check 3-round limit
+  const currentRound = (project.correction_round as number) || 0;
+  if (currentRound >= 3) {
+    return c.json({ error: 'Maximum correction limit (3 rounds) has been reached.' }, 400);
+  }
+
+  const correctionId = uuidv4();
+  const nextRound = currentRound + 1;
+
+  const batch = [
+    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(nextRound, actionId, projectId),
+    db.prepare(`INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status) VALUES (?, ?, ?, ?, ?, ?, 'OPEN')`).bind(
+      correctionId, projectId, uid, targetVersionId, nextRound, description
+    ),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction round ${nextRound}.`
+    )
+  ];
+  await db.batch(batch);
+  return c.json({ success: true, correctionId });
+});
+
+app.post('/api/projects/:projectId/corrections/:correctionId/start', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const projectId = c.req.param('projectId');
+  const correctionId = c.req.param('correctionId');
+  const body = await c.req.json();
+  const { actionId } = body;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can start corrections' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  
+  const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+  if (!hasAccess) return c.json({ error: 'Not assigned to you or not accepted' }, 403);
+
+  const correction = await db.prepare('SELECT * FROM corrections WHERE id = ? AND project_id = ?').bind(correctionId, projectId).first();
+  if (!correction) return c.json({ error: 'Correction not found' }, 404);
+  
+  if (correction.status === 'IN_PROGRESS') return c.json({ success: true }); // Idempotent
+  if (correction.status !== 'OPEN') return c.json({ error: 'Correction is not OPEN' }, 400);
+
+  const batch = [
+    db.prepare(`UPDATE corrections SET status = 'IN_PROGRESS' WHERE id = ?`).bind(correctionId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'CORRECTION_STARTED', uid, 'DRAUGHTSMAN', 'Draughtsman started working on the correction.'
     )
   ];
   await db.batch(batch);
@@ -453,6 +585,14 @@ app.get('/api/assignments', async (c) => {
 // STORAGE API (Streaming via Worker)
 // ==========================================
 
+async function verifyDraughtsmanWorkspaceAccess(db: D1Database, project: any, uid: string) {
+  if (project.draughtsman_id !== uid) return false;
+  if (!project.current_assignment_id) return false;
+  const assignment = await db.prepare('SELECT status FROM assignments WHERE id = ?').bind(project.current_assignment_id).first();
+  if (!assignment || assignment.status !== 'ACCEPTED') return false;
+  return true;
+}
+
 app.get('/api/projects/:projectId/files', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
@@ -465,7 +605,10 @@ app.get('/api/projects/:projectId/files', async (c) => {
 
   // Check authorization
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN') {
+    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT * FROM files WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
   return c.json(results);
@@ -482,7 +625,10 @@ app.get('/api/projects/:projectId/drawing_versions', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN') {
+    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ? ORDER BY dv.version_number DESC').bind(projectId).all();
   return c.json(results);
@@ -499,7 +645,10 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN') {
+    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
   return c.json(results);
@@ -552,8 +701,9 @@ app.post('/api/projects/:projectId/files', async (c) => {
   if (category === 'client_upload' || category === 'correction_attachment') {
     if (user.role !== 'CLIENT' || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   } else if (category === 'draughtsman_version') {
-    if (user.role !== 'DRAUGHTSMAN' || project.draughtsman_id !== uid || project.status !== 'IN_PROGRESS') {
-      return c.json({ error: 'Forbidden or invalid project state' }, 403);
+    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (!hasAccess || project.status !== 'IN_PROGRESS') {
+      return c.json({ error: 'Forbidden: Workspace access denied or invalid project state' }, 403);
     }
   }
 
@@ -566,7 +716,8 @@ app.post('/api/projects/:projectId/files', async (c) => {
     // If REQUESTED or FAILED, we will overwrite and retry the upload
   }
 
-  const objectKey = `projects/${projectId}/${category}/${actionId}_${sanitizedName}`;
+  const categoryPath = category === 'draughtsman_version' ? 'draughtsman_versions' : category;
+  const objectKey = `projects/${projectId}/${categoryPath}/${actionId}_${sanitizedName}`;
 
   // Insert or Update metadata as REQUESTED
   await db.prepare(`
@@ -607,7 +758,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
     if (category === 'draughtsman_version') {
       const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
       const vNum = ((latest?.v as number) || 0) + 1;
-      const corr = await db.prepare('SELECT id FROM corrections WHERE project_id = ? AND status = "OPEN"').bind(projectId).first();
+      const corr = await db.prepare('SELECT id FROM corrections WHERE project_id = ? AND status IN ("OPEN", "IN_PROGRESS")').bind(projectId).first();
       
       await db.prepare(`
         INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id) 
@@ -647,7 +798,10 @@ app.get('/api/files/:fileId/download', async (c) => {
 
   // Authorization checks
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN') {
+    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+  }
 
   const object = await c.env.STORAGE.get(fileMeta.object_key as string);
   if (!object) return c.json({ error: 'File object missing in R2' }, 404);

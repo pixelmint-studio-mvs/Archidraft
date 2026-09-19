@@ -53,4 +53,34 @@ class ClientProjectController extends Notifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  Future<bool> requestCorrection({
+    required String projectId,
+    required String targetVersionId,
+    required String description,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final actionId = const Uuid().v4();
+      final correctionId = const Uuid().v4();
+
+      await repository.requestCorrection(
+        projectId: projectId,
+        actionId: actionId,
+        correctionId: correctionId, // Passed to match repository signature
+        targetVersionId: targetVersionId,
+        description: description,
+      );
+
+      ref.invalidate(projectProvider(projectId));
+      ref.invalidate(projectCorrectionsProvider(projectId));
+
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
 }

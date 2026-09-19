@@ -20,6 +20,7 @@ import '../../features/projects/presentation/admin/admin_project_detail_screen.d
 import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
+import '../../features/profile/presentation/draughtsman_onboarding_screen.dart';
 import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
@@ -74,16 +75,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final role = ref.read(currentUserRoleProvider);
+      final isProfileComplete = ref.read(isProfileCompleteProvider);
 
       // Redirect from public routes, verify-email, or root to the role dashboard
       if (isPublicRoute ||
           currentPath == '/verify-email' ||
           currentPath == '/') {
         if (role == UserRole.client) return '/client/projects';
-        if (role == UserRole.draughtsman) return '/draughtsman/studio';
+        if (role == UserRole.draughtsman) {
+          return isProfileComplete
+              ? '/draughtsman/studio'
+              : '/draughtsman/onboarding';
+        }
         if (role == UserRole.admin) return '/admin/dashboard';
         // If role is null or unknown, stay on root to show error state in AppShell
         return '/';
+      }
+
+      // Enforce draughtsman onboarding completion
+      if (role == UserRole.draughtsman) {
+        if (!isProfileComplete && currentPath != '/draughtsman/onboarding') {
+          return '/draughtsman/onboarding';
+        }
+        if (isProfileComplete && currentPath == '/draughtsman/onboarding') {
+          return '/draughtsman/studio';
+        }
       }
 
       // Enforce role-based access restrictions
@@ -111,11 +127,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/role-selection',
         builder: (context, state) => const RoleSelectionScreen(),
       ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) {
+          final role = state.extra as String?;
+          return LoginScreen(initialRole: role);
+        },
+      ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          final role = state.extra as String?;
+          return RegisterScreen(role: role);
+        },
       ),
+
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
@@ -163,6 +189,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
 
           // ── DRAUGHTSMAN ROUTES ──
+          GoRoute(
+            path: '/draughtsman/onboarding',
+            builder: (context, state) => const DraughtsmanOnboardingScreen(),
+          ),
           GoRoute(
             path: '/draughtsman/studio',
             builder: (context, state) => const DraughtsmanStudioScreen(),

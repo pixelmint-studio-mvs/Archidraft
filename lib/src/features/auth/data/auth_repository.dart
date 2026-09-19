@@ -103,24 +103,11 @@ class AuthRepository {
       final response = await _apiClient.get('/api/users/me');
       return UserProfile.fromMap(response);
     } catch (e) {
-      // Self-heal: If the backend throws a 404/error but the user is logged into Firebase,
-      // it means the local D1 database was wiped/reset. Let's automatically recreate their profile.
-      final user = _auth.currentUser;
-      if (user != null && user.uid == uid) {
-        try {
-          await _apiClient.post('/api/users', body: {
-            'email': user.email ?? 'unknown@example.com',
-            'name': user.displayName ?? 'Recovered User',
-            'mobile': user.phoneNumber ?? '',
-            'role': 'CLIENT', // Default fallback role
-          });
-          // Retry fetching
-          final retryResponse = await _apiClient.get('/api/users/me');
-          return UserProfile.fromMap(retryResponse);
-        } catch (_) {
-          return null;
-        }
-      }
+      // If the backend returns an error (e.g. 404 — user not in D1), return null.
+      // SECURITY: Never recreate a profile with a default role. A DRAUGHTSMAN with a
+      // missing D1 row must not be silently demoted to CLIENT.
+      // The router handles null profile gracefully by keeping the user at '/'
+      // until the state is manually resolved.
       return null;
     }
   }

@@ -16,8 +16,12 @@ class ProfileRepository {
     }
   }
 
+  /// Updates the profile with only user-editable fields.
+  ///
+  /// Uses PATCH /api/users/me to avoid overwriting protected fields
+  /// (e.g., role) via the creation endpoint.
   Future<void> updateProfile(UserProfile profile) async {
-    await _apiClient.post('/api/users', body: profile.toMap());
+    await _apiClient.patch('/api/users/me', body: profile.toEditableFieldsMap());
   }
 
   Future<bool> profileExists(String uid) async {
@@ -33,4 +37,13 @@ class ProfileRepository {
       return [];
     }
   }
+
+  /// Returns true if the draughtsman profile has the minimum required fields.
+  ///
+  /// Criteria: [name] and [mobile] must be non-empty.
+  /// Optional fields (qualification, collegeName, etc.) do not gate access.
+  static bool isProfileComplete(UserProfile profile) {
+    return profile.name.trim().isNotEmpty && profile.mobile.trim().isNotEmpty;
+  }
 }
+

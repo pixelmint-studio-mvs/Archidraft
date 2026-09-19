@@ -22,6 +22,17 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(draughtsmanActionsControllerProvider, (previous, next) {
+      if (next.hasError && !next.isLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    });
+
     final projectAsync = ref.watch(projectProvider(assignment.projectId));
 
     return Scaffold(
@@ -157,6 +168,26 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
   }
 
   void _handleAccept(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Accept Assignment'),
+        content: const Text('Are you sure you want to accept this assignment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     final success = await ref
         .read(draughtsmanActionsControllerProvider.notifier)
         .acceptAssignment(
@@ -171,6 +202,27 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
   }
 
   void _handleReject(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject Assignment'),
+        content: const Text('Are you sure you want to reject this assignment? You cannot undo this action.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     final success = await ref
         .read(draughtsmanActionsControllerProvider.notifier)
         .rejectAssignment(
