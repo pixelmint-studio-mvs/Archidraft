@@ -55,3 +55,12 @@ app.*.map.json
 # Cloudflare Wrangler local state
 .wrangler/
 worker/.wrangler/
+
+# Ignored unused or temporary folders
+build_old/
+backend/
+functions/
+scratch/
+worker/node_modules/
+linux/flutter/ephemeral_locked_*/
+windows/flutter/ephemeral_old/
