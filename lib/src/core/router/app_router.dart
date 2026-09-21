@@ -29,6 +29,8 @@ import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 import '../../features/training/presentation/student_training_screen.dart';
 import '../../features/training/presentation/training_module_detail_screen.dart';
+import '../../features/training/presentation/student_drawings_screen.dart';
+import '../../features/training/presentation/student_insights_screen.dart';
 
 /// Provides the GoRouter configuration with authentication-aware redirects.
 ///
@@ -306,19 +308,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/student/drawings',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Drawings Library',
-              description: 'Access all your past and current training drawings.',
-              icon: Icons.layers_outlined,
-            ),
+            builder: (context, state) => const StudentDrawingsScreen(),
           ),
           GoRoute(
             path: '/student/insights',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Insights',
-              description: 'View your learning performance and progress analytics.',
-              icon: Icons.analytics_outlined,
-            ),
+            builder: (context, state) => const StudentInsightsScreen(),
           ),
           GoRoute(
             path: '/student/profile',
