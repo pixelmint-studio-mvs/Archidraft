@@ -23,10 +23,21 @@ projects/{projectId}/
 
     activityLogs/
         {logId}
+
+training_modules/
+    {moduleId}
+
+student_progress/
+    {progressId}
+
+student_assignments/
+    {assignmentId}
 ```
 
 ## Relationships
-`USER` → `PROJECT` → `ASSIGNMENTS` → `DRAWING VERSIONS` → `CORRECTIONS` → `ACTIVITY LOGS`
+`USER` -> `PROJECT` -> `ASSIGNMENTS` -> `DRAWING VERSIONS` -> `CORRECTIONS` -> `ACTIVITY LOGS`
+`USER (STUDENT)` -> `STUDENT PROGRESS` -> `TRAINING MODULES`
+`USER (STUDENT)` -> `STUDENT ASSIGNMENTS` -> `PROJECT (Sanitized/Mock)`
 
 ## Conceptual Fields
 
@@ -62,3 +73,30 @@ projects/{projectId}/
 - `createdAt`
 - `submittedAt`
 - `completedAt`
+- `isTrainingProject` (Boolean flag for sanitized/mock projects)
+
+### TRAINING MODULES
+- `id`
+- `category` (Architectural, Structural, Interior, Approval)
+- `type` (Mock Project, Real Project)
+- `level`
+- `title`
+- `description`
+- `prerequisites`
+- `isLocked`
+
+### STUDENT PROGRESS
+- `id`
+- `studentId`
+- `moduleId`
+- `status`
+- `score`
+- `updatedAt`
+
+### STUDENT ASSIGNMENTS
+- `id`
+- `studentId`
+- `assignmentType` (Mock, Real)
+- `referenceProjectId` (FK to sanitized/mock project)
+- `status`
+- `createdAt`

@@ -40,7 +40,7 @@ class TrainingModule {
       status: data['status'] as String? ?? 'Not Started',
       score: data['score'] as int?,
       progress: (data['progress'] as num?)?.toDouble() ?? 0.0,
-      isLocked: data['is_locked'] as bool? ?? false,
+      isLocked: data['is_locked'] == 1 || data['is_locked'] == true,
       prerequisites: data['prerequisites'] as String?,
       imageUrl: data['image_url'] as String?,
       durationOrFormat: data['duration_or_format'] as String?,

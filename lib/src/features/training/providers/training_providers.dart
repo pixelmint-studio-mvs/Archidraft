@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/providers/api_providers.dart';
+import '../../projects/domain/project.dart';
 import '../data/training_repository.dart';
 import '../domain/training_module.dart';
 
@@ -26,4 +27,11 @@ final categoryProgressProvider = FutureProvider<List<TrainingCategoryProgress>>(
 final moduleDetailProvider = FutureProvider.family<TrainingModule, String>((ref, moduleId) async {
   final repository = ref.watch(trainingRepositoryProvider);
   return repository.getModuleDetails(moduleId);
+});
+
+/// Fetches assignments for the authenticated student.
+final studentAssignmentsProvider = FutureProvider.autoDispose<List<Project>>((ref) async {
+  final repository = ref.watch(trainingRepositoryProvider);
+  final assignments = await repository.getStudentAssignments();
+  return assignments.map((data) => Project.fromMap(data as Map<String, dynamic>)).toList();
 });

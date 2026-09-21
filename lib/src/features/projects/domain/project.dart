@@ -62,6 +62,12 @@ class Project {
   /// Used for idempotency.
   final String? lastActionId;
 
+  /// The ID of the training module this project is linked to (if any).
+  final String? trainingModuleId;
+
+  /// Whether this project is a training project.
+  final int? isTrainingProject;
+
   const Project({
     required this.projectId,
     required this.projectName,
@@ -79,6 +85,8 @@ class Project {
     this.submittedAt,
     this.completedAt,
     this.lastActionId,
+    this.trainingModuleId,
+    this.isTrainingProject,
   });
 
   /// Parses the [status] string into a [ProjectStatus] enum.
@@ -124,6 +132,10 @@ class Project {
           ? DateTime.tryParse(data['completed_at'].toString())
           : null,
       lastActionId: data['last_action_id']?.toString(),
+      trainingModuleId: data['training_module_id']?.toString(),
+      isTrainingProject: data['is_training_project'] is int 
+          ? data['is_training_project'] as int 
+          : int.tryParse(data['is_training_project']?.toString() ?? ''),
     );
   }
 
@@ -162,6 +174,8 @@ class Project {
     double? estimatedAmount,
     String? status,
     String? lastActionId,
+    String? trainingModuleId,
+    int? isTrainingProject,
   }) {
     return Project(
       projectId: projectId,
@@ -180,6 +194,8 @@ class Project {
       submittedAt: submittedAt,
       completedAt: completedAt,
       lastActionId: lastActionId ?? this.lastActionId,
+      trainingModuleId: trainingModuleId ?? this.trainingModuleId,
+      isTrainingProject: isTrainingProject ?? this.isTrainingProject,
     );
   }
 }

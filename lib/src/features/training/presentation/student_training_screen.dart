@@ -5,12 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../projects/domain/project.dart';
+import '../../projects/presentation/widgets/project_card.dart';
 import '../domain/training_module.dart';
 import '../providers/training_providers.dart';
-import '../../projects/domain/assignment.dart';
-import '../../projects/providers/assignment_providers.dart';
-import '../../projects/domain/assignment_status.dart';
-
 class StudentTrainingScreen extends ConsumerStatefulWidget {
   const StudentTrainingScreen({super.key});
 
@@ -38,40 +36,17 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
   Widget build(BuildContext context) {
     final modulesAsync = ref.watch(studentModulesProvider);
     final progressAsync = ref.watch(categoryProgressProvider);
-    final assignmentsAsync = ref.watch(draughtsmanAssignmentsProvider);
+    final assignmentsAsync = ref.watch(studentAssignmentsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceBright.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceBright.withValues(alpha: 0.9),
         title: Text(
           'Learning Path',
           style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
         ),
-        actions: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            margin: const EdgeInsets.only(right: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
-              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.emoji_events, color: AppColors.tertiaryContainer, size: 20),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'Top 15%',
-                  style: AppTypography.labelMono.copyWith(color: AppColors.onSurface),
-                ),
-              ],
-            ),
-          )
-        ],
+
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -90,7 +65,8 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
         error: (err, stack) => _buildErrorState(err.toString(), () => ref.refresh(studentModulesProvider)),
         data: (modules) {
-          if (modules.isEmpty) {
+          final allAssignments = assignmentsAsync.asData?.value ?? [];
+          if (modules.isEmpty && allAssignments.isEmpty) {
             return _buildEmptyState();
           }
 
@@ -99,38 +75,36 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
           final intModules = modules.where((m) => m.category == 'Interior').toList();
           final apprModules = modules.where((m) => m.category == 'Approval').toList();
 
-          final assignments = assignmentsAsync.value ?? [];
-
           return TabBarView(
             controller: _tabController,
             children: [
               _TrainingCategoryView(
                 title: 'Architectural Drafting Foundations',
                 modules: archModules,
-                assignments: assignments,
                 category: 'Architectural',
                 progressAsync: progressAsync,
+                assignments: allAssignments.where((a) => archModules.any((m) => m.id == a.trainingModuleId)).toList(),
               ),
               _TrainingCategoryView(
                 title: 'Structural Systems Analysis',
                 modules: structModules,
-                assignments: assignments,
                 category: 'Structural',
                 progressAsync: progressAsync,
+                assignments: allAssignments.where((a) => structModules.any((m) => m.id == a.trainingModuleId)).toList(),
               ),
               _TrainingCategoryView(
                 title: 'Interior Space Planning',
                 modules: intModules,
-                assignments: assignments,
                 category: 'Interior',
                 progressAsync: progressAsync,
+                assignments: allAssignments.where((a) => intModules.any((m) => m.id == a.trainingModuleId)).toList(),
               ),
               _TrainingCategoryView(
                 title: 'Building Approval Codes',
                 modules: apprModules,
-                assignments: assignments,
                 category: 'Approval',
                 progressAsync: progressAsync,
+                assignments: allAssignments.where((a) => apprModules.any((m) => m.id == a.trainingModuleId)).toList(),
               ),
             ],
           );
@@ -199,16 +173,16 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
 class _TrainingCategoryView extends StatelessWidget {
   final String title;
   final List<TrainingModule> modules;
-  final List<Assignment> assignments;
   final String category;
   final AsyncValue<List<TrainingCategoryProgress>> progressAsync;
+  final List<Project> assignments;
 
   const _TrainingCategoryView({
     required this.title,
     required this.modules,
-    required this.assignments,
     required this.category,
     required this.progressAsync,
+    required this.assignments,
   });
 
   @override
@@ -224,7 +198,7 @@ class _TrainingCategoryView extends StatelessWidget {
         children: [
           _buildProgressSection(),
           const SizedBox(height: AppSpacing.xl),
-          if (mockProjects.isNotEmpty || assignments.isNotEmpty || masterclass != null) ...[
+          if (mockProjects.isNotEmpty || masterclass != null || assignments.isNotEmpty) ...[
             Text(
               'Training Projects',
               style: AppTypography.headlineLgMobile.copyWith(
@@ -233,7 +207,7 @@ class _TrainingCategoryView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            _buildProjectsGrid(context, mockProjects, assignments, masterclass),
+            _buildProjectsGrid(context, mockProjects, masterclass, assignments),
             const SizedBox(height: AppSpacing.xl),
           ],
           if (currentModules.isNotEmpty) ...[
@@ -255,11 +229,11 @@ class _TrainingCategoryView extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 24,
             offset: const Offset(0, 4),
           ),
@@ -314,18 +288,28 @@ class _TrainingCategoryView extends StatelessWidget {
   Widget _buildProjectsGrid(
       BuildContext context, 
       List<TrainingModule> mockProjects, 
-      List<Assignment> assignments, 
-      TrainingModule? masterclass) {
+      TrainingModule? masterclass,
+      List<Project> assignments) {
     
-    // Flatten assignments and mock projects into a single list of widgets to display
+    // Flatten mock projects and real assignments into a single list of widgets to display
     List<Widget> projectCards = [];
-    
-    for (final assignment in assignments) {
-      projectCards.add(Expanded(child: _buildAssignmentCard(context, assignment)));
-    }
     
     for (final mock in mockProjects) {
       projectCards.add(Expanded(child: _buildMockProjectCard(context, mock)));
+    }
+
+    for (final assignment in assignments) {
+      projectCards.add(
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            child: ProjectCard(
+              project: assignment,
+              onTap: () => context.push('/student/projects/${assignment.projectId}'),
+            ),
+          ),
+        ),
+      );
     }
 
     // Pair them up in rows
@@ -360,104 +344,6 @@ class _TrainingCategoryView extends StatelessWidget {
     );
   }
 
-  Widget _buildAssignmentCard(BuildContext context, Assignment assignment) {
-    final status = assignment.assignmentStatus ?? AssignmentStatus.pending;
-    final isCompleted = status == AssignmentStatus.completed;
-    
-    return GestureDetector(
-      onTap: () {
-        context.push('/student/assignments/${assignment.id}', extra: assignment);
-      },
-      child: Container(
-        height: 280, // Match mock project card height
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
-          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondaryFixed,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'Real Project',
-                    style: AppTypography.labelMono.copyWith(color: AppColors.onSecondaryFixed),
-                  ),
-                ),
-                const Icon(Icons.star, color: AppColors.primary, size: 20),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.primaryContainer.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              ),
-              child: const Center(
-                child: Icon(Icons.business_center, color: AppColors.primary, size: 40),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    assignment.projectName?.isNotEmpty == true ? assignment.projectName! : 'Untitled Project',
-                    style: AppTypography.buttonText.copyWith(color: AppColors.primary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Assigned by Admin • ${assignment.drawingType ?? 'Drafting'}',
-                    style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  status.displayName,
-                  style: AppTypography.labelMono.copyWith(
-                    color: isCompleted ? AppColors.success : AppColors.onSurfaceVariant,
-                    fontSize: 10,
-                  ),
-                ),
-                if (!isCompleted)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                    ),
-                    child: Text(
-                      'Open',
-                      style: AppTypography.buttonText.copyWith(color: AppColors.onPrimary, fontSize: 10),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMockProjectCard(BuildContext context, TrainingModule module) {
     final isCompleted = module.status == 'Completed';
@@ -473,7 +359,7 @@ class _TrainingCategoryView extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
-          border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+          border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         ),
         child: Column(
@@ -564,7 +450,7 @@ class _TrainingCategoryView extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
       ),
       child: Column(
@@ -628,7 +514,7 @@ class _TrainingCategoryView extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
       ),
       child: Column(
@@ -654,7 +540,7 @@ class _TrainingCategoryView extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+              border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
             ),
             child: Icon(icon, color: AppColors.primary),
           ),

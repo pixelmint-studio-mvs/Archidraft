@@ -298,6 +298,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: '/student/projects/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return ProjectDetailScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: '/student/drawings',
+            builder: (context, state) => const PlaceholderScreen(
+              title: 'Drawings Library',
+              description: 'Access all your past and current training drawings.',
+              icon: Icons.layers_outlined,
+            ),
+          ),
+          GoRoute(
+            path: '/student/insights',
+            builder: (context, state) => const PlaceholderScreen(
+              title: 'Insights',
+              description: 'View your learning performance and progress analytics.',
+              icon: Icons.analytics_outlined,
+            ),
+          ),
+          GoRoute(
             path: '/student/profile',
             builder: (context, state) => const ProfileScreen(),
           ),

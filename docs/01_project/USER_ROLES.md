@@ -2,6 +2,8 @@
 
 ARCHI DRAFT enforces strict Role-Based Access Control (RBAC). 
 
+The system formally recognizes four roles: **CLIENT**, **DRAUGHTSMAN**, **ADMIN**, and **STUDENT**. 
+
 ## 1. CLIENT
 The Client is the project owner.
 
@@ -63,3 +65,26 @@ The Admin manages the entire platform. Admin authority must remain backend-contr
 
 **Cannot:**
 - Normal users can never promote themselves or others to Admin. Admin provisioning is strictly controlled.
+
+## 4. STUDENT
+The Student is a user learning architectural drafting via the platform's training environment.
+
+**Can:**
+- Register and Login
+- Complete their student profile
+- View assigned training modules (Architectural, Structural, Interior, Approval)
+- Track their personal training progress
+- Access sanitized/mock training projects assigned to them by an Admin
+- Submit training project corrections/drawings for grading (if applicable)
+
+**Cannot:**
+- Access active or historical Client projects
+- View Client personal information
+- View Draughtsman personal information
+- Take on Draughtsman assignments
+- Assign themselves projects
+- Modify user roles
+
+**Role Lifecycle (OPEN BUSINESS DECISION):**
+- Whether a Student automatically becomes a Draughtsman upon training completion is currently an OPEN BUSINESS DECISION and not yet implemented.
+

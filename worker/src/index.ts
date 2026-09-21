@@ -42,6 +42,12 @@ async function getUser(db: D1Database, uid: string) {
   return await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
 }
 
+// Helper: Check if student is assigned to training project
+async function verifyStudentAssignment(db: D1Database, uid: string, projectId: string): Promise<boolean> {
+  const assignment = await db.prepare('SELECT 1 FROM student_assignments WHERE student_id = ? AND project_id = ?').bind(uid, projectId).first();
+  return !!assignment;
+}
+
 // User Profile sync
 app.post('/api/users', async (c) => {
   const uid = c.get('uid');
@@ -54,7 +60,7 @@ app.post('/api/users', async (c) => {
     await db.prepare(
       'INSERT INTO users (id, email, name, role, mobile, college_name) VALUES (?, ?, ?, ?, ?, ?)'
     )
-      .bind(uid, email, name, role || 'CLIENT', mobile || null, college_name || null)
+      .bind(uid, email, name, role, mobile || null, college_name || null)
       .run();
   } else {
     // Only update name, not role (role is privileged)
@@ -136,6 +142,11 @@ app.get('/api/projects/:projectId', async (c) => {
 
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'STUDENT') {
+    if (project.is_training_project !== 1) return c.json({ error: 'Forbidden' }, 403);
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
 
   return c.json(project);
 });
@@ -198,11 +209,17 @@ app.post('/api/projects/submit-drawing', async (c) => {
   const { projectId, actionId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can submit drawings' }, 403);
+  if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) return c.json({ error: 'Only draughtsmen or students can submit drawings' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
+  
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
+  if (user.role === 'STUDENT') {
+    if (project.is_training_project !== 1) return c.json({ error: 'Forbidden' }, 403);
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
   if (project.status === 'UNDER_CLIENT_REVIEW' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'IN_PROGRESS') return c.json({ error: 'Project is not in IN_PROGRESS state' }, 400);
 
@@ -549,6 +566,11 @@ app.get('/api/projects/:projectId/files', async (c) => {
   // Check authorization
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'STUDENT') {
+    if (project.is_training_project !== 1) return c.json({ error: 'Forbidden' }, 403);
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT * FROM files WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
   return c.json(results);
@@ -566,6 +588,11 @@ app.get('/api/projects/:projectId/drawing_versions', async (c) => {
 
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'STUDENT') {
+    if (project.is_training_project !== 1) return c.json({ error: 'Forbidden' }, 403);
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ? ORDER BY dv.version_number DESC').bind(projectId).all();
   return c.json(results);
@@ -583,6 +610,11 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
 
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'STUDENT') {
+    if (project.is_training_project !== 1) return c.json({ error: 'Forbidden' }, 403);
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
   return c.json(results);
@@ -636,8 +668,18 @@ app.post('/api/projects/:projectId/files', async (c) => {
   if (category === 'client_upload' || category === 'correction_attachment') {
     if (user.role !== 'CLIENT' || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   } else if (category === 'draughtsman_version') {
-    if (user.role !== 'DRAUGHTSMAN' || project.draughtsman_id !== uid || project.status !== 'IN_PROGRESS') {
-      return c.json({ error: 'Forbidden or invalid project state' }, 403);
+    if (user.role === 'DRAUGHTSMAN') {
+      if (project.draughtsman_id !== uid || project.status !== 'IN_PROGRESS') {
+        return c.json({ error: 'Forbidden or invalid project state' }, 403);
+      }
+    } else if (user.role === 'STUDENT') {
+      if (project.is_training_project !== 1 || project.status !== 'IN_PROGRESS') {
+        return c.json({ error: 'Forbidden or invalid project state' }, 403);
+      }
+      const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+      if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+    } else {
+      return c.json({ error: 'Forbidden' }, 403);
     }
   }
 
@@ -1019,5 +1061,143 @@ app.post('/api/invoices/:invoiceId/payments', async (c) => {
 
   return c.json({ success: true, payment_id: paymentId, new_status: newStatus });
 });
+
+// ==========================================
+// STUDENT TRAINING ENDPOINTS
+// ==========================================
+
+// GET /api/student/training/modules
+app.get('/api/student/training/modules', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized: Only students can access training modules', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const { results } = await db.prepare('SELECT * FROM training_modules ORDER BY created_at ASC').all();
+  return c.json(results);
+});
+
+// GET /api/student/training/modules/:moduleId
+app.get('/api/student/training/modules/:moduleId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized: Only students can access training modules', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const module = await db.prepare('SELECT * FROM training_modules WHERE id = ?').bind(moduleId).first();
+
+  if (!module) {
+    return c.json({ error: 'Training module not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json(module);
+});
+
+// GET /api/student/training/progress
+app.get('/api/student/training/progress', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized: Only students can access training progress', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  // Aggregate progress per category:
+  // For each category, compute the fraction of modules the student has completed.
+  // A module counts as "completed" if student_progress.status = 'Completed'.
+  const { results } = await db.prepare(`
+    SELECT
+      tm.category,
+      CAST(COUNT(CASE WHEN sp.status = 'Completed' THEN 1 END) AS REAL) / CAST(COUNT(tm.id) AS REAL) AS overall_progress
+    FROM training_modules tm
+    LEFT JOIN student_progress sp ON sp.module_id = tm.id AND sp.student_id = ?
+    GROUP BY tm.category
+    ORDER BY tm.category ASC
+  `).bind(uid).all();
+
+  return c.json(results);
+});
+
+// POST /api/student/training/progress
+app.post('/api/student/training/progress', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized: Only students can update training progress', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const body = await c.req.json();
+  const { module_id, status, score } = body;
+
+  if (!module_id || !status) {
+    return c.json({ error: 'Bad Request: Missing module_id or status', code: 'BAD_REQUEST' }, 400);
+  }
+
+  const id = uuidv4();
+  
+  // Upsert progress
+  await db.prepare(`
+    INSERT INTO student_progress (id, student_id, module_id, status, score, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(student_id, module_id) DO UPDATE SET
+      status = excluded.status,
+      score = excluded.score,
+      updated_at = CURRENT_TIMESTAMP
+  `).bind(id, uid, module_id, status, score || null).run();
+
+  return c.json({ success: true });
+});
+
+// GET /api/student/assignments
+app.get('/api/student/assignments', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized: Only students can access training assignments', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  // Return project-shaped rows so Flutter's Project.fromMap works correctly.
+  // sa.id becomes current_assignment_id; p.id becomes id (the project ID).
+  const { results } = await db.prepare(`
+    SELECT
+      p.id,
+      p.project_name,
+      p.project_address,
+      p.drawing_name,
+      p.drawing_type,
+      p.project_area,
+      p.estimated_amount,
+      p.client_id,
+      p.draughtsman_id,
+      sa.id AS current_assignment_id,
+      p.status,
+      p.correction_round,
+      p.created_at,
+      p.submitted_at,
+      p.completed_at,
+      p.last_action_id,
+      p.training_module_id,
+      p.is_training_project
+    FROM student_assignments sa
+    JOIN projects p ON sa.project_id = p.id
+    WHERE sa.student_id = ? AND p.is_training_project = 1
+    ORDER BY sa.created_at DESC
+  `).bind(uid).all();
+
+  return c.json(results);
+});
+
 
 export default app;

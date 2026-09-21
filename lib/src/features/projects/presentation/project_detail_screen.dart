@@ -13,6 +13,9 @@ import 'package:archi_draft/src/features/projects/providers/project_form_control
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 import 'package:uuid/uuid.dart';
+import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
+import 'package:archi_draft/src/features/profile/domain/user_role.dart';
+import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 
 import 'widgets/project_status_chip.dart';
 import 'widgets/activity_timeline.dart';
@@ -79,6 +82,9 @@ class ProjectDetailScreen extends ConsumerWidget {
     Project project,
   ) {
     final status = project.projectStatus ?? ProjectStatus.draft;
+    final profile = ref.watch(userProfileProvider).value;
+    final userRole = profile?.role ?? UserRole.client;
+    final isStudentTraining = project.isTrainingProject == 1 && userRole == UserRole.student;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -522,7 +528,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                         );
                       },
                     ),
-                if (status == ProjectStatus.draft) ...[
+                if (status == ProjectStatus.draft && !isStudentTraining) ...[
                   const SizedBox(height: AppSpacing.md),
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -537,6 +543,21 @@ class ProjectDetailScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                ] else if (isStudentTraining && (status == ProjectStatus.inProgress || status == ProjectStatus.underClientReview)) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FileUploadButton(
+                        projectId: project.projectId,
+                        category: 'draughtsman_version',
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -545,7 +566,7 @@ class ProjectDetailScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxl),
 
           // Action Buttons
-          if (status == ProjectStatus.draft) ...[
+          if (status == ProjectStatus.draft && !isStudentTraining) ...[
             // Continue Editing Button
             SizedBox(
               width: double.infinity,
@@ -561,6 +582,54 @@ class ProjectDetailScreen extends ConsumerWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.secondary,
                   foregroundColor: AppColors.onSecondary,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          if (isStudentTraining && status == ProjectStatus.inProgress) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Submit Drawing'),
+                      content: const Text('Are you sure you want to submit this drawing for review?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Submit'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed == true && context.mounted) {
+                    final success = await ref
+                        .read(draughtsmanActionsControllerProvider.notifier)
+                        .submitDrawing(
+                          projectId: project.projectId,
+                        );
+                    if (success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Drawing submitted successfully')),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: const Text('Submit Drawing'),
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

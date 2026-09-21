@@ -15,6 +15,6 @@ void main() {
 
     // Verify that the email and password text fields are present.
     expect(find.byType(AuthFormField), findsNWidgets(2));
-    expect(find.text('Sign In'), findsWidgets);
+    expect(find.text('AUTHENTICATE'), findsWidgets);
   });
 }

@@ -11,6 +11,7 @@ Architectural drafting involves large files (CAD, DWG, PDF), multiple correction
 - **CLIENT:** Individuals or companies requesting architectural drawings. They upload reference files, review progress, and approve final deliverables.
 - **DRAUGHTSMAN:** Professional drafters assigned to projects. They download references, execute the work, and upload drawing versions.
 - **ADMIN:** Studio managers who oversee the ecosystem. They approve new projects, assign draughtsmen, and monitor workflow integrity.
+- **STUDENT:** Learners using the platform's training environment. They view training modules, complete mock/sanitized projects assigned by an Admin, and track their progress without accessing live client data.
 
 ## Core Purpose & Lifecycle
 

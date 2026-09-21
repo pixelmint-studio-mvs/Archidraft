@@ -8,7 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../domain/training_module.dart';
 import '../providers/training_providers.dart';
 
-class TrainingModuleDetailScreen extends ConsumerWidget {
+class TrainingModuleDetailScreen extends ConsumerStatefulWidget {
   final String moduleId;
 
   const TrainingModuleDetailScreen({
@@ -17,8 +17,15 @@ class TrainingModuleDetailScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final moduleDetailAsync = ref.watch(moduleDetailProvider(moduleId));
+  ConsumerState<TrainingModuleDetailScreen> createState() => _TrainingModuleDetailScreenState();
+}
+
+class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetailScreen> {
+  bool _isSubmitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final moduleDetailAsync = ref.watch(moduleDetailProvider(widget.moduleId));
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -58,7 +65,9 @@ class TrainingModuleDetailScreen extends ConsumerWidget {
       ),
       body: moduleDetailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
-        error: (err, stack) => _buildErrorState(err.toString(), () => ref.refresh(moduleDetailProvider(moduleId))),
+        error: (error, stack) => Center(
+          child: SelectableText('Error loading module details for module ${widget.moduleId}: $error', style: const TextStyle(color: Colors.red)),
+        ),
         data: (module) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -73,47 +82,12 @@ class TrainingModuleDetailScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.lg),
                 _buildResubmissionDropzone(),
                 const SizedBox(height: AppSpacing.lg),
-                _buildActionPalette(),
+                _buildActionPalette(module),
                 const SizedBox(height: AppSpacing.xxl),
               ],
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildErrorState(String error, VoidCallback onRetry) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Failed to Load Module',
-              style: AppTypography.headlineLgMobile.copyWith(color: AppColors.onSurface),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'An error occurred connecting to the server. Please try again.',
-              style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.secondary,
-                foregroundColor: AppColors.onSecondary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -741,9 +715,43 @@ class TrainingModuleDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionPalette() {
+  Widget _buildActionPalette(TrainingModule module) {
     return Column(
       children: [
+        if (module.status != 'Completed') ...[
+          ElevatedButton(
+            onPressed: _isSubmitting ? null : () => _submitProgress(module),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondary,
+              foregroundColor: AppColors.onSecondary,
+              minimumSize: const Size.fromHeight(56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+              ),
+            ),
+            child: _isSubmitting
+                ? const SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: AppColors.onSecondary,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_circle_outline, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Submit Training Assignment',
+                        style: AppTypography.buttonText,
+                      ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         ElevatedButton(
           onPressed: () {},
           style: ElevatedButton.styleFrom(
@@ -797,5 +805,45 @@ class TrainingModuleDetailScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _submitProgress(TrainingModule module) async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final repository = ref.read(trainingRepositoryProvider);
+      // Dummy score of 100 for completion
+      await repository.postStudentProgress(module.id, 'Completed', 100);
+      
+      if (!mounted) return;
+
+      // Invalidate providers so the UI refreshes
+      ref.invalidate(studentModulesProvider);
+      ref.invalidate(categoryProgressProvider);
+      ref.invalidate(moduleDetailProvider(widget.moduleId));
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Module ${module.title} completed successfully!'),
+          backgroundColor: AppColors.secondary,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to submit progress: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 }
