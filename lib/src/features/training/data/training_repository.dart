@@ -57,6 +57,15 @@ class TrainingRepository {
     return [];
   }
 
+  /// Fetches all pending corrections for the student's training projects
+  Future<List<dynamic>> getStudentCorrections() async {
+    final response = await _apiClient.get('/api/student/corrections');
+    if (response != null && response is List) {
+      return response;
+    }
+    return [];
+  }
+
   /// Posts module completion progress.
   Future<void> postStudentProgress(String moduleId, String status, int? score) async {
     await _apiClient.post(

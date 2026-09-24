@@ -16,6 +16,7 @@ import '../../features/projects/presentation/client_projects_screen.dart';
 import '../../features/projects/presentation/financials_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
+import '../../features/projects/presentation/student/student_projects_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
 import '../../features/projects/presentation/admin/admin_projects_screen.dart';
@@ -27,10 +28,10 @@ import '../../features/projects/presentation/draughtsman/draughtsman_workspace_s
 import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
+import '../../features/training/presentation/student_studio_screen.dart';
 import '../../features/training/presentation/student_training_screen.dart';
 import '../../features/training/presentation/training_module_detail_screen.dart';
-import '../../features/training/presentation/student_drawings_screen.dart';
-import '../../features/training/presentation/student_insights_screen.dart';
+
 
 /// Provides the GoRouter configuration with authentication-aware redirects.
 ///
@@ -283,6 +284,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // ── STUDENT ROUTES ──
           GoRoute(
             path: '/student/dashboard',
+            builder: (context, state) => const StudentStudioScreen(),
+          ),
+          GoRoute(
+            path: '/student/training',
             builder: (context, state) => const StudentTrainingScreen(),
           ),
           GoRoute(
@@ -307,12 +312,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: '/student/drawings',
-            builder: (context, state) => const StudentDrawingsScreen(),
-          ),
-          GoRoute(
-            path: '/student/insights',
-            builder: (context, state) => const StudentInsightsScreen(),
+            path: '/student/projects',
+            builder: (context, state) => const StudentProjectsScreen(),
           ),
           GoRoute(
             path: '/student/profile',

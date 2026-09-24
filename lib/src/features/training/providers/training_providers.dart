@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/providers/api_providers.dart';
+import '../../projects/domain/correction.dart';
 import '../../projects/domain/project.dart';
 import '../data/training_repository.dart';
 import '../domain/training_module.dart';
@@ -34,4 +35,11 @@ final studentAssignmentsProvider = FutureProvider.autoDispose<List<Project>>((re
   final repository = ref.watch(trainingRepositoryProvider);
   final assignments = await repository.getStudentAssignments();
   return assignments.map((data) => Project.fromMap(data as Map<String, dynamic>)).toList();
+});
+
+/// Fetches all pending corrections for the authenticated student's training projects.
+final studentCorrectionsProvider = FutureProvider.autoDispose<List<Correction>>((ref) async {
+  final repository = ref.watch(trainingRepositoryProvider);
+  final data = await repository.getStudentCorrections();
+  return data.map((json) => Correction.fromJson(json as Map<String, dynamic>)).toList();
 });

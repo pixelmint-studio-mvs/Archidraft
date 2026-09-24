@@ -1198,6 +1198,28 @@ app.get('/api/student/assignments', async (c) => {
 
   return c.json(results);
 });
+// GET /api/student/corrections
+app.get('/api/student/corrections', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
 
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const { results } = await db.prepare(`
+    SELECT c.* 
+    FROM corrections c
+    JOIN projects p ON c.project_id = p.id
+    JOIN student_assignments sa ON p.id = sa.project_id
+    WHERE sa.student_id = ? 
+      AND p.is_training_project = 1
+      AND c.status != 'RESOLVED'
+    ORDER BY c.created_at DESC
+  `).bind(uid).all();
+
+  return c.json(results);
+});
 
 export default app;

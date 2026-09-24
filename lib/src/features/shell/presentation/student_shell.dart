@@ -22,14 +22,14 @@ class StudentShell extends StatelessWidget {
       route: '/student/dashboard',
     ),
     NavDestination(
-      label: 'Drawings',
-      icon: Icons.layers_outlined,
-      route: '/student/drawings',
+      label: 'Training',
+      icon: Icons.school_outlined,
+      route: '/student/training',
     ),
     NavDestination(
-      label: 'Insights',
-      icon: Icons.analytics_outlined,
-      route: '/student/insights',
+      label: 'Projects',
+      icon: Icons.assignment_outlined,
+      route: '/student/projects',
     ),
     NavDestination(
       label: 'Settings',
@@ -41,8 +41,8 @@ class StudentShell extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/student/dashboard')) return 0;
-    if (location.startsWith('/student/drawings')) return 1;
-    if (location.startsWith('/student/insights')) return 2;
+    if (location.startsWith('/student/training')) return 1;
+    if (location.startsWith('/student/projects')) return 2;
     if (location.startsWith('/student/profile')) return 3;
     return 0;
   }
