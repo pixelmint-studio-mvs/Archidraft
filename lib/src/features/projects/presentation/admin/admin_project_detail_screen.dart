@@ -33,6 +33,12 @@ class AdminProjectDetailScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit Project',
+            onPressed: () =>
+                context.push('/admin/projects/$projectId/edit'),
+          ),
+          IconButton(
             icon: const Icon(Icons.attach_money),
             tooltip: 'Financials',
             onPressed: () =>

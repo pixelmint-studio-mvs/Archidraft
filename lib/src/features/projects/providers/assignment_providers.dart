@@ -88,13 +88,13 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> submitDrawing({required String projectId}) async {
+  Future<bool> submitDrawing({required String projectId, String? draftFileId}) async {
     state = const AsyncLoading();
     try {
       final repository = ref.read(projectRepositoryProvider);
       final actionId = const Uuid().v4();
 
-      await repository.submitDrawing(projectId: projectId, actionId: actionId);
+      await repository.submitDrawing(projectId: projectId, actionId: actionId, draftFileId: draftFileId);
 
       ref.invalidate(draughtsmanAssignmentsProvider);
       ref.invalidate(projectProvider(projectId));

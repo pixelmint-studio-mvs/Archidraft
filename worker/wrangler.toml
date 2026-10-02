@@ -12,3 +12,7 @@ database_id = "af8d3312-5f6e-46ce-bcc1-dfa91e484cc0"
 [[r2_buckets]]
 binding = "STORAGE"
 bucket_name = "archi-draft-storage"
+
+[dev]
+ip = "0.0.0.0"
+port = 8787

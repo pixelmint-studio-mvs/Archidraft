@@ -136,6 +136,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
     final role = UserRole.fromString(widget.profile.role);
     final isClient = role == UserRole.client;
     final isDraughtsman = role == UserRole.draughtsman;
+    final isStudent = role == UserRole.student;
 
     final profileState = ref.watch(profileEditingControllerProvider);
     final isLoading = profileState is AsyncLoading;
@@ -214,9 +215,9 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             const SizedBox(height: AppSpacing.xl),
           ],
 
-          if (isDraughtsman) ...[
+          if (isDraughtsman || isStudent) ...[
             Text(
-              'Professional Details',
+              isStudent ? 'Academic Details' : 'Professional Details',
               style: AppTypography.headlineLgMobile.copyWith(
                 color: AppColors.primary,
               ),

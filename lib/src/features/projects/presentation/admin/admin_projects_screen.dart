@@ -42,6 +42,13 @@ class AdminProjectsScreen extends StatelessWidget {
             _ProjectListTab(status: 'COMPLETED'),
           ],
         ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => context.push('/admin/projects/new'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          icon: const Icon(Icons.add),
+          label: const Text('New Project'),
+        ),
       ),
     );
   }

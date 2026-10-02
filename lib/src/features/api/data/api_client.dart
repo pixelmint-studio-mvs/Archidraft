@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
@@ -9,13 +10,20 @@ import 'api_client_io.dart'
 
 class ApiClient {
   final FirebaseAuth _firebaseAuth;
-  // Use http://localhost:8787 for local dev or the deployed worker URL
-  final String baseUrl = const String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'http://localhost:8787',
-  );
+  late final String baseUrl;
 
-  ApiClient(this._firebaseAuth);
+  ApiClient(this._firebaseAuth) {
+    const envUrl = String.fromEnvironment('API_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      baseUrl = envUrl;
+    } else {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        baseUrl = 'http://10.0.2.2:8787';
+      } else {
+        baseUrl = 'http://localhost:8787';
+      }
+    }
+  }
 
   Future<Map<String, String>> _getHeaders() async {
     final user = _firebaseAuth.currentUser;

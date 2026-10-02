@@ -27,11 +27,17 @@ class ProfileRepository {
 
   Future<List<UserProfile>> getDraughtsmen() async {
     try {
-      final response = await _apiClient.get(
+      final responseDraughtsmen = await _apiClient.get(
         '/api/users',
         queryParams: {'role': 'DRAUGHTSMAN'},
       );
-      return (response as List).map((u) => UserProfile.fromMap(u)).toList();
+      final responseStudents = await _apiClient.get(
+        '/api/users',
+        queryParams: {'role': 'STUDENT'},
+      );
+      final d = (responseDraughtsmen as List).map((u) => UserProfile.fromMap(u)).toList();
+      final s = (responseStudents as List).map((u) => UserProfile.fromMap(u)).toList();
+      return [...d, ...s];
     } catch (e) {
       return [];
     }

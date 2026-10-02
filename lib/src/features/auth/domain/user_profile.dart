@@ -98,6 +98,11 @@ class UserProfile {
       'email': email,
       'mobile': mobile,
       'role': role,
+      'qualification': qualification,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'address': address,
+      'company_name': companyName,
+      'college_name': collegeName,
     };
   }
 

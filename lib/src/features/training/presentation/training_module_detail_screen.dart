@@ -76,13 +76,17 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
               children: [
                 _buildHeroCard(module),
                 const SizedBox(height: AppSpacing.lg),
-                _buildLintingPanel(),
-                const SizedBox(height: AppSpacing.lg),
-                _buildMentorReview(),
-                const SizedBox(height: AppSpacing.lg),
-                _buildResubmissionDropzone(),
-                const SizedBox(height: AppSpacing.lg),
-                _buildActionPalette(module),
+                if (module.type == 'Module')
+                  _buildLessonsList(module)
+                else ...[
+                  _buildLintingPanel(),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildMentorReview(),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildResubmissionDropzone(),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildActionPalette(module),
+                ],
                 const SizedBox(height: AppSpacing.xxl),
               ],
             ),
@@ -139,6 +143,32 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
             module.description,
             style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
           ),
+          if (module.type == 'Module') ...[
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Module Progress',
+                  style: AppTypography.labelMono.copyWith(color: AppColors.onSurface),
+                ),
+                Text(
+                  '${module.progress}%',
+                  style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+              child: LinearProgressIndicator(
+                value: module.progress / 100,
+                backgroundColor: AppColors.surfaceContainer,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
+                minHeight: 6,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           Container(
             height: 180,
@@ -845,5 +875,121 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
         });
       }
     }
+  }
+
+  Widget _buildLessonsList(TrainingModule module) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final lessonsAsync = ref.watch(moduleLessonsProvider(module.id));
+        
+        return lessonsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
+          error: (error, stack) => Center(child: Text('Error loading lessons: $error', style: const TextStyle(color: Colors.red))),
+          data: (lessons) {
+            if (lessons.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                ),
+                child: const Center(
+                  child: Text('No lessons available for this module yet.', style: TextStyle(color: AppColors.onSurfaceVariant)),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+                  child: Text(
+                    'MODULE LESSONS',
+                    style: AppTypography.labelMono.copyWith(color: AppColors.onSurface, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: lessons.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, index) {
+                    final lesson = lessons[index];
+                    final isCompleted = lesson.status == 'COMPLETED';
+                    final isNext = !isCompleted && (index == 0 || lessons[index - 1].status == 'COMPLETED');
+                    
+                    return InkWell(
+                      onTap: () {
+                        context.push('/student/training/lessons/${lesson.id}');
+                      },
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: isNext ? AppColors.surfaceContainerLow : AppColors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                          border: isNext ? Border.all(color: AppColors.secondary.withValues(alpha: 0.3)) : null,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: isCompleted ? AppColors.tertiaryFixed : (isNext ? AppColors.secondary : AppColors.surfaceContainerHigh),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: isCompleted
+                                    ? const Icon(Icons.check, color: AppColors.tertiaryContainer, size: 16)
+                                    : Text(
+                                        '${index + 1}',
+                                        style: AppTypography.labelMono.copyWith(
+                                          color: isNext ? AppColors.onSecondary : AppColors.onSurfaceVariant,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    lesson.title,
+                                    style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
+                                  ),
+                                  if (lesson.estimatedDuration != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      lesson.estimatedDuration!,
+                                      style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+                                    ),
+                                  ]
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.chevron_right, color: AppColors.onSurfaceVariant),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

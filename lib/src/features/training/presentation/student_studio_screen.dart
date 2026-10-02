@@ -12,6 +12,7 @@ import '../../projects/domain/correction.dart';
 import '../../projects/presentation/widgets/project_status_chip.dart';
 import '../domain/training_module.dart';
 import '../providers/training_providers.dart';
+import '../../profile/presentation/widgets/student_skill_matrix.dart';
 
 // ─────────────────────────────────────────────
 // LOCAL PROVIDERS
@@ -133,6 +134,8 @@ class StudentStudioScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(userProfileProvider);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final useWideLayout = screenWidth >= 720;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -145,6 +148,7 @@ class StudentStudioScreen extends ConsumerWidget {
             ref.invalidate(studentModulesProvider);
             ref.invalidate(studentAssignmentsProvider);
             ref.invalidate(_studioCorrectionsProvider);
+            ref.invalidate(studentActivityProvider);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -156,24 +160,53 @@ class StudentStudioScreen extends ConsumerWidget {
                 _WelcomeHeader(profileAsync: profileAsync),
                 const SizedBox(height: AppSpacing.xl),
 
-                // ── Overall Training Progress ──
-                const _OverallProgressSection(),
-                const SizedBox(height: AppSpacing.xl),
+                if (useWideLayout) ...[
+                  // ── Wide layout: 2-column ──
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left column
+                      Expanded(
+                        child: Column(
+                          children: const [
+                            _OverallProgressSection(),
+                            SizedBox(height: AppSpacing.lg),
+                            _ContinueLearningSection(),
+                            SizedBox(height: AppSpacing.lg),
+                            _ActiveProjectSection(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.lg),
+                      // Right column
+                      Expanded(
+                        child: Column(
+                          children: const [
+                            _PendingCorrectionsSection(),
+                            SizedBox(height: AppSpacing.lg),
+                            _RecentActivitySection(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  const StudentSkillMatrix(),
+                ] else ...[
+                  // ── Narrow layout: single column ──
+                  const _OverallProgressSection(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _ContinueLearningSection(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _ActiveProjectSection(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _PendingCorrectionsSection(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const StudentSkillMatrix(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _RecentActivitySection(),
+                ],
 
-                // ── Continue Learning ──
-                const _ContinueLearningSection(),
-                const SizedBox(height: AppSpacing.xl),
-
-                // ── Active Training Project ──
-                const _ActiveProjectSection(),
-                const SizedBox(height: AppSpacing.xl),
-
-                // ── Pending Corrections ──
-                const _PendingCorrectionsSection(),
-                const SizedBox(height: AppSpacing.xl),
-
-                // ── Category Progress ──
-                const _CategoryProgressSection(),
                 const SizedBox(height: AppSpacing.xxl),
               ],
             ),
@@ -198,7 +231,7 @@ class _WelcomeHeader extends StatelessWidget {
     final name = profileAsync.when(
       data: (profile) => profile?.name ?? 'Student',
       loading: () => '...',
-      error: (_, _) => 'Student',
+      error: (err, st) => 'Student',
     );
 
     final firstName = name.split(' ').first;
@@ -245,6 +278,19 @@ class _WelcomeHeader extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.lg),
+          ElevatedButton.icon(
+            onPressed: () {
+              context.push('/student/portfolio');
+            },
+            icon: const Icon(Icons.work),
+            label: const Text('View My Portfolio'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            ),
+          ),
         ],
       ),
     );
@@ -268,8 +314,8 @@ class _OverallProgressSection extends ConsumerWidget {
         error: (err, _) => _SectionError(
           message: 'Could not load progress.',
           onRetry: () {
-            ref.refresh(categoryProgressProvider);
-            ref.refresh(studentModulesProvider);
+            ref.invalidate(categoryProgressProvider);
+            ref.invalidate(studentModulesProvider);
           },
         ),
         data: (stats) {
@@ -373,7 +419,7 @@ class _ContinueLearningSection extends ConsumerWidget {
         loading: () => const _SectionLoading(),
         error: (err, _) => _SectionError(
           message: 'Could not load modules.',
-          onRetry: () => ref.refresh(studentModulesProvider),
+          onRetry: () => ref.invalidate(studentModulesProvider),
         ),
         data: (data) {
           if (data == null) {
@@ -500,7 +546,7 @@ class _ActiveProjectSection extends ConsumerWidget {
         loading: () => const _SectionLoading(),
         error: (err, _) => _SectionError(
           message: 'Could not load projects.',
-          onRetry: () => ref.refresh(studentAssignmentsProvider),
+          onRetry: () => ref.invalidate(studentAssignmentsProvider),
         ),
         data: (assignments) {
           final activeProjects = assignments.where((p) {
@@ -562,13 +608,7 @@ class _ActiveProjectSection extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: AppSpacing.sm),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  ProjectStatusChip(status: status),
-                  // Omit Last activity if we don't have it explicitly right now to avoid fabrication.
-                ],
-              ),
+              ProjectStatusChip(status: status),
               const SizedBox(height: AppSpacing.lg),
               SizedBox(
                 width: double.infinity,
@@ -611,7 +651,7 @@ class _PendingCorrectionsSection extends ConsumerWidget {
         loading: () => const _SectionLoading(),
         error: (err, _) => _SectionError(
           message: 'Could not load corrections.',
-          onRetry: () => ref.refresh(_studioCorrectionsProvider),
+          onRetry: () => ref.invalidate(_studioCorrectionsProvider),
         ),
         data: (corrections) {
           if (corrections.isEmpty) {
@@ -731,161 +771,175 @@ class _PendingCorrectionsSection extends ConsumerWidget {
   }
 }
 
+
+
 // ─────────────────────────────────────────────
-// CATEGORY PROGRESS
+// RECENT ACTIVITY
 // ─────────────────────────────────────────────
 
-class _CategoryProgressSection extends ConsumerWidget {
-  const _CategoryProgressSection();
+class _RecentActivitySection extends ConsumerWidget {
+  const _RecentActivitySection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final progressAsync = ref.watch(categoryProgressProvider);
-    final modulesAsync = ref.watch(studentModulesProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'TRAINING CATEGORIES',
-          style: AppTypography.labelMono.copyWith(
-            color: AppColors.onSurfaceVariant,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        progressAsync.when(
-          loading: () => const _StudioCard(child: _SectionLoading()),
-          error: (err, _) => _StudioCard(
-            child: _SectionError(
-              message: 'Could not load category progress.',
-              onRetry: () => ref.refresh(categoryProgressProvider),
-            ),
-          ),
-          data: (progressList) {
-            if (progressList.isEmpty) {
-              return const _StudioCard(
-                child: _SectionEmpty(
-                  icon: Icons.category_outlined,
-                  message: 'No training categories available.',
-                ),
-              );
-            }
-
-            const approvedCategories = ['Architectural', 'Structural', 'Interior', 'Approval'];
-            final filtered = progressList.where((p) => approvedCategories.contains(p.category)).toList();
-
-            if (filtered.isEmpty) {
-              return const _StudioCard(
-                child: _SectionEmpty(
-                  icon: Icons.category_outlined,
-                  message: 'No training categories available.',
-                ),
-              );
-            }
-
-            final modules = modulesAsync.value ?? [];
-
-            return Column(
-              children: filtered.map((p) {
-                final catModules = modules.where((m) => m.category == p.category).toList();
-                final catCompleted = catModules.where((m) => m.status == 'Completed').length;
-                final catTotal = catModules.length;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: _CategoryProgressCard(
-                    progress: p,
-                    completed: catCompleted,
-                    total: catTotal,
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _CategoryProgressCard extends StatelessWidget {
-  final TrainingCategoryProgress progress;
-  final int completed;
-  final int total;
-
-  const _CategoryProgressCard({
-    required this.progress,
-    required this.completed,
-    required this.total,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = (progress.overallProgress * 100).toInt();
+    final activityAsync = ref.watch(studentActivityProvider);
 
     return _StudioCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: activityAsync.when(
+        loading: () => const _SectionLoading(),
+        error: (err, _) => _SectionError(
+          message: 'Could not load activity.',
+          onRetry: () => ref.invalidate(studentActivityProvider),
+        ),
+        data: (activities) {
+          if (activities.isEmpty) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'RECENT ACTIVITY',
+                  style: AppTypography.labelMono.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const _SectionEmpty(
+                  icon: Icons.history_outlined,
+                  message: 'No recent activity.',
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                progress.category.toUpperCase(),
+                'RECENT ACTIVITY',
                 style: AppTypography.labelMono.copyWith(
                   color: AppColors.onSurfaceVariant,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
                 ),
               ),
-              Text(
-                '$percent%',
-                style: AppTypography.headlineSmMobile.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
+              const SizedBox(height: AppSpacing.lg),
+              ...activities.take(8).map((activity) {
+                final actionType = activity['action_type'] as String? ?? '';
+                final projectName = activity['project_name'] as String? ?? '';
+                final timestamp = activity['timestamp'] as String?;
+
+                String label = _actionLabel(actionType);
+                String formattedTime = '';
+                if (timestamp != null) {
+                  final dt = DateTime.tryParse(timestamp);
+                  if (dt != null) {
+                    formattedTime = _formatRelativeDate(dt);
+                  }
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        _actionIcon(actionType),
+                        size: 18,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: AppTypography.bodySm.copyWith(
+                                color: AppColors.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (projectName.isNotEmpty)
+                              Text(
+                                projectName,
+                                style: AppTypography.bodySm.copyWith(
+                                  color: AppColors.secondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (formattedTime.isNotEmpty)
+                        Text(
+                          formattedTime,
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.outlineVariant,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
             ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-            child: LinearProgressIndicator(
-              value: progress.overallProgress,
-              backgroundColor: AppColors.surfaceVariant,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$completed of $total modules completed',
-                style: AppTypography.bodySm.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  context.go('/student/training');
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Continue \u2192'),
-              ),
-            ],
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
+
+  static String _actionLabel(String actionType) {
+    switch (actionType) {
+      case 'FILE_UPLOADED':
+        return 'Drawing submitted';
+      case 'DRAWING_SUBMITTED':
+        return 'Drawing submitted for review';
+      case 'CORRECTION_REQUESTED':
+        return 'Correction received';
+      case 'PROJECT_SUBMITTED':
+        return 'Project submitted';
+      case 'PROJECT_COMPLETED':
+        return 'Project completed';
+      case 'ASSIGNMENT_ACCEPTED':
+        return 'Assignment accepted';
+      case 'FILE_DELETED':
+        return 'File removed';
+      default:
+        return actionType.replaceAll('_', ' ').toLowerCase();
+    }
+  }
+
+  static IconData _actionIcon(String actionType) {
+    switch (actionType) {
+      case 'FILE_UPLOADED':
+        return Icons.upload_file_outlined;
+      case 'DRAWING_SUBMITTED':
+        return Icons.send_outlined;
+      case 'CORRECTION_REQUESTED':
+        return Icons.edit_note_outlined;
+      case 'PROJECT_COMPLETED':
+        return Icons.check_circle_outline;
+      case 'ASSIGNMENT_ACCEPTED':
+        return Icons.assignment_turned_in_outlined;
+      default:
+        return Icons.circle_outlined;
+    }
+  }
+
+  static String _formatRelativeDate(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[dt.month - 1]} ${dt.day}';
   }
 }
 

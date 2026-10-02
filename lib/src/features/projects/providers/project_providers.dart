@@ -8,6 +8,7 @@ import '../domain/project_status.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
 import '../domain/activity_log.dart';
+import '../domain/evaluation.dart';
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
@@ -103,4 +104,10 @@ final projectActivityLogsProvider =
     FutureProvider.family<List<ActivityLog>, String>((ref, projectId) {
       final repository = ref.watch(projectRepositoryProvider);
       return repository.fetchActivityLogs(projectId);
+    });
+
+final projectEvaluationsProvider =
+    FutureProvider.family<List<Evaluation>, String>((ref, projectId) {
+      final repository = ref.watch(projectRepositoryProvider);
+      return repository.getEvaluations(projectId);
     });

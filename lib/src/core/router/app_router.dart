@@ -17,6 +17,8 @@ import '../../features/projects/presentation/financials_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/student/student_projects_screen.dart';
+import '../../features/projects/presentation/student/student_project_workspace_screen.dart';
+import '../../features/portfolio/presentation/student_portfolio_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
 import '../../features/projects/presentation/admin/admin_projects_screen.dart';
@@ -31,6 +33,7 @@ import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 import '../../features/training/presentation/student_studio_screen.dart';
 import '../../features/training/presentation/student_training_screen.dart';
 import '../../features/training/presentation/training_module_detail_screen.dart';
+import '../../features/training/presentation/lesson_screen.dart';
 
 
 /// Provides the GoRouter configuration with authentication-aware redirects.
@@ -243,8 +246,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const AdminDashboardScreen(),
           ),
           GoRoute(
+            path: '/admin/projects/new',
+            builder: (context, state) => const ProjectFormScreen(),
+          ),
+          GoRoute(
             path: '/admin/projects',
             builder: (context, state) => const AdminProjectsScreen(),
+          ),
+          GoRoute(
+            path: '/admin/projects/:projectId/edit',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return ProjectFormScreen(projectId: projectId);
+            },
           ),
           GoRoute(
             path: '/admin/assignments',
@@ -298,6 +312,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: '/student/training/lessons/:lessonId',
+            builder: (context, state) {
+              final lessonId = state.pathParameters['lessonId']!;
+              return LessonScreen(lessonId: lessonId);
+            },
+          ),
+          GoRoute(
             path: '/student/assignments/:assignmentId',
             builder: (context, state) {
               final assignment = state.extra as Assignment;
@@ -312,12 +333,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: '/student/workspace/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return StudentProjectWorkspaceScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
             path: '/student/projects',
             builder: (context, state) => const StudentProjectsScreen(),
           ),
           GoRoute(
             path: '/student/profile',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/student/portfolio',
+            builder: (context, state) => const StudentPortfolioScreen(),
           ),
         ],
       ),

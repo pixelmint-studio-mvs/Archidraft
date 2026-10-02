@@ -48,23 +48,56 @@ async function verifyStudentAssignment(db: D1Database, uid: string, projectId: s
   return !!assignment;
 }
 
+// Helpers: Build batched queries for state transitions
+function buildApproveFinalBatch(db: D1Database, project: any, uid: string, actionId: string, actorRole: string = 'CLIENT'): any[] {
+  return [
+    db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, project.id),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, project.id, 'PROJECT_COMPLETED', uid, actorRole, `${actorRole === 'STUDIO_ADMIN' ? 'Admin' : 'Client'} approved the final drawing.`
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.draughtsman_id, project.id, 'PROJECT_COMPLETED', 'Project Approved', 'The drawing has been approved.'
+    )
+  ];
+}
+
+function buildRequestCorrectionBatch(db: D1Database, project: any, uid: string, actionId: string, correctionId: string, targetVersionId: string, newRound: number, description: string, actorRole: string = 'CLIENT'): any[] {
+  return [
+    db.prepare(`
+      INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'OPEN')
+    `).bind(correctionId, project.id, uid, targetVersionId, newRound, description),
+    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, project.id),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, project.id, 'CORRECTION_REQUESTED', uid, actorRole, `${actorRole === 'STUDIO_ADMIN' ? 'Admin' : 'Client'} requested correction (Round ${newRound}).`
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.draughtsman_id, project.id, 'CORRECTION_REQUESTED', 'Correction Requested', `A correction (Round ${newRound}) has been requested.`
+    )
+  ];
+}
+
 // User Profile sync
 app.post('/api/users', async (c) => {
   const uid = c.get('uid');
   const body = await c.req.json();
-  const { email, name, role, mobile, college_name } = body;
+  const { email, name, role, mobile, college_name, qualification, date_of_birth, address, company_name } = body;
 
   const db = c.env.DB;
   const existing = await getUser(db, uid);
   if (!existing) {
     await db.prepare(
-      'INSERT INTO users (id, email, name, role, mobile, college_name) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO users (id, email, name, role, mobile, college_name, qualification, date_of_birth, address, company_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
-      .bind(uid, email, name, role, mobile || null, college_name || null)
+      .bind(uid, email, name, role, mobile || null, college_name || null, qualification || null, date_of_birth || null, address || null, company_name || null)
       .run();
   } else {
-    // Only update name, not role (role is privileged)
-    await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(name, uid).run();
+    // Only update editable fields, not role (role is privileged)
+    await db.prepare(
+      'UPDATE users SET name = ?, mobile = ?, college_name = ?, qualification = ?, date_of_birth = ?, address = ?, company_name = ? WHERE id = ?'
+    )
+      .bind(name, mobile || null, college_name || null, qualification || null, date_of_birth || null, address || null, company_name || null, uid)
+      .run();
   }
   return c.json({ success: true });
 });
@@ -74,6 +107,109 @@ app.get('/api/users/me', async (c) => {
   const user = await getUser(c.env.DB, uid);
   if (!user) return c.json({ error: 'User not found' }, 404);
   return c.json(user);
+});
+
+app.get('/api/student/metrics', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Only students can access their metrics' }, 403);
+  }
+
+  // 1. Learning Progress
+  const learningQuery = `
+    SELECT 
+      m.category, 
+      COUNT(l.id) as totalLessons, 
+      COUNT(p.id) as completedLessons 
+    FROM training_lessons l 
+    JOIN training_modules m ON l.module_id = m.id 
+    LEFT JOIN student_lesson_progress p ON l.id = p.lesson_id AND p.student_id = ? AND p.status = 'COMPLETED'
+    GROUP BY m.category
+  `;
+  const { results: learningResults } = await db.prepare(learningQuery).bind(uid).all();
+
+  const learning = learningResults.map((r: any) => ({
+    category: r.category,
+    completedLessons: r.completedLessons,
+    totalLessons: r.totalLessons,
+    percentage: r.totalLessons > 0 ? Math.round((r.completedLessons / r.totalLessons) * 100) : 0,
+  }));
+
+  // 2. Activity Metrics (Completed projects & corrections)
+  const activityQuery = `
+    SELECT 
+      p.drawing_type as category,
+      COUNT(p.id) as completedProjects,
+      SUM(p.correction_round) as correctionRounds
+    FROM projects p
+    JOIN student_assignments sa ON p.id = sa.project_id
+    WHERE sa.student_id = ? AND p.status = 'COMPLETED'
+    GROUP BY p.drawing_type
+  `;
+  const { results: activityResults } = await db.prepare(activityQuery).bind(uid).all();
+  
+  let totalCompletedProjects = 0;
+  let totalCorrectionRounds = 0;
+  for (const r of activityResults) {
+    totalCompletedProjects += (r.completedProjects as number);
+    totalCorrectionRounds += (r.correctionRounds as number);
+  }
+
+  // 3. Practical Proficiency (Evaluations)
+  const evalQuery = `
+    SELECT e.criteria_json 
+    FROM evaluations e
+    JOIN projects p ON e.project_id = p.id
+    JOIN student_assignments sa ON p.id = sa.project_id
+    WHERE sa.student_id = ?
+  `;
+  const { results: evalResults } = await db.prepare(evalQuery).bind(uid).all();
+
+  const skillAggregates: Record<string, { sum: number, count: number }> = {};
+  
+  for (const row of evalResults) {
+    if (row.criteria_json) {
+      try {
+        const criteria = typeof row.criteria_json === 'string' ? JSON.parse(row.criteria_json) : row.criteria_json;
+        for (const [key, value] of Object.entries(criteria)) {
+          const numValue = Number(value);
+          if (!isNaN(numValue)) {
+            if (!skillAggregates[key]) {
+              skillAggregates[key] = { sum: 0, count: 0 };
+            }
+            skillAggregates[key].sum += numValue;
+            skillAggregates[key].count += 1;
+          }
+        }
+      } catch (e) {
+        // ignore invalid json
+      }
+    }
+  }
+
+  const practical = Object.keys(skillAggregates).map(key => {
+    const agg = skillAggregates[key];
+    const avgScore = agg.sum / agg.count;
+    return {
+      name: key,
+      score: Number(avgScore.toFixed(1)),
+      maxScore: 5,
+      percentage: Math.round((avgScore / 5) * 100),
+      evaluationCount: agg.count,
+    };
+  });
+
+  return c.json({
+    learning,
+    practical,
+    activity: {
+      completedProjects: totalCompletedProjects,
+      correctionRounds: totalCorrectionRounds,
+    }
+  });
 });
 
 app.get('/api/users', async (c) => {
@@ -156,7 +292,9 @@ app.post('/api/projects', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can create projects' }, 403);
+  if (!user || (user.role !== 'CLIENT' && user.role !== 'STUDIO_ADMIN')) {
+    return c.json({ error: 'Only clients and admins can create projects' }, 403);
+  }
 
   const body = await c.req.json();
   const projectId = body.id || uuidv4();
@@ -184,7 +322,9 @@ app.post('/api/projects/submit', async (c) => {
   const { projectId, actionId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can submit projects' }, 403);
+  if (!user || (user.role !== 'CLIENT' && user.role !== 'STUDIO_ADMIN')) {
+    return c.json({ error: 'Only clients and admins can submit projects' }, 403);
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -195,7 +335,7 @@ app.post('/api/projects/submit', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'SUBMITTED', submitted_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_SUBMITTED', uid, 'CLIENT', 'Client submitted the project brief.'
+      actionId, projectId, 'PROJECT_SUBMITTED', uid, user.role, 'Project brief submitted.'
     )
   ];
   await db.batch(batch);
@@ -206,7 +346,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const body = await c.req.json();
-  const { projectId, actionId } = body;
+  const { projectId, actionId, draftFileId } = body;
   
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) return c.json({ error: 'Only draughtsmen or students can submit drawings' }, 403);
@@ -223,11 +363,30 @@ app.post('/api/projects/submit-drawing', async (c) => {
   if (project.status === 'UNDER_CLIENT_REVIEW' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'IN_PROGRESS') return c.json({ error: 'Project is not in IN_PROGRESS state' }, 400);
 
+  // If a draftFileId is provided, promote the draft file to a drawing version
+  if (draftFileId) {
+    const draftFile = await db.prepare('SELECT * FROM files WHERE id = ? AND project_id = ? AND uploaded_by = ?').bind(draftFileId, projectId, uid).first();
+    if (!draftFile) return c.json({ error: 'Draft file not found or unauthorized' }, 404);
+    
+    if (draftFile.category === 'workspace_draft') {
+      await db.prepare(`UPDATE files SET category = 'draughtsman_version' WHERE id = ?`).bind(draftFileId).run();
+      
+      const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
+      const vNum = ((latest?.v as number) || 0) + 1;
+      const corr = await db.prepare('SELECT id FROM corrections WHERE project_id = ? AND status = "OPEN"').bind(projectId).first();
+      
+      await db.prepare(`
+        INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(uuidv4(), projectId, draftFileId, vNum, uid, (corr?.id as string) || null).run();
+    }
+  }
+
   const batch = [
     db.prepare(`UPDATE projects SET status = 'UNDER_CLIENT_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'OPEN'`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', 'Draughtsman submitted the drawing for client review.'
+      actionId, projectId, 'DRAWING_SUBMITTED', uid, user.role, 'Submitted the drawing for review.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.client_id, projectId, 'DRAWING_SUBMITTED', 'Drawing Submitted', 'A drawing has been submitted for your review.'
@@ -300,15 +459,7 @@ app.post('/api/projects/approve-final', async (c) => {
   if (project.status === 'COMPLETED' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
 
-  const batch = [
-    db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
-    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
-    ),
-    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), project.draughtsman_id, projectId, 'PROJECT_COMPLETED', 'Project Approved', 'The client has approved the final drawing.'
-    )
-  ];
+  const batch = buildApproveFinalBatch(db, project, uid, actionId, user.role);
   await db.batch(batch);
   return c.json({ success: true });
 });
@@ -336,19 +487,7 @@ app.post('/api/projects/request-correction', async (c) => {
 
   const newRound = currentRound + 1;
 
-  const batch = [
-    db.prepare(`
-      INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'OPEN')
-    `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
-    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
-    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction (Round ${newRound}).`
-    ),
-    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), project.draughtsman_id, projectId, 'CORRECTION_REQUESTED', 'Correction Requested', `Client has requested a correction (Round ${newRound}).`
-    )
-  ];
+  const batch = buildRequestCorrectionBatch(db, project, uid, actionId, correctionId, targetVersionId, newRound, description, user.role);
   await db.batch(batch);
   return c.json({ success: true, newRound });
 });
@@ -363,7 +502,9 @@ app.post('/api/projects/assign', async (c) => {
   if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can assign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
-  if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
+  if (!dMan || (dMan.role !== 'DRAUGHTSMAN' && dMan.role !== 'STUDENT')) {
+    return c.json({ error: 'Invalid user role for assignment' }, 400);
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -371,10 +512,13 @@ app.post('/api/projects/assign', async (c) => {
   if (project.status !== 'WAITING_ASSIGNMENT') return c.json({ error: 'Project is not in WAITING_ASSIGNMENT state' }, 400);
 
   const assignmentId = uuidv4();
+  const assignmentQuery = dMan.role === 'STUDENT'
+    ? db.prepare(`INSERT INTO student_assignments (id, project_id, student_id, assignment_type, status) VALUES (?, ?, ?, 'PRACTICAL', 'PENDING')`).bind(assignmentId, projectId, draughtsmanId)
+    : db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId);
 
   const batch = [
-    db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId),
-    db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId),
+    assignmentQuery,
+    db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ?, is_training_project = CASE WHEN ? = 'STUDENT' THEN 1 ELSE is_training_project END WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, dMan.role, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin assigned draughtsman: ' + dMan.name
     ),
@@ -396,7 +540,9 @@ app.post('/api/projects/reassign', async (c) => {
   if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can reassign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
-  if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
+  if (!dMan || (dMan.role !== 'DRAUGHTSMAN' && dMan.role !== 'STUDENT')) {
+    return c.json({ error: 'Invalid user role for assignment' }, 400);
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -415,8 +561,12 @@ app.post('/api/projects/reassign', async (c) => {
     batch.push(db.prepare(`UPDATE assignments SET status = 'REPLACED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(project.current_assignment_id));
   }
 
-  batch.push(db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId));
-  batch.push(db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId));
+  const assignmentQuery = dMan.role === 'STUDENT'
+    ? db.prepare(`INSERT INTO student_assignments (id, project_id, student_id, assignment_type, status) VALUES (?, ?, ?, 'PRACTICAL', 'PENDING')`).bind(assignmentId, projectId, draughtsmanId)
+    : db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId);
+
+  batch.push(assignmentQuery);
+  batch.push(db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ?, is_training_project = CASE WHEN ? = 'STUDENT' THEN 1 ELSE is_training_project END WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, dMan.role, projectId));
   batch.push(db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
     actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin reassigned to draughtsman: ' + dMan.name
   ));
@@ -432,7 +582,7 @@ app.post('/api/assignments/accept', async (c) => {
   const { assignmentId, projectId, actionId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can accept assignments' }, 403);
+  if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) return c.json({ error: 'Only draughtsmen or students can accept assignments' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -442,15 +592,25 @@ app.post('/api/assignments/accept', async (c) => {
   if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
 
-  const assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+  let assignment;
+  let updateAssignmentQuery;
+  
+  if (user.role === 'STUDENT') {
+    assignment = await db.prepare('SELECT * FROM student_assignments WHERE id = ?').bind(assignmentId).first();
+    updateAssignmentQuery = db.prepare(`UPDATE student_assignments SET status = 'ACCEPTED' WHERE id = ?`).bind(assignmentId);
+  } else {
+    assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+    updateAssignmentQuery = db.prepare(`UPDATE assignments SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId);
+  }
+
   if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
   if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
 
   const batch = [
-    db.prepare(`UPDATE assignments SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId),
+    updateAssignmentQuery,
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, 'DRAUGHTSMAN', 'Draughtsman accepted the assignment.'
+      actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, user.role, 'User accepted the assignment.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.client_id, projectId, 'ASSIGNMENT_ACCEPTED', 'Project In Progress', 'A draughtsman has accepted and started your project.'
@@ -576,6 +736,105 @@ app.get('/api/projects/:projectId/files', async (c) => {
   return c.json(results);
 });
 
+app.get('/api/projects/:projectId/evaluations', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  // Apply existing authorization rules for reading evaluations
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'STUDENT') {
+    if (project.is_training_project !== 1) return c.json({ error: 'Forbidden' }, 403);
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const { results } = await db.prepare('SELECT * FROM evaluations WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
+  return c.json(results);
+});
+
+app.post('/api/projects/evaluate', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, actionId, drawingVersionId, overallResult, generalFeedback, criteriaJson, correctionId } = body;
+  
+  const user = await getUser(db, uid);
+  if (!user || (user.role !== 'CLIENT' && user.role !== 'STUDIO_ADMIN')) return c.json({ error: 'Only clients or admins can evaluate drawings' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  
+  if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
+
+  const drawingVersion = await db.prepare('SELECT * FROM drawing_versions WHERE id = ?').bind(drawingVersionId).first();
+  if (!drawingVersion) return c.json({ error: 'Drawing version not found' }, 404);
+  if (drawingVersion.project_id !== projectId) return c.json({ error: 'Drawing version does not belong to this project' }, 400);
+
+  if (overallResult !== 'APPROVED' && overallResult !== 'NEEDS_CORRECTION') {
+    return c.json({ error: 'Invalid overall result' }, 400);
+  }
+
+  let criteriaString = criteriaJson;
+  if (criteriaJson != null) {
+    let parsedCriteria: any = criteriaJson;
+    if (typeof criteriaJson === 'string') {
+      try {
+        parsedCriteria = JSON.parse(criteriaJson);
+      } catch (e) {
+        return c.json({ error: 'criteriaJson must be valid JSON' }, 400);
+      }
+    }
+    
+    // Normalize and validate criteria if present
+    if (typeof parsedCriteria === 'object' && parsedCriteria !== null) {
+      for (const key of Object.keys(parsedCriteria)) {
+        const val = parsedCriteria[key];
+        const numVal = Number(val);
+        if (isNaN(numVal) || numVal < 1 || numVal > 5) {
+          return c.json({ error: `Criterion '${key}' must be a number between 1 and 5.` }, 400);
+        }
+        parsedCriteria[key] = numVal;
+      }
+      criteriaString = JSON.stringify(parsedCriteria);
+    } else {
+      criteriaString = null;
+    }
+  } else {
+    criteriaString = null;
+  }
+
+  const evaluationId = uuidv4();
+  let batch = [
+    db.prepare(`
+      INSERT INTO evaluations (id, project_id, drawing_version_id, evaluator_id, overall_result, general_feedback, criteria_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(evaluationId, projectId, drawingVersionId, uid, overallResult, generalFeedback, criteriaString)
+  ];
+
+  if (overallResult === 'APPROVED') {
+    batch = batch.concat(buildApproveFinalBatch(db, project, uid, actionId, user.role));
+  } else if (overallResult === 'NEEDS_CORRECTION') {
+    const currentRound = (project.correction_round as number) || 0;
+    if (currentRound >= 3) {
+      return c.json({ error: 'Maximum correction rounds (3) exceeded' }, 400);
+    }
+    const newRound = currentRound + 1;
+    // For evaluating needs_correction, we create a correction atomically.
+    batch = batch.concat(buildRequestCorrectionBatch(db, project, uid, actionId, correctionId || uuidv4(), drawingVersionId, newRound, generalFeedback || 'Correction needed based on evaluation.', user.role));
+  }
+
+  await db.batch(batch);
+  return c.json({ success: true, evaluationId });
+});
+
 app.get('/api/projects/:projectId/drawing_versions', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
@@ -625,7 +884,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   const projectId = c.req.param('projectId');
   const category = c.req.query('category');
   
-  if (!category || !['client_upload', 'draughtsman_version', 'correction_attachment'].includes(category)) {
+  if (!category || !['client_upload', 'draughtsman_version', 'correction_attachment', 'workspace_draft'].includes(category)) {
     return c.json({ error: 'Invalid category' }, 400);
   }
 
@@ -681,6 +940,12 @@ app.post('/api/projects/:projectId/files', async (c) => {
     } else {
       return c.json({ error: 'Forbidden' }, 403);
     }
+  } else if (category === 'workspace_draft') {
+    if (user.role !== 'STUDENT' || project.is_training_project !== 1 || project.status !== 'IN_PROGRESS') {
+      return c.json({ error: 'Forbidden or invalid project state' }, 403);
+    }
+    const isAssigned = await verifyStudentAssignment(db, uid, projectId);
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
   }
 
   // Idempotency Check
@@ -765,6 +1030,10 @@ app.get('/api/files/:fileId/download', async (c) => {
   // Authorization checks
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'STUDENT') {
+    const isAssigned = await db.prepare('SELECT 1 FROM student_assignments WHERE student_id = ? AND project_id = ?').bind(uid, project.id).first();
+    if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
+  }
 
   const object = await c.env.STORAGE.get(fileMeta.object_key as string);
   if (!object) return c.json({ error: 'File object missing in R2' }, 404);
@@ -1076,7 +1345,24 @@ app.get('/api/student/training/modules', async (c) => {
     return c.json({ error: 'Unauthorized: Only students can access training modules', code: 'UNAUTHORIZED' }, 403);
   }
 
-  const { results } = await db.prepare('SELECT * FROM training_modules ORDER BY created_at ASC').all();
+  const { results } = await db.prepare(`
+    SELECT
+      tm.*,
+      COALESCE(sp.status, 'Not Started') AS status,
+      sp.score,
+      CASE
+        WHEN sp.status = 'Completed' THEN 1.0
+        WHEN sp.status = 'In Progress' THEN COALESCE(sp.score, 0) / 100.0
+        ELSE 0.0
+      END AS progress,
+      CASE
+        WHEN sp.status IS NOT NULL THEN 0
+        ELSE tm.is_locked
+      END AS is_locked
+    FROM training_modules tm
+    LEFT JOIN student_progress sp ON sp.module_id = tm.id AND sp.student_id = ?
+    ORDER BY tm.created_at ASC
+  `).bind(uid).all();
   return c.json(results);
 });
 
@@ -1098,6 +1384,124 @@ app.get('/api/student/training/modules/:moduleId', async (c) => {
   }
 
   return c.json(module);
+});
+
+// GET /api/student/training/modules/:moduleId/lessons
+app.get('/api/student/training/modules/:moduleId/lessons', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const { results } = await db.prepare(`
+    SELECT
+      l.*,
+      COALESCE(slp.status, 'NOT_STARTED') AS status
+    FROM training_lessons l
+    LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+    WHERE l.module_id = ?
+    ORDER BY l.lesson_order ASC
+  `).bind(uid, moduleId).all();
+
+  return c.json(results);
+});
+
+// GET /api/student/training/lessons/:lessonId
+app.get('/api/student/training/lessons/:lessonId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const lessonId = c.req.param('lessonId');
+  const lesson = await db.prepare(`
+    SELECT
+      l.*,
+      COALESCE(slp.status, 'NOT_STARTED') AS status
+    FROM training_lessons l
+    LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+    WHERE l.id = ?
+  `).bind(uid, lessonId).first();
+
+  if (!lesson) {
+    return c.json({ error: 'Lesson not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  return c.json(lesson);
+});
+
+// POST /api/student/training/lessons/:lessonId/progress
+app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const lessonId = c.req.param('lessonId');
+  const body = await c.req.json();
+  const status = body.status; // 'IN_PROGRESS' or 'COMPLETED'
+
+  if (!status || !['IN_PROGRESS', 'COMPLETED'].includes(status)) {
+    return c.json({ error: 'Invalid status', code: 'BAD_REQUEST' }, 400);
+  }
+
+  const id = uuidv4();
+  await db.prepare(`
+    INSERT INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at)
+    VALUES (?, ?, ?, ?, CASE WHEN ? = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END)
+    ON CONFLICT(student_id, lesson_id) DO UPDATE SET
+      status = excluded.status,
+      completed_at = CASE WHEN excluded.status = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END
+  `).bind(id, uid, lessonId, status, status).run();
+
+  // Re-calculate module progress
+  const lesson: any = await db.prepare('SELECT module_id FROM training_lessons WHERE id = ?').bind(lessonId).first();
+  if (lesson) {
+    const moduleId = lesson.module_id;
+    const progressResult: any = await db.prepare(`
+      SELECT 
+        COUNT(*) as total_lessons,
+        SUM(CASE WHEN slp.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_lessons
+      FROM training_lessons l
+      LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+      WHERE l.module_id = ?
+    `).bind(uid, moduleId).first();
+
+    const totalLessons = progressResult?.total_lessons || 0;
+    const completedLessons = progressResult?.completed_lessons || 0;
+    
+    if (totalLessons > 0) {
+      let moduleStatus = 'In Progress';
+      let score = Math.round((completedLessons / totalLessons) * 100);
+      
+      if (completedLessons === totalLessons) {
+        moduleStatus = 'Completed';
+        score = 100;
+      }
+      
+      const moduleProgId = uuidv4();
+      await db.prepare(`
+        INSERT INTO student_progress (id, student_id, module_id, status, score, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(student_id, module_id) DO UPDATE SET
+          status = excluded.status,
+          score = excluded.score,
+          updated_at = CURRENT_TIMESTAMP
+      `).bind(moduleProgId, uid, moduleId, moduleStatus, score).run();
+    }
+  }
+
+  return c.json({ success: true });
 });
 
 // GET /api/student/training/progress
@@ -1178,7 +1582,6 @@ app.get('/api/student/assignments', async (c) => {
       p.drawing_name,
       p.drawing_type,
       p.project_area,
-      p.estimated_amount,
       p.client_id,
       p.draughtsman_id,
       sa.id AS current_assignment_id,
@@ -1186,7 +1589,6 @@ app.get('/api/student/assignments', async (c) => {
       p.correction_round,
       p.created_at,
       p.submitted_at,
-      p.completed_at,
       p.last_action_id,
       p.training_module_id,
       p.is_training_project
@@ -1220,6 +1622,161 @@ app.get('/api/student/corrections', async (c) => {
   `).bind(uid).all();
 
   return c.json(results);
+});
+
+// GET /api/student/activity
+app.get('/api/student/activity', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  // Return recent activity for training projects the student is assigned to,
+  // plus the student's own training progress updates.
+  const { results } = await db.prepare(`
+    SELECT al.*, p.project_name
+    FROM activity_logs al
+    JOIN projects p ON al.project_id = p.id
+    JOIN student_assignments sa ON p.id = sa.project_id
+    WHERE sa.student_id = ? AND p.is_training_project = 1
+    ORDER BY al.timestamp DESC
+    LIMIT 20
+  `).bind(uid).all();
+
+  return c.json(results);
+});
+
+// GET /api/student/portfolio
+app.get('/api/student/portfolio', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  // 1. Fetch completed projects assigned to student
+  const { results: projects } = await db.prepare(`
+    SELECT p.id, p.project_name, p.drawing_type, p.project_area, p.is_training_project, p.approved_at 
+    FROM projects p 
+    JOIN student_assignments sa ON p.id = sa.project_id 
+    WHERE sa.student_id = ? AND p.status = 'COMPLETED'
+  `).bind(uid).all();
+
+  if (!projects || projects.length === 0) {
+    return c.json({ portfolio: [] });
+  }
+
+  const projectIds = projects.map((p: any) => p.id);
+  const chunkSize = 100;
+  
+  let allEvaluations: any[] = [];
+  for (let i = 0; i < projectIds.length; i += chunkSize) {
+    const chunk = projectIds.slice(i, i + chunkSize);
+    const placeholders = chunk.map(() => '?').join(',');
+    const { results: evals } = await db.prepare(`
+      SELECT project_id, drawing_version_id, overall_result, criteria_json 
+      FROM evaluations 
+      WHERE overall_result = 'APPROVED' AND project_id IN (${placeholders})
+    `).bind(...chunk).all();
+    allEvaluations.push(...evals);
+  }
+
+  const drawingVersionIds = allEvaluations.map(e => e.drawing_version_id).filter(id => id);
+
+  let allVersions: any[] = [];
+  if (drawingVersionIds.length > 0) {
+    for (let i = 0; i < drawingVersionIds.length; i += chunkSize) {
+      const chunk = drawingVersionIds.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => '?').join(',');
+      const { results: versions } = await db.prepare(`
+        SELECT id, project_id, file_id 
+        FROM drawing_versions 
+        WHERE id IN (${placeholders})
+      `).bind(...chunk).all();
+      allVersions.push(...versions);
+    }
+  }
+
+  const fileIds = allVersions.map(v => v.file_id).filter(id => id);
+  let allFiles: any[] = [];
+  if (fileIds.length > 0) {
+    for (let i = 0; i < fileIds.length; i += chunkSize) {
+      const chunk = fileIds.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => '?').join(',');
+      const { results: files } = await db.prepare(`
+        SELECT id, sanitized_name, content_type 
+        FROM files 
+        WHERE id IN (${placeholders})
+      `).bind(...chunk).all();
+      allFiles.push(...files);
+    }
+  }
+
+  const portfolio = [];
+
+  for (const project of projects) {
+    // Find matching approved evaluation
+    const evalRecord = allEvaluations.find(e => e.project_id === project.id);
+    if (!evalRecord) continue;
+
+    let criteria: { name: string; score: number; maxScore: number }[] = [];
+    let overallPercentage = 0;
+    if (evalRecord.criteria_json) {
+      try {
+        const parsed = JSON.parse(evalRecord.criteria_json as string);
+        for (const [key, val] of Object.entries(parsed)) {
+          criteria.push({
+            name: key,
+            score: Number(val),
+            maxScore: 5
+          });
+        }
+        
+        if (criteria.length > 0) {
+          const totalScore = criteria.reduce((sum: number, c: any) => sum + c.score, 0);
+          overallPercentage = Math.round((totalScore / (criteria.length * 5)) * 100);
+        }
+      } catch (e) {
+        console.error('Failed to parse criteria_json', e);
+      }
+    }
+
+    let finalDrawing = null;
+    const version = allVersions.find(v => v.id === evalRecord.drawing_version_id);
+    if (version) {
+      const file = allFiles.find(f => f.id === version.file_id);
+      if (file) {
+        finalDrawing = {
+          fileId: file.id,
+          sanitizedName: file.sanitized_name,
+          contentType: file.content_type,
+          downloadUrl: `/api/files/${file.id}/download`
+        };
+      }
+    }
+
+    portfolio.push({
+      projectId: project.id,
+      projectName: project.project_name,
+      drawingType: project.drawing_type,
+      projectArea: project.project_area,
+      isTrainingProject: project.is_training_project === 1,
+      approvedAt: project.approved_at,
+      finalDrawing,
+      evaluation: {
+        result: evalRecord.overall_result,
+        criteria,
+        overallPercentage
+      }
+    });
+  }
+
+  return c.json({ portfolio });
 });
 
 export default app;

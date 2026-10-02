@@ -12,7 +12,6 @@ import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
-import 'package:uuid/uuid.dart';
 import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
 import 'package:archi_draft/src/features/profile/domain/user_role.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
@@ -21,7 +20,9 @@ import 'widgets/project_status_chip.dart';
 import 'widgets/activity_timeline.dart';
 import 'widgets/file_attachment_card.dart';
 import 'widgets/file_upload_button.dart';
-import 'widgets/correction_dialog.dart';
+import '../domain/evaluation.dart';
+import 'widgets/evaluation_dialog.dart';
+import 'student/widgets/evaluation_card.dart';
 
 /// Detail screen for viewing a project.
 ///
@@ -172,8 +173,22 @@ class ProjectDetailScreen extends ConsumerWidget {
 
           const SizedBox(height: AppSpacing.xxl),
 
-          // DRAWING VERSIONS SECTION (For UNDER_CLIENT_REVIEW or COMPLETED)
-          if (status == ProjectStatus.underClientReview ||
+          // STUDENT WORKSPACE ACTION
+          if (status == ProjectStatus.inProgress && userRole == UserRole.student) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => context.push('/student/workspace/${project.projectId}'),
+                icon: const Icon(Icons.edit_document),
+                label: const Text('Open Workspace'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
+
+          // DRAWING VERSIONS SECTION (For IN_PROGRESS, UNDER_CLIENT_REVIEW, or COMPLETED)
+          if (status == ProjectStatus.inProgress ||
+              status == ProjectStatus.underClientReview ||
               status == ProjectStatus.completed) ...[
             _buildDetailSection(
               title: 'DRAWING VERSIONS',
@@ -240,13 +255,13 @@ class ProjectDetailScreen extends ConsumerWidget {
                                       AppSpacing.sm,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.1),
+                                      color: AppColors.primary.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(
                                         AppSpacing.sm,
                                       ),
                                       border: Border.all(
-                                        color: AppColors.primary.withOpacity(
-                                          0.3,
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.3,
                                         ),
                                       ),
                                     ),
@@ -273,7 +288,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                                 ),
 
                               // Actions if UNDER_CLIENT_REVIEW
-                              if (status == ProjectStatus.underClientReview)
+                              if (status == ProjectStatus.underClientReview && (userRole == UserRole.client || userRole == UserRole.admin))
                                 Padding(
                                   padding: const EdgeInsets.all(AppSpacing.md),
                                   child: Row(
@@ -284,11 +299,10 @@ class ProjectDetailScreen extends ConsumerWidget {
                                             showDialog(
                                               context: context,
                                               builder: (context) =>
-                                                  CorrectionDialog(
-                                                    projectId:
-                                                        project.projectId,
-                                                    targetVersionId:
-                                                        currentVersion.id,
+                                                  EvaluationDialog(
+                                                    projectId: project.projectId,
+                                                    targetVersionId: currentVersion.id,
+                                                    initialResult: EvaluationResult.needsCorrection,
                                                   ),
                                             );
                                           },
@@ -306,71 +320,16 @@ class ProjectDetailScreen extends ConsumerWidget {
                                       const SizedBox(width: AppSpacing.md),
                                       Expanded(
                                         child: FilledButton(
-                                          onPressed: () async {
-                                            final confirm =
-                                                await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (context) =>
-                                                      AlertDialog(
-                                                        title: const Text(
-                                                          'Approve Final Drawing',
-                                                        ),
-                                                        content: const Text(
-                                                          'Are you sure you want to approve this drawing? This marks the project as COMPLETED.',
-                                                        ),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () =>
-                                                                context.pop(
-                                                                  false,
-                                                                ),
-                                                            child: const Text(
-                                                              'Cancel',
-                                                            ),
-                                                          ),
-                                                          FilledButton(
-                                                            onPressed: () =>
-                                                                context.pop(
-                                                                  true,
-                                                                ),
-                                                            child: const Text(
-                                                              'Approve',
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                );
-
-                                            if (confirm == true) {
-                                              try {
-                                                await ref
-                                                    .read(
-                                                      projectRepositoryProvider,
-                                                    )
-                                                    .approveFinal(
-                                                      projectId:
-                                                          project.projectId,
-                                                      actionId: const Uuid()
-                                                          .v4(),
-                                                    );
-                                                ref.invalidate(
-                                                  projectProvider(
-                                                    project.projectId,
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) =>
+                                                  EvaluationDialog(
+                                                    projectId: project.projectId,
+                                                    targetVersionId: currentVersion.id,
+                                                    initialResult: EvaluationResult.approved,
                                                   ),
-                                                );
-                                              } catch (e) {
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                        SnackBar(
-                                                          content: Text(
-                                                            'Error: $e',
-                                                          ),
-                                                        ),
-                                                      );
-                                                }
-                                              }
-                                            }
+                                            );
                                           },
                                           child: const Text('Approve Final'),
                                         ),
@@ -411,6 +370,49 @@ class ProjectDetailScreen extends ConsumerWidget {
                                     ),
                               ],
                             ],
+                          );
+                        },
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+
+            // EVALUATIONS SECTION
+            _buildDetailSection(
+              title: 'EVALUATIONS',
+              fields: [],
+              customContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ref
+                      .watch(projectEvaluationsProvider(project.projectId))
+                      .when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: CircularProgressIndicator(),
+                        ),
+                        error: (err, stack) => Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Text('Error: $err'),
+                        ),
+                        data: (evaluations) {
+                          if (evaluations.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(AppSpacing.md),
+                              child: Text(
+                                'No evaluations yet.',
+                                style: TextStyle(color: AppColors.outline),
+                              ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Column(
+                              children: evaluations
+                                  .map((e) => EvaluationCard(evaluation: e))
+                                  .toList(),
+                            ),
                           );
                         },
                       ),
@@ -507,10 +509,12 @@ class ProjectDetailScreen extends ConsumerWidget {
                         ),
                       ),
                       data: (files) {
-                        final clientFiles = files
-                            .where((f) => f.category == 'client_upload')
+                        final referenceFiles = files
+                            .where((f) =>
+                                f.category == 'client_upload' ||
+                                f.category == 'correction_attachment')
                             .toList();
-                        if (clientFiles.isEmpty) {
+                        if (referenceFiles.isEmpty) {
                           return Padding(
                             padding: const EdgeInsets.all(AppSpacing.md),
                             child: Text(
@@ -522,7 +526,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                           );
                         }
                         return Column(
-                          children: clientFiles
+                          children: referenceFiles
                               .map((f) => FileAttachmentCard(file: f))
                               .toList(),
                         );
@@ -543,7 +547,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                ] else if (isStudentTraining && (status == ProjectStatus.inProgress || status == ProjectStatus.underClientReview)) ...[
+                ] else if (isStudentTraining && status == ProjectStatus.inProgress) ...[
                   const SizedBox(height: AppSpacing.md),
                   Padding(
                     padding: const EdgeInsets.symmetric(

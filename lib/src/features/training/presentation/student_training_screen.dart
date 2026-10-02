@@ -9,6 +9,7 @@ import '../../projects/domain/project.dart';
 import '../../projects/presentation/widgets/project_card.dart';
 import '../domain/training_module.dart';
 import '../providers/training_providers.dart';
+
 class StudentTrainingScreen extends ConsumerStatefulWidget {
   const StudentTrainingScreen({super.key});
 
@@ -19,11 +20,17 @@ class StudentTrainingScreen extends ConsumerStatefulWidget {
 class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final List<String> _categories = [
+    'Architectural',
+    'Structural',
+    'Interior',
+    'Approval'
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: _categories.length, vsync: this);
   }
 
   @override
@@ -40,94 +47,191 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceBright.withValues(alpha: 0.9),
-        title: Text(
-          'Learning Path',
-          style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
-        ),
-
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.onSurfaceVariant,
-          indicatorColor: AppColors.secondary,
-          tabs: const [
-            Tab(text: 'Architectural'),
-            Tab(text: 'Structural'),
-            Tab(text: 'Interior'),
-            Tab(text: 'Approval'),
-          ],
-        ),
-      ),
       body: modulesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
         error: (err, stack) => _buildErrorState(err.toString(), () => ref.refresh(studentModulesProvider)),
         data: (modules) {
           final allAssignments = assignmentsAsync.asData?.value ?? [];
-          if (modules.isEmpty && allAssignments.isEmpty) {
-            return _buildEmptyState();
-          }
+          
+          return NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
+                  backgroundColor: AppColors.surfaceBright.withValues(alpha: 0.9),
+                  title: Text(
+                    'Learning Hub',
+                    style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),
+                  ),
+                  floating: true,
+                  pinned: true,
+                  bottom: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.onSurfaceVariant,
+                    indicatorColor: AppColors.secondary,
+                    tabs: _categories.map((c) => Tab(text: c)).toList(),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildOverviewSection(modules),
+                      _buildContinueLearning(modules),
+                    ],
+                  ),
+                ),
+              ];
+            },
+            body: TabBarView(
+              controller: _tabController,
+              children: _categories.map((category) {
+                final categoryModules = modules.where((m) => m.category == category).toList();
+                final categoryAssignments = allAssignments.where((a) => categoryModules.any((m) => m.id == a.trainingModuleId)).toList();
+                
+                String title = '$category Training';
+                if (category == 'Architectural') title = 'Architectural Drafting Foundations';
+                if (category == 'Structural') title = 'Structural Systems Analysis';
+                if (category == 'Interior') title = 'Interior Space Planning';
+                if (category == 'Approval') title = 'Building Approval Codes';
 
-          final archModules = modules.where((m) => m.category == 'Architectural').toList();
-          final structModules = modules.where((m) => m.category == 'Structural').toList();
-          final intModules = modules.where((m) => m.category == 'Interior').toList();
-          final apprModules = modules.where((m) => m.category == 'Approval').toList();
-
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _TrainingCategoryView(
-                title: 'Architectural Drafting Foundations',
-                modules: archModules,
-                category: 'Architectural',
-                progressAsync: progressAsync,
-                assignments: allAssignments.where((a) => archModules.any((m) => m.id == a.trainingModuleId)).toList(),
-              ),
-              _TrainingCategoryView(
-                title: 'Structural Systems Analysis',
-                modules: structModules,
-                category: 'Structural',
-                progressAsync: progressAsync,
-                assignments: allAssignments.where((a) => structModules.any((m) => m.id == a.trainingModuleId)).toList(),
-              ),
-              _TrainingCategoryView(
-                title: 'Interior Space Planning',
-                modules: intModules,
-                category: 'Interior',
-                progressAsync: progressAsync,
-                assignments: allAssignments.where((a) => intModules.any((m) => m.id == a.trainingModuleId)).toList(),
-              ),
-              _TrainingCategoryView(
-                title: 'Building Approval Codes',
-                modules: apprModules,
-                category: 'Approval',
-                progressAsync: progressAsync,
-                assignments: allAssignments.where((a) => apprModules.any((m) => m.id == a.trainingModuleId)).toList(),
-              ),
-            ],
+                return _TrainingCategoryView(
+                  title: title,
+                  modules: categoryModules,
+                  category: category,
+                  progressAsync: progressAsync,
+                  assignments: categoryAssignments,
+                );
+              }).toList(),
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.school_outlined, size: 64, color: AppColors.outlineVariant),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            'No Training Modules',
-            style: AppTypography.headlineLgMobile.copyWith(color: AppColors.onSurface),
+  Widget _buildOverviewSection(List<TrainingModule> modules) {
+    if (modules.isEmpty) return const SizedBox();
+
+    final totalModules = modules.length;
+    final completedModules = modules.where((m) => m.status == 'Completed').length;
+    final overallProgress = totalModules > 0 ? completedModules / totalModules : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.md),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primary, AppColors.secondary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          const SizedBox(height: AppSpacing.xs),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your Training Journey',
+              style: AppTypography.headlineLgMobile.copyWith(color: AppColors.onPrimary, fontSize: 18),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Complete modules and masterclasses to advance your skills.',
+              style: AppTypography.bodySm.copyWith(color: AppColors.onPrimary.withValues(alpha: 0.8)),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Overall Progress',
+                  style: AppTypography.labelMono.copyWith(color: AppColors.onPrimary),
+                ),
+                Text(
+                  '${(overallProgress * 100).toInt()}%',
+                  style: AppTypography.labelMono.copyWith(color: AppColors.onPrimary, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+              child: LinearProgressIndicator(
+                value: overallProgress,
+                backgroundColor: AppColors.onPrimary.withValues(alpha: 0.2),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.onPrimary),
+                minHeight: 8,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContinueLearning(List<TrainingModule> modules) {
+    if (modules.isEmpty) return const SizedBox();
+
+    TrainingModule? nextModule = modules.where((m) => m.status == 'In Progress').firstOrNull;
+    nextModule ??= modules.where((m) => m.status == 'Not Started' && !m.isLocked).firstOrNull;
+
+    if (nextModule == null) return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'You currently have no training modules assigned.',
-            style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+            'Continue Learning',
+            style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary, fontSize: 18),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          GestureDetector(
+            onTap: () => context.push('/student/training/${nextModule!.id}'),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.play_arrow, color: AppColors.onSecondaryContainer),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nextModule.category,
+                          style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontSize: 10),
+                        ),
+                        Text(
+                          nextModule.title,
+                          style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.outline),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -191,12 +295,28 @@ class _TrainingCategoryView extends StatelessWidget {
     final currentModules = modules.where((m) => m.type == 'Module').toList();
     final masterclass = modules.where((m) => m.type == 'Masterclass').firstOrNull;
 
+    if (modules.isEmpty && assignments.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.school_outlined, size: 48, color: AppColors.outlineVariant),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No Modules in $category',
+              style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildProgressSection(),
+          _buildCategoryProgress(),
           const SizedBox(height: AppSpacing.xl),
           if (mockProjects.isNotEmpty || masterclass != null || assignments.isNotEmpty) ...[
             Text(
@@ -212,11 +332,14 @@ class _TrainingCategoryView extends StatelessWidget {
           ],
           if (currentModules.isNotEmpty) ...[
             Text(
-              'Current Modules',
-              style: AppTypography.buttonText.copyWith(color: AppColors.primary),
+              'Learning Modules',
+              style: AppTypography.headlineLgMobile.copyWith(
+                color: AppColors.primary,
+                fontSize: 20,
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            _buildCurrentModules(currentModules),
+            _buildCurrentModules(context, currentModules),
             const SizedBox(height: AppSpacing.xxl),
           ],
         ],
@@ -224,7 +347,11 @@ class _TrainingCategoryView extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressSection() {
+  Widget _buildCategoryProgress() {
+    final total = modules.length;
+    final completed = modules.where((m) => m.status == 'Completed').length;
+    final percentage = total > 0 ? completed / total : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -239,48 +366,46 @@ class _TrainingCategoryView extends StatelessWidget {
           ),
         ],
       ),
-      child: progressAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
-        error: (_, __) => Text('Failed to load progress', style: AppTypography.labelMono.copyWith(color: AppColors.error)),
-        data: (progressList) {
-          final p = progressList.firstWhere((p) => p.category == category, orElse: () => TrainingCategoryProgress(category: category, overallProgress: 0.0));
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                title,
-                style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Module Progress',
-                    style: AppTypography.labelMono.copyWith(
-                      color: AppColors.secondary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '${(p.overallProgress * 100).toInt()}% Complete',
-                    style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                child: LinearProgressIndicator(
-                  value: p.overallProgress,
-                  backgroundColor: AppColors.surfaceVariant,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
-                  minHeight: 8,
+                'Category Progress',
+                style: AppTypography.labelMono.copyWith(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+              Text(
+                '${(percentage * 100).toInt()}% Complete',
+                style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+              ),
             ],
-          );
-        }
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            child: LinearProgressIndicator(
+              value: percentage,
+              backgroundColor: AppColors.surfaceVariant,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '$completed of $total modules completed',
+            style: AppTypography.labelMono.copyWith(color: AppColors.outline),
+          ),
+        ],
       ),
     );
   }
@@ -291,7 +416,6 @@ class _TrainingCategoryView extends StatelessWidget {
       TrainingModule? masterclass,
       List<Project> assignments) {
     
-    // Flatten mock projects and real assignments into a single list of widgets to display
     List<Widget> projectCards = [];
     
     for (final mock in mockProjects) {
@@ -312,7 +436,6 @@ class _TrainingCategoryView extends StatelessWidget {
       );
     }
 
-    // Pair them up in rows
     List<Widget> rows = [];
     for (int i = 0; i < projectCards.length; i += 2) {
       rows.add(
@@ -344,7 +467,6 @@ class _TrainingCategoryView extends StatelessWidget {
     );
   }
 
-
   Widget _buildMockProjectCard(BuildContext context, TrainingModule module) {
     final isCompleted = module.status == 'Completed';
     final badgeColor = isCompleted ? AppColors.surfaceVariant : AppColors.primaryContainer;
@@ -355,7 +477,7 @@ class _TrainingCategoryView extends StatelessWidget {
         context.push('/student/training/${module.id}');
       },
       child: Container(
-        height: 280, // Fixed height to keep cards aligned
+        height: 280, 
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
@@ -379,7 +501,10 @@ class _TrainingCategoryView extends StatelessWidget {
                     style: AppTypography.labelMono.copyWith(color: badgeText),
                   ),
                 ),
-                const Icon(Icons.bookmark_border, color: AppColors.outline, size: 20),
+                if (isCompleted)
+                  const Icon(Icons.check_circle, color: AppColors.secondary, size: 20)
+                else
+                  const Icon(Icons.bookmark_border, color: AppColors.outline, size: 20),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
@@ -433,7 +558,7 @@ class _TrainingCategoryView extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                     ),
                     child: Text(
-                      'Continue',
+                      module.status == 'In Progress' ? 'Continue' : 'Start',
                       style: AppTypography.buttonText.copyWith(color: AppColors.onPrimary, fontSize: 10),
                     ),
                   ),
@@ -446,121 +571,196 @@ class _TrainingCategoryView extends StatelessWidget {
   }
 
   Widget _buildMasterclassCard(BuildContext context, TrainingModule masterclass) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.tertiaryFixedDim,
-                  borderRadius: BorderRadius.circular(4),
+    final isCompleted = masterclass.status == 'Completed';
+
+    return GestureDetector(
+      onTap: () {
+        if (!masterclass.isLocked) {
+          context.push('/student/training/${masterclass.id}');
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isCompleted ? AppColors.surfaceVariant : AppColors.tertiaryFixedDim,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Pro Masterclass',
+                    style: AppTypography.labelMono.copyWith(
+                      color: isCompleted ? AppColors.onSurfaceVariant : AppColors.tertiaryContainer
+                    ),
+                  ),
                 ),
-                child: Text(
-                  'Pro Masterclass',
-                  style: AppTypography.labelMono.copyWith(color: AppColors.tertiaryContainer),
+                if (masterclass.isLocked)
+                  const Icon(Icons.lock, color: AppColors.outline, size: 20)
+                else if (isCompleted)
+                  const Icon(Icons.check_circle, color: AppColors.secondary, size: 20),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              masterclass.title,
+              style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary, fontSize: 18),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              masterclass.description,
+              style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Prerequisite: ${masterclass.prerequisites ?? 'None'}',
+                  style: AppTypography.labelMono.copyWith(color: AppColors.outline),
                 ),
-              ),
-              const Icon(Icons.lock, color: AppColors.outline, size: 20),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            masterclass.title,
-            style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary, fontSize: 18),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            masterclass.description,
-            style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Prerequisite: ${masterclass.prerequisites ?? 'None'}',
-                style: AppTypography.labelMono.copyWith(color: AppColors.outline),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.outline),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.outline),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                    color: masterclass.status == 'In Progress' ? AppColors.primary : Colors.transparent,
+                  ),
+                  child: Text(
+                    masterclass.isLocked 
+                        ? 'Locked' 
+                        : (masterclass.status == 'In Progress' ? 'Continue' : masterclass.status),
+                    style: AppTypography.buttonText.copyWith(
+                      color: masterclass.status == 'In Progress' ? AppColors.onPrimary : AppColors.primary, 
+                      fontSize: 12
+                    ),
+                  ),
                 ),
-                child: Text(
-                  masterclass.isLocked ? 'Locked' : 'Available',
-                  style: AppTypography.buttonText.copyWith(color: AppColors.primary, fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCurrentModules(List<TrainingModule> currentModules) {
+  Widget _buildCurrentModules(BuildContext context, List<TrainingModule> currentModules) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
         border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
       ),
       child: Column(
-        children: currentModules.map((m) {
+        children: currentModules.asMap().entries.map((entry) {
+          final index = entry.key;
+          final m = entry.value;
+          final isLast = index == currentModules.length - 1;
+          
           IconData icon = Icons.play_circle;
           if (m.durationOrFormat?.contains('PDF') == true) icon = Icons.description;
           if (m.durationOrFormat?.contains('Interactive') == true) icon = Icons.view_in_ar;
+          if (m.status == 'Completed') icon = Icons.check_circle;
 
-          return _buildModuleItem(icon, m.title, m.durationOrFormat ?? '');
+          return _buildModuleItem(context, m, icon, isLast);
         }).toList(),
       ),
     );
   }
 
-  Widget _buildModuleItem(IconData icon, String title, String subtitle) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-            ),
-            child: Icon(icon, color: AppColors.primary),
+  Widget _buildModuleItem(BuildContext context, TrainingModule m, IconData icon, bool isLast) {
+    final isCompleted = m.status == 'Completed';
+    final isInProgress = m.status == 'In Progress';
+    
+    return InkWell(
+      onTap: () {
+        if (!m.isLocked) {
+          context.push('/student/training/${m.id}');
+        }
+      },
+      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          border: isLast ? null : Border(
+            bottom: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.2)),
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isCompleted ? AppColors.secondary.withValues(alpha: 0.1) : AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isCompleted 
+                      ? AppColors.secondary.withValues(alpha: 0.3) 
+                      : AppColors.outlineVariant.withValues(alpha: 0.3)
                 ),
-                Text(
-                  subtitle,
-                  style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-                ),
-              ],
+              ),
+              child: Icon(
+                icon, 
+                color: isCompleted ? AppColors.secondary : AppColors.primary
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    m.title,
+                    style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        m.durationOrFormat ?? '',
+                        style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: AppColors.outlineVariant,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        m.status,
+                        style: AppTypography.labelMono.copyWith(
+                          color: isCompleted 
+                              ? AppColors.secondary 
+                              : (isInProgress ? AppColors.primary : AppColors.onSurfaceVariant),
+                          fontWeight: isInProgress ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (m.isLocked)
+              const Icon(Icons.lock, size: 20, color: AppColors.outline)
+            else
+              const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.outline),
+          ],
+        ),
       ),
     );
   }

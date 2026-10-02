@@ -1,5 +1,6 @@
 import '../../api/data/api_client.dart';
 import '../domain/training_module.dart';
+import '../domain/lesson.dart';
 
 class TrainingRepository {
   final ApiClient _apiClient;
@@ -74,6 +75,43 @@ class TrainingRepository {
         'module_id': moduleId,
         'status': status,
         'score': score,
+      },
+    );
+  }
+
+  /// Fetches recent activity for the student's training projects.
+  Future<List<dynamic>> getStudentActivity() async {
+    final response = await _apiClient.get('/api/student/activity');
+    if (response != null && response is List) {
+      return response;
+    }
+    return [];
+  }
+
+  /// Fetches lessons for a specific module.
+  Future<List<Lesson>> getModuleLessons(String moduleId) async {
+    final response = await _apiClient.get('/api/student/training/modules/$moduleId/lessons');
+    if (response != null && response is List) {
+      return response.map((data) => Lesson.fromMap(data as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  /// Fetches details for a specific lesson.
+  Future<Lesson> getLesson(String lessonId) async {
+    final response = await _apiClient.get('/api/student/training/lessons/$lessonId');
+    if (response != null && response is Map<String, dynamic>) {
+      return Lesson.fromMap(response);
+    }
+    throw Exception('Lesson not found or invalid format');
+  }
+
+  /// Updates the progress of a specific lesson.
+  Future<void> updateLessonProgress(String lessonId, String status) async {
+    await _apiClient.post(
+      '/api/student/training/lessons/$lessonId/progress',
+      body: {
+        'status': status,
       },
     );
   }

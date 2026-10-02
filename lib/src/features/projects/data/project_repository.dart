@@ -2,6 +2,7 @@ import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
 import '../domain/activity_log.dart';
+import '../domain/evaluation.dart';
 import '../../api/data/api_client.dart';
 
 /// Repository for project CRUD operations.
@@ -118,10 +119,16 @@ class ProjectRepository {
   Future<void> submitDrawing({
     required String projectId,
     required String actionId,
+    String? draftFileId,
   }) async {
+    final body = <String, dynamic>{'projectId': projectId, 'actionId': actionId};
+    if (draftFileId != null) {
+      body['draftFileId'] = draftFileId;
+    }
+    
     await _apiClient.post(
       '/api/projects/submit-drawing',
-      body: {'projectId': projectId, 'actionId': actionId},
+      body: body,
     );
   }
 
@@ -200,5 +207,40 @@ class ProjectRepository {
       return response.map((json) => ActivityLog.fromJson(json)).toList();
     }
     return [];
+  }
+
+  Future<List<Evaluation>> getEvaluations(String projectId) async {
+    final response = await _apiClient.get(
+      '/api/projects/$projectId/evaluations',
+    );
+    if (response is List) {
+      return response
+          .map((item) => Evaluation.fromMap(item as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<void> evaluateDrawing({
+    required String projectId,
+    required String actionId,
+    required String drawingVersionId,
+    required String overallResult,
+    String? generalFeedback,
+    Map<String, dynamic>? criteriaJson,
+    String? correctionId,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/evaluate',
+      body: {
+        'projectId': projectId,
+        'actionId': actionId,
+        'drawingVersionId': drawingVersionId,
+        'overallResult': overallResult,
+        if (generalFeedback != null) 'generalFeedback': generalFeedback,
+        if (criteriaJson != null) 'criteriaJson': criteriaJson,
+        if (correctionId != null) 'correctionId': correctionId,
+      },
+    );
   }
 }

@@ -11,6 +11,8 @@ import '../domain/project_validators.dart';
 import '../providers/project_form_controller.dart';
 import '../providers/project_providers.dart';
 import '../providers/file_providers.dart';
+import '../../profile/domain/user_role.dart';
+import '../../profile/providers/profile_providers.dart';
 import 'widgets/project_form_stepper.dart';
 import 'widgets/project_review_section.dart';
 import 'widgets/file_upload_button.dart';
@@ -702,7 +704,12 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
               await controller.saveDraft();
               if (mounted) {
                 controller.reset();
-                this.context.go('/client/projects');
+                final role = ref.read(currentUserRoleProvider);
+                if (role == UserRole.admin) {
+                  this.context.go('/admin/projects');
+                } else {
+                  this.context.go('/client/projects');
+                }
               }
             },
             style: FilledButton.styleFrom(backgroundColor: AppColors.secondary),
@@ -782,6 +789,11 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
       ),
     );
     ref.read(projectFormControllerProvider.notifier).reset();
-    context.go('/client/projects');
+    final role = ref.read(currentUserRoleProvider);
+    if (role == UserRole.admin) {
+      context.go('/admin/projects');
+    } else {
+      context.go('/client/projects');
+    }
   }
 }
