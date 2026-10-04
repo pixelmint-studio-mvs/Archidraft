@@ -118,8 +118,9 @@ class _ProjectListTab extends ConsumerWidget {
 
   AsyncValue _getProvider(WidgetRef ref) {
     if (status == 'SUBMITTED') return ref.watch(pendingProjectsProvider);
-    if (status == 'WAITING_ASSIGNMENT')
+    if (status == 'WAITING_ASSIGNMENT') {
       return ref.watch(unassignedProjectsProvider);
+    }
     return ref.watch(activeProjectsProvider);
   }
 

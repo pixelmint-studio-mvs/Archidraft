@@ -258,7 +258,7 @@ class _DrawingCardState extends State<_DrawingCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: () => context.push(
-          '/draughtsman/workspace/${a.projectId}',
+          '/draughtsman/workspace/${a.id}',
         ),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),

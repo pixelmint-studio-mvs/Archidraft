@@ -480,7 +480,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               }).toList(),
             ),
           ),
-          if (customContent != null) customContent,
+          ?customContent,
         ],
       ),
     );

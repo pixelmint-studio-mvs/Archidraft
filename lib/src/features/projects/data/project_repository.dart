@@ -31,7 +31,15 @@ class ProjectRepository {
       final response = await _apiClient.get('/api/projects/$projectId');
       return Project.fromMap(response as Map<String, dynamic>);
     } catch (e) {
-      return null;
+      final msg = e.toString();
+      // 404 means the project genuinely does not exist — return null
+      if (msg.contains('404')) return null;
+      // 403 means the current user is not authorized to view this project
+      if (msg.contains('403')) {
+        throw Exception('You do not have permission to access this project.');
+      }
+      // Rethrow network/parse errors so the UI can display them
+      rethrow;
     }
   }
 

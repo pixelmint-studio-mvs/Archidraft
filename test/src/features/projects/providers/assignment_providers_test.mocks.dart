@@ -4,12 +4,12 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 
-import 'dart:async' as _i3;
+import 'dart:async' as _i4;
 
 import 'package:archi_draft/src/features/projects/data/assignment_repository.dart'
-    as _i2;
+    as _i3;
 import 'package:archi_draft/src/features/projects/domain/assignment.dart'
-    as _i4;
+    as _i2;
 import 'package:mockito/mockito.dart' as _i1;
 
 // ignore_for_file: type=lint
@@ -28,48 +28,59 @@ import 'package:mockito/mockito.dart' as _i1;
 // ignore_for_file: subtype_of_sealed_class
 // ignore_for_file: invalid_use_of_internal_member
 
+class _FakeAssignment_0 extends _i1.SmartFake implements _i2.Assignment {
+  _FakeAssignment_0(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
 /// A class which mocks [AssignmentRepository].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockAssignmentRepository extends _i1.Mock
-    implements _i2.AssignmentRepository {
+    implements _i3.AssignmentRepository {
   MockAssignmentRepository() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i3.Future<List<_i4.Assignment>> getAssignments() => (super.noSuchMethod(
+  _i4.Future<List<_i2.Assignment>> getAssignments() => (super.noSuchMethod(
     Invocation.method(#getAssignments, []),
-    returnValue: _i3.Future<List<_i4.Assignment>>.value(<_i4.Assignment>[]),
-  ) as _i3.Future<List<_i4.Assignment>>);
+    returnValue: _i4.Future<List<_i2.Assignment>>.value(<_i2.Assignment>[]),
+  ) as _i4.Future<List<_i2.Assignment>>);
 
   @override
-  _i3.Future<void> acceptAssignment({
+  _i4.Future<_i2.Assignment> getAssignment(String? id) => (super.noSuchMethod(
+    Invocation.method(#getAssignment, [id]),
+    returnValue: _i4.Future<_i2.Assignment>.value(
+      _FakeAssignment_0(this, Invocation.method(#getAssignment, [id])),
+    ),
+  ) as _i4.Future<_i2.Assignment>);
+
+  @override
+  _i4.Future<void> acceptAssignment({
     required String? assignmentId,
-    required String? projectId,
-    required String? actionId,
+    String? actionId,
   }) => (super.noSuchMethod(
     Invocation.method(#acceptAssignment, [], {
       #assignmentId: assignmentId,
-      #projectId: projectId,
       #actionId: actionId,
     }),
-    returnValue: _i3.Future<void>.value(),
-    returnValueForMissingStub: _i3.Future<void>.value(),
-  ) as _i3.Future<void>);
+    returnValue: _i4.Future<void>.value(),
+    returnValueForMissingStub: _i4.Future<void>.value(),
+  ) as _i4.Future<void>);
 
   @override
-  _i3.Future<void> rejectAssignment({
+  _i4.Future<void> rejectAssignment({
     required String? assignmentId,
-    required String? projectId,
-    required String? actionId,
+    String? actionId,
+    String? reason = '',
   }) => (super.noSuchMethod(
     Invocation.method(#rejectAssignment, [], {
       #assignmentId: assignmentId,
-      #projectId: projectId,
       #actionId: actionId,
+      #reason: reason,
     }),
-    returnValue: _i3.Future<void>.value(),
-    returnValueForMissingStub: _i3.Future<void>.value(),
-  ) as _i3.Future<void>);
+    returnValue: _i4.Future<void>.value(),
+    returnValueForMissingStub: _i4.Future<void>.value(),
+  ) as _i4.Future<void>);
 }

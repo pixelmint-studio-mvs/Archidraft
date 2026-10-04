@@ -9,9 +9,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
 import '../../domain/assignment.dart';
 import '../../domain/assignment_status.dart';
-import '../../domain/project.dart';
 import '../../providers/assignment_providers.dart';
-import '../../providers/project_providers.dart';
 import '../widgets/project_status_chip.dart';
 import '../../domain/project_status.dart';
 
@@ -69,12 +67,7 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
           message: 'Failed to load assignment.',
           onRetry: () => ref.invalidate(assignmentProvider(assignmentId)),
         ),
-        data: (assignment) {
-          if (assignment == null) {
-            return const AppErrorWidget(message: 'Assignment not found.');
-          }
-          return _buildDetails(context, ref, assignment);
-        },
+        data: (assignment) => _buildDetails(context, ref, assignment),
       ),
     );
   }
@@ -203,9 +196,9 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
           assignment: assignment,
         );
       case AssignmentStatus.accepted:
-        return _AcceptedAction(projectId: assignment.projectId);
+        return _AcceptedAction(assignmentId: assignment.id);
       case AssignmentStatus.completed:
-        return _CompletedBanner(projectId: assignment.projectId);
+        return _CompletedBanner(assignmentId: assignment.id);
       case AssignmentStatus.rejected:
         return _RejectedBanner();
       case AssignmentStatus.replaced:
@@ -351,7 +344,7 @@ class _PendingActions extends ConsumerWidget {
         ),
       );
       // Navigate directly to workspace
-      context.pushReplacement('/draughtsman/workspace/${assignment.projectId}');
+      context.pushReplacement('/draughtsman/workspace/${assignment.id}');
     }
   }
 
@@ -420,9 +413,9 @@ class _PendingActions extends ConsumerWidget {
 }
 
 class _AcceptedAction extends StatelessWidget {
-  final String projectId;
+  final String assignmentId;
 
-  const _AcceptedAction({required this.projectId});
+  const _AcceptedAction({required this.assignmentId});
 
   @override
   Widget build(BuildContext context) {
@@ -460,7 +453,7 @@ class _AcceptedAction extends StatelessWidget {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () =>
-                  context.push('/draughtsman/workspace/$projectId'),
+                  context.push('/draughtsman/workspace/$assignmentId'),
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
               label: const Text('Open Workspace'),
               style: FilledButton.styleFrom(
@@ -475,9 +468,9 @@ class _AcceptedAction extends StatelessWidget {
 }
 
 class _CompletedBanner extends StatelessWidget {
-  final String projectId;
+  final String assignmentId;
 
-  const _CompletedBanner({required this.projectId});
+  const _CompletedBanner({required this.assignmentId});
 
   @override
   Widget build(BuildContext context) {
@@ -487,7 +480,7 @@ class _CompletedBanner extends StatelessWidget {
       label: 'ASSIGNMENT COMPLETE',
       description: 'This project has been completed and approved.',
       action: OutlinedButton.icon(
-        onPressed: () => context.push('/draughtsman/workspace/$projectId'),
+        onPressed: () => context.push('/draughtsman/workspace/$assignmentId'),
         icon: const Icon(Icons.history_outlined, size: 16),
         label: const Text('View History'),
       ),

@@ -155,6 +155,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                                 setState(() => _selectedRole = 'DRAUGHTSMAN'),
                           ),
 
+                          const SizedBox(height: AppSpacing.gridGutter),
+
+                          _RoleCard(
+                            roleKey: 'STUDENT',
+                            icon: Icons.school_outlined,
+                            title: 'Student',
+                            description: 'Learn and practice drafting skills with educational projects and guided reviews.',
+                            isSelected: _selectedRole == 'STUDENT',
+                            onTap: () =>
+                                setState(() => _selectedRole = 'STUDENT'),
+                          ),
+
                           const SizedBox(height: AppSpacing.xxxl),
 
                           // ── CTA ──

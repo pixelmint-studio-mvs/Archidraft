@@ -32,7 +32,7 @@ class AssignmentRepository {
       '/api/assignments/accept',
       body: {
         'assignmentId': assignmentId,
-        if (actionId != null) 'actionId': actionId,
+        'actionId': ?actionId,
       },
     );
   }
@@ -46,7 +46,7 @@ class AssignmentRepository {
       '/api/assignments/reject',
       body: {
         'assignmentId': assignmentId,
-        if (actionId != null) 'actionId': actionId,
+        'actionId': ?actionId,
         'reason': reason,
       },
     );

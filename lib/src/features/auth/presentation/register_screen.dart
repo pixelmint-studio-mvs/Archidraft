@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/auth_error_mapper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/blueprint_background.dart';
@@ -45,10 +44,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   String get _roleSubtitle {
-    if (_selectedRole == 'STUDENT')
+    if (_selectedRole == 'STUDENT') {
       return 'Create your student account to begin training';
-    if (_selectedRole == 'DRAUGHTSMAN')
+    }
+    if (_selectedRole == 'DRAUGHTSMAN') {
       return 'Create your draughtsman account to join the studio';
+    }
     return 'Create your engineer account to join the studio';
   }
 

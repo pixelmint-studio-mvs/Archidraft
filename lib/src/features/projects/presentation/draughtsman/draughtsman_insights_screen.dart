@@ -48,7 +48,7 @@ class DraughtsmanInsightsScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: assignmentsAsync.when(
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
                 data: (assignments) => _buildActivityBreakdown(assignments),
               ),
             ),

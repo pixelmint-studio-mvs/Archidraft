@@ -47,19 +47,19 @@ class AppSpacing {
   static const double gridGutter = 24.0;
 
   // ── Border Radius ──
-  /// Default radius (4px)
-  static const double radiusDefault = 4.0;
+  /// Default radius (0px - Technical Design)
+  static const double radiusDefault = 0.0;
 
-  /// Medium radius (8px)
-  static const double radiusMd = 8.0;
+  /// Medium radius (0px - Technical Design)
+  static const double radiusMd = 0.0;
 
-  /// Large radius (12px)
-  static const double radiusLg = 12.0;
+  /// Large radius (0px - Technical Design)
+  static const double radiusLg = 0.0;
 
-  /// Extra large radius (16px)
-  static const double radiusXl = 16.0;
+  /// Extra large radius (0px - Technical Design)
+  static const double radiusXl = 0.0;
 
-  /// Full/pill radius
+  /// Full/pill radius (Keep for status dots)
   static const double radiusFull = 9999.0;
 
   // ── Elevation ──

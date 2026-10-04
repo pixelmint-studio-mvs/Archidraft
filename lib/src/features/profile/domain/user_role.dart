@@ -9,7 +9,9 @@
 enum UserRole {
   client,
   draughtsman,
-  admin;
+  admin,
+  engineer,
+  student;
 
   /// Converts a Firestore role string to a [UserRole] enum.
   ///
@@ -22,6 +24,10 @@ enum UserRole {
         return UserRole.draughtsman;
       case 'ADMIN':
         return UserRole.admin;
+      case 'ENGINEER':
+        return UserRole.engineer;
+      case 'STUDENT':
+        return UserRole.student;
       default:
         return null;
     }
@@ -36,6 +42,10 @@ enum UserRole {
         return 'DRAUGHTSMAN';
       case UserRole.admin:
         return 'ADMIN';
+      case UserRole.engineer:
+        return 'ENGINEER';
+      case UserRole.student:
+        return 'STUDENT';
     }
   }
 
@@ -48,6 +58,10 @@ enum UserRole {
         return 'Draughtsman';
       case UserRole.admin:
         return 'Administrator';
+      case UserRole.engineer:
+        return 'Engineer';
+      case UserRole.student:
+        return 'Student';
     }
   }
 }

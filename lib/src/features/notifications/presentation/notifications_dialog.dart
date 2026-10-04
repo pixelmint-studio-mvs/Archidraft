@@ -4,7 +4,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../providers/notification_providers.dart';
-import '../domain/app_notification.dart';
 
 class NotificationsDialog extends ConsumerWidget {
   const NotificationsDialog({super.key});

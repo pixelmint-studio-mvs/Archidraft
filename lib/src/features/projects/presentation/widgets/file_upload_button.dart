@@ -11,10 +11,10 @@ class FileUploadButton extends ConsumerStatefulWidget {
   final String category;
 
   const FileUploadButton({
-    Key? key,
+    super.key,
     required this.projectId,
     required this.category,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<FileUploadButton> createState() => _FileUploadButtonState();
@@ -38,19 +38,17 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
 
     if (file.size > 50 * 1024 * 1024) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('File exceeds 50MB limit')));
+      messenger.showSnackBar(const SnackBar(content: Text('File exceeds 50MB limit')));
       return;
     }
 
     final stream = file.readStream;
     if (stream == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('Unable to read file stream')),
       );
       return;
@@ -65,14 +63,15 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
 
       // Attempt to guess content type (Worker will also validate extension)
       String contentType = 'application/octet-stream';
-      if (file.extension == 'pdf')
+      if (file.extension == 'pdf') {
         contentType = 'application/pdf';
-      else if (file.extension == 'png')
+      } else if (file.extension == 'png') {
         contentType = 'image/png';
-      else if (file.extension == 'jpg' || file.extension == 'jpeg')
+      } else if (file.extension == 'jpg' || file.extension == 'jpeg') {
         contentType = 'image/jpeg';
-      else if (file.extension == 'zip')
+      } else if (file.extension == 'zip') {
         contentType = 'application/zip';
+      }
 
       // Generate a deterministic actionId for this upload attempt based on file properties.
       // If the exact same file selection fails, it reuses the actionId to satisfy idempotency.
@@ -90,7 +89,7 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('File uploaded successfully')),
         );
       }
@@ -102,8 +101,7 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
       ref.invalidate(projectFilesProvider(widget.projectId));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        messenger.showSnackBar(SnackBar(content: Text('Upload failed: $e')));
       }
     } finally {
       if (mounted) {

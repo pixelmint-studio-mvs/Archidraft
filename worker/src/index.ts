@@ -46,7 +46,7 @@ app.post('/api/users', async (c) => {
   const { email, name, mobile, role } = body;
 
   // Enforce role allowlist at the backend level.
-  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN'];
+  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN', 'ENGINEER', 'STUDENT'];
   const safeRole = allowedRoles.includes(role) ? role : null;
   if (!safeRole) {
     return c.json({ error: 'Invalid role. Only CLIENT and DRAUGHTSMAN are permitted.' }, 400);

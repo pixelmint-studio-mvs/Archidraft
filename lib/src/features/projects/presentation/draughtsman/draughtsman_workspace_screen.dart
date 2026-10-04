@@ -26,15 +26,15 @@ import '../widgets/file_upload_button.dart';
 // ─────────────────────────────────────────────────────────
 
 class DraughtsmanWorkspaceScreen extends ConsumerWidget {
-  final String projectId;
+  final String assignmentId;
 
-  const DraughtsmanWorkspaceScreen({super.key, required this.projectId});
+  const DraughtsmanWorkspaceScreen({super.key, required this.assignmentId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final projectAsync = ref.watch(projectProvider(projectId));
+    final assignmentAsync = ref.watch(assignmentProvider(assignmentId));
 
-    return projectAsync.when(
+    return assignmentAsync.when(
       loading: () => Scaffold(
         appBar: _buildAppBar(context, 'Workspace', null),
         body: const AppLoadingIndicator(message: 'Loading workspace...'),
@@ -42,15 +42,50 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
       error: (error, _) => Scaffold(
         appBar: _buildAppBar(context, 'Workspace', null),
         body: AppErrorWidget(
-          message: 'Failed to load project: $error',
-          onRetry: () => ref.invalidate(projectProvider(projectId)),
+          message: 'Failed to load assignment: $error',
+          onRetry: () => ref.invalidate(assignmentProvider(assignmentId)),
         ),
       ),
+      data: (assignment) {
+        if (assignment.projectId.isEmpty) {
+          return Scaffold(
+            appBar: _buildAppBar(context, 'Workspace', null),
+            body: AppErrorWidget(
+              message: 'Invalid assignment: missing project association.',
+              onRetry: null,
+            ),
+          );
+        }
+
+        final projectId = assignment.projectId;
+        final projectAsync = ref.watch(projectProvider(projectId));
+
+        return projectAsync.when(
+      loading: () => Scaffold(
+        appBar: _buildAppBar(context, 'Workspace', null),
+        body: const AppLoadingIndicator(message: 'Loading workspace...'),
+      ),
+      error: (error, _) {
+        final msg = error.toString();
+        final isAuth = msg.contains('permission') || msg.contains('403');
+        return Scaffold(
+          appBar: _buildAppBar(context, 'Workspace', null),
+          body: AppErrorWidget(
+            message: isAuth
+                ? 'Access denied. You are not authorized to view this project.\n\nThis can happen if you are not the assigned draughtsman.'
+                : 'Failed to load workspace: $error',
+            onRetry: isAuth ? null : () => ref.invalidate(projectProvider(projectId)),
+          ),
+        );
+      },
       data: (project) {
         if (project == null) {
           return Scaffold(
             appBar: _buildAppBar(context, 'Workspace', null),
-            body: const AppErrorWidget(message: 'Project not found.'),
+            body: AppErrorWidget(
+              message: 'Project not found. It may have been cancelled or removed.',
+              onRetry: () => ref.invalidate(projectProvider(projectId)),
+            ),
           );
         }
 
@@ -69,6 +104,8 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
         }
 
         return _WorkspaceTabs(projectId: projectId, project: project);
+      },
+    );
       },
     );
   }
@@ -601,7 +638,7 @@ class _TimelineTab extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, 100),
             itemCount: logs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 0),
+            separatorBuilder: (_, _) => const SizedBox(height: 0),
             itemBuilder: (context, index) {
               final log = logs[index];
               final isLast = index == logs.length - 1;
@@ -672,7 +709,7 @@ class _SubmitButton extends ConsumerWidget {
                 ? () => _showSubmitDialog(context, ref)
                 : null,
             icon: const Icon(Icons.send_rounded, size: 18),
-            label: const Text('Submit for Client Review'),
+            label: const Text('Submit for Engineer Review'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.success,
               disabledBackgroundColor: AppColors.surfaceContainerHigh,
@@ -700,7 +737,7 @@ class _SubmitButton extends ConsumerWidget {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Drawing submitted successfully for client review!'),
+            content: const Text('Drawing submitted successfully for Engineer Review!'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -751,7 +788,7 @@ class _SubmitConfirmationDialog extends StatelessWidget {
           _CheckItem('Files are complete and in the correct format'),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Once submitted, you cannot upload more files until the client reviews.',
+            'Once submitted, you cannot upload more files until the Engineer Reviews.',
             style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
           ),
         ],
@@ -924,6 +961,7 @@ class _VersionCardState extends ConsumerState<_VersionCard> {
 
   void _download(BuildContext context) async {
     setState(() => _isDownloading = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final repository = ref.read(fileRepositoryProvider);
       final fileName = widget.version.sanitizedName ?? 'download_${widget.version.versionNumber}.pdf';
@@ -934,7 +972,7 @@ class _VersionCardState extends ConsumerState<_VersionCard> {
           fileName,
         );
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Download started in browser')),
         );
       } else {
@@ -944,13 +982,11 @@ class _VersionCardState extends ConsumerState<_VersionCard> {
         await repository.downloadFile(widget.version.fileId, filePath);
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Downloaded to $filePath')));
+        messenger.showSnackBar(SnackBar(content: Text('Downloaded to $filePath')));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Download failed: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Download failed: $e')));
     } finally {
       if (mounted) setState(() => _isDownloading = false);
     }
@@ -1345,7 +1381,7 @@ class _SectionCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (headerTrailing != null) headerTrailing!,
+                ?headerTrailing,
               ],
             ),
           ),
