@@ -28,15 +28,13 @@ class ProjectRepository {
 
   Future<Project?> getProject(String projectId) async {
     try {
-      final response = await _apiClient.get('/api/projects'); // the API returns all, we should really add a /api/projects/:id route. I'll filter here for now.
-      final projects = (response as List)
-          .map((p) => Project.fromMap(p))
-          .toList();
-      return projects.firstWhere((p) => p.projectId == projectId);
+      final response = await _apiClient.get('/api/projects/$projectId');
+      return Project.fromMap(response as Map<String, dynamic>);
     } catch (e) {
       return null;
     }
   }
+
 
   Future<List<Project>> getClientProjects() async {
     final response = await _apiClient.get('/api/projects');
@@ -186,5 +184,28 @@ class ProjectRepository {
       '/api/projects/cancel',
       body: {'projectId': projectId, 'actionId': actionId},
     );
+  }
+
+  Future<List<Map<String, dynamic>>> getActivityLogs(String projectId) async {
+    final response = await _apiClient.get('/api/projects/$projectId/activity');
+    if (response is List) {
+      return response.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getDraughtsmanSummary() async {
+    final response = await _apiClient.get('/api/draughtsman/summary');
+    if (response is Map) {
+      return Map<String, dynamic>.from(response);
+    }
+    return {
+      'total_assignments': 0,
+      'pending': 0,
+      'in_progress': 0,
+      'under_review': 0,
+      'completed': 0,
+      'rejected': 0,
+    };
   }
 }

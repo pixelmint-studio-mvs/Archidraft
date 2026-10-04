@@ -11,36 +11,43 @@ class AssignmentRepository {
       final response = await _apiClient.get('/api/assignments');
       return (response as List).map((a) => Assignment.fromMap(a)).toList();
     } catch (e) {
-      return [];
+      rethrow;
+    }
+  }
+
+  Future<Assignment> getAssignment(String id) async {
+    try {
+      final response = await _apiClient.get('/api/assignments/$id');
+      return Assignment.fromMap(response);
+    } catch (e) {
+      rethrow;
     }
   }
 
   Future<void> acceptAssignment({
     required String assignmentId,
-    required String projectId,
-    required String actionId,
+    String? actionId,
   }) async {
     await _apiClient.post(
       '/api/assignments/accept',
       body: {
         'assignmentId': assignmentId,
-        'projectId': projectId,
-        'actionId': actionId,
+        if (actionId != null) 'actionId': actionId,
       },
     );
   }
 
   Future<void> rejectAssignment({
     required String assignmentId,
-    required String projectId,
-    required String actionId,
+    String? actionId,
+    String reason = '',
   }) async {
     await _apiClient.post(
       '/api/assignments/reject',
       body: {
         'assignmentId': assignmentId,
-        'projectId': projectId,
-        'actionId': actionId,
+        if (actionId != null) 'actionId': actionId,
+        'reason': reason,
       },
     );
   }

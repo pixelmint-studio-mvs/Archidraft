@@ -56,3 +56,24 @@ final projectCorrectionsProvider = FutureProvider.family<List<Correction>, Strin
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getCorrections(projectId);
 });
+
+// ──────────────────────────────────────────
+// ACTIVITY LOGS
+// ──────────────────────────────────────────
+
+final projectActivityLogsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((
+  ref,
+  projectId,
+) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getActivityLogs(projectId);
+});
+
+// ──────────────────────────────────────────
+// DRAUGHTSMAN SUMMARY (Insights)
+// ──────────────────────────────────────────
+
+final draughtsmanSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getDraughtsmanSummary();
+});

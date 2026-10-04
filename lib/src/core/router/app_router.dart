@@ -20,6 +20,8 @@ import '../../features/projects/presentation/admin/admin_project_detail_screen.d
 import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_insights_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_drawings_screen.dart';
 import '../../features/profile/presentation/draughtsman_onboarding_screen.dart';
 import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
@@ -200,8 +202,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/draughtsman/assignments/:assignmentId',
             builder: (context, state) {
-              final assignment = state.extra as Assignment;
-              return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+              final assignmentId = state.pathParameters['assignmentId']!;
+              return DraughtsmanAssignmentDetailScreen(assignmentId: assignmentId);
             },
           ),
           GoRoute(
@@ -213,19 +215,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/draughtsman/drawings',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Drawings Library',
-              description: 'Access all your past and current drawings.',
-              icon: Icons.layers_outlined,
-            ),
+            builder: (context, state) => const DraughtsmanDrawingsScreen(),
           ),
           GoRoute(
             path: '/draughtsman/insights',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Insights',
-              description: 'View your performance and earnings analytics.',
-              icon: Icons.analytics_outlined,
-            ),
+            builder: (context, state) => const DraughtsmanInsightsScreen(),
           ),
           GoRoute(
             path: '/draughtsman/profile',
