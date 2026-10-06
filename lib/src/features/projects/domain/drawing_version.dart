@@ -1,3 +1,4 @@
+import '../../../shared/utils/date_parser.dart';
 
 class DrawingVersion {
   final String id;
@@ -34,7 +35,7 @@ class DrawingVersion {
       versionNumber: json['version_number'] as int,
       uploadedBy: json['uploaded_by'] as String,
       correctionId: json['correction_id'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateParser.parse(json['created_at']) ?? DateTime.now(),
       originalName: json['original_name'] as String?,
       sanitizedName: json['sanitized_name'] as String?,
       size: json['size'] as int?,

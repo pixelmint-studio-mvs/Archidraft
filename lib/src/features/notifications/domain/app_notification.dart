@@ -1,3 +1,5 @@
+import '../../../shared/utils/date_parser.dart';
+
 class AppNotification {
   final String id;
   final String userId;
@@ -25,9 +27,7 @@ class AppNotification {
       title: map['title'] ?? '',
       message: map['message'] ?? '',
       isRead: map['is_read'] == 1 || map['is_read'] == true,
-      createdAt: map['created_at'] != null
-          ? DateTime.parse(map['created_at'])
-          : DateTime.now(),
+      createdAt: DateParser.parse(map['created_at']) ?? DateTime.now(),
     );
   }
 }

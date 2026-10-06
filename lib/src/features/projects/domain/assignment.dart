@@ -1,4 +1,5 @@
 import 'assignment_status.dart';
+import '../../../shared/utils/date_parser.dart';
 
 /// Represents a draughtsman assignment, optionally enriched with
 /// joined project data when fetched via GET /api/assignments.
@@ -65,12 +66,8 @@ class Assignment {
       projectId: data['project_id'] as String? ?? '',
       draughtsmanId: data['draughtsman_id'] as String? ?? '',
       status: data['status'] as String? ?? 'PENDING',
-      createdAt: data['created_at'] != null
-          ? DateTime.tryParse(data['created_at'])
-          : null,
-      updatedAt: data['updated_at'] != null
-          ? DateTime.tryParse(data['updated_at'])
-          : null,
+      createdAt: DateParser.parse(data['created_at']),
+      updatedAt: DateParser.parse(data['updated_at']),
       projectName: data['project_name'] as String?,
       projectAddress: data['project_address'] as String?,
       drawingName: data['drawing_name'] as String?,
@@ -78,21 +75,11 @@ class Assignment {
       projectArea: data['project_area'] as String?,
       projectStatus: data['project_status'] as String?,
       correctionRound: data['correction_round'] as int?,
-      submittedAt: data['submitted_at'] != null
-          ? DateTime.tryParse(data['submitted_at'])
-          : null,
-      approvedAt: data['approved_at'] != null
-          ? DateTime.tryParse(data['approved_at'])
-          : null,
-      assignedAt: data['assigned_at'] != null
-          ? DateTime.tryParse(data['assigned_at'])
-          : null,
-      rejectedAt: data['rejected_at'] != null
-          ? DateTime.tryParse(data['rejected_at'])
-          : null,
-      cancelledAt: data['cancelled_at'] != null
-          ? DateTime.tryParse(data['cancelled_at'])
-          : null,
+      submittedAt: DateParser.parse(data['submitted_at']),
+      approvedAt: DateParser.parse(data['approved_at']),
+      assignedAt: DateParser.parse(data['assigned_at']),
+      rejectedAt: DateParser.parse(data['rejected_at']),
+      cancelledAt: DateParser.parse(data['cancelled_at']),
     );
   }
 

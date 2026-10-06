@@ -1,3 +1,4 @@
+import '../../../shared/utils/date_parser.dart';
 import 'drawing_type.dart';
 import 'project_status.dart';
 
@@ -98,22 +99,21 @@ class Project {
       projectAddress: data['project_address'] as String? ?? '',
       drawingName: data['drawing_name'] as String? ?? '',
       drawingType: data['drawing_type'] as String? ?? '',
-      projectArea: (data['project_area'] as num?)?.toDouble(),
-      estimatedAmount: (data['estimated_amount'] as num?)?.toDouble(),
+      // project_area is TEXT in D1 schema — D1 returns it as a JSON string
+      // (e.g. "1500.0"). Parse safely from String or num.
+      projectArea: _parseDouble(data['project_area']),
+      // estimated_amount is REAL in D1 — returned as JSON number when set,
+      // null otherwise. Also guard against accidental string representation.
+      estimatedAmount: _parseDouble(data['estimated_amount']),
+
       clientId: data['client_id'] as String? ?? '',
       assignedDraughtsmanId: data['draughtsman_id'] as String?,
       currentAssignmentId: data['current_assignment_id'] as String?,
       status: data['status'] as String? ?? 'DRAFT',
       correctionRound: data['correction_round'] as int? ?? 0,
-      createdAt: data['created_at'] != null
-          ? DateTime.tryParse(data['created_at'])
-          : null,
-      submittedAt: data['submitted_at'] != null
-          ? DateTime.tryParse(data['submitted_at'])
-          : null,
-      completedAt: data['completed_at'] != null
-          ? DateTime.tryParse(data['completed_at'])
-          : null,
+      createdAt: DateParser.parse(data['created_at']),
+      submittedAt: DateParser.parse(data['submitted_at']),
+      completedAt: DateParser.parse(data['completed_at']),
       lastActionId: data['last_action_id'] as String?,
     );
   }
@@ -173,4 +173,18 @@ class Project {
       lastActionId: lastActionId ?? this.lastActionId,
     );
   }
+}
+
+/// Helper to safely parse a double from either a num or a String.
+/// D1 sometimes returns numeric TEXT columns as JSON strings.
+double? _parseDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    // Also remove any accidental string formatting like " sqft" just in case
+    // it was already incorrectly stored in the DB (like the test fixture).
+    final cleaned = value.replaceAll(RegExp(r'[^0-9.]'), '');
+    return double.tryParse(cleaned);
+  }
+  return null;
 }

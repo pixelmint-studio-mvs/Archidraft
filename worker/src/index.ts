@@ -641,7 +641,7 @@ app.get('/api/draughtsman/summary', async (c) => {
       SUM(CASE WHEN a.status = 'PENDING' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
       SUM(CASE WHEN p.status = 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as under_review,
-      SUM(CASE WHEN a.status = 'ACCEPTED' AND (a.correction_round > 0 OR p.correction_round > 0) AND p.status != 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as corrections,
+      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.correction_round > 0 AND p.status != 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as corrections,
       SUM(CASE WHEN a.status = 'COMPLETED' OR p.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
       SUM(CASE WHEN a.status = 'REJECTED' THEN 1 ELSE 0 END) as rejected
     FROM assignments a
@@ -670,7 +670,7 @@ app.get('/api/projects/:id/activity', async (c) => {
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
-  const { results } = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
+  const { results } = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC').bind(projectId).all();
   return c.json(results);
 });
 
@@ -748,11 +748,11 @@ app.post('/api/projects/:id/files', async (c) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(crypto.randomUUID(), projectId, fileId, versionNumber, uid, now).run();
 
-    await db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, 'FILE_UPLOADED', `Uploaded drawing version ${versionNumber} (${originalName})`, now).run();
+    await db.prepare('INSERT INTO activity_logs (id, project_id, actor_id, actor_role, action_type, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), projectId, uid, user.role, 'FILE_UPLOADED', `Uploaded drawing version ${versionNumber} (${originalName})`, now).run();
   } else {
-    await db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, 'FILE_UPLOADED', `Uploaded file ${originalName}`, now).run();
+    await db.prepare('INSERT INTO activity_logs (id, project_id, actor_id, actor_role, action_type, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), projectId, uid, user.role, 'FILE_UPLOADED', `Uploaded file ${originalName}`, now).run();
   }
 
   const newFile = await db.prepare('SELECT * FROM files WHERE id = ?').bind(fileId).first();
@@ -851,8 +851,8 @@ app.post('/api/projects/:id/corrections/:cid/start', async (c) => {
 
   const batch = [
     db.prepare('UPDATE corrections SET status = ? WHERE id = ?').bind('IN_PROGRESS', correctionId),
-    db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, 'CORRECTION_STARTED', 'Started working on correction', now)
+    db.prepare('INSERT INTO activity_logs (id, project_id, actor_id, actor_role, action_type, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), projectId, uid, user.role, 'CORRECTION_STARTED', 'Started working on correction', now)
   ];
 
   await db.batch(batch);

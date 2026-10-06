@@ -1,3 +1,5 @@
+import '../../../shared/utils/date_parser.dart';
+
 class ProjectFile {
   final String id;
   final String projectId;
@@ -37,7 +39,7 @@ class ProjectFile {
       size: json['size'],
       category: json['category'],
       status: json['status'],
-      createdAt: DateTime.parse(json['created_at'] + 'Z').toLocal(),
+      createdAt: DateParser.parse(json['created_at']) ?? DateTime.now(),
     );
   }
 }

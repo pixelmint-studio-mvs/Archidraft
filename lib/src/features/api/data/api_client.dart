@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import 'api_client_io.dart' if (dart.library.html) 'api_client_web.dart' as platform_io;
 
@@ -71,18 +72,25 @@ class ApiClient {
     }
     final token = await user.getIdToken();
     
-    final request = http.StreamedRequest('POST', uri)
+    final request = http.MultipartRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
-      ..headers['Content-Type'] = contentType
-      ..headers['X-File-Name'] = fileName
-      ..headers['X-Action-Id'] = actionId
-      ..headers['Content-Length'] = length.toString();
+      ..headers['X-Action-Id'] = actionId;
 
-    stream.listen(
-      (data) => request.sink.add(data),
-      onDone: () => request.sink.close(),
-      onError: (e) => request.sink.addError(e),
+    // We can manually specify the content type by splitting it
+    final typeParts = contentType.split('/');
+    final primaryType = typeParts.isNotEmpty ? typeParts[0] : 'application';
+    final subType = typeParts.length > 1 ? typeParts[1] : 'octet-stream';
+
+    // The backend's c.req.parseBody() expects a multipart field named 'file'
+    final multipartFile = http.MultipartFile(
+      'file',
+      stream,
+      length,
+      filename: fileName,
+      contentType: MediaType(primaryType, subType),
     );
+    
+    request.files.add(multipartFile);
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../../shared/utils/date_parser.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -1014,9 +1015,7 @@ class _TimelineEvent extends StatelessWidget {
     final actionType = log['action_type'] as String? ?? '';
     final details = log['details'] as String? ?? '';
     final actorRole = log['actor_role'] as String? ?? '';
-    final timestamp = log['timestamp'] != null
-        ? DateTime.tryParse(log['timestamp'] as String)?.toLocal()
-        : null;
+    final timestamp = DateParser.parse(log['timestamp']?.toString());
 
     final (icon, color) = _iconForAction(actionType);
 

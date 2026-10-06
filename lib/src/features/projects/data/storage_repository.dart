@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/data/api_client.dart';
 import '../../api/providers/api_providers.dart';
+import '../../../shared/utils/date_parser.dart';
 
 final storageRepositoryProvider = Provider<StorageRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -31,7 +32,7 @@ class ProjectFile {
       fileName: json['fileName'] as String,
       fileSize: json['fileSize'] as int? ?? 0,
       r2Path: json['r2Path'] as String,
-      uploadedAt: DateTime.parse(json['uploadedAt'] as String),
+      uploadedAt: DateParser.parse(json['uploadedAt']) ?? DateTime.now(),
     );
   }
 }
