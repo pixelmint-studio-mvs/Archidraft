@@ -1,34 +1,37 @@
 ## Current Position
-- **Phase**: Betterment Part 2
-- **Task**: Student Project Detail UI Repair (Completed) -> Workspace End-to-End Testing (Next)
-- **Status**: Paused at 2026-10-02T22:05
+- **Phase**: Phase 5 (Betterment)
+- **Task**: Part 5C — Public Certificate Verification + QR (Deployment)
+- **Status**: Paused at 2026-10-06 23:42:00 UTC
 
 ## Last Session Summary
-Identified and fixed a bug in the Student Project Detail UI where Client-specific actions (`Request Correction`, `Approve Final`) were exposed to the Student role. 
-- Restored proper access control in the UI.
-- Added an "Open Workspace" action button for IN_PROGRESS student projects to facilitate editing new or existing drawings.
-- Confirmed `flutter analyze` and `flutter test` both pass.
+Diagnosed the "Site Not Found" error for the Firebase Hosting deployment. Discovered that the local repository lacked `.firebaserc`, no Flutter Web build existed locally, and the live Hosting release was over a month old. Authorized and executed a fresh deployment using `firebase use archi-draft`, `flutter build web`, and `firebase deploy --only hosting`. Verified that the SPA fallback works correctly on production, and both the root URL and the `/verify/<token>` deep-link now successfully serve the compiled Flutter web app (`index.html`) rather than a Firebase 404 page.
 
 ## In-Progress Work
-- Ready for manual testing of the Student Workspace by the user using `ashrafbari277@gmail.com`.
-- Files modified: `lib/src/features/projects/presentation/project_detail_screen.dart`
-- Tests status: Passing
+- Files modified: `.firebaserc` (created), `build/web/` (generated), `firebase.json` (Hosting configuration added previously).
+- Tests status: Passing (62/62 verified previously).
 
 ## Blockers
-None. Awaiting manual runtime test of the Workspace UI flow (IN_PROGRESS -> Workspace -> Submit -> UNDER_CLIENT_REVIEW) to confirm Betterment Part 2 discovery findings.
+None. Deployment was successful.
 
 ## Context Dump
+- Firebase Hosting is now correctly routing all requests to `index.html` via the SPA rewrite rule.
+- GoRouter handles the client-side parsing of `/verify/:token`.
+- The live domain is `https://archi-draft.web.app`.
 
 ### Decisions Made
-- `ProjectDetailScreen` was used to conditionally render role-specific actions rather than duplicating screens. 
+- Deployed only hosting using `firebase deploy --only hosting` to ensure no backend services (Worker, D1, R2, Auth) were inadvertently affected.
+
+### Approaches Tried
+- Live diagnostic using `firebase hosting:channel:list` to determine exact state of the production environment, which revealed the staleness of the live release and the lack of a local build.
+- Followed up with a clean Web build and explicit deployment.
 
 ### Current Hypothesis
-- With the UI restored and the Open Workspace button added, the Student should now correctly be able to enter the Workspace for `IN_PROGRESS` assigned projects even if `versions.isEmpty`.
+Part 5C is fully complete. The QR verification deep-link routes correctly to the verification screen on production.
 
 ### Files of Interest
-- `lib/src/features/projects/presentation/project_detail_screen.dart`: Handles drawing versions and status actions.
-- `lib/src/features/projects/presentation/student/student_projects_screen.dart`: The list of projects (contains secondary Open Workspace button).
+- `firebase.json`: Contains the SPA rewrite rule.
+- `.firebaserc`: Contains the CLI project target (`archi-draft`).
 
 ## Next Steps
-1. User tests the end-to-end Student Workspace submission flow manually.
-2. Based on discovery feedback, proceed with Betterment Part 2 - Drawing Creation / Practical Workspace.
+1. Proceed with Betterment Part 5D if applicable.
+2. Confirm if the live API endpoints (`/api/student/credentials/...`) are functioning correctly when queried from the deployed web app.
