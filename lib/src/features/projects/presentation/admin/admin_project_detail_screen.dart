@@ -359,10 +359,20 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                                   projectId: project.projectId,
                                   draughtsmanId: d.id,
                                 );
-                            if (success && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Assigned!')),
-                              );
+                            if (context.mounted) {
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Assigned!')),
+                                );
+                              } else {
+                                final errorState = ref.read(adminActionsControllerProvider);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to assign: ${errorState.error ?? "Unknown error"}'),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
                             }
                           },
                         );
@@ -419,10 +429,20 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                                   projectId: project.projectId,
                                   draughtsmanId: d.id,
                                 );
-                            if (success && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Reassigned!')),
-                              );
+                            if (context.mounted) {
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Reassigned!')),
+                                );
+                              } else {
+                                final errorState = ref.read(adminActionsControllerProvider);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to reassign: ${errorState.error ?? "Unknown error"}'),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
                             }
                           },
                         );

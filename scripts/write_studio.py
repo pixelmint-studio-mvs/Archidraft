@@ -1,4 +1,11 @@
-import 'package:flutter/material.dart';
+import os
+
+target = os.path.join(
+    os.path.dirname(__file__), '..', 'lib', 'src', 'features', 'projects',
+    'presentation', 'draughtsman', 'draughtsman_studio_screen.dart'
+)
+
+code = r"""import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -656,7 +663,7 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                                 decoration: BoxDecoration(
                                   color: AppColors.surfaceContainerLow,
                                   borderRadius: BorderRadius.circular(
-                                      AppSpacing.radiusDefault),
+                                      AppSpacing.radiusSm),
                                   border: Border.all(
                                       color: AppColors.outlineVariant),
                                 ),
@@ -672,7 +679,7 @@ class _AssignmentCardState extends State<_AssignmentCard> {
                                   decoration: BoxDecoration(
                                     color: AppColors.errorContainer,
                                     borderRadius: BorderRadius.circular(
-                                        AppSpacing.radiusDefault),
+                                        AppSpacing.radiusSm),
                                   ),
                                   child: Text('REV ${a.correctionRound}',
                                       style: AppTypography.labelMonoSm.copyWith(
@@ -808,7 +815,7 @@ class _QuickAction extends StatelessWidget {
             horizontal: AppSpacing.md, vertical: AppSpacing.xs + 1),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -822,3 +829,9 @@ class _QuickAction extends StatelessWidget {
     );
   }
 }
+"""
+
+with open(target, 'w', encoding='utf-8') as f:
+    f.write(code)
+
+print(f"Written {len(code)} chars to {os.path.abspath(target)}")

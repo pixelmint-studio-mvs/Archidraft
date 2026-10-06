@@ -122,7 +122,7 @@ app.get('/api/users', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Permission denied' }, 403);
+  if (!user || (user.role !== 'STUDIO_ADMIN' && user.role !== 'ENGINEER' && user.role !== 'ADMIN')) return c.json({ error: 'Permission denied' }, 403);
 
   const role = c.req.query('role');
   if (role) {
@@ -333,7 +333,7 @@ app.post('/api/projects/approve', async (c) => {
   const { projectId, actionId } = body;
 
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can approve projects' }, 403);
+  if (!user || (user.role !== 'STUDIO_ADMIN' && user.role !== 'ENGINEER' && user.role !== 'ADMIN')) return c.json({ error: 'Only admins can approve projects' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -357,7 +357,7 @@ app.post('/api/projects/reject', async (c) => {
   const { projectId, actionId, reason } = body;
 
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can reject projects' }, 403);
+  if (!user || (user.role !== 'STUDIO_ADMIN' && user.role !== 'ENGINEER' && user.role !== 'ADMIN')) return c.json({ error: 'Only admins can reject projects' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -443,7 +443,7 @@ app.post('/api/projects/assign', async (c) => {
   const { projectId, actionId, draughtsmanId } = body;
 
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can assign projects' }, 403);
+  if (!user || (user.role !== 'STUDIO_ADMIN' && user.role !== 'ENGINEER' && user.role !== 'ADMIN')) return c.json({ error: 'Only admins can assign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
   if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
@@ -473,7 +473,7 @@ app.post('/api/projects/reassign', async (c) => {
   const { projectId, actionId, draughtsmanId } = body;
 
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can reassign projects' }, 403);
+  if (!user || (user.role !== 'STUDIO_ADMIN' && user.role !== 'ENGINEER' && user.role !== 'ADMIN')) return c.json({ error: 'Only admins can reassign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
   if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);

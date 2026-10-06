@@ -54,8 +54,8 @@ class AppShell extends ConsumerWidget {
           case UserRole.draughtsman:
             return DraughtsmanShell(profile: profile, child: child);
           case UserRole.admin:
-            return AdminShell(profile: profile, child: child);
           case UserRole.engineer:
+            return AdminShell(profile: profile, child: child);
           case UserRole.student:
             return Scaffold(body: child); // To be implemented
           case null:

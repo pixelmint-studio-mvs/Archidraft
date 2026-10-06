@@ -15,26 +15,29 @@ class AdminDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Admin Dashboard'),
+          title: const Text('Engineering Portal'),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Pending'),
               Tab(text: 'Unassigned'),
+              Tab(text: 'Waiting'),
               Tab(text: 'Active'),
             ],
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.outline,
+            isScrollable: true,
           ),
         ),
         body: const TabBarView(
           children: [
             _ProjectListTab(status: 'SUBMITTED'),
             _ProjectListTab(status: 'WAITING_ASSIGNMENT'),
+            _ProjectListTab(status: 'WAITING_ACCEPTANCE'),
             _ProjectListTab(status: 'IN_PROGRESS'),
           ],
         ),
@@ -118,15 +121,15 @@ class _ProjectListTab extends ConsumerWidget {
 
   AsyncValue _getProvider(WidgetRef ref) {
     if (status == 'SUBMITTED') return ref.watch(pendingProjectsProvider);
-    if (status == 'WAITING_ASSIGNMENT') {
-      return ref.watch(unassignedProjectsProvider);
-    }
+    if (status == 'WAITING_ASSIGNMENT') return ref.watch(unassignedProjectsProvider);
+    if (status == 'WAITING_ACCEPTANCE') return ref.watch(waitingAcceptanceProjectsProvider);
     return ref.watch(activeProjectsProvider);
   }
 
   FutureProvider<List<Project>> _getProviderRef() {
     if (status == 'SUBMITTED') return pendingProjectsProvider;
     if (status == 'WAITING_ASSIGNMENT') return unassignedProjectsProvider;
+    if (status == 'WAITING_ACCEPTANCE') return waitingAcceptanceProjectsProvider;
     return activeProjectsProvider;
   }
 }

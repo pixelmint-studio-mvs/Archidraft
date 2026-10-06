@@ -88,7 +88,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ? '/draughtsman/studio'
               : '/draughtsman/onboarding';
         }
-        if (role == UserRole.admin) return '/admin/dashboard';
+        if (role == UserRole.admin || role == UserRole.engineer) return '/admin/dashboard';
         // If role is null or unknown, stay on root to show error state in AppShell
         return '/';
       }
@@ -111,7 +111,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           role != UserRole.draughtsman) {
         return '/';
       }
-      if (currentPath.startsWith('/admin') && role != UserRole.admin) {
+      if (currentPath.startsWith('/admin') && role != UserRole.admin && role != UserRole.engineer) {
         return '/';
       }
 

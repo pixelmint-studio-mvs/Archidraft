@@ -54,7 +54,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   String get _roleLabel {
-    if (_selectedRole == 'CLIENT') return 'ENGINEER';
     return _selectedRole;
   }
 
@@ -77,7 +76,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       password: _passwordController.text,
       name: _nameController.text,
       mobile: _mobileController.text,
-      role: _selectedRole == 'ENGINEER' ? 'CLIENT' : _selectedRole,
+      role: _selectedRole,
     );
 
     if (!mounted) return;

@@ -6,21 +6,27 @@ class AssignmentRepository {
 
   AssignmentRepository(this._apiClient);
 
+  /// Fetches all assignments for the authenticated draughtsman.
+  ///
+  /// Throws a descriptive [Exception] on API or parse failure.
+  /// Callers must distinguish between an empty list (success, zero assignments)
+  /// and a thrown exception (API/auth/server error).
   Future<List<Assignment>> getAssignments() async {
     try {
       final response = await _apiClient.get('/api/assignments');
-      return (response as List).map((a) => Assignment.fromMap(a)).toList();
+      if (response == null) return [];
+      return (response as List).map((a) => Assignment.fromMap(a as Map<String, dynamic>)).toList();
     } catch (e) {
-      rethrow;
+      throw Exception('Failed to load assignments from /api/assignments: $e');
     }
   }
 
   Future<Assignment> getAssignment(String id) async {
     try {
       final response = await _apiClient.get('/api/assignments/$id');
-      return Assignment.fromMap(response);
+      return Assignment.fromMap(response as Map<String, dynamic>);
     } catch (e) {
-      rethrow;
+      throw Exception('Failed to load assignment $id: $e');
     }
   }
 
