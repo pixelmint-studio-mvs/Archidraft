@@ -7,6 +7,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/user_profile.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../../notifications/presentation/notifications_dialog.dart';
+import '../../../notifications/providers/notification_providers.dart';
 
 /// Top App Bar using the Stitch glass effect.
 ///
@@ -80,15 +81,11 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_none_rounded),
-                      color: AppColors.onSurfaceVariant,
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => const NotificationsDialog(),
-                        );
-                      },
+                    _NotificationBell(
+                      onTap: () => showDialog(
+                        context: context,
+                        builder: (_) => const NotificationsDialog(),
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     if (profile != null)
@@ -142,4 +139,58 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(AppSpacing.appBarHeight);
+}
+
+/// Notification bell button with unread count badge.
+class _NotificationBell extends ConsumerWidget {
+  final VoidCallback onTap;
+  const _NotificationBell({required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notificationsAsync = ref.watch(notificationsProvider);
+    final unreadCount = notificationsAsync.maybeWhen(
+      data: (list) => list.where((n) => !n.isRead).length,
+      orElse: () => 0,
+    );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: Icon(
+            unreadCount > 0
+                ? Icons.notifications_rounded
+                : Icons.notifications_none_rounded,
+          ),
+          color: AppColors.onSurfaceVariant,
+          onPressed: onTap,
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.surfaceContainerLowest, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                unreadCount > 9 ? '9+' : '$unreadCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }

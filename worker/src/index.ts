@@ -627,149 +627,32 @@ app.get('/api/assignments/:id', async (c) => {
   return c.json(results[0]);
 });
 
-// Get Draughtsman summary
+// Draughtsman summary metrics — single JOIN query for accuracy
 app.get('/api/draughtsman/summary', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Unauthorized' }, 403);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await db.prepare(`
-    SELECT status, COUNT(*) as count
-    FROM assignments
-    WHERE draughtsman_id = ?
-    GROUP BY status
-  `).bind(uid).all();
-
-  const summary: Record<string, number> = {
-    total_assignments: 0,
-    pending: 0,
-    in_progress: 0, // Maps to 'ACCEPTED' assignment status which corresponds to IN_PROGRESS projects
-    under_review: 0, // This is derived from project status, not assignment status directly, but we'll approximate or calculate properly
-    completed: 0,
-    rejected: 0,
-  };
-
-  // Wait, let's get the exact project status for this draughtsman's assignments
-  const { results: projectResults } = await db.prepare(`
-    SELECT p.status, COUNT(*) as count
+    SELECT
+      COUNT(*) as total_assignments,
+      SUM(CASE WHEN a.status = 'PENDING' THEN 1 ELSE 0 END) as pending,
+      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
+      SUM(CASE WHEN p.status = 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as under_review,
+      SUM(CASE WHEN a.status = 'ACCEPTED' AND (a.correction_round > 0 OR p.correction_round > 0) AND p.status != 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as corrections,
+      SUM(CASE WHEN a.status = 'COMPLETED' OR p.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
+      SUM(CASE WHEN a.status = 'REJECTED' THEN 1 ELSE 0 END) as rejected
     FROM assignments a
-    JOIN projects p ON a.project_id = p.id
-    WHERE a.draughtsman_id = ? AND a.status = 'ACCEPTED'
-    GROUP BY p.status
+    LEFT JOIN projects p ON a.project_id = p.id
+    WHERE a.draughtsman_id = ?
   `).bind(uid).all();
 
-  let acceptedCount = 0;
-  for (const row of results) {
-    const status = row.status as string;
-    const count = Number(row.count);
-    summary.total_assignments += count;
-
-    if (status === 'PENDING') summary.pending += count;
-    if (status === 'REJECTED') summary.rejected += count;
-    if (status === 'COMPLETED') summary.completed += count;
-    if (status === 'ACCEPTED') acceptedCount += count;
-  }
-
-  for (const row of projectResults) {
-    const pStatus = row.status as string;
-    const count = Number(row.count);
-
-    if (pStatus === 'IN_PROGRESS') summary.in_progress += count;
-    if (pStatus === 'UNDER_CLIENT_REVIEW') summary.under_review += count;
-  }
-
-  return c.json(summary);
-});
-
-// Accept an assignment
-app.post('/api/assignments/accept', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const user = await getUser(db, uid);
-
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Unauthorized' }, 403);
-
-  const { assignmentId } = await c.req.json();
-
-  // Verify assignment belongs to user and is pending
-  const assignment = await db.prepare('SELECT status, project_id FROM assignments WHERE id = ? AND draughtsman_id = ?').bind(assignmentId, uid).first();
-  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
-  if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not pending' }, 400);
-
-  const actualProjectId = assignment.project_id;
-  const now = new Date().toISOString();
-
-  // Transaction: Update assignment status, project status, log activity
-  const batch = [
-    db.prepare('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?').bind('ACCEPTED', now, assignmentId),
-    db.prepare('UPDATE projects SET status = ?, draughtsman_id = ?, updated_at = ? WHERE id = ?').bind('IN_PROGRESS', uid, now, actualProjectId),
-    db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), actualProjectId, uid, 'ASSIGNMENT_ACCEPTED', `Accepted assignment ${assignmentId}`, now)
-  ];
-
-  await db.batch(batch);
-  return c.json({ success: true });
-});
-
-// Reject an assignment
-app.post('/api/assignments/reject', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const user = await getUser(db, uid);
-
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Unauthorized' }, 403);
-
-  const { assignmentId, reason } = await c.req.json();
-
-  const assignment = await db.prepare('SELECT status, project_id FROM assignments WHERE id = ? AND draughtsman_id = ?').bind(assignmentId, uid).first();
-  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
-  if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not pending' }, 400);
-
-  const actualProjectId = assignment.project_id;
-  const now = new Date().toISOString();
-
-  const batch = [
-    db.prepare('UPDATE assignments SET status = ?, updated_at = ? WHERE id = ?').bind('REJECTED', now, assignmentId),
-    db.prepare('UPDATE projects SET status = ?, draughtsman_id = NULL, updated_at = ? WHERE id = ?').bind('REJECTED', now, actualProjectId),
-    db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), actualProjectId, uid, 'ASSIGNMENT_REJECTED', `Rejected assignment ${assignmentId}. Reason: ${reason}`, now)
-  ];
-
-  await db.batch(batch);
-  return c.json({ success: true });
-});
-
-// Submit a drawing for client review (called by draughtsman)
-app.post('/api/projects/submit-drawing', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const user = await getUser(db, uid);
-
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Unauthorized' }, 403);
-
-  const { projectId, actionId } = await c.req.json();
-
-  const project = await db.prepare('SELECT status, draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (project.status !== 'IN_PROGRESS') return c.json({ error: 'Project must be in progress to submit' }, 400);
-
-  // Check if at least one drawing version exists
-  const versionCheck = await db.prepare('SELECT id FROM drawing_versions WHERE project_id = ? LIMIT 1').bind(projectId).first();
-  if (!versionCheck) return c.json({ error: 'Cannot submit without at least one drawing version' }, 400);
-
-  const now = new Date().toISOString();
-
-  const batch = [
-    db.prepare('UPDATE projects SET status = ?, submitted_at = ?, updated_at = ? WHERE id = ?').bind('UNDER_CLIENT_REVIEW', now, now, projectId),
-    db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, 'DRAWING_SUBMITTED', 'Submitted drawing for client review', now)
-  ];
-
-  await db.batch(batch);
-  return c.json({ success: true });
+  return c.json(results[0] ?? {
+    total_assignments: 0, pending: 0, in_progress: 0, under_review: 0,
+    corrections: 0, completed: 0, rejected: 0
+  });
 });
 
 // Get activity logs for a project
@@ -791,7 +674,7 @@ app.get('/api/projects/:id/activity', async (c) => {
   return c.json(results);
 });
 
-// Get files for a project
+// Get files for a project — draughtsmen require ACCEPTED assignment for access
 app.get('/api/projects/:id/files', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('id');
@@ -800,11 +683,14 @@ app.get('/api/projects/:id/files', async (c) => {
   const user = await getUser(db, uid);
   if (!user) return c.json({ error: 'Unauthorized' }, 403);
 
-  const project = await db.prepare('SELECT client_id, draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'DRAUGHTSMAN') {
+    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+  }
 
   const { results } = await db.prepare('SELECT * FROM files WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
   return c.json(results);
@@ -945,37 +831,6 @@ app.get('/api/projects/:id/corrections', async (c) => {
 });
 
 // Request a correction (Client only)
-app.post('/api/projects/request-correction', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const user = await getUser(db, uid);
-
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Unauthorized' }, 403);
-
-  const { projectId, targetVersionId, description, actionId } = await c.req.json();
-  const project = await db.prepare('SELECT status, client_id, correction_round FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const now = new Date().toISOString();
-  const newRound = Number(project.correction_round || 0) + 1;
-  const correctionId = crypto.randomUUID();
-
-  const batch = [
-    db.prepare('UPDATE projects SET status = ?, correction_round = ?, updated_at = ? WHERE id = ?').bind('IN_PROGRESS', newRound, now, projectId),
-    db.prepare(`
-      INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'OPEN', ?)
-    `).bind(correctionId, projectId, uid, targetVersionId, newRound, description, now),
-    db.prepare('INSERT INTO activity_logs (id, project_id, user_id, action, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, 'CORRECTION_REQUESTED', `Requested correction round ${newRound}`, now)
-  ];
-
-  await db.batch(batch);
-  return c.json({ success: true, correctionId });
-});
-
-// Start a correction (Draughtsman)
 app.post('/api/projects/:id/corrections/:cid/start', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('id');
@@ -1023,52 +878,7 @@ app.get('/api/projects/:id', async (c) => {
 });
 
 // Get activity logs for a project (draughtsman/client/admin access)
-app.get('/api/projects/:id/activity', async (c) => {
-  const uid = c.get('uid');
-  const projectId = c.req.param('id');
-  const db = c.env.DB;
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'User not found' }, 404);
-
-  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const { results } = await db.prepare(
-    'SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp ASC'
-  ).bind(projectId).all();
-  return c.json(results);
-});
-
 // Draughtsman summary metrics (for Insights screen)
-app.get('/api/draughtsman/summary', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'User not found' }, 404);
-  if (user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Forbidden' }, 403);
-
-  const { results: counts } = await db.prepare(`
-    SELECT
-      COUNT(*) as total_assignments,
-      SUM(CASE WHEN a.status = 'PENDING' THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
-      SUM(CASE WHEN p.status = 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as under_review,
-      SUM(CASE WHEN a.status = 'COMPLETED' OR p.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
-      SUM(CASE WHEN a.status = 'REJECTED' THEN 1 ELSE 0 END) as rejected
-    FROM assignments a
-    LEFT JOIN projects p ON a.project_id = p.id
-    WHERE a.draughtsman_id = ?
-  `).bind(uid).all();
-
-  return c.json(counts[0] ?? {
-    total_assignments: 0, pending: 0, in_progress: 0, under_review: 0, completed: 0, rejected: 0
-  });
-});
-
-
 // ==========================================
 // STORAGE API (Streaming via Worker)
 // ==========================================
