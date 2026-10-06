@@ -88,6 +88,7 @@ class DraughtsmanInsightsScreen extends ConsumerWidget {
     final pending = (summary['pending'] as num?)?.toInt() ?? 0;
     final inProgress = (summary['in_progress'] as num?)?.toInt() ?? 0;
     final underReview = (summary['under_review'] as num?)?.toInt() ?? 0;
+    final corrections = (summary['corrections'] as num?)?.toInt() ?? 0;
     final completed = (summary['completed'] as num?)?.toInt() ?? 0;
     final rejected = (summary['rejected'] as num?)?.toInt() ?? 0;
 
@@ -136,15 +137,9 @@ class DraughtsmanInsightsScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              Expanded(child: _SmallMetricCard(label: 'REJECTED', value: '$rejected', color: AppColors.error)),
+              Expanded(child: _SmallMetricCard(label: 'CORRECTIONS', value: '$corrections', color: AppColors.error)),
               const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _SmallMetricCard(
-                  label: 'SUCCESS RATE',
-                  value: completionRate == '—' ? '—' : '$completionRate%',
-                  color: AppColors.success,
-                ),
-              ),
+              Expanded(child: _SmallMetricCard(label: 'REJECTED', value: '$rejected', color: AppColors.onSurfaceVariant)),
             ],
           ),
         ],
