@@ -132,6 +132,26 @@ class AuthController extends Notifier<AsyncValue<void>> {
   void resetState() {
     state = const AsyncData(null);
   }
+
+  Future<bool> provisionLocalProfile({
+    required String name,
+    required String mobile,
+    required String role,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(authRepositoryProvider).provisionLocalProfile(
+        name: name,
+        mobile: mobile,
+        role: role,
+      );
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
 }
 
 // ──────────────────────────────────────────

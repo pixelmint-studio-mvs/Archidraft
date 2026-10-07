@@ -46,17 +46,33 @@ async function getUser(db: D1Database, uid: string) {
 app.post('/api/users', async (c) => {
   const uid = c.get('uid');
   const body = await c.req.json();
-  const { email, name, role } = body;
+  const { email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification } = body;
 
   const db = c.env.DB;
   const existing = await getUser(db, uid);
+
   if (!existing) {
-    await db.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)')
-      .bind(uid, email, name, role || 'CLIENT')
+    const allowedRoles = ['ENGINEER', 'DRAUGHTSMAN', 'STUDENT'];
+    if (!allowedRoles.includes(role)) {
+      return c.json({ error: 'Invalid or forbidden role for self-service provisioning' }, 403);
+    }
+
+    await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null)
       .run();
   } else {
-    // Only update name, not role (role is privileged)
-    await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(name, uid).run();
+    // Only update allowed fields, not role (role is privileged)
+    await db.prepare(`
+      UPDATE users SET 
+        name = ?, 
+        mobile = ?, 
+        date_of_birth = ?, 
+        address = ?, 
+        company_name = ?, 
+        college_name = ?, 
+        qualification = ? 
+      WHERE id = ?
+    `).bind(name, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, uid).run();
   }
   return c.json({ success: true });
 });
@@ -104,7 +120,7 @@ app.get('/api/projects', async (c) => {
   let query = 'SELECT * FROM projects WHERE 1=1';
   const params: any[] = [];
 
-  if (user.role === 'CLIENT') {
+  if (user.role === 'ENGINEER') {
     query += ' AND client_id = ?';
     params.push(uid);
   } else if (user.role === 'DRAUGHTSMAN') {
@@ -132,7 +148,7 @@ app.get('/api/projects/:projectId', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   return c.json(project);
@@ -143,7 +159,7 @@ app.post('/api/projects', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can create projects' }, 403);
+  if (!user || user.role !== 'ENGINEER') return c.json({ error: 'Only engineers can create projects' }, 403);
 
   const body = await c.req.json();
   const projectId = body.id || uuidv4();
@@ -171,7 +187,7 @@ app.post('/api/projects/submit', async (c) => {
   const { projectId, actionId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can submit projects' }, 403);
+  if (!user || user.role !== 'ENGINEER') return c.json({ error: 'Only engineers can submit projects' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -182,7 +198,7 @@ app.post('/api/projects/submit', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'SUBMITTED', submitted_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_SUBMITTED', uid, 'CLIENT', 'Client submitted the project brief.'
+      actionId, projectId, 'PROJECT_SUBMITTED', uid, 'ENGINEER', 'Engineer submitted the project brief.'
     )
   ];
   await db.batch(batch);
@@ -273,7 +289,7 @@ app.post('/api/projects/approve-final', async (c) => {
   const { projectId, actionId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can approve final drawings' }, 403);
+  if (!user || user.role !== 'ENGINEER') return c.json({ error: 'Only engineers can approve final drawings' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -284,7 +300,7 @@ app.post('/api/projects/approve-final', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
+      actionId, projectId, 'PROJECT_COMPLETED', uid, 'ENGINEER', 'Engineer approved the final drawing.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.draughtsman_id, projectId, 'PROJECT_COMPLETED', 'Project Approved', 'The client has approved the final drawing.'
@@ -301,7 +317,7 @@ app.post('/api/projects/request-correction', async (c) => {
   const { projectId, actionId, correctionId, targetVersionId, description } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can request corrections' }, 403);
+  if (!user || user.role !== 'ENGINEER') return c.json({ error: 'Only engineers can request corrections' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -324,7 +340,7 @@ app.post('/api/projects/request-correction', async (c) => {
     `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction (Round ${newRound}).`
+      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'ENGINEER', `Client requested correction (Round ${newRound}).`
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.draughtsman_id, projectId, 'CORRECTION_REQUESTED', 'Correction Requested', `Client has requested a correction (Round ${newRound}).`
@@ -545,11 +561,12 @@ app.get('/api/projects/:projectId/files', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Check authorization
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
-  const { results } = await db.prepare('SELECT * FROM files WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
+  const { results } = await db.prepare("SELECT * FROM files WHERE project_id = ? AND status != 'FAILED' ORDER BY created_at DESC").bind(projectId).all();
   return c.json(results);
+
 });
 
 app.get('/api/projects/:projectId/drawing_versions', async (c) => {
@@ -562,7 +579,7 @@ app.get('/api/projects/:projectId/drawing_versions', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await db.prepare('SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ? ORDER BY dv.version_number DESC').bind(projectId).all();
@@ -579,7 +596,7 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
@@ -632,7 +649,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
 
   // Authorization checks
   if (category === 'client_upload' || category === 'correction_attachment') {
-    if (user.role !== 'CLIENT' || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+    if (user.role !== 'ENGINEER' || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   } else if (category === 'draughtsman_version') {
     if (user.role !== 'DRAUGHTSMAN' || project.draughtsman_id !== uid || project.status !== 'IN_PROGRESS') {
       return c.json({ error: 'Forbidden or invalid project state' }, 403);
@@ -662,20 +679,52 @@ app.post('/api/projects/:projectId/files', async (c) => {
   try {
     if (!c.req.raw.body) throw new Error('Empty body');
 
-    const MAX_SIZE = 50 * 1024 * 1024;
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
     const contentLengthHeader = c.req.header('Content-Length');
-    const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+    if (!contentLengthHeader) throw new Error('Content-Length header is required');
     
-    if (contentLength > MAX_SIZE) {
-      throw new Error('File exceeds 50MB limit');
-    }
+    const expectedSize = parseInt(contentLengthHeader, 10);
+    if (isNaN(expectedSize) || expectedSize <= 0) throw new Error('Invalid Content-Length');
+    if (expectedSize > MAX_SIZE) throw new Error('File exceeds 50MB limit');
 
-    await c.env.STORAGE.put(objectKey, c.req.raw.body, {
+    let bytesReceived = 0;
+    const byteCounter = new TransformStream({
+      transform(chunk, controller) {
+        bytesReceived += chunk.byteLength;
+        if (bytesReceived > expectedSize) {
+          controller.error(new Error('Body exceeded declared Content-Length'));
+        } else if (bytesReceived > MAX_SIZE) {
+          controller.error(new Error('File exceeds 50MB limit during streaming'));
+        } else {
+          controller.enqueue(chunk);
+        }
+      },
+      flush(controller) {
+        if (bytesReceived < expectedSize) {
+          controller.error(new Error('Body smaller than declared Content-Length'));
+        }
+      }
+    });
+
+    const fixedStream = new (globalThis as any).FixedLengthStream(expectedSize);
+    
+    let streamError: any = null;
+    const streamingPromise = c.req.raw.body
+      .pipeThrough(byteCounter)
+      .pipeTo(fixedStream.writable)
+      .catch((err) => { streamError = err; });
+
+    const putResult = await c.env.STORAGE.put(objectKey, fixedStream.readable, {
       httpMetadata: { contentType: contentType }
     });
 
+    await streamingPromise;
+    if (streamError) throw streamError;
+
+    const finalSize = putResult ? putResult.size : bytesReceived;
+
     // Update status to COMPLETED and save actual byte count
-    await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(contentLength, actionId).run();
+    await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(finalSize, actionId).run();
     
     if (category === 'draughtsman_version') {
       const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
@@ -719,7 +768,7 @@ app.get('/api/files/:fileId/download', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Authorization checks
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   const object = await c.env.STORAGE.get(fileMeta.object_key as string);
@@ -746,7 +795,7 @@ app.delete('/api/projects/:projectId/files/:fileId', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Authorization checks
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   const fileMeta = await db.prepare('SELECT * FROM files WHERE id = ? AND project_id = ?').bind(fileId, projectId).first();
@@ -784,7 +833,7 @@ app.get('/api/projects/:projectId/activity', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   const logs = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC').bind(projectId).all();
@@ -824,8 +873,8 @@ app.get('/api/projects/:projectId/financials', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role !== 'CLIENT' && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (user.role !== 'ENGINEER' && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
 
   const { results: invoices } = await db.prepare('SELECT * FROM invoices WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
   

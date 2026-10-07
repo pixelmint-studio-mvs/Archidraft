@@ -1,14 +1,14 @@
 /// Enum representing the user roles in ARCHI DRAFT.
 ///
 /// Ref: docs/01_project/USER_ROLES.md
-/// - CLIENT: Project owner who submits and reviews work.
+/// - ENGINEER: Professional who submits and reviews structural drawings.
 /// - DRAUGHTSMAN: Professional executing the architectural drafting.
+/// - STUDENT: Student role for learning.
 /// - ADMIN: Platform administrator (backend-controlled, cannot self-create).
-///
-/// STUDENT is POST-MVP and not included here.
 enum UserRole {
-  client,
+  engineer,
   draughtsman,
+  student,
   admin;
 
   /// Converts a Firestore role string to a [UserRole] enum.
@@ -16,10 +16,12 @@ enum UserRole {
   /// Returns `null` if the string does not match any known role.
   static UserRole? fromString(String? role) {
     switch (role?.toUpperCase()) {
-      case 'CLIENT':
-        return UserRole.client;
+      case 'ENGINEER':
+        return UserRole.engineer;
       case 'DRAUGHTSMAN':
         return UserRole.draughtsman;
+      case 'STUDENT':
+        return UserRole.student;
       case 'ADMIN':
         return UserRole.admin;
       default:
@@ -30,10 +32,12 @@ enum UserRole {
   /// Converts this [UserRole] to its Firestore string representation.
   String toFirestoreString() {
     switch (this) {
-      case UserRole.client:
-        return 'CLIENT';
+      case UserRole.engineer:
+        return 'ENGINEER';
       case UserRole.draughtsman:
         return 'DRAUGHTSMAN';
+      case UserRole.student:
+        return 'STUDENT';
       case UserRole.admin:
         return 'ADMIN';
     }
@@ -42,10 +46,12 @@ enum UserRole {
   /// User-facing display name for this role.
   String get displayName {
     switch (this) {
-      case UserRole.client:
-        return 'Client';
+      case UserRole.engineer:
+        return 'Engineer';
       case UserRole.draughtsman:
         return 'Draughtsman';
+      case UserRole.student:
+        return 'Student';
       case UserRole.admin:
         return 'Administrator';
     }

@@ -36,7 +36,7 @@ class ProjectRepository {
     }
   }
 
-  Future<List<Project>> getClientProjects() async {
+  Future<List<Project>> getEngineerProjects() async {
     final response = await _apiClient.get('/api/projects');
     return (response as List).map((p) => Project.fromMap(p)).toList();
   }

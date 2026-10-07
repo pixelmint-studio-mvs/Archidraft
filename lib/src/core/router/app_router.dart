@@ -12,7 +12,7 @@ import '../../features/auth/providers/auth_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/providers/profile_providers.dart';
-import '../../features/projects/presentation/client_projects_screen.dart';
+import '../../features/projects/presentation/engineer_projects_screen.dart';
 import '../../features/projects/presentation/financials_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
@@ -83,7 +83,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (isPublicRoute ||
           currentPath == '/verify-email' ||
           currentPath == '/') {
-        if (role == UserRole.client) return '/client/projects';
+        if (role == UserRole.engineer) return '/engineer/projects';
         if (role == UserRole.draughtsman) return '/draughtsman/studio';
         if (role == UserRole.admin) return '/admin/dashboard';
         // If role is null or unknown, stay on root to show error state in AppShell
@@ -91,7 +91,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // Enforce role-based access restrictions
-      if (currentPath.startsWith('/client') && role != UserRole.client) {
+      if (currentPath.startsWith('/engineer') && role != UserRole.engineer) {
         return '/'; // Redirect unauthorized access
       }
       if (currentPath.startsWith('/draughtsman') &&
@@ -142,31 +142,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/notifications',
             builder: (context, state) => const NotificationsScreen(),
           ),
-          // ── CLIENT ROUTES ──
+          // ── ENGINEER ROUTES ──
           GoRoute(
-            path: '/client/projects',
-            builder: (context, state) => const ClientProjectsScreen(),
+            path: '/engineer/projects',
+            builder: (context, state) => const EngineerProjectsScreen(),
           ),
           GoRoute(
-            path: '/client/projects/new',
+            path: '/engineer/projects/new',
             builder: (context, state) => const ProjectFormScreen(),
           ),
           GoRoute(
-            path: '/client/projects/:projectId',
+            path: '/engineer/projects/:projectId',
             builder: (context, state) {
               final projectId = state.pathParameters['projectId']!;
               return ProjectDetailScreen(projectId: projectId);
             },
           ),
           GoRoute(
-            path: '/client/projects/:projectId/financials',
+            path: '/engineer/projects/:projectId/financials',
             builder: (context, state) {
               final projectId = state.pathParameters['projectId']!;
               return FinancialsScreen(projectId: projectId);
             },
           ),
           GoRoute(
-            path: '/client/activity',
+            path: '/engineer/activity',
             builder: (context, state) => const PlaceholderScreen(
               title: 'Activity',
               description: 'View recent project updates and notifications.',
@@ -174,7 +174,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/client/profile',
+            path: '/engineer/profile',
             builder: (context, state) => const ProfileScreen(),
           ),
 

@@ -11,6 +11,10 @@ class ApiClient {
 
   ApiClient(this._firebaseAuth);
 
+  Future<Map<String, String>> getAuthHeaders() async {
+    return _getHeaders();
+  }
+
   Future<Map<String, String>> _getHeaders() async {
     final user = _firebaseAuth.currentUser;
     if (user == null) {
@@ -81,13 +85,19 @@ class ApiClient {
     }
     final token = await user.getIdToken();
     
-    final request = http.Request('POST', uri)
+    final request = http.StreamedRequest('POST', uri)
       ..headers['Authorization'] = 'Bearer $token'
       ..headers['Content-Type'] = contentType
       ..headers['X-File-Name'] = Uri.encodeComponent(fileName)
-      ..headers['X-Action-Id'] = actionId;
+      ..headers['X-Action-Id'] = actionId
+      ..contentLength = length;
 
-    request.bodyBytes = await http.ByteStream(stream).toBytes();
+    // Pipe the stream into the request sink
+    stream.listen(
+      request.sink.add,
+      onError: request.sink.addError,
+      onDone: request.sink.close,
+    );
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

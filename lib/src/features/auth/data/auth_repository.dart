@@ -21,10 +21,10 @@ class AuthRepository {
     required String mobile,
     required String role,
   }) async {
-    if (role != 'CLIENT' && role != 'DRAUGHTSMAN') {
+    if (role != 'ENGINEER' && role != 'DRAUGHTSMAN' && role != 'STUDENT') {
       throw FirebaseAuthException(
         code: 'invalid-role',
-        message: 'Invalid role. Only CLIENT and DRAUGHTSMAN are permitted.',
+        message: 'Invalid role. Only ENGINEER, DRAUGHTSMAN, and STUDENT are permitted.',
       );
     }
 
@@ -103,25 +103,26 @@ class AuthRepository {
       final response = await _apiClient.get('/api/users/me');
       return UserProfile.fromMap(response);
     } catch (e) {
-      // Self-heal: If the backend throws a 404/error but the user is logged into Firebase,
-      // it means the local D1 database was wiped/reset. Let's automatically recreate their profile.
-      final user = _auth.currentUser;
-      if (user != null && user.uid == uid) {
-        try {
-          await _apiClient.post('/api/users', body: {
-            'email': user.email ?? 'unknown@example.com',
-            'name': user.displayName ?? 'Recovered User',
-            'mobile': user.phoneNumber ?? '',
-            'role': 'CLIENT', // Default fallback role
-          });
-          // Retry fetching
-          final retryResponse = await _apiClient.get('/api/users/me');
-          return UserProfile.fromMap(retryResponse);
-        } catch (_) {
-          return null;
-        }
-      }
+      // Return null immediately. We will handle missing profiles in the UI.
       return null;
     }
+  }
+
+  Future<void> provisionLocalProfile({
+    required String name,
+    required String mobile,
+    required String role,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Cannot provision profile: No Firebase user is signed in.');
+    }
+
+    await _apiClient.post('/api/users', body: {
+      'email': user.email ?? 'unknown@example.com',
+      'name': name.trim(),
+      'mobile': mobile.trim(),
+      'role': role,
+    });
   }
 }

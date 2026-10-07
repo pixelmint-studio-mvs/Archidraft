@@ -7,7 +7,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../domain/project_file.dart';
 import '../../data/file_repository.dart';
 import '../../providers/file_providers.dart';
-
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/file_category_labels.dart';
 class FileAttachmentCard extends ConsumerStatefulWidget {
   final ProjectFile file;
 
@@ -44,8 +47,12 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Open failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Open failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -59,20 +66,22 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete File'),
-        content: Text('Are you sure you want to delete "${widget.file.originalName}"?'),
+        backgroundColor: AppColors.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusXl)),
+        title: Text('Delete File', style: AppTypography.headlineLgMobile.copyWith(fontSize: 20)),
+        content: Text(
+          'Are you sure you want to delete "${widget.file.originalName}"?',
+          style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: AppTypography.buttonText.copyWith(color: AppColors.onSurface)),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-            ),
-            child: const Text('Delete'),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: Text('Delete', style: AppTypography.buttonText.copyWith(color: Colors.white)),
           ),
         ],
       ),
@@ -91,8 +100,12 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       ref.invalidate(projectFilesProvider(widget.file.projectId));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Delete failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -119,7 +132,10 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download started in browser')),
+          const SnackBar(
+            content: Text('Download started in browser.'),
+            backgroundColor: AppColors.secondary,
+          ),
         );
       } else {
         final dir = await getApplicationDocumentsDirectory();
@@ -129,13 +145,21 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
         await repository.downloadFile(widget.file.id, filePath);
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Downloaded to $filePath')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloaded to $filePath'),
+            backgroundColor: AppColors.secondary,
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Download failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Download failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -145,16 +169,29 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
     }
   }
 
+  String _formatCategory(String category) => fileCategoryLabel(category);
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+      ),
       child: ListTile(
-        leading: const Icon(Icons.insert_drive_file),
-        title: Text(widget.file.originalName),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 0),
+        leading: const Icon(Icons.drafts_outlined, color: AppColors.outline),
+        title: Text(
+          widget.file.originalName,
+          style: AppTypography.labelMono.copyWith(color: AppColors.primary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
-          '${(widget.file.size / 1024).toStringAsFixed(1)} KB • ${widget.file.category}',
+          '${(widget.file.size / 1024).toStringAsFixed(1)} KB • ${_formatCategory(widget.file.category)}',
+          style: AppTypography.labelMono.copyWith(color: AppColors.outline, fontSize: 10),
         ),
         trailing: _isDownloading || _isDeleting
             ? const SizedBox(
@@ -166,23 +203,25 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.open_in_new),
+                    icon: const Icon(Icons.open_in_new, size: 20),
                     tooltip: 'Open',
+                    color: AppColors.outline,
                     onPressed: widget.file.status == 'COMPLETED'
                         ? _openFile
                         : null,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.download),
+                    icon: const Icon(Icons.download, size: 20),
                     tooltip: 'Download',
+                    color: AppColors.outline,
                     onPressed: widget.file.status == 'COMPLETED'
                         ? _downloadFile
                         : null,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline),
+                    icon: const Icon(Icons.close, size: 20),
                     tooltip: 'Delete',
-                    color: Theme.of(context).colorScheme.error,
+                    color: AppColors.error,
                     onPressed: widget.file.status == 'COMPLETED'
                         ? _deleteFile
                         : null,

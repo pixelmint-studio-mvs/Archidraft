@@ -18,30 +18,30 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
 });
 
 // ──────────────────────────────────────────
-// CLIENT PROJECTS
+// ENGINEER PROJECTS
 // ──────────────────────────────────────────
 
-/// Fetches the authenticated client's projects.
-final clientProjectsProvider = FutureProvider<List<Project>>((ref) async {
+/// Fetches the authenticated engineer's projects.
+final engineerProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
   final user = authState.value;
   if (user == null) return [];
 
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.getClientProjects();
+  return repository.getEngineerProjects();
 });
 
 // ──────────────────────────────────────────
-// CLIENT DASHBOARD STATS
+// ENGINEER DASHBOARD STATS
 // ──────────────────────────────────────────
 
-class ClientDashboardStats {
+class EngineerDashboardStats {
   final int total;
   final int active;
   final int pendingReview;
   final int completed;
 
-  const ClientDashboardStats({
+  const EngineerDashboardStats({
     required this.total,
     required this.active,
     required this.pendingReview,
@@ -49,8 +49,8 @@ class ClientDashboardStats {
   });
 }
 
-final clientDashboardStatsProvider = Provider<AsyncValue<ClientDashboardStats>>((ref) {
-  final projectsAsync = ref.watch(clientProjectsProvider);
+final engineerDashboardStatsProvider = Provider<AsyncValue<EngineerDashboardStats>>((ref) {
+  final projectsAsync = ref.watch(engineerProjectsProvider);
   return projectsAsync.whenData((projects) {
     final active = projects
         .where((p) =>
@@ -65,7 +65,7 @@ final clientDashboardStatsProvider = Provider<AsyncValue<ClientDashboardStats>>(
     final completed = projects
         .where((p) => p.projectStatus == ProjectStatus.completed)
         .length;
-    return ClientDashboardStats(
+    return EngineerDashboardStats(
       total: projects.length,
       active: active,
       pendingReview: pendingReview,

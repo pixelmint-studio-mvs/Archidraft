@@ -18,6 +18,12 @@ class ActivityLog {
   });
 
   factory ActivityLog.fromJson(Map<String, dynamic> json) {
+    // D1 activity_logs table uses 'timestamp' column (not 'created_at').
+    // Fall back to 'created_at' for forward compatibility, then epoch if both null.
+    final rawTs = json['timestamp'] ?? json['created_at'];
+    final createdAt = rawTs != null
+        ? DateTime.tryParse('${rawTs}Z')?.toLocal() ?? DateTime.now()
+        : DateTime.now();
     return ActivityLog(
       id: json['id'],
       projectId: json['project_id'],
@@ -25,7 +31,8 @@ class ActivityLog {
       actorId: json['actor_id'],
       actorRole: json['actor_role'],
       details: json['details'],
-      createdAt: DateTime.parse(json['created_at'] + 'Z').toLocal(),
+      createdAt: createdAt,
     );
   }
+
 }

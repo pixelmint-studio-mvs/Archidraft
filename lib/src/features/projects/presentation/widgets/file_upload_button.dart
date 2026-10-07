@@ -5,16 +5,17 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/file_repository.dart';
 import '../../providers/file_providers.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class FileUploadButton extends ConsumerStatefulWidget {
   final String projectId;
   final String category;
 
   const FileUploadButton({
-    Key? key,
+    super.key,
     required this.projectId,
     required this.category,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<FileUploadButton> createState() => _FileUploadButtonState();
@@ -42,7 +43,10 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
     if (fileSize > 50 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File must be less than 50MB')),
+        SnackBar(
+          content: const Text('File must be less than 50MB.'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
@@ -57,14 +61,15 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
 
       // Attempt to guess content type (Worker will also validate extension)
       String contentType = 'application/octet-stream';
-      if (file.extension == 'pdf')
+      if (file.extension == 'pdf') {
         contentType = 'application/pdf';
-      else if (file.extension == 'png')
+      } else if (file.extension == 'png') {
         contentType = 'image/png';
-      else if (file.extension == 'jpg' || file.extension == 'jpeg')
+      } else if (file.extension == 'jpg' || file.extension == 'jpeg') {
         contentType = 'image/jpeg';
-      else if (file.extension == 'zip')
+      } else if (file.extension == 'zip') {
         contentType = 'application/zip';
+      }
 
       // Generate a deterministic actionId for this upload attempt based on file properties.
       // If the exact same file selection fails, it reuses the actionId to satisfy idempotency.
@@ -83,7 +88,10 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File uploaded successfully')),
+          SnackBar(
+            content: const Text('File uploaded successfully.'),
+            backgroundColor: AppColors.secondary,
+          ),
         );
       }
 
@@ -94,8 +102,12 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
       ref.invalidate(projectFilesProvider(widget.projectId));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Upload failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -109,24 +121,80 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: _isUploading ? null : _pickAndUpload,
-      icon: _isUploading
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_fileSize > 0)
-                  Text('${(_fileSize / 1024 / 1024).toStringAsFixed(2)} MB'),
-                const SizedBox(width: 8),
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+    return InkWell(
+      onTap: _isUploading ? null : _pickAndUpload,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 192, // h-48 = 192px
+        decoration: BoxDecoration(
+          color: const Color(0xFFDAE2FF), // secondary-fixed
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: const Color(0xFF0453CD).withValues(alpha: 0.4), // secondary/40
+            width: 2,
+          ),
+          image: const DecorationImage(
+            image: NetworkImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzhhYWGMYAEYB8RmROaABADeOQ8CXl/xfgAAAABJRU5ErkJggg=='),
+            repeat: ImageRepeat.repeat,
+            colorFilter: ColorFilter.mode(Colors.white54, BlendMode.srcATop),
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+                  ),
+                  child: Center(
+                    child: _isUploading
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0453CD)),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Uploading...',
+                                style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black),
+                              ),
+                              if (_fileSize > 0)
+                                Text(
+                                  '${(_fileSize / 1024 / 1024).toStringAsFixed(2)} MB',
+                                  style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12, color: const Color(0xFF44474D)),
+                                ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.upload_file, color: Color(0xFF0453CD), size: 40),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Drag & Drop Blueprint Files',
+                                style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 14, color: Colors.black),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Max size: 50MB',
+                                style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12, color: Color(0xFF75777E)),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
-              ],
-            )
-          : const Icon(Icons.upload_file),
-      label: const Text('Upload File'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

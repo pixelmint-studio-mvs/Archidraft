@@ -83,7 +83,7 @@ enum ProjectStatus {
     }
   }
 
-  /// Whether this status allows client editing of project fields.
+  /// Whether this status allows engineer editing of project fields.
   bool get isEditable => this == ProjectStatus.draft;
 
   /// Whether this status is a terminal state.

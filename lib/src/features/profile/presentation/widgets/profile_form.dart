@@ -118,7 +118,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
   @override
   Widget build(BuildContext context) {
     final role = UserRole.fromString(widget.profile.role);
-    final isClient = role == UserRole.client;
+    final isEngineer = role == UserRole.engineer;
     final isDraughtsman = role == UserRole.draughtsman;
 
     final profileState = ref.watch(profileEditingControllerProvider);
@@ -179,7 +179,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
           ),
           const SizedBox(height: AppSpacing.xl),
           
-          if (isClient) ...[
+          if (isEngineer) ...[
             Text(
               'Business Details',
               style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary),

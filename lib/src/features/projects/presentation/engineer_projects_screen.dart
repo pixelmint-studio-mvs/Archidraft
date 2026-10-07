@@ -29,21 +29,21 @@ import 'widgets/project_status_chip.dart';
 ///
 /// Backend: reads via [clientProjectsProvider] → ApiClient → Cloudflare Worker → D1.
 /// Auth: Firebase ID token is attached by ApiClient._getHeaders(); no client-supplied UID.
-class ClientProjectsScreen extends ConsumerStatefulWidget {
-  const ClientProjectsScreen({super.key});
+class EngineerProjectsScreen extends ConsumerStatefulWidget {
+  const EngineerProjectsScreen({super.key});
 
   @override
-  ConsumerState<ClientProjectsScreen> createState() =>
-      _ClientProjectsScreenState();
+  ConsumerState<EngineerProjectsScreen> createState() =>
+      _EngineerProjectsScreenState();
 }
 
-class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
+class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen> {
   _FilterOption _selectedFilter = _FilterOption.all;
 
   @override
   Widget build(BuildContext context) {
-    final projectsAsync = ref.watch(clientProjectsProvider);
-    final statsAsync = ref.watch(clientDashboardStatsProvider);
+    final projectsAsync = ref.watch(engineerProjectsProvider);
+    final statsAsync = ref.watch(engineerDashboardStatsProvider);
     final profileAsync = ref.watch(userProfileProvider);
     final profileName = profileAsync.when(
       data: (p) => p?.name,
@@ -58,16 +58,16 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
             const AppLoadingIndicator(message: 'Loading projects...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load projects. Please try again.',
-          onRetry: () => ref.invalidate(clientProjectsProvider),
+          onRetry: () => ref.invalidate(engineerProjectsProvider),
         ),
         data: (projects) {
           final filtered = _applyFilter(projects, _selectedFilter);
           return RefreshIndicator(
             color: AppColors.secondary,
             onRefresh: () async {
-              ref.invalidate(clientProjectsProvider);
+              ref.invalidate(engineerProjectsProvider);
               try {
-                await ref.read(clientProjectsProvider.future);
+                await ref.read(engineerProjectsProvider.future);
               } catch (_) {}
             },
             child: CustomScrollView(
@@ -138,7 +138,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
                             child: _StitchProjectCard(
                               project: project,
                               onTap: () => context.go(
-                                  '/client/projects/${project.projectId}'),
+                                  '/engineer/projects/${project.projectId}'),
                             ),
                           );
                         },
@@ -152,7 +152,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/client/projects/new'),
+        onPressed: () => context.go('/engineer/projects/new'),
         backgroundColor: AppColors.secondary,
         foregroundColor: AppColors.onSecondary,
         icon: const Icon(Icons.add_rounded, size: 20),
@@ -199,7 +199,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    'CLIENT PROJECT SUITE',
+                    'ENGINEER PROJECT SUITE',
                     style: AppTypography.labelMono.copyWith(
                       color: AppColors.outline,
                       letterSpacing: 0.08 * 12,
@@ -244,7 +244,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
         children: [
           // Stitch: full-width midnight CTA button
           InkWell(
-            onTap: () => context.go('/client/projects/new'),
+            onTap: () => context.go('/engineer/projects/new'),
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
             child: Container(
               width: double.infinity,
@@ -416,7 +416,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
 
   // ── Metric Summary Strip ─────────────────────────────────────────────────────
 
-  Widget _buildMetricStrip(AsyncValue<ClientDashboardStats> statsAsync) {
+  Widget _buildMetricStrip(AsyncValue<EngineerDashboardStats> statsAsync) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.marginMobile,
@@ -430,7 +430,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
           child: AppLoadingIndicator(),
         ),
         error: (e, st) => const SizedBox.shrink(),
-        data: (stats) => Row(
+        data: (EngineerDashboardStats stats) => Row(
           children: [
             Expanded(
               child: _MetricCard(
@@ -543,7 +543,7 @@ class _ClientProjectsScreenState extends ConsumerState<ClientProjectsScreen> {
             ),
             const SizedBox(height: AppSpacing.xxl),
             FilledButton.icon(
-              onPressed: () => context.go('/client/projects/new'),
+              onPressed: () => context.go('/engineer/projects/new'),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Create Project'),
               style: FilledButton.styleFrom(

@@ -4,12 +4,12 @@ import '../../auth/domain/user_profile.dart';
 import 'widgets/app_bottom_nav.dart';
 import 'widgets/responsive_scaffold.dart';
 
-/// Navigation shell for the Client role.
-class ClientShell extends StatelessWidget {
+/// Navigation shell for the Engineer role.
+class EngineerShell extends StatelessWidget {
   final Widget child;
   final UserProfile profile;
 
-  const ClientShell({
+  const EngineerShell({
     super.key,
     required this.child,
     required this.profile,
@@ -19,25 +19,25 @@ class ClientShell extends StatelessWidget {
     NavDestination(
       label: 'Projects',
       icon: Icons.layers_outlined,
-      route: '/client/projects',
+      route: '/engineer/projects',
     ),
     NavDestination(
       label: 'Activity',
       icon: Icons.history_rounded,
-      route: '/client/activity',
+      route: '/engineer/activity',
     ),
     NavDestination(
       label: 'Profile',
       icon: Icons.person_outline_rounded,
-      route: '/client/profile',
+      route: '/engineer/profile',
     ),
   ];
 
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
-    if (location.startsWith('/client/projects')) return 0;
-    if (location.startsWith('/client/activity')) return 1;
-    if (location.startsWith('/client/profile')) return 2;
+    if (location.startsWith('/engineer/projects')) return 0;
+    if (location.startsWith('/engineer/activity')) return 1;
+    if (location.startsWith('/engineer/profile')) return 2;
     return 0; // Default
   }
 

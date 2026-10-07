@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../providers/project_providers.dart';
+import '../../../../core/utils/file_category_labels.dart';
 
 class ActivityTimeline extends ConsumerWidget {
   final String projectId;
@@ -61,7 +62,7 @@ class ActivityTimeline extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            log.details,
+                            sanitiseActivityDetails(log.details),
                             style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 4),

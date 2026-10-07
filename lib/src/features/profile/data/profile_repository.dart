@@ -17,7 +17,7 @@ class ProfileRepository {
   }
 
   Future<void> updateProfile(UserProfile profile) async {
-    await _apiClient.post('/api/users', body: profile.toMap());
+    await _apiClient.post('/api/users', body: profile.toEditableFieldsMap());
   }
 
   Future<bool> profileExists(String uid) async {

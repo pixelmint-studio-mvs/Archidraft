@@ -175,18 +175,18 @@ class ProjectFormController extends Notifier<ProjectFormState> {
   /// Advances to the next step if the current step is valid.
   /// Returns `true` if navigation succeeded.
   bool nextStep() {
-    print('nextStep called. currentStep: ${state.currentStep}');
+    // print('nextStep called. currentStep: ${state.currentStep}');
     if (state.currentStep >= state.totalSteps - 1) {
-      print('Failed: currentStep >= totalSteps');
+      // print('Failed: currentStep >= totalSteps');
       return false;
     }
     
     final isValid = state.isStepValid(state.currentStep);
-    print('isStepValid(${state.currentStep}) = $isValid');
+    // print('isStepValid(${state.currentStep}) = $isValid');
     if (state.currentStep == 1) {
-      print('isStep2Valid details:');
-      print('drawingName: "${state.drawingName}" -> validator: ${ProjectValidators.drawingName(state.drawingName)}');
-      print('drawingType: "${state.drawingType}" -> validator: ${ProjectValidators.drawingType(state.drawingType)}');
+      // print('isStep2Valid details:');
+      // print('drawingName: "${state.drawingName}" -> validator: ${ProjectValidators.drawingName(state.drawingName)}');
+      // print('drawingType: "${state.drawingType}" -> validator: ${ProjectValidators.drawingType(state.drawingType)}');
     }
 
     if (!isValid) return false;
@@ -195,7 +195,7 @@ class ProjectFormController extends Notifier<ProjectFormState> {
       currentStep: state.currentStep + 1,
       clearError: true,
     );
-    print('Moved to step ${state.currentStep}');
+    // print('Moved to step ${state.currentStep}');
     return true;
   }
 
@@ -220,8 +220,8 @@ class ProjectFormController extends Notifier<ProjectFormState> {
   ///
   /// If `projectId` is null, creates a new draft.
   /// If `projectId` exists, updates the existing draft.
-  Future<void> saveDraft() async {
-    if (state.isSaving || state.isSubmitting) return;
+  Future<bool> saveDraft() async {
+    if (state.isSaving || state.isSubmitting) return false;
     state = state.copyWith(isSaving: true, clearError: true);
 
     try {
@@ -232,7 +232,7 @@ class ProjectFormController extends Notifier<ProjectFormState> {
           isSaving: false,
           errorMessage: 'Please sign in to save your project.',
         );
-        return;
+        return false;
       }
 
       final repository = ref.read(projectRepositoryProvider);
@@ -260,12 +260,14 @@ class ProjectFormController extends Notifier<ProjectFormState> {
       }
 
       // Invalidate project list to reflect changes
-      ref.invalidate(clientProjectsProvider);
+      ref.invalidate(engineerProjectsProvider);
+      return true;
     } catch (e) {
       state = state.copyWith(
         isSaving: false,
         errorMessage: 'Failed to save draft. Please try again.',
       );
+      return false;
     }
   }
 
@@ -310,23 +312,27 @@ class ProjectFormController extends Notifier<ProjectFormState> {
     try {
       final repository = ref.read(projectRepositoryProvider);
 
+      // Store the project ID locally to prevent null errors if the UI resets the state
+      // immediately after isSubmitted becomes true.
+      final currentProjectId = state.projectId!;
+
       // Generate a deterministic actionId for this submission attempt.
       // Using v5 (name-based) ensures the same actionId on retry.
       final actionId = _uuid.v5(
         Namespace.url.value,
-        'submit:${state.projectId}',
+        'submit:$currentProjectId',
       );
 
       await repository.submitProject(
-        projectId: state.projectId!,
+        projectId: currentProjectId,
         actionId: actionId,
       );
 
-      state = state.copyWith(isSubmitting: false, isSubmitted: true);
+      // Invalidate providers to reflect the new status BEFORE triggering the UI
+      ref.invalidate(engineerProjectsProvider);
+      ref.invalidate(projectProvider(currentProjectId));
 
-      // Invalidate providers to reflect the new status
-      ref.invalidate(clientProjectsProvider);
-      ref.invalidate(projectProvider(state.projectId!));
+      state = state.copyWith(isSubmitting: false, isSubmitted: true);
     } catch (e) {
       state = state.copyWith(
         isSubmitting: false,

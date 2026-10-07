@@ -6,8 +6,9 @@ import '../../../shared/widgets/app_state_widgets.dart';
 import '../../profile/domain/user_role.dart';
 import '../../profile/providers/profile_providers.dart';
 import 'admin_shell.dart';
-import 'client_shell.dart';
+import 'engineer_shell.dart';
 import 'draughtsman_shell.dart';
+import '../../auth/presentation/provision_profile_screen.dart';
 
 /// AppShell determines which role-specific shell to display based on
 /// the currently authenticated user's role.
@@ -33,28 +34,25 @@ class AppShell extends ConsumerWidget {
       ),
       data: (profile) {
         if (profile == null) {
-          return Scaffold(
-            body: AppEmptyState(
-              title: 'Profile Missing',
-              subtitle: 'Could not load your user profile.\nPlease try logging out and creating a new account.',
-              action: FilledButton.icon(
-                onPressed: () {
-                  ref.read(authControllerProvider.notifier).signOut();
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('Sign Out'),
-              ),
-            ),
+          return ProvisionProfileScreen(
+            onProvisioned: () {
+              ref.invalidate(userProfileProvider);
+            },
           );
         }
 
         switch (role) {
-          case UserRole.client:
-            return ClientShell(profile: profile, child: child);
+          case UserRole.engineer:
+            return EngineerShell(profile: profile, child: child);
           case UserRole.draughtsman:
             return DraughtsmanShell(profile: profile, child: child);
           case UserRole.admin:
             return AdminShell(profile: profile, child: child);
+          case UserRole.student:
+            // Future implementation
+            return const Scaffold(
+              body: Center(child: Text('Student Dashboard (Coming Soon)')),
+            );
           case null:
             return const Scaffold(
               body: AppErrorWidget(

@@ -61,7 +61,7 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'DRAUGHTSMAN',
+                      profile?.role.toUpperCase() ?? 'ARCHI DRAFT',
                       style: AppTypography.headlineLgMobile.copyWith(
                         color: AppColors.primary,
                         letterSpacing: -0.5,
@@ -88,7 +88,7 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                         offset: const Offset(0, 48),
                         onSelected: (value) {
                           if (value == 'profile') {
-                            context.go('/client/profile');
+                            context.go('/engineer/profile');
                           } else if (value == 'logout') {
                             ref.read(authControllerProvider.notifier).signOut();
                           }

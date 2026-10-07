@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/auth_error_mapper.dart';
@@ -10,40 +9,34 @@ import '../../../shared/widgets/glass_card.dart';
 import '../providers/auth_providers.dart';
 import 'widgets/auth_form_field.dart';
 
-class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({super.key});
+class ProvisionProfileScreen extends ConsumerStatefulWidget {
+  final VoidCallback onProvisioned;
+
+  const ProvisionProfileScreen({super.key, required this.onProvisioned});
 
   @override
-  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<ProvisionProfileScreen> createState() => _ProvisionProfileScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _ProvisionProfileScreenState extends ConsumerState<ProvisionProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
   final _mobileController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
   String _selectedRole = 'ENGINEER';
 
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
     _mobileController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
+  Future<void> _handleProvision() async {
     if (!_formKey.currentState!.validate()) return;
 
     final controller = ref.read(authControllerProvider.notifier);
-    final success = await controller.register(
-      email: _emailController.text,
-      password: _passwordController.text,
+    final success = await controller.provisionLocalProfile(
       name: _nameController.text,
       mobile: _mobileController.text,
       role: _selectedRole,
@@ -61,6 +54,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         );
       }
+    } else {
+      widget.onProvisioned();
     }
   }
 
@@ -71,15 +66,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-          onPressed: isLoading ? null : () => context.pop(),
-        ),
-      ),
       body: BlueprintBackground(
         child: SafeArea(
           child: Center(
@@ -104,7 +90,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         const SizedBox(height: 16),
                         
                         Text(
-                          'Request Access',
+                          'Provision Profile',
                           style: theme.textTheme.headlineLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: AppColors.primary,
@@ -113,7 +99,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Create your account to join the studio',
+                          'Your Firebase account exists but is missing in the local database. Please provision your profile.',
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: AppColors.onSurfaceVariant,
                           ),
@@ -127,17 +113,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           hint: 'Jane Doe',
                           prefixIcon: Icons.person_outline,
                           validator: Validators.name,
-                          enabled: !isLoading,
-                        ),
-                        const SizedBox(height: 16),
-
-                        AuthFormField(
-                          controller: _emailController,
-                          label: 'EMAIL ADDRESS',
-                          hint: 'user@example.com',
-                          prefixIcon: Icons.email_outlined,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: Validators.email,
                           enabled: !isLoading,
                         ),
                         const SizedBox(height: 16),
@@ -172,6 +147,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               label: Text('DRAUGHTSMAN'),
                               icon: Icon(Icons.architecture_outlined),
                             ),
+                            ButtonSegment<String>(
+                              value: 'STUDENT',
+                              label: Text('STUDENT'),
+                              icon: Icon(Icons.school_outlined),
+                            ),
                           ],
                           selected: {_selectedRole},
                           onSelectionChanged: isLoading
@@ -188,37 +168,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             side: const BorderSide(color: AppColors.outlineVariant),
                           ),
                         ),
-                        const SizedBox(height: 24),
-
-                        AuthFormField(
-                          controller: _passwordController,
-                          label: 'PASSWORD',
-                          hint: 'Min 8 chars, uppercase, lowercase, number',
-                          prefixIcon: Icons.lock_outline,
-                          obscureText: true,
-                          validator: Validators.password,
-                          enabled: !isLoading,
-                        ),
-                        const SizedBox(height: 16),
-
-                        AuthFormField(
-                          controller: _confirmPasswordController,
-                          label: 'CONFIRM PASSWORD',
-                          hint: 'Re-enter your password',
-                          prefixIcon: Icons.lock_outline,
-                          obscureText: true,
-                          textInputAction: TextInputAction.done,
-                          validator: (value) => Validators.confirmPassword(
-                            value,
-                            _passwordController.text,
-                          ),
-                          onFieldSubmitted: (_) => _handleRegister(),
-                          enabled: !isLoading,
-                        ),
                         const SizedBox(height: 32),
 
                         FilledButton(
-                          onPressed: isLoading ? null : _handleRegister,
+                          onPressed: isLoading ? null : _handleProvision,
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.primaryContainer,
                             padding: const EdgeInsets.symmetric(vertical: 20),
@@ -232,26 +185,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('CREATE ACCOUNT'),
+                              : const Text('PROVISION PROFILE'),
                         ),
                         const SizedBox(height: 24),
 
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              'ALREADY REGISTERED? ',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            ),
                             TextButton(
-                              onPressed: isLoading ? null : () => context.pop(),
+                              onPressed: isLoading
+                                  ? null
+                                  : () => ref.read(authControllerProvider.notifier).signOut(),
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.secondary,
+                                foregroundColor: AppColors.error,
                                 textStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
                               ),
-                              child: const Text('SIGN IN'),
+                              child: const Text('SIGN OUT'),
                             ),
                           ],
                         ),

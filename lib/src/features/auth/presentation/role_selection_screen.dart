@@ -122,13 +122,13 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
                           // ── Role Cards ──
                           _RoleCard(
-                            roleKey: 'CLIENT',
-                            icon: Icons.business_center_outlined,
-                            title: 'Engineer / Client',
+                            roleKey: 'ENGINEER',
+                            icon: Icons.engineering_outlined,
+                            title: 'Engineer',
                             description: 'Submit structural drawings and track your project through the review and delivery pipeline.',
-                            isSelected: _selectedRole == 'CLIENT',
+                            isSelected: _selectedRole == 'ENGINEER',
                             onTap: () =>
-                                setState(() => _selectedRole = 'CLIENT'),
+                                setState(() => _selectedRole = 'ENGINEER'),
                           ),
 
                           const SizedBox(height: AppSpacing.gridGutter),

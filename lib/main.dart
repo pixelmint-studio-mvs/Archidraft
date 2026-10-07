@@ -25,7 +25,7 @@ class ArchiDraftApp extends ConsumerWidget {
       title: 'Archi Draft',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       routerConfig: router,
     );
   }
