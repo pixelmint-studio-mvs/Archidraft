@@ -674,90 +674,7 @@ app.get('/api/projects/:id/activity', async (c) => {
   return c.json(results);
 });
 
-// Get files for a project — draughtsmen require ACCEPTED assignment for access
-app.get('/api/projects/:id/files', async (c) => {
-  const uid = c.get('uid');
-  const projectId = c.req.param('id');
-  const db = c.env.DB;
-
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'Unauthorized' }, 403);
-
-  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN') {
-    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
-    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
-  }
-
-  const { results } = await db.prepare('SELECT * FROM files WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
-  return c.json(results);
-});
-
-// Upload a file to a project
-app.post('/api/projects/:id/files', async (c) => {
-  const uid = c.get('uid');
-  const projectId = c.req.param('id');
-  const category = c.req.query('category') || 'uncategorized';
-  const db = c.env.DB;
-  const bucket = c.env.STORAGE;
-
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'Unauthorized' }, 403);
-
-  const project = await db.prepare('SELECT client_id, draughtsman_id, status FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const body = await c.req.parseBody();
-  const file = body['file'] as File;
-  if (!file) return c.json({ error: 'No file provided' }, 400);
-
-  const fileId = crypto.randomUUID();
-  const originalName = file.name;
-  const sanitizedName = originalName.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const objectKey = `projects/${projectId}/${fileId}_${sanitizedName}`;
-  const contentType = file.type || 'application/octet-stream';
-  const size = file.size;
-
-  // Upload to R2
-  const arrayBuffer = await file.arrayBuffer();
-  await bucket.put(objectKey, arrayBuffer, {
-    httpMetadata: { contentType },
-  });
-
-  const now = new Date().toISOString();
-
-  await db.prepare(`
-    INSERT INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?)
-  `).bind(fileId, projectId, uid, originalName, sanitizedName, objectKey, contentType, size, category, now).run();
-
-  // If this is a draughtsman drawing version, also add it to drawing_versions
-  if (category === 'draughtsman_version' && user.role === 'DRAUGHTSMAN') {
-    const { results } = await db.prepare('SELECT MAX(version_number) as max_v FROM drawing_versions WHERE project_id = ?').bind(projectId).all();
-    const currentMax = results[0]?.max_v || 0;
-    const versionNumber = Number(currentMax) + 1;
-
-    await db.prepare(`
-      INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(crypto.randomUUID(), projectId, fileId, versionNumber, uid, now).run();
-
-    await db.prepare('INSERT INTO activity_logs (id, project_id, actor_id, actor_role, action_type, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, user.role, 'FILE_UPLOADED', `Uploaded drawing version ${versionNumber} (${originalName})`, now).run();
-  } else {
-    await db.prepare('INSERT INTO activity_logs (id, project_id, actor_id, actor_role, action_type, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, user.role, 'FILE_UPLOADED', `Uploaded file ${originalName}`, now).run();
-  }
-
-  const newFile = await db.prepare('SELECT * FROM files WHERE id = ?').bind(fileId).first();
-  return c.json(newFile);
-});
+// Upload endpoints moved to bottom
 
 // Download a file
 app.get('/api/files/:id/download', async (c) => {
@@ -787,48 +704,7 @@ app.get('/api/files/:id/download', async (c) => {
 });
 
 // Get drawing versions for a project
-app.get('/api/projects/:id/drawing_versions', async (c) => {
-  const uid = c.get('uid');
-  const projectId = c.req.param('id');
-  const db = c.env.DB;
-
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'Unauthorized' }, 403);
-
-  const project = await db.prepare('SELECT client_id, draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const { results } = await db.prepare(`
-    SELECT dv.*, f.original_name as file_name, f.size as file_size, f.content_type
-    FROM drawing_versions dv
-    JOIN files f ON dv.file_id = f.id
-    WHERE dv.project_id = ?
-    ORDER BY dv.version_number DESC
-  `).bind(projectId).all();
-  return c.json(results);
-});
-
-// Get corrections for a project
-app.get('/api/projects/:id/corrections', async (c) => {
-  const uid = c.get('uid');
-  const projectId = c.req.param('id');
-  const db = c.env.DB;
-
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'Unauthorized' }, 403);
-
-  const project = await db.prepare('SELECT client_id, draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
-  return c.json(results);
-});
+// Download endpoints remain
 
 // Request a correction (Client only)
 app.post('/api/projects/:id/corrections/:cid/start', async (c) => {
