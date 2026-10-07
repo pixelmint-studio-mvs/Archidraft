@@ -256,42 +256,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
   return c.json({ success: true });
 });
 
-app.post('/api/projects/request-correction', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const body = await c.req.json();
-  const { projectId, actionId, description, targetVersionId } = body;
 
-  const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can request corrections' }, 403);
-
-  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
-  if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
-  if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
-
-  // Check 3-round limit
-  const currentRound = (project.correction_round as number) || 0;
-  if (currentRound >= 3) {
-    return c.json({ error: 'Maximum correction limit (3 rounds) has been reached.' }, 400);
-  }
-
-  const correctionId = uuidv4();
-  const nextRound = currentRound + 1;
-
-  const batch = [
-    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(nextRound, actionId, projectId),
-    db.prepare(`INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status) VALUES (?, ?, ?, ?, ?, ?, 'OPEN')`).bind(
-      correctionId, projectId, uid, targetVersionId, nextRound, description
-    ),
-    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction round ${nextRound}.`
-    )
-  ];
-  await db.batch(batch);
-  return c.json({ success: true, correctionId });
-});
 
 app.post('/api/projects/:projectId/corrections/:correctionId/start', async (c) => {
   const uid = c.get('uid');
@@ -381,16 +346,16 @@ app.post('/api/projects/approve-final', async (c) => {
   const { projectId, actionId } = body;
 
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can approve final drawings' }, 403);
+  if (!user || !['CLIENT', 'STUDIO_ADMIN', 'ENGINEER'].includes(user.role as string)) return c.json({ error: 'Only clients or engineers can approve final drawings' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  if (project.client_id !== uid && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Permission denied' }, 403);
   if (project.status === 'COMPLETED' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
 
   const batch = [
-    db.prepare(`UPDATE projects SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
     )
@@ -406,11 +371,11 @@ app.post('/api/projects/request-correction', async (c) => {
   const { projectId, actionId, correctionId, targetVersionId, description } = body;
 
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'CLIENT') return c.json({ error: 'Only clients can request corrections' }, 403);
+  if (!user || !['CLIENT', 'STUDIO_ADMIN', 'ENGINEER'].includes(user.role as string)) return c.json({ error: 'Only clients or engineers can request corrections' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.client_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  if (project.client_id !== uid && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Permission denied' }, 403);
 
   if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
@@ -706,34 +671,7 @@ app.get('/api/files/:id/download', async (c) => {
 // Get drawing versions for a project
 // Download endpoints remain
 
-// Request a correction (Client only)
-app.post('/api/projects/:id/corrections/:cid/start', async (c) => {
-  const uid = c.get('uid');
-  const projectId = c.req.param('id');
-  const correctionId = c.req.param('cid');
-  const db = c.env.DB;
 
-  const user = await getUser(db, uid);
-  if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Unauthorized' }, 403);
-
-  const project = await db.prepare('SELECT draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
-  if (!project || project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const correction = await db.prepare('SELECT project_id, status FROM corrections WHERE id = ?').bind(correctionId).first();
-  if (!correction || correction.project_id !== projectId) return c.json({ error: 'Correction not found or mismatched project' }, 404);
-  if (correction.status !== 'OPEN') return c.json({ error: 'Correction is not OPEN' }, 400);
-
-  const now = new Date().toISOString();
-
-  const batch = [
-    db.prepare('UPDATE corrections SET status = ? WHERE id = ?').bind('IN_PROGRESS', correctionId),
-    db.prepare('INSERT INTO activity_logs (id, project_id, actor_id, actor_role, action_type, details, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), projectId, uid, user.role, 'CORRECTION_STARTED', 'Started working on correction', now)
-  ];
-
-  await db.batch(batch);
-  return c.json({ success: true });
-});
 
 // Get a single project by ID — accessible by the owning draughtsman or client
 app.get('/api/projects/:id', async (c) => {
@@ -840,8 +778,9 @@ app.post('/api/projects/:projectId/files', async (c) => {
   const actionId = c.req.header('X-Action-Id');
   if (!actionId) return c.json({ error: 'X-Action-Id header is required' }, 400);
 
-  const fileName = c.req.header('X-File-Name');
-  if (!fileName) return c.json({ error: 'X-File-Name header is required' }, 400);
+  const rawFileName = c.req.header('X-File-Name');
+  if (!rawFileName) return c.json({ error: 'X-File-Name header is required' }, 400);
+  const fileName = decodeURIComponent(rawFileName);
 
   // Validate extension server-side
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -920,7 +859,21 @@ app.post('/api/projects/:projectId/files', async (c) => {
       }
     });
 
-    const streamToR2 = c.req.raw.body.pipeThrough(transform);
+    const streamThroughTransform = c.req.raw.body.pipeThrough(transform);
+
+    let streamToR2: ReadableStream;
+    const contentLengthStr = c.req.header('Content-Length');
+    const expectedLength = contentLengthStr ? parseInt(contentLengthStr, 10) : 0;
+
+    // @ts-ignore
+    if (typeof FixedLengthStream !== 'undefined' && expectedLength > 0) {
+      // @ts-ignore
+      const { writable, readable } = new FixedLengthStream(expectedLength);
+      streamThroughTransform.pipeTo(writable).catch(() => {});
+      streamToR2 = readable;
+    } else {
+      streamToR2 = streamThroughTransform;
+    }
 
     await c.env.STORAGE.put(objectKey, streamToR2, {
       httpMetadata: { contentType: contentType }
