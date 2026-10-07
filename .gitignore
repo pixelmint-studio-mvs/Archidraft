@@ -55,3 +55,4 @@ app.*.map.json
 # Cloudflare Wrangler local state
 .wrangler/
 worker/.wrangler/
+worker/node_modules/
