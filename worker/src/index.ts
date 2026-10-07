@@ -154,7 +154,7 @@ app.get('/api/projects', async (c) => {
   let query = 'SELECT * FROM projects WHERE 1=1';
   const params: any[] = [];
 
-  if (user.role === 'CLIENT') {
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string)) {
     query += ' AND client_id = ?';
     params.push(uid);
   } else if (user.role === 'DRAUGHTSMAN') {
@@ -215,7 +215,7 @@ app.post('/api/projects/submit', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'SUBMITTED', submitted_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_SUBMITTED', uid, 'CLIENT', 'Client submitted the project brief.'
+      actionId, projectId, 'PROJECT_SUBMITTED', uid, user.role, 'Client submitted the project brief.'
     )
   ];
   await db.batch(batch);
@@ -249,7 +249,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
     db.prepare(`UPDATE projects SET status = 'UNDER_CLIENT_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'IN_PROGRESS'`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', `Draughtsman submitted drawing version ${latestVersion.version_number} for client review.`
+      actionId, projectId, 'DRAWING_SUBMITTED', uid, user.role, `Draughtsman submitted drawing version ${latestVersion.version_number} for review.`
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.client_id, 'DRAWING_SUBMITTED', 'Drawing Ready for Review', 'A drawing was submitted for project: ' + project.project_name
@@ -287,7 +287,7 @@ app.post('/api/projects/:projectId/corrections/:correctionId/start', async (c) =
   const batch = [
     db.prepare(`UPDATE corrections SET status = 'IN_PROGRESS' WHERE id = ?`).bind(correctionId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_STARTED', uid, 'DRAUGHTSMAN', 'Draughtsman started working on the correction.'
+      actionId, projectId, 'CORRECTION_STARTED', uid, user.role, 'Draughtsman started working on the correction.'
     )
   ];
   await db.batch(batch);
@@ -311,7 +311,7 @@ app.post('/api/projects/approve', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'WAITING_ASSIGNMENT', approved_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_APPROVED', uid, 'STUDIO_ADMIN', 'Studio Admin approved the project.'
+      actionId, projectId, 'PROJECT_APPROVED', uid, user.role, 'Project approved.'
     )
   ];
   await db.batch(batch);
@@ -335,7 +335,7 @@ app.post('/api/projects/reject', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'CANCELLED', rejection_reason = ?, cancelled_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(reason, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_REJECTED', uid, 'STUDIO_ADMIN', 'Studio Admin rejected the project. Reason: ' + reason
+      actionId, projectId, 'PROJECT_REJECTED', uid, user.role, 'Project rejected. Reason: ' + reason
     )
   ];
   await db.batch(batch);
@@ -360,7 +360,7 @@ app.post('/api/projects/approve-final', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
+      actionId, projectId, 'PROJECT_COMPLETED', uid, user.role, 'Final drawing approved.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.draughtsman_id, 'PROJECT_APPROVED', 'Project Approved', 'Your drawing was approved for project: ' + project.project_name
@@ -400,7 +400,7 @@ app.post('/api/projects/request-correction', async (c) => {
     `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction (Round ${newRound}).`
+      actionId, projectId, 'CORRECTION_REQUESTED', uid, user.role, `Correction requested (Round ${newRound}).`
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.draughtsman_id, 'CORRECTION_REQUESTED', 'Correction Requested', 'A correction was requested for project: ' + project.project_name
@@ -433,7 +433,7 @@ app.post('/api/projects/assign', async (c) => {
     db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId),
     db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin assigned draughtsman: ' + dMan.name
+      actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, user.role, 'Assigned draughtsman: ' + dMan.name
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
       uuidv4(), draughtsmanId, 'PROJECT_ASSIGNED', 'New Project Assigned', 'You have been assigned to project: ' + project.project_name
@@ -475,7 +475,7 @@ app.post('/api/projects/reassign', async (c) => {
   batch.push(db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId));
   batch.push(db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId));
   batch.push(db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-    actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin reassigned to draughtsman: ' + dMan.name
+    actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, user.role, 'Reassigned to draughtsman: ' + dMan.name
   ));
   batch.push(db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
     uuidv4(), draughtsmanId, 'PROJECT_ASSIGNED', 'New Project Assigned', 'You have been assigned to project: ' + project.project_name
@@ -514,7 +514,7 @@ app.post('/api/assignments/accept', async (c) => {
     db.prepare(`UPDATE assignments SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId),
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, 'DRAUGHTSMAN', 'Draughtsman accepted the assignment.'
+      actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, user.role, 'Assignment accepted.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.client_id, 'ASSIGNMENT_ACCEPTED', 'Assignment Accepted', 'Draughtsman accepted the assignment for project: ' + project.project_name
@@ -553,7 +553,7 @@ app.post('/api/assignments/reject', async (c) => {
     db.prepare(`UPDATE assignments SET status = 'REJECTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId),
     db.prepare(`UPDATE projects SET status = 'WAITING_ASSIGNMENT', draughtsman_id = NULL, draughtsman_name = NULL, current_assignment_id = NULL, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'ASSIGNMENT_REJECTED', uid, 'DRAUGHTSMAN', `Draughtsman rejected the assignment. Reason: ${reason || 'None'}`
+      actionId, projectId, 'ASSIGNMENT_REJECTED', uid, user.role, `Draughtsman rejected the assignment. Reason: ${reason || 'None'}`
     )
   ];
   await db.batch(batch);
@@ -622,7 +622,7 @@ app.get('/api/draughtsman/summary', async (c) => {
     SELECT
       COUNT(*) as total_assignments,
       SUM(CASE WHEN a.status = 'PENDING' THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress,
+      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' AND (p.correction_round IS NULL OR p.correction_round = 0) THEN 1 ELSE 0 END) as in_progress,
       SUM(CASE WHEN p.status = 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as under_review,
       SUM(CASE WHEN a.status = 'ACCEPTED' AND p.correction_round > 0 AND p.status != 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as corrections,
       SUM(CASE WHEN a.status = 'COMPLETED' OR p.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
@@ -650,7 +650,7 @@ app.get('/api/projects/:id/activity', async (c) => {
   const project = await db.prepare('SELECT client_id, draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC').bind(projectId).all();
@@ -659,32 +659,6 @@ app.get('/api/projects/:id/activity', async (c) => {
 
 // Upload endpoints moved to bottom
 
-// Download a file
-app.get('/api/files/:id/download', async (c) => {
-  const uid = c.get('uid');
-  const fileId = c.req.param('id');
-  const db = c.env.DB;
-  const bucket = c.env.STORAGE;
-
-  const user = await getUser(db, uid);
-  if (!user) return c.json({ error: 'Unauthorized' }, 403);
-
-  const file = await db.prepare('SELECT * FROM files WHERE id = ?').bind(fileId).first();
-  if (!file) return c.json({ error: 'File not found' }, 404);
-
-  const project = await db.prepare('SELECT client_id, draughtsman_id FROM projects WHERE id = ?').bind(file.project_id).first();
-  if (!project) return c.json({ error: 'Project not found' }, 404);
-
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-
-  const object = await bucket.get(file.object_key as string);
-  if (!object) return c.json({ error: 'Object not found in storage' }, 404);
-
-  c.header('Content-Type', file.content_type as string);
-  c.header('Content-Disposition', `attachment; filename="${file.original_name}"`);
-  return c.body(object.body);
-});
 
 // Get drawing versions for a project
 // Download endpoints remain
@@ -703,7 +677,7 @@ app.get('/api/projects/:id', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Authorization: draughtsman must be assigned, client must own it, admin can see all
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   return c.json(project);
@@ -734,7 +708,7 @@ app.get('/api/projects/:projectId/files', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Check authorization
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN') {
     const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
     if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
@@ -754,7 +728,7 @@ app.get('/api/projects/:projectId/drawing_versions', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN') {
     const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
     if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
@@ -774,7 +748,7 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN') {
     const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
     if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
@@ -830,7 +804,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
 
   // Authorization checks
   if (category === 'client_upload' || category === 'correction_attachment') {
-    if (user.role !== 'CLIENT' || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+    if (!['CLIENT', 'ENGINEER'].includes(user.role as string) || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   } else if (category === 'draughtsman_version') {
     const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
     if (!hasAccess || project.status !== 'IN_PROGRESS') {
@@ -942,7 +916,7 @@ app.get('/api/files/:fileId/download', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Authorization checks
-  if (user.role === 'CLIENT' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN') {
     const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
     if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
