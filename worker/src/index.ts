@@ -250,6 +250,9 @@ app.post('/api/projects/submit-drawing', async (c) => {
     db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'IN_PROGRESS'`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAWING_SUBMITTED', uid, 'DRAUGHTSMAN', `Draughtsman submitted drawing version ${latestVersion.version_number} for client review.`
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.client_id, 'DRAWING_SUBMITTED', 'Drawing Ready for Review', 'A drawing was submitted for project: ' + project.project_name
     )
   ];
   await db.batch(batch);
@@ -358,6 +361,9 @@ app.post('/api/projects/approve-final', async (c) => {
     db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'PROJECT_COMPLETED', uid, 'CLIENT', 'Client approved the final drawing.'
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.draughtsman_id, 'PROJECT_APPROVED', 'Project Approved', 'Your drawing was approved for project: ' + project.project_name
     )
   ];
   await db.batch(batch);
@@ -395,6 +401,9 @@ app.post('/api/projects/request-correction', async (c) => {
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'CORRECTION_REQUESTED', uid, 'CLIENT', `Client requested correction (Round ${newRound}).`
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.draughtsman_id, 'CORRECTION_REQUESTED', 'Correction Requested', 'A correction was requested for project: ' + project.project_name
     )
   ];
   await db.batch(batch);
@@ -425,6 +434,9 @@ app.post('/api/projects/assign', async (c) => {
     db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin assigned draughtsman: ' + dMan.name
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
+      uuidv4(), draughtsmanId, 'PROJECT_ASSIGNED', 'New Project Assigned', 'You have been assigned to project: ' + project.project_name
     )
   ];
   await db.batch(batch);
@@ -465,6 +477,9 @@ app.post('/api/projects/reassign', async (c) => {
   batch.push(db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
     actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin reassigned to draughtsman: ' + dMan.name
   ));
+  batch.push(db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
+    uuidv4(), draughtsmanId, 'PROJECT_ASSIGNED', 'New Project Assigned', 'You have been assigned to project: ' + project.project_name
+  ));
 
   await db.batch(batch);
   return c.json({ success: true });
@@ -500,6 +515,9 @@ app.post('/api/assignments/accept', async (c) => {
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, 'DRAUGHTSMAN', 'Draughtsman accepted the assignment.'
+    ),
+    db.prepare(`INSERT INTO notifications (id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?)`).bind(
+      uuidv4(), project.client_id, 'ASSIGNMENT_ACCEPTED', 'Assignment Accepted', 'Draughtsman accepted the assignment for project: ' + project.project_name
     )
   ];
   await db.batch(batch);

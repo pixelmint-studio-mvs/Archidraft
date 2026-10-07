@@ -1110,7 +1110,10 @@ class _TimelineEvent extends StatelessWidget {
 
   (IconData, Color) _iconForAction(String action) {
     switch (action) {
-      case 'ASSIGNMENT_CREATED':
+      case 'PROJECT_SUBMITTED':
+        return (Icons.description_outlined, AppColors.secondary);
+      case 'DRAUGHTSMAN_ASSIGNED':
+      case 'DRAUGHTSMAN_REASSIGNED':
         return (Icons.assignment_ind_outlined, AppColors.secondary);
       case 'ASSIGNMENT_ACCEPTED':
         return (Icons.check_circle_outline, AppColors.success);
@@ -1124,8 +1127,10 @@ class _TimelineEvent extends StatelessWidget {
         return (Icons.redo_outlined, AppColors.warning);
       case 'CORRECTION_STARTED':
         return (Icons.edit_outlined, AppColors.warning);
-      case 'DRAWING_APPROVED':
+      case 'PROJECT_APPROVED':
         return (Icons.verified_outlined, AppColors.success);
+      case 'PROJECT_REJECTED':
+        return (Icons.cancel_outlined, AppColors.error);
       case 'PROJECT_COMPLETED':
         return (Icons.celebration_outlined, AppColors.success);
       default:
@@ -1135,8 +1140,12 @@ class _TimelineEvent extends StatelessWidget {
 
   String _labelForAction(String action) {
     switch (action) {
-      case 'ASSIGNMENT_CREATED':
-        return 'Assignment Created';
+      case 'PROJECT_SUBMITTED':
+        return 'Project Submitted';
+      case 'DRAUGHTSMAN_ASSIGNED':
+        return 'Draughtsman Assigned';
+      case 'DRAUGHTSMAN_REASSIGNED':
+        return 'Draughtsman Reassigned';
       case 'ASSIGNMENT_ACCEPTED':
         return 'Assignment Accepted';
       case 'ASSIGNMENT_REJECTED':
@@ -1149,8 +1158,10 @@ class _TimelineEvent extends StatelessWidget {
         return 'Correction Requested';
       case 'CORRECTION_STARTED':
         return 'Working on Correction';
-      case 'DRAWING_APPROVED':
-        return 'Drawing Approved';
+      case 'PROJECT_APPROVED':
+        return 'Project Approved';
+      case 'PROJECT_REJECTED':
+        return 'Project Rejected';
       case 'PROJECT_COMPLETED':
         return 'Project Completed';
       default:
