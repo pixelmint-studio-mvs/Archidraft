@@ -1,20 +1,53 @@
 # ENVIRONMENT SETUP
 
-This document lists the actual development environment versions installed during Phase 0. 
+This document details the development environment and prerequisites for ARCHI DRAFT.
 
-**Operating System:** Windows
+**Primary Development OS:** Windows
+**Shell:** PowerShell / Command Prompt
 
-| Tool Name | Installed Version | Purpose | Verification Command |
+---
+
+## 1. Toolchain & Prerequisites
+
+| Tool | Recommended Version | Purpose | Verification Command |
 |---|---|---|---|
-| **Git** | VERIFY BEFORE DEVELOPMENT | Source Control | `git --version` |
-| **Flutter** | VERIFY BEFORE DEVELOPMENT | UI Toolkit | `flutter --version` |
-| **Dart** | VERIFY BEFORE DEVELOPMENT | Programming Language | `dart --version` |
-| **Android Studio** | VERIFY BEFORE DEVELOPMENT | IDE & Android Toolchain | *(Check visually)* |
-| **Android SDK** | VERIFY BEFORE DEVELOPMENT | Android Compilation | `flutter doctor -v` |
-| **Java/JDK** | VERIFY BEFORE DEVELOPMENT | Required by Android | `java -version` |
-| **Node.js** | v24.20.0 | Runtime for Firebase CLI/Functions | `node -v` |
-| **npm** | 11.19.0 | Package Manager | `npm -v` |
-| **Firebase CLI** | 15.29.0 | Deploying Rules/Functions | `firebase --version` |
-| **FlutterFire CLI**| VERIFY BEFORE DEVELOPMENT | Integrating Firebase into Flutter | `flutterfire --version` |
+| **Flutter** | 3.24.x+ | Mobile & Web UI framework | `flutter --version` |
+| **Dart** | 3.5.x+ | Application programming language | `dart --version` |
+| **Node.js** | 20.x+ / 24.x | Cloudflare Worker runtime & tools | `node -v` |
+| **npm** | 10.x+ / 11.x | Package manager | `npm -v` |
+| **Wrangler** | 3.x+ (via `npx`) | Cloudflare edge backend emulator | `npx wrangler --version` |
+| **Git** | 2.40.x+ | Version control | `git --version` |
 
-*Note: Missing tools were marked as requiring manual installation by the developer due to Windows UAC (Administrator) restrictions, GUI wizard setups, or explicit license agreements (like Android SDK).*
+---
+
+## 2. Local Backend Execution
+
+The backend must be started in its dedicated directory:
+
+```powershell
+# 1. Change to worker directory
+cd D:\PROJECT\Archidraft-engineer-panel-source\worker
+
+# 2. Start local emulator (Miniflare D1/R2/Worker)
+npx wrangler dev --local
+```
+
+The emulator listens at `http://localhost:8787` (or `http://127.0.0.1:8787`).
+
+---
+
+## 3. Flutter Client Execution
+
+```powershell
+# Run Flutter Web Server
+flutter run -d web-server --web-port 60573
+
+# Run Flutter Chrome
+flutter run -d chrome
+
+# Run Static Analysis
+flutter analyze --no-fatal-infos
+
+# Run Tests
+flutter test
+```

@@ -1,36 +1,42 @@
-# GIT WORKFLOW
+# GIT WORKFLOW & ABSOLUTE WORK CONTROL
 
-This team relies on a simple, safe, and beginner-friendly Git strategy to manage collaboration between multiple human developers and AI agents.
+ARCHI DRAFT is maintained across isolated feature and role branches to guarantee zero regressions.
 
-## Branch Strategy
+---
 
-- **`main`**: The primary branch. Code here must always be stable and production-ready.
-- **`develop`**: Active integrated development. All feature branches merge here before going to main.
+## 1. Active Branch Strategy
 
-### Feature Branches
-Use the `feature/` prefix for all development work.
-Examples:
-- `feature/authentication`
-- `feature/user-profile`
-- `feature/project-management`
-- `feature/admin-workflow`
-- `feature/draughtsman-workflow`
-- `feature/file-storage`
-- `feature/corrections`
+- **`Engineer_Panels` (CURRENT BRANCH):** Dedicated to the Engineer Portal. Fully completed and frozen.
+- **`Draughtsman_Panels`:** Dedicated to the Draughtsman Studio OS and workspace.
+- **`Student_panels`:** Dedicated to student learning workflows.
+- **Eventual Integration:** All role-specific panels will be integrated into the main application branch once individual portals reach audited completion.
 
-## IMPORTANT GIT RULES
-1. **DO NOT directly modify `main`.** All changes must happen in feature branches and merge via Pull Request (PR).
-2. **DO NOT mix multiple unrelated features in one branch.** Keep branches scoped to a specific task.
-3. **DO NOT overwrite another developer's work.** If a conflict occurs, resolve it carefully.
-4. **Pull the latest changes** from `develop` before beginning any new feature work.
-5. **Review changed files** before committing (e.g., check `git status` and `git diff`).
-6. **Keep commits focused** and atomic.
+---
 
-## COMMIT STANDARD
-Use the following conventional commit format to keep history readable:
+## 2. Absolute Work Control Rules
 
-- `feat:` for new features (e.g., `feat: add authentication foundation`)
-- `fix:` for bug fixes (e.g., `fix: correct project state validation`)
-- `docs:` for documentation changes (e.g., `docs: update workflow documentation`)
-- `refactor:` for code restructuring without changing behavior (e.g., `refactor: improve project model structure`)
-- `test:` for adding/fixing tests (e.g., `test: add workflow validation tests`)
+> [!CAUTION]
+> **AI AGENTS MUST NEVER COMMIT OR PUSH AUTOMATICALLY:**
+> All Git write operations are strictly controlled and performed manually by the project owner.
+
+Developers and AI agents working on this repository must strictly adhere to the following:
+1. **DO NOT commit** automatically.
+2. **DO NOT push** automatically.
+3. **DO NOT merge** branches automatically.
+4. **DO NOT rebase**.
+5. **DO NOT reset** (`git reset`).
+6. **DO NOT switch branches** without explicit instruction.
+7. **DO NOT run `git restore` or `git clean`**; never discard working directory modifications.
+8. **DO NOT overwrite another developer's work.**
+
+---
+
+## 3. Pre-Commit Review Procedure
+Before proposing any code for manual commit by the owner:
+1. Run read-only commands:
+   ```bash
+   git status
+   git diff
+   ```
+2. Verify that only files strictly within the task scope are modified.
+3. Verify that zero unrelated files or generated artifacts are left unreviewed.

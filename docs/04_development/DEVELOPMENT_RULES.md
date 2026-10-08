@@ -1,38 +1,45 @@
 # DEVELOPMENT RULES
 
-Strict rules for all developers and AI agents working on ARCHI DRAFT.
+Strict rules for all developers and AI agents working on ARCHI DRAFT:
 
-## RULE 1
-Never build the entire app in one task.
+---
 
-## RULE 2
-Work one phase at a time. Refer to the Roadmap.
+## 1. Source of Truth
+**The current working application codebase is the absolute source of truth.**
+Documentation is descriptive, not prescriptive. If documentation conflicts with active code, update the documentation. Never change working application code to match outdated documentation.
 
-## RULE 3
-Read existing code before modifying it.
+---
 
-## RULE 4
-Do not duplicate models.
+## 2. Absolute Git Work Control
+- **NO Automatic Commits or Pushes:** Developers and AI agents must never automatically run `git commit`, `git push`, `git merge`, `git rebase`, or `git reset`.
+- All Git write operations are strictly controlled and performed manually by the project owner.
+- Always inspect `git status` and `git diff` before proposing changes.
 
-## RULE 5
-Do not create undocumented states.
+---
 
-## RULE 6
-Critical workflow transitions require backend validation.
+## 3. Branch Scoping
+- Respect branch boundaries. On branch `Engineer_Panels`, do not build Admin, Draughtsman, or Student features.
+- Do not refactor unrelated completed features.
 
-## RULE 7
-Security rules must not be postponed until the end. Implement them per phase.
+---
 
-## RULE 8
-Test negative cases. Examples:
-- Unauthorized User
-- Invalid Project State
-- Duplicate Request
-- Rejected Assignment
-- Correction Limit Reached
+## 4. No Duplicate Systems
+- Do not create duplicate data models.
+- Do not create parallel backend systems or duplicate endpoints.
+- Do not invent new roles or unapproved project statuses.
 
-## RULE 9
-Do not break completed functionality.
+---
 
-## RULE 10
-Document significant architecture decisions.
+## 5. Security & Validation
+- UI hiding is not security; enforce all permissions in the Cloudflare Worker.
+- Critical workflow transitions require transactional backend execution.
+- Maintain server-side file protections (50 MB streaming limits, extension allowlists).
+
+---
+
+## 6. Negative & Edge Case Testing
+Always test failure and boundary states:
+- Unauthorized access attempts.
+- Inactive or replaced assignment tokens.
+- Fourth correction attempt rejection (max 3 rounds).
+- Oversized file uploads (> 50 MB).

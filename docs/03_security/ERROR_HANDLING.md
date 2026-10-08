@@ -1,50 +1,50 @@
 # ERROR HANDLING STANDARD
 
-## RULE
-Users must **never** see raw technical errors such as `FirebaseException`, `permission-denied`, `internal-error`, or stack traces in the UI.
+## 1. Core Rule
+**Raw Technical Errors Must Never Reach the UI.**
+Users must never see database exceptions, stack traces, HTTP status codes, or unhandled exceptions in the application interface.
 
-Technical Error → Application Error Handling → User-Friendly Message
+```text
+Backend / Network Exception
+  │
+  ▼
+ApiClient Exception Mapper / Riverpod Error State
+  │
+  ▼
+User-Friendly Explanatory Message & Visual State
+```
 
-## ERROR CATEGORIES
+---
 
-### 1. Network Error
-- **User Message:** "No internet connection. Please check your network and try again."
-- **Retry Allowed?** Yes.
-- **Logging Required?** No.
-- **Recommended UI Behavior:** Snackbar or retry button.
+## 2. Standardized Error Categories & Behaviors
 
-### 2. Authentication Error
-- **User Message:** "Invalid email or password. Please try again."
-- **Retry Allowed?** Yes.
-- **Logging Required?** No (Firebase Auth handles this).
-- **Recommended UI Behavior:** Inline form error.
+### 1. Network & Connectivity Errors
+- **Cause:** Socket exceptions, network dropouts, unreachable local emulator.
+- **User Message:** "Unable to connect to server. Please check your internet connection."
+- **UI Behavior:** Non-blocking floating snackbar or retry button in `AppErrorWidget`.
 
-### 3. Authorization Error
-- **User Message:** "You don't have permission to perform this action."
-- **Retry Allowed?** No.
-- **Logging Required?** Yes (Potential security attempt).
-- **Recommended UI Behavior:** Dialog or redirect to dashboard.
+### 2. Authentication Errors (`AuthErrorMapper`)
+- **Cause:** Invalid password, user not found, account disabled.
+- **User Message:** Clean human-readable translation (e.g. "Invalid email or password").
+- **UI Behavior:** Inline form error text below credentials inputs.
 
-### 4. Validation Error
-- **User Message:** "Please check the highlighted fields and try again."
-- **Retry Allowed?** Yes.
-- **Logging Required?** No.
-- **Recommended UI Behavior:** Inline form error.
+### 3. Authorization & Permissions Errors (HTTP 403)
+- **Cause:** Attempting to access another user's project, or accessing Admin-only routes.
+- **User Message:** "You do not have permission to view or edit this project."
+- **UI Behavior:** Clear warning message and automatic redirect to `/engineer/projects`.
 
-### 5. File Upload Error
-- **User Message:** "Failed to upload file. Please ensure it is a supported format and under 50 MB."
-- **Retry Allowed?** Yes.
-- **Logging Required?** Yes (if backend rejected).
-- **Recommended UI Behavior:** Snackbar.
+### 4. File Size & Format Validation Errors (HTTP 400)
+- **Cause:** File exceeds 50 MB or extension not in allowlist.
+- **User Message:** "File must be under 50 MB and in an approved technical format (PDF, CAD, Images, ZIP)."
+- **UI Behavior:** Rejection banner in file picker with immediate upload cancellation.
 
-### 6. Server/Unknown Error
-- **User Message:** "An unexpected error occurred. Please try again later."
-- **Retry Allowed?** Yes (after a delay).
-- **Logging Required?** Yes (Send to crashlytics/logging service).
-- **Recommended UI Behavior:** Dialog or Snackbar.
+### 5. Workflow State Conflict Errors (HTTP 400)
+- **Cause:** Submitting an already submitted project, or requesting a 4th correction round.
+- **User Message:** "This action cannot be completed for the current project status." (or "Maximum correction rounds (3) exceeded").
+- **UI Behavior:** Informational dialog with state refresh.
 
-## EXAMPLES
-**DO NOT SHOW:** `FirebaseException: [cloud_firestore/permission-denied] The caller does not have permission to execute the specified operation.`
-**SHOW:** "You don't have permission to perform this action."
+---
 
-Do not expose internal system details.
+## 3. UI Error Widgets
+- **`AppErrorWidget`:** Centered card with error icon, friendly message, and an explicit **Retry** button wired to invalidate the corresponding Riverpod provider.
+- **Snackbars:** Floating contextual banners (`AppColors.error`) with short, actionable messaging.

@@ -1,33 +1,29 @@
 # SECRETS & CREDENTIALS POLICY
 
-This is a critical security document. Violating this policy can compromise the entire ARCHI DRAFT platform.
+This policy governs the management of sensitive keys and environment credentials for the ARCHI DRAFT platform.
 
-## What Must NEVER Be Committed to Git
-The following items must **never** be committed to the repository:
-- **Firebase Admin Service Account JSON** (`serviceAccountKey.json`)
-- **Private Keys** (e.g., keystores, `.jks`, `.pepk`)
-- **Passwords**
-- **API Secrets**
-- **Environment Secrets**
-- **Auth Tokens**
+---
 
-## .gitignore POLICY
-The `.gitignore` file must aggressively block sensitive files.
+## 1. Prohibited Items in Version Control
+The following credentials must **never** be committed to Git:
+- **Firebase Service Account Keys** (`serviceAccountKey.json`, private keys).
+- **Cloudflare API Tokens & Global Keys**.
+- **Production Database Credentials** (`wrangler.toml` remote secrets).
+- **R2 Access Key IDs & Secret Access Keys**.
+- **Android Signing Keystores** (`.jks`, `.keystore`, `.pepk`).
+- **Production `.env` files**.
 
-**Sensitive files must remain outside the repository.** 
-If a developer clones the project, they must manually obtain the required non-production secrets via secure team channels.
+---
 
-### Environment Variables
-- **`.env`**: Contains actual secret values for the local environment. Must be added to `.gitignore`.
-- **`.env.example`**: A safe template file that shows required variable names (e.g., `API_KEY=your_key_here`). It must NEVER contain real secrets and is safe to commit.
+## 2. `.gitignore` Policy
+The `.gitignore` configuration must continuously protect against accidental credential exposure:
+- `.env` and `.env.*` (except `.env.example`).
+- `*.pem`, `*.key`, `*.keystore`, `*.jks`.
+- `worker/.wrangler/` (local emulator state and caches).
+- Generated Firebase platform options containing production secret overrides.
 
-## FIREBASE ADMIN SDK
-The Firebase Admin SDK has absolute, bypass-level access to the entire database and storage.
+---
 
-**Firebase Admin SDK credentials must never be:**
-1. Uploaded publicly (e.g., to GitHub).
-2. Committed to Git.
-3. Shared in screenshots or screen recordings.
-4. Hardcoded into the Flutter application code.
-
-*(Note: The Admin SDK should only run in secure server environments, such as Firebase Cloud Functions, where credentials are automatically provisioned by Google Cloud).*
+## 3. Environment Variable Standards
+- **`.env.example`**: Safe template file listing required key names without actual values (e.g. `API_BASE_URL=http://localhost:8787`).
+- **Local Emulation**: Developers use `npx wrangler dev --local`, which runs completely isolated local instances of D1 and R2 without needing production credentials.
