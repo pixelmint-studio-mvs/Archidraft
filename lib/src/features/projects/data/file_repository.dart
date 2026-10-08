@@ -38,8 +38,9 @@ class FileRepository {
   }
 
   Future<void> downloadFile(String fileId, String savePath, {bool openInBrowser = false}) async {
+    final query = openInBrowser ? '?disposition=inline' : '';
     return await _apiClient.downloadFileStream(
-      '/api/files/$fileId/download',
+      '/api/files/$fileId/download$query',
       savePath,
       openInBrowser: openInBrowser,
     );

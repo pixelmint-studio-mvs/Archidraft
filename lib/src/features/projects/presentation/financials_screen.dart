@@ -128,7 +128,7 @@ class FinancialsScreen extends ConsumerWidget {
                 Text(invoice.invoiceNumber, style: const TextStyle(fontWeight: FontWeight.bold)),
                 Chip(
                   label: Text(invoice.status.name.toUpperCase()),
-                  backgroundColor: statusColor.withOpacity(0.2),
+                  backgroundColor: statusColor.withValues(alpha: 0.2),
                   labelStyle: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -310,7 +310,7 @@ class FinancialsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<PaymentMethod>(
-                  value: selectedMethod,
+                  initialValue: selectedMethod,
                   decoration: const InputDecoration(labelText: 'Payment Method'),
                   items: PaymentMethod.values.map((m) => DropdownMenuItem(value: m, child: Text(m.name.toUpperCase()))).toList(),
                   onChanged: (val) {

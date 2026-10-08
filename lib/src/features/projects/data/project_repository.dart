@@ -197,4 +197,12 @@ class ProjectRepository {
     }
     return [];
   }
+
+  Future<List<ActivityLog>> fetchEngineerActivityLogs() async {
+    final response = await _apiClient.get('/api/activity');
+    if (response is List) {
+      return response.map((json) => ActivityLog.fromJson(json)).toList();
+    }
+    return [];
+  }
 }

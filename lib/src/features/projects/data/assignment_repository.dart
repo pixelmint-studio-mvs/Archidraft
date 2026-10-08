@@ -10,8 +10,8 @@ class AssignmentRepository {
     try {
       final response = await _apiClient.get('/api/assignments');
       return (response as List).map((a) => Assignment.fromMap(a)).toList();
-    } catch (e, st) {
-      print('Error parsing assignments: $e\n$st');
+    } catch (e) {
+      // print('Error parsing assignments: $e');
       return [];
     }
   }

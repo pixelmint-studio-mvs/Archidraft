@@ -13,7 +13,9 @@ import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/providers/profile_providers.dart';
 import '../../features/projects/presentation/engineer_projects_screen.dart';
+import '../../features/projects/presentation/engineer_activity_screen.dart';
 import '../../features/projects/presentation/financials_screen.dart';
+import '../../features/projects/presentation/collaboration_hub_screen.dart';
 import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
@@ -159,19 +161,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: '/engineer/projects/:projectId/financials',
+            path: '/engineer/projects/:projectId/collaboration-hub',
             builder: (context, state) {
               final projectId = state.pathParameters['projectId']!;
-              return FinancialsScreen(projectId: projectId);
+              return CollaborationHubScreen(projectId: projectId);
             },
           ),
           GoRoute(
             path: '/engineer/activity',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Activity',
-              description: 'View recent project updates and notifications.',
-              icon: Icons.history_rounded,
-            ),
+            builder: (context, state) => const EngineerActivityScreen(),
           ),
           GoRoute(
             path: '/engineer/profile',

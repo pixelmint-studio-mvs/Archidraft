@@ -46,9 +46,9 @@ class ProjectDetailScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.attach_money),
-            tooltip: 'Financials',
-            onPressed: () => context.push('/engineer/projects/$projectId/financials'),
+            icon: const Icon(Icons.forum_outlined),
+            tooltip: 'Collaboration Hub',
+            onPressed: () => context.push('/engineer/projects/$projectId/collaboration-hub'),
           ),
         ],
       ),
@@ -282,7 +282,26 @@ class ProjectDetailScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
             ),
           ),
+          OutlinedButton.icon(
+            onPressed: () => context.push('/engineer/projects/${project.projectId}/collaboration-hub'),
+            icon: const Icon(Icons.forum_outlined, size: 18),
+            label: const Text('Collaboration Hub'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
+            ),
+          ),
         ],
+      );
+    } else if (status != ProjectStatus.draft) {
+      return OutlinedButton.icon(
+        onPressed: () => context.push('/engineer/projects/${project.projectId}/collaboration-hub'),
+        icon: const Icon(Icons.forum_outlined, size: 18),
+        label: const Text('Collaboration Hub'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
+        ),
       );
     }
     return null;
@@ -315,6 +334,33 @@ class ProjectDetailScreen extends ConsumerWidget {
           
         const SizedBox(height: AppSpacing.gridGutter),
         
+        // Collaboration Hub Section
+        _buildSectionCard(
+          title: 'Collaboration Hub',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Communicate directly with the assigned draughtsman, discuss drawing revisions, and review project queries.',
+                style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: () => context.push('/engineer/projects/${project.projectId}/collaboration-hub'),
+                icon: const Icon(Icons.forum_outlined, size: 18),
+                label: const Text('Open Collaboration Hub'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.gridGutter),
+
         // Reference files / Upload (for Draft)
         _buildSectionCard(
           title: 'Reference Files',

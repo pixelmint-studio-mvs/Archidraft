@@ -140,7 +140,13 @@ class ApiClient {
       final response = await client.send(request);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        await platform_io.saveFileStream(response.stream, savePath, openInBrowser: openInBrowser);
+        final contentType = response.headers['content-type'];
+        await platform_io.saveFileStream(
+          response.stream,
+          savePath,
+          openInBrowser: openInBrowser,
+          contentType: contentType,
+        );
       } else {
         final errorBody = await response.stream.bytesToString();
         throw Exception('API Error: ${response.statusCode} - $errorBody');

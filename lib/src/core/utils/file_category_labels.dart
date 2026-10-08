@@ -1,4 +1,4 @@
-﻿/// Presentation-layer mapping for internal file category identifiers.
+/// Presentation-layer mapping for internal file category identifiers.
 ///
 /// The D1/backend values (e.g. 'client_upload') are legacy schema identifiers
 /// that must never be shown directly in any Engineer-facing UI.
@@ -30,5 +30,7 @@ String sanitiseActivityDetails(String details) {
   return details
       .replaceAll('client_upload', 'Project Brief')
       .replaceAll('draughtsman_version', 'Drawing Version')
-      .replaceAll('correction_attachment', 'Correction Attachment');
+      .replaceAll('correction_attachment', 'Correction Attachment')
+      .replaceAll('Client', 'Engineer')
+      .replaceAll('client', 'engineer');
 }

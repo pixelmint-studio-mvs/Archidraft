@@ -75,10 +75,18 @@ class NotificationsScreen extends ConsumerWidget {
                       ref.invalidate(notificationsProvider);
                     }
                     if (n.projectId != null && context.mounted) {
-                      if (user?.role == 'CLIENT') {
-                        context.go('/project/${n.projectId}');
-                      } else if (user?.role == 'DRAUGHTSMAN') {
-                        context.go('/draughtsman/assignment/${n.projectId}');
+                      if (n.type == 'CHAT_MESSAGE') {
+                        if (user?.role == 'ENGINEER' || user?.role == 'CLIENT') {
+                          context.push('/engineer/projects/${n.projectId}/collaboration-hub');
+                        } else if (user?.role == 'DRAUGHTSMAN') {
+                          context.push('/draughtsman/workspace/${n.projectId}');
+                        }
+                      } else {
+                        if (user?.role == 'ENGINEER' || user?.role == 'CLIENT') {
+                          context.push('/engineer/projects/${n.projectId}');
+                        } else if (user?.role == 'DRAUGHTSMAN') {
+                          context.push('/draughtsman/workspace/${n.projectId}');
+                        }
                       }
                     }
                   },

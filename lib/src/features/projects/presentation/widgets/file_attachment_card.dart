@@ -38,6 +38,16 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
           widget.file.sanitizedName,
           openInBrowser: true,
         );
+        final ext = widget.file.sanitizedName.split('.').last.toLowerCase();
+        final isPreviewable = ['jpg', 'jpeg', 'png', 'pdf'].contains(ext);
+        if (!isPreviewable && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Native preview is unavailable for .$ext files. File downloaded instead.'),
+              backgroundColor: AppColors.secondary,
+            ),
+          );
+        }
       } else {
         final dir = await getApplicationDocumentsDirectory();
         final filePath = '${dir.path}/${widget.file.sanitizedName}';

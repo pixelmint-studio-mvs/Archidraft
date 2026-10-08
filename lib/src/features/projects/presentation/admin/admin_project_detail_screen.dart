@@ -347,8 +347,9 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                   loading: () => const CircularProgressIndicator(),
                   error: (e, _) => Text('Error: $e'),
                   data: (draughtsmen) {
-                    if (draughtsmen.isEmpty)
+                    if (draughtsmen.isEmpty) {
                       return const Text('No draughtsmen found.');
+                    }
                     return ListView.builder(
                       shrinkWrap: true,
                       itemCount: draughtsmen.length,
@@ -403,15 +404,17 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                   loading: () => const CircularProgressIndicator(),
                   error: (e, _) => Text('Error: $e'),
                   data: (draughtsmen) {
-                    if (draughtsmen.isEmpty)
+                    if (draughtsmen.isEmpty) {
                       return const Text('No draughtsmen found.');
+                    }
                     return ListView.builder(
                       shrinkWrap: true,
                       itemCount: draughtsmen.length,
                       itemBuilder: (context, index) {
                         final d = draughtsmen[index];
-                        if (d.id == project.assignedDraughtsmanId)
+                        if (d.id == project.assignedDraughtsmanId) {
                           return const SizedBox.shrink();
+                        }
                         return ListTile(
                           title: Text(d.name),
                           subtitle: Text(d.email),

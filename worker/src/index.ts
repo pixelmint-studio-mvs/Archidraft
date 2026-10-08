@@ -17,6 +17,7 @@ app.use('*', cors({
   origin: '*',
   allowHeaders: ['X-File-Name', 'X-Action-Id', 'Content-Type', 'Authorization', 'Content-Length'],
   allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
+  exposeHeaders: ['Content-Type', 'Content-Disposition', 'Content-Length', 'ETag'],
 }));
 
 // Auth Middleware
@@ -603,12 +604,139 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
   return c.json(results);
 });
 
+// Project Messages (Collaboration Hub)
+app.get('/api/projects/:projectId/messages', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const isEngineer = (user.role === 'ENGINEER' || user.role === 'CLIENT') && project.client_id === uid;
+  const isDraughtsman = user.role === 'DRAUGHTSMAN' && project.draughtsman_id === uid;
+  const isAdmin = user.role === 'STUDIO_ADMIN';
+  if (!isEngineer && !isDraughtsman && !isAdmin) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const { results } = await db.prepare(`
+    SELECT
+      m.id,
+      m.project_id,
+      m.sender_id,
+      m.sender_name,
+      m.sender_role,
+      m.message,
+      m.attachment_file_id,
+      m.created_at,
+      f.original_name AS attachment_name,
+      f.size AS attachment_size,
+      f.content_type AS attachment_content_type
+    FROM project_messages m
+    LEFT JOIN files f ON m.attachment_file_id = f.id
+    WHERE m.project_id = ?
+    ORDER BY m.created_at ASC
+  `).bind(projectId).all();
+
+  return c.json(results || []);
+});
+
+app.post('/api/projects/:projectId/messages', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const isEngineer = (user.role === 'ENGINEER' || user.role === 'CLIENT') && project.client_id === uid;
+  const isDraughtsman = user.role === 'DRAUGHTSMAN' && project.draughtsman_id === uid;
+  const isAdmin = user.role === 'STUDIO_ADMIN';
+  if (!isEngineer && !isDraughtsman && !isAdmin) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const rawMessage = typeof body.message === 'string' ? body.message.trim() : '';
+  const attachmentFileId = typeof body.attachment_file_id === 'string' && body.attachment_file_id.trim().length > 0
+    ? body.attachment_file_id.trim()
+    : null;
+
+  if (rawMessage.length === 0 && !attachmentFileId) {
+    return c.json({ error: 'Message content or attachment is required' }, 400);
+  }
+
+  if (attachmentFileId) {
+    const file = await db.prepare('SELECT * FROM files WHERE id = ? AND project_id = ?').bind(attachmentFileId, projectId).first();
+    if (!file) {
+      return c.json({ error: 'Attachment file not found' }, 404);
+    }
+  }
+
+  const id = crypto.randomUUID();
+  const senderName = (user.name as string) || (isEngineer ? 'Engineer' : 'Draughtsman');
+  const senderRole = user.role === 'CLIENT' ? 'ENGINEER' : (user.role as string || 'ENGINEER');
+
+  await db.prepare(`
+    INSERT INTO project_messages (id, project_id, sender_id, sender_name, sender_role, message, attachment_file_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, projectId, uid, senderName, senderRole, rawMessage, attachmentFileId).run();
+
+  // Notification handling
+  let targetUserId: string | null = null;
+  if (isEngineer) {
+    if (project.draughtsman_id) {
+      targetUserId = project.draughtsman_id as string;
+    }
+  } else if (isDraughtsman) {
+    targetUserId = project.client_id as string;
+  }
+
+  if (targetUserId) {
+    const notifId = crypto.randomUUID();
+    const notifTitle = `New message on ${project.project_name || 'Project'}`;
+    const snippet = rawMessage.length > 80 ? `${rawMessage.substring(0, 80)}...` : rawMessage;
+    const notifMsg = snippet || (attachmentFileId ? 'Sent an attachment' : 'New message');
+    await db.prepare(`
+      INSERT INTO notifications (id, user_id, project_id, type, title, message)
+      VALUES (?, ?, ?, 'CHAT_MESSAGE', ?, ?)
+    `).bind(notifId, targetUserId, projectId, notifTitle, notifMsg).run();
+  }
+
+  const createdMessage = await db.prepare(`
+    SELECT
+      m.id,
+      m.project_id,
+      m.sender_id,
+      m.sender_name,
+      m.sender_role,
+      m.message,
+      m.attachment_file_id,
+      m.created_at,
+      f.original_name AS attachment_name,
+      f.size AS attachment_size,
+      f.content_type AS attachment_content_type
+    FROM project_messages m
+    LEFT JOIN files f ON m.attachment_file_id = f.id
+    WHERE m.id = ?
+  `).bind(id).first();
+
+  return c.json(createdMessage, 201);
+});
+
 app.post('/api/projects/:projectId/files', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
   const category = c.req.query('category');
   
-  if (!category || !['client_upload', 'draughtsman_version', 'correction_attachment'].includes(category)) {
+  if (!category || !['client_upload', 'draughtsman_version', 'correction_attachment', 'chat_attachment'].includes(category)) {
     return c.json({ error: 'Invalid category' }, 400);
   }
 
@@ -653,6 +781,13 @@ app.post('/api/projects/:projectId/files', async (c) => {
   } else if (category === 'draughtsman_version') {
     if (user.role !== 'DRAUGHTSMAN' || project.draughtsman_id !== uid || project.status !== 'IN_PROGRESS') {
       return c.json({ error: 'Forbidden or invalid project state' }, 403);
+    }
+  } else if (category === 'chat_attachment') {
+    const isEngineer = (user.role === 'ENGINEER' || user.role === 'CLIENT') && project.client_id === uid;
+    const isDraughtsman = user.role === 'DRAUGHTSMAN' && project.draughtsman_id === uid;
+    const isAdmin = user.role === 'STUDIO_ADMIN';
+    if (!isEngineer && !isDraughtsman && !isAdmin) {
+      return c.json({ error: 'Forbidden' }, 403);
     }
   }
 
@@ -777,7 +912,23 @@ app.get('/api/files/:fileId/download', async (c) => {
   const headers = new Headers();
   object.writeHttpMetadata(headers as any);
   headers.set('etag', object.httpEtag);
-  headers.set('Content-Disposition', `attachment; filename="${fileMeta.sanitized_name}"`);
+
+  // Authoritative MIME resolution from fileMeta or sanitized extension
+  const ext = ((fileMeta.sanitized_name as string) || (fileMeta.original_name as string) || '').split('.').pop()?.toLowerCase();
+  const mimeMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    zip: 'application/zip',
+    dwg: 'application/acad',
+    dxf: 'application/dxf',
+  };
+  const resolvedContentType = (fileMeta.content_type as string) || (ext ? mimeMap[ext] : null) || headers.get('content-type') || 'application/octet-stream';
+  headers.set('Content-Type', resolvedContentType);
+
+  const disposition = c.req.query('disposition') === 'inline' ? 'inline' : 'attachment';
+  headers.set('Content-Disposition', `${disposition}; filename="${fileMeta.sanitized_name}"`);
 
   return new Response(object.body, { headers });
 });
@@ -836,7 +987,51 @@ app.get('/api/projects/:projectId/activity', async (c) => {
   if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
   if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
-  const logs = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC').bind(projectId).all();
+  let query = 'SELECT * FROM activity_logs WHERE project_id = ?';
+  if (user.role === 'ENGINEER') {
+    query += " AND action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')";
+  }
+  query += ' ORDER BY timestamp DESC';
+  const logs = await db.prepare(query).bind(projectId).all();
+  return c.json(logs.results);
+});
+
+app.get('/api/activity', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  let logs;
+  if (user.role === 'ENGINEER') {
+    // Only activities for projects owned by this Engineer, excluding internal non-client and financial actions
+    logs = await db.prepare(`
+      SELECT a.*, p.project_name
+      FROM activity_logs a
+      JOIN projects p ON a.project_id = p.id
+      WHERE p.client_id = ? AND a.action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')
+      ORDER BY a.timestamp DESC
+    `).bind(uid).all();
+  } else if (user.role === 'DRAUGHTSMAN') {
+    logs = await db.prepare(`
+      SELECT a.*, p.project_name
+      FROM activity_logs a
+      JOIN projects p ON a.project_id = p.id
+      WHERE p.draughtsman_id = ?
+      ORDER BY a.timestamp DESC
+    `).bind(uid).all();
+  } else if (user.role === 'STUDIO_ADMIN') {
+    logs = await db.prepare(`
+      SELECT a.*, p.project_name
+      FROM activity_logs a
+      JOIN projects p ON a.project_id = p.id
+      ORDER BY a.timestamp DESC
+    `).all();
+  } else {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
   return c.json(logs.results);
 });
 
@@ -873,8 +1068,7 @@ app.get('/api/projects/:projectId/financials', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (user.role === 'ENGINEER' && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role !== 'ENGINEER' && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
+  if (user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Forbidden' }, 403);
 
   const { results: invoices } = await db.prepare('SELECT * FROM invoices WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
   

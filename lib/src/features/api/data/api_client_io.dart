@@ -1,7 +1,12 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
-Future<void> saveFileStream(http.ByteStream stream, String savePath, {bool openInBrowser = false}) async {
+Future<void> saveFileStream(
+  http.ByteStream stream,
+  String savePath, {
+  bool openInBrowser = false,
+  String? contentType,
+}) async {
   final file = File(savePath);
   final sink = file.openWrite(mode: FileMode.writeOnly);
   await stream.pipe(sink);

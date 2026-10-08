@@ -126,15 +126,15 @@ class _AssignmentStatusChip extends StatelessWidget {
 
     switch (status) {
       case 'WAITING_ACCEPTANCE':
-        bgColor = Colors.orange.withOpacity(0.2);
+        bgColor = Colors.orange.withValues(alpha: 0.2);
         textColor = Colors.orange[800]!;
         break;
       case 'IN_PROGRESS':
-        bgColor = Colors.blue.withOpacity(0.2);
+        bgColor = Colors.blue.withValues(alpha: 0.2);
         textColor = Colors.blue[800]!;
         break;
       case 'COMPLETED':
-        bgColor = Colors.green.withOpacity(0.2);
+        bgColor = Colors.green.withValues(alpha: 0.2);
         textColor = Colors.green[800]!;
         break;
       default:

@@ -106,3 +106,8 @@ final projectActivityLogsProvider = FutureProvider.family<List<ActivityLog>, Str
   final repository = ref.watch(projectRepositoryProvider);
   return repository.fetchActivityLogs(projectId);
 });
+
+final engineerActivityLogsProvider = FutureProvider<List<ActivityLog>>((ref) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.fetchEngineerActivityLogs();
+});
