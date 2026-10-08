@@ -73,13 +73,13 @@ INSERT OR REPLACE INTO student_assignments (id, student_id, assignment_type, pro
 
 -- DUMMY FILES (to attach to versions) - keeping it minimal just so corrections can work (since version requires a file)
 INSERT OR REPLACE INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status) 
-VALUES ('FILE_TRAIN_1', 'PROJ_TRAIN_1', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'v1_plan.dwg', 'v1_plan.dwg', 'train/1', 'application/acad', 1024, 'DRAWING', 'READY');
+VALUES ('FILE_TRAIN_1', 'PROJ_TRAIN_1', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'v1_plan.dwg', 'v1_plan.dwg', 'train/1', 'application/acad', 1024, 'DRAWING', 'COMPLETED');
 
 INSERT OR REPLACE INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status) 
-VALUES ('FILE_TRAIN_2', 'PROJ_TRAIN_2', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'v1_working.dwg', 'v1_working.dwg', 'train/2', 'application/acad', 1024, 'DRAWING', 'READY');
+VALUES ('FILE_TRAIN_2', 'PROJ_TRAIN_2', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'v1_working.dwg', 'v1_working.dwg', 'train/2', 'application/acad', 1024, 'DRAWING', 'COMPLETED');
 
 INSERT OR REPLACE INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status) 
-VALUES ('FILE_TRAIN_4', 'PROJ_TRAIN_4', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'v1_approval.dwg', 'v1_approval.dwg', 'train/4', 'application/acad', 1024, 'DRAWING', 'READY');
+VALUES ('FILE_TRAIN_4', 'PROJ_TRAIN_4', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'v1_approval.dwg', 'v1_approval.dwg', 'train/4', 'application/acad', 1024, 'DRAWING', 'COMPLETED');
 
 
 -- DRAWING VERSIONS

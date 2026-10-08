@@ -41,8 +41,11 @@ class ProjectCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                ProjectStatusChip(status: status),
-                if (createdAt != null)
+                Flexible(
+                  child: ProjectStatusChip(status: status),
+                ),
+                if (createdAt != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
                   Text(
                     DateFormat('MMM d, yyyy').format(createdAt),
                     style: AppTypography.labelMono.copyWith(
@@ -50,6 +53,7 @@ class ProjectCard extends StatelessWidget {
                       fontSize: 10,
                     ),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpacing.lg),

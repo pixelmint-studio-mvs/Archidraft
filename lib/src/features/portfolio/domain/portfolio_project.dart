@@ -59,11 +59,13 @@ class PortfolioEvaluation {
   final String result;
   final List<PortfolioCriterion> criteria;
   final int overallPercentage;
+  final String? generalFeedback;
 
   PortfolioEvaluation({
     required this.result,
     required this.criteria,
     required this.overallPercentage,
+    this.generalFeedback,
   });
 
   factory PortfolioEvaluation.fromJson(Map<String, dynamic> json) {
@@ -74,6 +76,7 @@ class PortfolioEvaluation {
               .toList() ??
           [],
       overallPercentage: json['overallPercentage'] as int? ?? 0,
+      generalFeedback: json['generalFeedback'] as String?,
     );
   }
 }

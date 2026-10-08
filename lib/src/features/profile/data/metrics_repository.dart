@@ -8,6 +8,6 @@ class MetricsRepository {
 
   Future<StudentMetrics> getStudentMetrics() async {
     final response = await _apiClient.get('/api/student/metrics');
-    return StudentMetrics.fromJson(response.data);
+    return StudentMetrics.fromJson(response as Map<String, dynamic>);
   }
 }

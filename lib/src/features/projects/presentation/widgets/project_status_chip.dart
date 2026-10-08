@@ -37,6 +37,7 @@ class ProjectStatusChip extends StatelessWidget {
           color: _textColor,
           fontSize: 10,
         ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

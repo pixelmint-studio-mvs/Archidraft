@@ -34,6 +34,7 @@ import '../../features/training/presentation/student_studio_screen.dart';
 import '../../features/training/presentation/student_training_screen.dart';
 import '../../features/training/presentation/training_module_detail_screen.dart';
 import '../../features/training/presentation/lesson_screen.dart';
+import '../../features/verification/presentation/certificate_verification_screen.dart';
 
 
 /// Provides the GoRouter configuration with authentication-aware redirects.
@@ -63,7 +64,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/register',
         '/forgot-password',
       ];
-      final isPublicRoute = publicPaths.contains(currentPath);
+      final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/');
 
       // Not logged in
       if (!isLoggedIn) {
@@ -89,7 +90,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final role = ref.read(currentUserRoleProvider);
 
       // Redirect from public routes, verify-email, or root to the role dashboard
-      if (isPublicRoute ||
+      // Redirect from auth routes, verify-email, or root to the role dashboard
+      if (publicPaths.contains(currentPath) ||
           currentPath == '/verify-email' ||
           currentPath == '/') {
         if (role == UserRole.client) return '/client/projects';
@@ -352,6 +354,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const StudentPortfolioScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/verify/:token',
+        builder: (context, state) {
+          final token = state.pathParameters['token']!;
+          return CertificateVerificationScreen(token: token);
+        },
       ),
     ],
   );

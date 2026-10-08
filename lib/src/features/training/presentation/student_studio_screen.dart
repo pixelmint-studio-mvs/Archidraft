@@ -13,6 +13,10 @@ import '../../projects/presentation/widgets/project_status_chip.dart';
 import '../domain/training_module.dart';
 import '../providers/training_providers.dart';
 import '../../profile/presentation/widgets/student_skill_matrix.dart';
+import '../../portfolio/providers/portfolio_providers.dart';
+import '../../profile/providers/credentials_providers.dart';
+import '../../profile/providers/achievements_providers.dart';
+import '../../profile/providers/metrics_providers.dart';
 
 // ─────────────────────────────────────────────
 // LOCAL PROVIDERS
@@ -149,6 +153,10 @@ class StudentStudioScreen extends ConsumerWidget {
             ref.invalidate(studentAssignmentsProvider);
             ref.invalidate(_studioCorrectionsProvider);
             ref.invalidate(studentActivityProvider);
+            ref.invalidate(studentPortfolioProvider);
+            ref.invalidate(studentCredentialsProvider);
+            ref.invalidate(studentAchievementsProvider);
+            ref.invalidate(studentMetricsProvider);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -182,6 +190,8 @@ class StudentStudioScreen extends ConsumerWidget {
                       Expanded(
                         child: Column(
                           children: const [
+                            _PortfolioHighlightsSection(),
+                            SizedBox(height: AppSpacing.lg),
                             _PendingCorrectionsSection(),
                             SizedBox(height: AppSpacing.lg),
                             _RecentActivitySection(),
@@ -190,6 +200,8 @@ class StudentStudioScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _ProfessionalReadinessSection(),
                   const SizedBox(height: AppSpacing.xl),
                   const StudentSkillMatrix(),
                 ] else ...[
@@ -200,7 +212,11 @@ class StudentStudioScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.xl),
                   const _ActiveProjectSection(),
                   const SizedBox(height: AppSpacing.xl),
+                  const _PortfolioHighlightsSection(),
+                  const SizedBox(height: AppSpacing.xl),
                   const _PendingCorrectionsSection(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _ProfessionalReadinessSection(),
                   const SizedBox(height: AppSpacing.xl),
                   const StudentSkillMatrix(),
                   const SizedBox(height: AppSpacing.xl),
@@ -242,44 +258,50 @@ class _WelcomeHeader extends StatelessWidget {
         color: AppColors.primaryContainer,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.secondary,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            ),
-            child: const Icon(
-              Icons.architecture,
-              color: AppColors.onSecondary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome back, $firstName',
-                  style: AppTypography.headlineLgMobile.copyWith(
-                    color: AppColors.onPrimary,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 640;
+
+          final greetingContent = Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Continue your training and keep your projects moving.',
-                  style: AppTypography.bodySm.copyWith(
-                    color: AppColors.onPrimaryContainer,
-                  ),
+                child: const Icon(
+                  Icons.architecture,
+                  color: AppColors.onSecondary,
+                  size: 24,
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.lg),
-          ElevatedButton.icon(
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome back, $firstName',
+                      style: AppTypography.headlineLgMobile.copyWith(
+                        color: AppColors.onPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Continue your training and keep your projects moving.',
+                      style: AppTypography.bodySm.copyWith(
+                        color: AppColors.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
+          final portfolioButton = ElevatedButton.icon(
             onPressed: () {
               context.push('/student/portfolio');
             },
@@ -290,8 +312,30 @@ class _WelcomeHeader extends StatelessWidget {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
             ),
-          ),
-        ],
+          );
+
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                greetingContent,
+                const SizedBox(height: AppSpacing.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: portfolioButton,
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: greetingContent),
+              const SizedBox(width: AppSpacing.lg),
+              portfolioButton,
+            ],
+          );
+        },
       ),
     );
   }
@@ -771,7 +815,240 @@ class _PendingCorrectionsSection extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────────
+// PORTFOLIO HIGHLIGHTS
+// ─────────────────────────────────────────────
 
+class _PortfolioHighlightsSection extends ConsumerWidget {
+  const _PortfolioHighlightsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final portfolioAsync = ref.watch(studentPortfolioProvider);
+    final credentialsAsync = ref.watch(studentCredentialsProvider);
+    final achievementsAsync = ref.watch(studentAchievementsProvider);
+
+    final isLoading = portfolioAsync.isLoading && credentialsAsync.isLoading && achievementsAsync.isLoading;
+    if (isLoading) {
+      return const _StudioCard(child: _SectionLoading());
+    }
+
+    final hasError = portfolioAsync.hasError && credentialsAsync.hasError;
+    if (hasError) {
+      return _StudioCard(
+        child: _SectionError(
+          message: 'Could not load portfolio highlights.',
+          onRetry: () {
+            ref.invalidate(studentPortfolioProvider);
+            ref.invalidate(studentCredentialsProvider);
+            ref.invalidate(studentAchievementsProvider);
+          },
+        ),
+      );
+    }
+
+    final portfolio = portfolioAsync.value ?? [];
+    final credentials = credentialsAsync.value ?? [];
+    final achievements = achievementsAsync.value ?? [];
+    final unlockedMilestones = achievements.where((a) => a.isUnlocked).length;
+
+    // Latest approved deliverable if any
+    final latestProject = portfolio.isNotEmpty ? portfolio.first : null;
+
+    return _StudioCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'PORTFOLIO & EVIDENCE',
+                style: AppTypography.labelMono.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Icon(
+                Icons.verified_outlined,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Evidence counters
+          Row(
+            children: [
+              Expanded(
+                child: _StudioHighlightStat(
+                  count: '${portfolio.length}',
+                  label: 'Approved Works',
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _StudioHighlightStat(
+                  count: '${credentials.length}',
+                  label: 'Credentials',
+                  color: AppColors.secondary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _StudioHighlightStat(
+                  count: '$unlockedMilestones',
+                  label: 'Milestones',
+                  color: AppColors.tertiary,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+          const Divider(color: AppColors.surfaceVariant),
+          const SizedBox(height: AppSpacing.md),
+
+          if (latestProject != null) ...[
+            Text(
+              'LATEST APPROVED DELIVERABLE',
+              style: AppTypography.labelMono.copyWith(
+                color: AppColors.onSurfaceVariant,
+                fontSize: 10,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        latestProject.projectName,
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        latestProject.drawingType,
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.secondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+                  ),
+                  child: Text(
+                    '${latestProject.evaluation.overallPercentage}% Score',
+                    style: AppTypography.labelMono.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ] else ...[
+            Row(
+              children: [
+                Icon(Icons.assignment_turned_in_outlined, size: 20, color: AppColors.outlineVariant),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Complete practical assignments to build your verified portfolio.',
+                    style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                context.push('/student/portfolio');
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+              ),
+              child: Text('View Full Portfolio \u2192', style: AppTypography.buttonText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioHighlightStat extends StatelessWidget {
+  final String count;
+  final String label;
+  final Color color;
+
+  const _StudioHighlightStat({
+    required this.count,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm, horizontal: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: Column(
+        children: [
+          Text(
+            count,
+            style: AppTypography.headlineSmMobile.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppTypography.labelMono.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontSize: 10,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ─────────────────────────────────────────────
 // RECENT ACTIVITY
@@ -1047,11 +1324,227 @@ class _SectionEmpty extends StatelessWidget {
       children: [
         Icon(icon, size: 24, color: AppColors.outlineVariant),
         const SizedBox(width: AppSpacing.md),
-        Text(
-          message,
-          style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+        Expanded(
+          child: Text(
+            message,
+            style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+          ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// PROFESSIONAL READINESS EVIDENCE
+// ─────────────────────────────────────────────
+
+class _ProfessionalReadinessSection extends ConsumerWidget {
+  const _ProfessionalReadinessSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final metricsAsync = ref.watch(studentMetricsProvider);
+
+    return metricsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (err, stack) => const SizedBox.shrink(),
+      data: (metrics) {
+        final readiness = metrics.readiness;
+        if (readiness == null) return const SizedBox.shrink();
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.workspace_premium_outlined, color: AppColors.primary, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    'PROFESSIONAL READINESS EVIDENCE',
+                    style: AppTypography.labelMono.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Objective evidence rubric across curriculum mastery, practical execution, technical precision, and revision discipline.',
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 600;
+                  final itemWidth = isWide ? (constraints.maxWidth - AppSpacing.md) / 2 : double.infinity;
+
+                  return Wrap(
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.md,
+                    children: [
+                      SizedBox(
+                        width: itemWidth,
+                        child: _ReadinessPillarCard(
+                          icon: Icons.menu_book_outlined,
+                          title: 'Curriculum Mastery',
+                          value: '${readiness.curriculum.percentage}%',
+                          subtitle: '${readiness.curriculum.completedLessons} of ${readiness.curriculum.totalLessons} lessons completed',
+                          progress: readiness.curriculum.totalLessons > 0
+                              ? readiness.curriculum.completedLessons / readiness.curriculum.totalLessons
+                              : 0.0,
+                          accentColor: AppColors.primary,
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _ReadinessPillarCard(
+                          icon: Icons.draw_outlined,
+                          title: 'Practical Execution',
+                          value: '${readiness.practical.completedProjects} Project${readiness.practical.completedProjects == 1 ? '' : 's'}',
+                          subtitle: '${readiness.practical.approvedDeliverables} approved deliverable${readiness.practical.approvedDeliverables == 1 ? '' : 's'}',
+                          accentColor: AppColors.secondary,
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _ReadinessPillarCard(
+                          icon: Icons.verified_outlined,
+                          title: 'Technical Precision',
+                          value: readiness.precision.averageScore != null
+                              ? '${readiness.precision.averageScore} / 5.0'
+                              : 'Pending Evals',
+                          subtitle: readiness.precision.evaluationCount > 0
+                              ? '${readiness.precision.evaluationCount} approved evaluation${readiness.precision.evaluationCount == 1 ? '' : 's'}'
+                              : 'Evaluated upon approval',
+                          progress: readiness.precision.averageScore != null
+                              ? readiness.precision.averageScore! / 5.0
+                              : null,
+                          accentColor: AppColors.tertiary,
+                        ),
+                      ),
+                      SizedBox(
+                        width: itemWidth,
+                        child: _ReadinessPillarCard(
+                          icon: Icons.assignment_turned_in_outlined,
+                          title: 'Revision Discipline',
+                          value: '${readiness.revision.resolutionRate}% Resolved',
+                          subtitle: '${readiness.revision.correctionsResolved} of ${readiness.revision.correctionsIssued} corrections resolved (${readiness.revision.totalRounds} round${readiness.revision.totalRounds == 1 ? '' : 's'})',
+                          progress: readiness.revision.resolutionRate / 100.0,
+                          accentColor: AppColors.success,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ReadinessPillarCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final String subtitle;
+  final double? progress;
+  final Color accentColor;
+
+  const _ReadinessPillarCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    this.progress,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: accentColor),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.bodySm.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            value,
+            style: AppTypography.headlineSmMobile.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: AppTypography.bodySm.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+              child: LinearProgressIndicator(
+                value: progress!.clamp(0.0, 1.0),
+                backgroundColor: AppColors.surfaceContainerHigh,
+                valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                minHeight: 6,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

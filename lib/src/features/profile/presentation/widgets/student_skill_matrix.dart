@@ -23,6 +23,10 @@ class StudentSkillMatrix extends ConsumerWidget {
           _SectionTitle('STUDENT SKILL MATRIX'),
           const SizedBox(height: AppSpacing.md),
           _LearningProgressCard(learning: metrics.learning),
+          if (metrics.disciplines.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            _DisciplineCompetencyCard(disciplines: metrics.disciplines),
+          ],
           const SizedBox(height: AppSpacing.md),
           _PracticalProficiencyCard(practical: metrics.practical),
           const SizedBox(height: AppSpacing.md),
@@ -109,6 +113,143 @@ class _LearningProgressCard extends StatelessWidget {
                 );
               }).toList(),
             ),
+    );
+  }
+}
+
+class _DisciplineCompetencyCard extends StatelessWidget {
+  final List<DisciplineCompetency> disciplines;
+  const _DisciplineCompetencyCard({required this.disciplines});
+
+  @override
+  Widget build(BuildContext context) {
+    return _MatrixCard(
+      title: 'DISCIPLINE COMPETENCY',
+      icon: Icons.category_outlined,
+      child: disciplines.isEmpty
+          ? const _EmptyState('No discipline data available.')
+          : Column(
+              children: disciplines.map((disc) {
+                final isDemonstrated = disc.state == 'Practical Evidence Demonstrated';
+                final isFoundational = disc.state == 'Foundational Study';
+
+                final Color chipBg;
+                final Color chipTextColor;
+                if (isDemonstrated) {
+                  chipBg = AppColors.success.withValues(alpha: 0.12);
+                  chipTextColor = AppColors.success;
+                } else if (isFoundational) {
+                  chipBg = AppColors.primary.withValues(alpha: 0.12);
+                  chipTextColor = AppColors.primary;
+                } else {
+                  chipBg = AppColors.surfaceVariant;
+                  chipTextColor = AppColors.onSurfaceVariant;
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      border: Border.all(
+                        color: AppColors.outlineVariant.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompact = constraints.maxWidth < 390;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isCompact) ...[
+                              Text(
+                                disc.discipline,
+                                style: AppTypography.bodyMd.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              _buildStateBadge(disc.state, chipBg, chipTextColor),
+                            ] else ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      disc.discipline,
+                                      style: AppTypography.bodyMd.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  _buildStateBadge(disc.state, chipBg, chipTextColor),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: AppSpacing.sm),
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: AppSpacing.md,
+                              runSpacing: AppSpacing.xs,
+                              children: [
+                                Text(
+                                  'Lessons: ${disc.completedLessons}/${disc.totalLessons}',
+                                  style: AppTypography.bodySm.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                                Text(
+                                  'Practical: ${disc.completedProjects} project${disc.completedProjects == 1 ? '' : 's'}',
+                                  style: AppTypography.bodySm.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                ),
+                                if (disc.evaluationScore != null)
+                                  Text(
+                                    '${disc.evaluationScore} / 5.0',
+                                    style: AppTypography.labelMono.copyWith(
+                                      color: AppColors.secondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+    );
+  }
+
+  Widget _buildStateBadge(String state, Color chipBg, Color chipTextColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: chipBg,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      ),
+      child: Text(
+        state,
+        style: AppTypography.labelMono.copyWith(
+          color: chipTextColor,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+        softWrap: true,
+      ),
     );
   }
 }
@@ -269,12 +410,14 @@ class _MatrixCard extends StatelessWidget {
             children: [
               Icon(icon, size: 20, color: AppColors.onSurfaceVariant),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.labelMono.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.labelMono.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
                 ),
               ),
             ],

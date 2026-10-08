@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -8,6 +9,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import 'widgets/profile_form.dart';
 import 'widgets/profile_header.dart';
+import 'widgets/student_credentials_card.dart';
+import 'widgets/student_achievements_card.dart';
+import '../domain/user_role.dart';
 
 /// Screen for displaying and editing the user's profile.
 class ProfileScreen extends ConsumerWidget {
@@ -67,7 +71,12 @@ class ProfileScreen extends ConsumerWidget {
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.marginMobile),
+            padding: const EdgeInsets.only(
+              left: AppSpacing.marginMobile,
+              right: AppSpacing.marginMobile,
+              top: AppSpacing.marginMobile,
+              bottom: 120.0, // Clear the AppBottomNav
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -111,6 +120,30 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   child: ProfileForm(profile: profile),
                 ),
+
+                if (UserRole.fromString(profile.role) == UserRole.student) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  const StudentAchievementsCard(),
+                  const SizedBox(height: AppSpacing.xl),
+                  const StudentCredentialsCard(),
+                  const SizedBox(height: AppSpacing.xl),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.push('/student/portfolio'),
+                      icon: const Icon(Icons.work_outline),
+                      label: const Text('View Full Student Portfolio \u2192'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xxxl),
               ],
             ),

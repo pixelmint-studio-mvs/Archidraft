@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { verifyFirebaseToken } from './auth';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import * as QRCode from 'qrcode';
+import { getStudentAchievements } from './achievements';
 
 type Bindings = {
   DB: D1Database;
@@ -21,6 +24,11 @@ app.use('*', cors({
 
 // Auth Middleware
 app.use('*', async (c, next) => {
+  // Public routes exception
+  if (c.req.path.startsWith('/api/public/')) {
+    return await next();
+  }
+
   const authHeader = c.req.header('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
@@ -37,6 +45,33 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// GET /api/public/credentials/verify/:verificationToken
+app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
+  const token = c.req.param('verificationToken');
+  const db = c.env.DB;
+
+  const credential = await db.prepare(`
+    SELECT c.type, c.title, c.issued_at, u.name as student_name
+    FROM student_credentials c
+    JOIN users u ON c.student_id = u.id
+    WHERE c.verification_token = ?
+  `).bind(token).first();
+
+  if (!credential) {
+    return c.json({ valid: false, error: 'Credential not found or invalid' }, 404);
+  }
+
+  return c.json({
+    valid: true,
+    credential: {
+      type: credential.type,
+      title: credential.title,
+      issuedAt: credential.issued_at,
+      recipientName: credential.student_name
+    }
+  });
+});
+
 // Helper: Get user from D1
 async function getUser(db: D1Database, uid: string) {
   return await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
@@ -49,8 +84,8 @@ async function verifyStudentAssignment(db: D1Database, uid: string, projectId: s
 }
 
 // Helpers: Build batched queries for state transitions
-function buildApproveFinalBatch(db: D1Database, project: any, uid: string, actionId: string, actorRole: string = 'CLIENT'): any[] {
-  return [
+function buildApproveFinalBatch(db: D1Database, project: any, uid: string, actionId: string, actorRole: string = 'CLIENT', studentId: string | null = null): any[] {
+  const batch = [
     db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, project.id),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, project.id, 'PROJECT_COMPLETED', uid, actorRole, `${actorRole === 'STUDIO_ADMIN' ? 'Admin' : 'Client'} approved the final drawing.`
@@ -59,6 +94,24 @@ function buildApproveFinalBatch(db: D1Database, project: any, uid: string, actio
       uuidv4(), project.draughtsman_id, project.id, 'PROJECT_COMPLETED', 'Project Approved', 'The drawing has been approved.'
     )
   ];
+
+  if (project.is_training_project === 1 && studentId) {
+    batch.push(
+      db.prepare(`
+        INSERT INTO student_credentials (id, student_id, type, reference_id, title, description, issued_at)
+        VALUES (?, ?, 'PRACTICAL_PROJECT_COMPLETION', ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(student_id, type, reference_id) DO NOTHING
+      `).bind(
+        uuidv4(),
+        studentId,
+        project.id,
+        'Practical Project Completion',
+        `Completed the practical project: ${project.project_name || 'Untitled Project'}`
+      )
+    );
+  }
+
+  return batch;
 }
 
 function buildRequestCorrectionBatch(db: D1Database, project: any, uid: string, actionId: string, correctionId: string, targetVersionId: string, newRound: number, description: string, actorRole: string = 'CLIENT'): any[] {
@@ -160,11 +213,11 @@ app.get('/api/student/metrics', async (c) => {
 
   // 3. Practical Proficiency (Evaluations)
   const evalQuery = `
-    SELECT e.criteria_json 
+    SELECT e.criteria_json, p.drawing_type 
     FROM evaluations e
     JOIN projects p ON e.project_id = p.id
     JOIN student_assignments sa ON p.id = sa.project_id
-    WHERE sa.student_id = ?
+    WHERE sa.student_id = ? AND e.overall_result = 'APPROVED'
   `;
   const { results: evalResults } = await db.prepare(evalQuery).bind(uid).all();
 
@@ -202,13 +255,175 @@ app.get('/api/student/metrics', async (c) => {
     };
   });
 
+  // 4. Corrections Summary (for Revision Discipline)
+  const correctionsQuery = `
+    SELECT 
+      COUNT(c.id) as totalCorrections,
+      SUM(CASE WHEN c.status = 'RESOLVED' THEN 1 ELSE 0 END) as resolvedCorrections
+    FROM corrections c
+    JOIN projects p ON c.project_id = p.id
+    JOIN student_assignments sa ON p.id = sa.project_id
+    WHERE sa.student_id = ? AND p.is_training_project = 1
+  `;
+  const correctionsRow = await db.prepare(correctionsQuery).bind(uid).first() as { totalCorrections?: number; resolvedCorrections?: number } | null;
+
+  // 5. Approved Deliverables Count
+  const deliverablesQuery = `
+    SELECT COUNT(DISTINCT e.drawing_version_id) as approvedDeliverables
+    FROM evaluations e
+    JOIN projects p ON e.project_id = p.id
+    JOIN student_assignments sa ON p.id = sa.project_id
+    WHERE sa.student_id = ? AND e.overall_result = 'APPROVED' AND p.is_training_project = 1
+  `;
+  const deliverablesRow = await db.prepare(deliverablesQuery).bind(uid).first() as { approvedDeliverables?: number } | null;
+
+  // Derive Pillar 1: Curriculum Mastery
+  let totalCurriculumLessons = 0;
+  let completedCurriculumLessons = 0;
+  for (const item of learning) {
+    totalCurriculumLessons += item.totalLessons;
+    completedCurriculumLessons += item.completedLessons;
+  }
+  const curriculumPercentage = totalCurriculumLessons > 0 
+    ? Math.round((completedCurriculumLessons / totalCurriculumLessons) * 100) 
+    : 0;
+
+  // Derive Pillar 2: Practical Execution
+  const approvedDeliverablesCount = deliverablesRow?.approvedDeliverables ?? totalCompletedProjects;
+
+  // Derive Pillar 3: Technical Precision
+  let accuracyScore: number | null = null;
+  let standardsScore: number | null = null;
+  if (skillAggregates['Accuracy'] && skillAggregates['Accuracy'].count > 0) {
+    accuracyScore = Number((skillAggregates['Accuracy'].sum / skillAggregates['Accuracy'].count).toFixed(1));
+  }
+  if (skillAggregates['Technical Standards'] && skillAggregates['Technical Standards'].count > 0) {
+    standardsScore = Number((skillAggregates['Technical Standards'].sum / skillAggregates['Technical Standards'].count).toFixed(1));
+  }
+
+  let totalScoreSum = 0;
+  let totalScoreCount = 0;
+  for (const agg of Object.values(skillAggregates)) {
+    totalScoreSum += agg.sum;
+    totalScoreCount += agg.count;
+  }
+  const averagePrecisionScore = totalScoreCount > 0 
+    ? Number((totalScoreSum / totalScoreCount).toFixed(1)) 
+    : null;
+
+  // Derive Pillar 4: Revision Discipline
+  const totalCorrectionsIssued = Number(correctionsRow?.totalCorrections ?? 0);
+  const totalCorrectionsResolved = Number(correctionsRow?.resolvedCorrections ?? 0);
+  const resolutionRate = totalCorrectionsIssued > 0
+    ? Math.round((totalCorrectionsResolved / totalCorrectionsIssued) * 100)
+    : (totalCompletedProjects > 0 ? 100 : 0);
+
+  const readiness = {
+    curriculum: {
+      completedLessons: completedCurriculumLessons,
+      totalLessons: totalCurriculumLessons,
+      percentage: curriculumPercentage,
+    },
+    practical: {
+      completedProjects: totalCompletedProjects,
+      approvedDeliverables: approvedDeliverablesCount,
+    },
+    precision: {
+      averageScore: averagePrecisionScore,
+      maxScore: 5.0,
+      accuracyScore,
+      standardsScore,
+      evaluationCount: evalResults.length,
+    },
+    revision: {
+      correctionsIssued: totalCorrectionsIssued,
+      correctionsResolved: totalCorrectionsResolved,
+      resolutionRate,
+      totalRounds: totalCorrectionRounds,
+    },
+  };
+
+  // Discipline Competency Breakdown
+  const standardDisciplines = [
+    'Architectural',
+    'Interior',
+    'Structural',
+    'Municipal Approval',
+  ];
+
+  function normalizeCategory(cat: string): string {
+    const lower = (cat || '').toLowerCase().trim();
+    if (lower === 'architectural' || lower.includes('arch')) return 'Architectural';
+    if (lower === 'interior' || lower.includes('int')) return 'Interior';
+    if (lower === 'structural' || lower.includes('struct')) return 'Structural';
+    if (lower === 'approval' || lower.includes('approv') || lower.includes('municipal')) return 'Municipal Approval';
+    return cat;
+  }
+
+  const disciplines = standardDisciplines.map(discName => {
+    let compLessons = 0;
+    let totLessons = 0;
+    for (const lr of learningResults as any[]) {
+      if (normalizeCategory(lr.category) === discName) {
+        compLessons += Number(lr.completedLessons) || 0;
+        totLessons += Number(lr.totalLessons) || 0;
+      }
+    }
+
+    let compProjects = 0;
+    for (const ar of activityResults as any[]) {
+      if (normalizeCategory(ar.category) === discName) {
+        compProjects += Number(ar.completedProjects) || 0;
+      }
+    }
+
+    let discScoreSum = 0;
+    let discScoreCount = 0;
+    for (const row of evalResults as any[]) {
+      if (normalizeCategory(row.drawing_type) === discName && row.criteria_json) {
+        try {
+          const crit = typeof row.criteria_json === 'string' ? JSON.parse(row.criteria_json) : row.criteria_json;
+          for (const val of Object.values(crit)) {
+            const num = Number(val);
+            if (!isNaN(num)) {
+              discScoreSum += num;
+              discScoreCount += 1;
+            }
+          }
+        } catch (e) {
+          // ignore invalid json
+        }
+      }
+    }
+
+    const evalScore = discScoreCount > 0 ? Number((discScoreSum / discScoreCount).toFixed(1)) : null;
+
+    let state = 'Not Started';
+    if (compProjects > 0) {
+      state = 'Practical Evidence Demonstrated';
+    } else if (compLessons > 0) {
+      state = 'Foundational Study';
+    }
+
+    return {
+      discipline: discName,
+      state,
+      completedLessons: compLessons,
+      totalLessons: totLessons,
+      completedProjects: compProjects,
+      evaluationScore: evalScore,
+    };
+  });
+
   return c.json({
     learning,
     practical,
     activity: {
       completedProjects: totalCompletedProjects,
       correctionRounds: totalCorrectionRounds,
-    }
+    },
+    readiness,
+    disciplines,
   });
 });
 
@@ -794,21 +1009,26 @@ app.post('/api/projects/evaluate', async (c) => {
     }
     
     // Normalize and validate criteria if present
-    if (typeof parsedCriteria === 'object' && parsedCriteria !== null) {
-      for (const key of Object.keys(parsedCriteria)) {
+    if (typeof parsedCriteria === 'object' && parsedCriteria !== null && !Array.isArray(parsedCriteria)) {
+      const allowedKeys = ['Accuracy', 'Technical Standards'];
+      const keys = Object.keys(parsedCriteria);
+      
+      if (keys.length !== allowedKeys.length || !allowedKeys.every(k => keys.includes(k))) {
+        return c.json({ error: 'Criteria must contain exactly "Accuracy" and "Technical Standards"' }, 400);
+      }
+
+      for (const key of keys) {
         const val = parsedCriteria[key];
-        const numVal = Number(val);
-        if (isNaN(numVal) || numVal < 1 || numVal > 5) {
-          return c.json({ error: `Criterion '${key}' must be a number between 1 and 5.` }, 400);
+        if (typeof val !== 'number' || !Number.isInteger(val) || val < 1 || val > 5) {
+          return c.json({ error: `Criterion '${key}' must be an integer between 1 and 5.` }, 400);
         }
-        parsedCriteria[key] = numVal;
       }
       criteriaString = JSON.stringify(parsedCriteria);
     } else {
-      criteriaString = null;
+      return c.json({ error: 'criteriaJson must be a JSON object' }, 400);
     }
   } else {
-    criteriaString = null;
+    return c.json({ error: 'criteriaJson is required' }, 400);
   }
 
   const evaluationId = uuidv4();
@@ -820,7 +1040,12 @@ app.post('/api/projects/evaluate', async (c) => {
   ];
 
   if (overallResult === 'APPROVED') {
-    batch = batch.concat(buildApproveFinalBatch(db, project, uid, actionId, user.role));
+    let studentId = null;
+    if (project.is_training_project === 1) {
+      const assignment: any = await db.prepare('SELECT student_id FROM student_assignments WHERE project_id = ?').bind(project.id).first();
+      if (assignment) studentId = assignment.student_id;
+    }
+    batch = batch.concat(buildApproveFinalBatch(db, project, uid, actionId, user.role, studentId));
   } else if (overallResult === 'NEEDS_CORRECTION') {
     const currentRound = (project.correction_round as number) || 0;
     if (currentRound >= 3) {
@@ -1022,7 +1247,9 @@ app.get('/api/files/:fileId/download', async (c) => {
 
   const fileMeta = await db.prepare('SELECT * FROM files WHERE id = ?').bind(fileId).first();
   if (!fileMeta) return c.json({ error: 'File not found' }, 404);
-  if (fileMeta.status !== 'COMPLETED') return c.json({ error: 'File upload not complete' }, 400);
+  if (fileMeta.status !== 'COMPLETED' && fileMeta.status !== 'READY') {
+    return c.json({ error: 'File upload not complete' }, 400);
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(fileMeta.project_id).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -1035,13 +1262,38 @@ app.get('/api/files/:fileId/download', async (c) => {
     if (!isAssigned) return c.json({ error: 'Forbidden' }, 403);
   }
 
-  const object = await c.env.STORAGE.get(fileMeta.object_key as string);
+  let object = await c.env.STORAGE.get(fileMeta.object_key as string);
+  if (!object && (fileMeta.object_key as string).startsWith('train/')) {
+    // Ensure mock training drawing file exists in R2 for developer/student demo testing
+    const dummyDwgHeader = new Uint8Array(1024);
+    const headerStr = `AC1032 - Archi Draft Approved Training Drawing (${fileMeta.sanitized_name})\n`;
+    for (let i = 0; i < headerStr.length; i++) {
+      dummyDwgHeader[i] = headerStr.charCodeAt(i);
+    }
+    await c.env.STORAGE.put(fileMeta.object_key as string, dummyDwgHeader, {
+      httpMetadata: { contentType: (fileMeta.content_type as string) || 'application/acad' }
+    });
+    object = await c.env.STORAGE.get(fileMeta.object_key as string);
+  }
+
   if (!object) return c.json({ error: 'File object missing in R2' }, 404);
 
   const headers = new Headers();
   object.writeHttpMetadata(headers as any);
-  headers.set('etag', object.httpEtag);
+  if (object.httpEtag) {
+    headers.set('etag', object.httpEtag);
+  }
   headers.set('Content-Disposition', `attachment; filename="${fileMeta.sanitized_name}"`);
+  if (fileMeta.content_type) {
+    headers.set('Content-Type', fileMeta.content_type as string);
+  } else if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/octet-stream');
+  }
+  if (fileMeta.size) {
+    headers.set('Content-Length', String(fileMeta.size));
+  } else if (object.size) {
+    headers.set('Content-Length', String(object.size));
+  }
 
   return new Response(object.body, { headers });
 });
@@ -1455,51 +1707,85 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
     return c.json({ error: 'Invalid status', code: 'BAD_REQUEST' }, 400);
   }
 
-  const id = uuidv4();
-  await db.prepare(`
-    INSERT INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at)
-    VALUES (?, ?, ?, ?, CASE WHEN ? = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END)
-    ON CONFLICT(student_id, lesson_id) DO UPDATE SET
-      status = excluded.status,
-      completed_at = CASE WHEN excluded.status = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END
-  `).bind(id, uid, lessonId, status, status).run();
-
-  // Re-calculate module progress
   const lesson: any = await db.prepare('SELECT module_id FROM training_lessons WHERE id = ?').bind(lessonId).first();
-  if (lesson) {
-    const moduleId = lesson.module_id;
-    const progressResult: any = await db.prepare(`
-      SELECT 
-        COUNT(*) as total_lessons,
-        SUM(CASE WHEN slp.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_lessons
-      FROM training_lessons l
-      LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
-      WHERE l.module_id = ?
-    `).bind(uid, moduleId).first();
+  if (!lesson) {
+    return c.json({ error: 'Lesson not found', code: 'NOT_FOUND' }, 404);
+  }
+  const moduleId = lesson.module_id;
 
-    const totalLessons = progressResult?.total_lessons || 0;
-    const completedLessons = progressResult?.completed_lessons || 0;
+  const allLessons = await db.prepare(`
+    SELECT l.id, slp.status
+    FROM training_lessons l
+    LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+    WHERE l.module_id = ?
+  `).bind(uid, moduleId).all();
+
+  let totalLessons = allLessons.results.length;
+  let completedLessons = 0;
+  
+  for (const l of allLessons.results) {
+    let lessonStatus = l.status;
+    if (l.id === lessonId) {
+      lessonStatus = status;
+    }
+    if (lessonStatus === 'COMPLETED') {
+      completedLessons++;
+    }
+  }
+
+  const batch = [];
+
+  const id = uuidv4();
+  batch.push(
+    db.prepare(`
+      INSERT INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at)
+      VALUES (?, ?, ?, ?, CASE WHEN ? = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END)
+      ON CONFLICT(student_id, lesson_id) DO UPDATE SET
+        status = excluded.status,
+        completed_at = CASE WHEN excluded.status = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END
+    `).bind(id, uid, lessonId, status, status)
+  );
+
+  if (totalLessons > 0) {
+    let moduleStatus = 'In Progress';
+    let score = Math.round((completedLessons / totalLessons) * 100);
     
-    if (totalLessons > 0) {
-      let moduleStatus = 'In Progress';
-      let score = Math.round((completedLessons / totalLessons) * 100);
+    if (completedLessons === totalLessons) {
+      moduleStatus = 'Completed';
+      score = 100;
       
-      if (completedLessons === totalLessons) {
-        moduleStatus = 'Completed';
-        score = 100;
-      }
+      const moduleDetails: any = await db.prepare('SELECT title FROM training_modules WHERE id = ?').bind(moduleId).first();
+      const moduleTitle = moduleDetails?.title || 'Unknown Module';
       
-      const moduleProgId = uuidv4();
-      await db.prepare(`
+      batch.push(
+        db.prepare(`
+          INSERT INTO student_credentials (id, student_id, type, reference_id, title, description, issued_at)
+          VALUES (?, ?, 'MODULE_COMPLETION', ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(student_id, type, reference_id) DO NOTHING
+        `).bind(
+          uuidv4(), 
+          uid, 
+          moduleId, 
+          'Module Certification', 
+          `Completed the training module: ${moduleTitle}`
+        )
+      );
+    }
+    
+    const moduleProgId = uuidv4();
+    batch.push(
+      db.prepare(`
         INSERT INTO student_progress (id, student_id, module_id, status, score, updated_at)
         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(student_id, module_id) DO UPDATE SET
           status = excluded.status,
           score = excluded.score,
           updated_at = CURRENT_TIMESTAMP
-      `).bind(moduleProgId, uid, moduleId, moduleStatus, score).run();
-    }
+      `).bind(moduleProgId, uid, moduleId, moduleStatus, score)
+    );
   }
+
+  await db.batch(batch);
 
   return c.json({ success: true });
 });
@@ -1649,6 +1935,186 @@ app.get('/api/student/activity', async (c) => {
   return c.json(results);
 });
 
+// GET /api/student/achievements
+app.get('/api/student/achievements', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || user.role !== 'STUDENT') {
+    return c.json({ error: 'Unauthorized: Only students can access achievements', code: 'UNAUTHORIZED' }, 403);
+  }
+
+  const achievements = await getStudentAchievements(db, uid);
+  return c.json({ achievements });
+});
+
+// GET /api/student/credentials
+app.get('/api/student/credentials', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'STUDENT') return c.json({ error: 'Unauthorized' }, 403);
+
+  const { results } = await db.prepare(`
+    SELECT id, type, title, description, reference_id as referenceId, issued_at as issuedAt, certificate_object_key as certificateObjectKey, verification_token as verificationToken
+    FROM student_credentials
+    WHERE student_id = ?
+    ORDER BY issued_at DESC
+  `).bind(uid).all();
+
+  return c.json(results);
+});
+
+// POST /api/student/credentials/:credentialId/certificate
+app.post('/api/student/credentials/:credentialId/certificate', async (c) => {
+  const uid = c.get('uid');
+  const credentialId = c.req.param('credentialId');
+  const db = c.env.DB;
+  
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'STUDENT') return c.json({ error: 'Unauthorized' }, 403);
+
+  const credential = await db.prepare('SELECT * FROM student_credentials WHERE id = ? AND student_id = ?').bind(credentialId, uid).first();
+  if (!credential) return c.json({ error: 'Credential not found' }, 404);
+  
+  // NOTE: If certificate exists, we still regenerate if the QR code wasn't included, but for Part 5C,
+  // we just regenerate anyway to ensure it has the QR. Or we can just overwrite. 
+  // The instruction: "preserve the existing credential, update the certificate artifact deterministically"
+
+  let verificationToken = credential.verification_token as string | null;
+  if (!verificationToken) {
+    verificationToken = crypto.randomUUID().replace(/-/g, '');
+    await db.prepare('UPDATE student_credentials SET verification_token = ? WHERE id = ?').bind(verificationToken, credentialId).run();
+  }
+
+  // Assuming Firebase Hosting uses the project ID for default domain
+  const publicUrl = `https://archi-draft.web.app/verify/${verificationToken}`;
+
+  try {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([600, 400]);
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    page.drawText('Certificate of Completion', { x: 50, y: 320, size: 30, font: helveticaBold, color: rgb(0.1, 0.2, 0.4) });
+    page.drawText(`This is to certify that`, { x: 50, y: 270, size: 16, font: helveticaFont });
+    page.drawText((user.name as string) || (user.email as string) || 'Student', { x: 50, y: 240, size: 24, font: helveticaBold });
+    page.drawText(`has successfully completed`, { x: 50, y: 200, size: 16, font: helveticaFont });
+    page.drawText((credential.title as string) || '', { x: 50, y: 170, size: 20, font: helveticaBold });
+    
+    const issueDate = new Date(credential.issued_at as string).toLocaleDateString();
+    page.drawText(`Date: ${issueDate}`, { x: 50, y: 120, size: 14, font: helveticaFont });
+    page.drawText(`Credential ID: ${credential.id}`, { x: 50, y: 90, size: 10, font: helveticaFont });
+
+    // Generate and embed QR code manually using raw matrix to avoid canvas dependency
+    const qrData = QRCode.create(publicUrl);
+    const size = qrData.modules.size;
+    const data = qrData.modules.data;
+    
+    const qrSize = 100;
+    const moduleSize = qrSize / size;
+    const xOffset = 450;
+    const yOffset = 50;
+
+    // Draw white background
+    page.drawRectangle({
+      x: xOffset,
+      y: yOffset,
+      width: qrSize,
+      height: qrSize,
+      color: rgb(1, 1, 1),
+    });
+
+    // Draw black modules (iterate from top-left, pdf-lib y=0 is bottom)
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        if (data[row * size + col]) {
+          page.drawRectangle({
+            x: xOffset + col * moduleSize,
+            y: yOffset + (size - row - 1) * moduleSize,
+            width: moduleSize,
+            height: moduleSize,
+            color: rgb(0, 0, 0),
+          });
+        }
+      }
+    }
+    page.drawText('Scan to Verify', { x: 465, y: 40, size: 10, font: helveticaFont });
+
+    const pdfBytes = await pdfDoc.save();
+    
+    const objectKey = `certificates/${uid}/${credentialId}.pdf`;
+    await c.env.STORAGE.put(objectKey, pdfBytes, {
+      httpMetadata: { contentType: 'application/pdf' },
+    });
+    
+    await db.prepare('UPDATE student_credentials SET certificate_object_key = ? WHERE id = ?').bind(objectKey, credentialId).run();
+    
+    return c.json({ message: 'Certificate generated', certificateObjectKey: objectKey, verificationToken });
+  } catch (error: any) {
+    console.error('PDF generation error:', error);
+    return c.json({ error: 'Failed to generate certificate' }, 500);
+  }
+});
+
+// GET /api/student/credentials/:credentialId/certificate
+app.get('/api/student/credentials/:credentialId/certificate', async (c) => {
+  const uid = c.get('uid');
+  const credentialId = c.req.param('credentialId');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'STUDENT') return c.json({ error: 'Unauthorized' }, 403);
+
+  const credential = await db.prepare('SELECT * FROM student_credentials WHERE id = ? AND student_id = ?').bind(credentialId, uid).first();
+  if (!credential) return c.json({ error: 'Credential not found' }, 404);
+  
+  if (!credential.certificate_object_key) {
+    return c.json({ error: 'Certificate not generated yet' }, 404);
+  }
+
+  const object = await c.env.STORAGE.get(credential.certificate_object_key as string);
+  if (!object) return c.json({ error: 'Certificate file missing in R2' }, 404);
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers as any);
+  headers.set('etag', object.httpEtag);
+  headers.set('Content-Disposition', `attachment; filename="Certificate_${credentialId}.pdf"`);
+
+  return new Response(object.body, { headers });
+});
+
+// GET /api/public/credentials/verify/:verificationToken
+app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
+  const token = c.req.param('verificationToken');
+  const db = c.env.DB;
+
+  const result = await db.prepare(`
+    SELECT c.id, c.type, c.title, c.issued_at as issuedAt, u.name as display_name, u.email 
+    FROM student_credentials c
+    JOIN users u ON c.student_id = u.id
+    WHERE c.verification_token = ?
+  `).bind(token).first();
+
+  if (!result) {
+    return c.json({ valid: false, error: 'Certificate not found' }, 404);
+  }
+
+  const recipientName = (result.display_name as string) || (result.email as string) || 'Student';
+
+  return c.json({
+    valid: true,
+    credential: {
+      id: result.id,
+      type: result.type,
+      title: result.title,
+      issuedAt: result.issuedAt,
+      recipientName: recipientName
+    }
+  });
+});
+
 // GET /api/student/portfolio
 app.get('/api/student/portfolio', async (c) => {
   const uid = c.get('uid');
@@ -1679,7 +2145,7 @@ app.get('/api/student/portfolio', async (c) => {
     const chunk = projectIds.slice(i, i + chunkSize);
     const placeholders = chunk.map(() => '?').join(',');
     const { results: evals } = await db.prepare(`
-      SELECT project_id, drawing_version_id, overall_result, criteria_json 
+      SELECT project_id, drawing_version_id, overall_result, criteria_json, general_feedback 
       FROM evaluations 
       WHERE overall_result = 'APPROVED' AND project_id IN (${placeholders})
     `).bind(...chunk).all();
@@ -1771,7 +2237,8 @@ app.get('/api/student/portfolio', async (c) => {
       evaluation: {
         result: evalRecord.overall_result,
         criteria,
-        overallPercentage
+        overallPercentage,
+        generalFeedback: evalRecord.general_feedback || null
       }
     });
   }

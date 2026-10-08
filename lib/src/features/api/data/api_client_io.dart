@@ -8,6 +8,9 @@ Future<void> saveFileStream(
   bool openInBrowser = false,
 }) async {
   final file = File(savePath);
+  if (!file.parent.existsSync()) {
+    await file.parent.create(recursive: true);
+  }
   final sink = file.openWrite(mode: FileMode.writeOnly);
   await stream.pipe(sink);
   await sink.flush();
