@@ -46,7 +46,7 @@ app.post('/api/users', async (c) => {
   const { email, name, mobile, role } = body;
 
   // Enforce role allowlist at the backend level.
-  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN', 'ENGINEER', 'STUDENT'];
+  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN'];
   const safeRole = allowedRoles.includes(role) ? role : null;
   if (!safeRole) {
     return c.json({ error: 'Invalid role. Only CLIENT and DRAUGHTSMAN are permitted.' }, 400);
@@ -70,7 +70,23 @@ app.post('/api/users', async (c) => {
 
 app.get('/api/users/me', async (c) => {
   const uid = c.get('uid');
-  const user = await getUser(c.env.DB, uid);
+  let user = await getUser(c.env.DB, uid);
+  if (!user) {
+    // If not found by UID, check if D1 user exists with the verified token email
+    const authHeader = c.req.header('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split('Bearer ')[1];
+      const payload = await verifyFirebaseToken(token);
+      if (payload?.email) {
+        user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(payload.email).first();
+        if (user) {
+          // Relink to current UID to maintain referential integrity without duplicating profiles
+          await c.env.DB.prepare('UPDATE users SET id = ? WHERE email = ?').bind(uid, payload.email).run();
+          user = await getUser(c.env.DB, uid);
+        }
+      }
+    }
+  }
   if (!user) return c.json({ error: 'User not found' }, 404);
   return c.json(user);
 });
@@ -82,15 +98,13 @@ app.patch('/api/users/me', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
 
-  const {
-    name,
-    mobile,
-    qualification,
-    dateOfBirth,
-    address,
-    companyName,
-    collegeName,
-  } = body;
+  const name = body.name;
+  const mobile = body.mobile;
+  const qualification = body.qualification;
+  const dateOfBirth = body.dateOfBirth ?? body.date_of_birth;
+  const address = body.address;
+  const companyName = body.companyName ?? body.company_name;
+  const collegeName = body.collegeName ?? body.college_name;
 
   await db.prepare(`
     UPDATE users SET
@@ -150,25 +164,56 @@ app.get('/api/projects', async (c) => {
 
   if (!user) return c.json({ error: 'User not found' }, 404);
 
+  const role = user.role as string;
   const status = c.req.query('status');
-  let query = 'SELECT * FROM projects WHERE 1=1';
-  const params: any[] = [];
 
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string)) {
-    query += ' AND client_id = ?';
-    params.push(uid);
-  } else if (user.role === 'DRAUGHTSMAN') {
-    query += ' AND draughtsman_id = ?';
-    params.push(uid);
+  if (role === 'CLIENT') {
+    let query = 'SELECT * FROM projects WHERE client_id = ?';
+    const params: any[] = [uid];
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+    const { results } = await db.prepare(query).bind(...params).all();
+    return c.json(results);
   }
 
-  if (status) {
-    query += ' AND status = ?';
-    params.push(status);
+  if (role === 'DRAUGHTSMAN') {
+    let query = 'SELECT * FROM projects WHERE draughtsman_id = ?';
+    const params: any[] = [uid];
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+    const { results } = await db.prepare(query).bind(...params).all();
+    return c.json(results);
   }
 
-  const { results } = await db.prepare(query).bind(...params).all();
-  return c.json(results);
+  if (role === 'ENGINEER') {
+    // Engineers review submitted studio projects (unsubmitted client drafts are excluded)
+    let query = "SELECT * FROM projects WHERE status != 'DRAFT'";
+    const params: any[] = [];
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+    const { results } = await db.prepare(query).bind(...params).all();
+    return c.json(results);
+  }
+
+  if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
+    let query = 'SELECT * FROM projects WHERE 1=1';
+    const params: any[] = [];
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+    const { results } = await db.prepare(query).bind(...params).all();
+    return c.json(results);
+  }
+
+  // Deny-by-default for unhandled roles (e.g. STUDENT)
+  return c.json({ error: 'Forbidden: Insufficient role permissions' }, 403);
 });
 
 // Save a draft project
@@ -349,11 +394,11 @@ app.post('/api/projects/approve-final', async (c) => {
   const { projectId, actionId } = body;
 
   const user = await getUser(db, uid);
-  if (!user || !['CLIENT', 'STUDIO_ADMIN', 'ENGINEER'].includes(user.role as string)) return c.json({ error: 'Only clients or engineers can approve final drawings' }, 403);
+  if (!user || !['CLIENT', 'STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Only clients or admins can approve final drawings' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.client_id !== uid && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Permission denied' }, 403);
+  if (project.client_id !== uid && !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
   if (project.status === 'COMPLETED' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
 
@@ -377,11 +422,11 @@ app.post('/api/projects/request-correction', async (c) => {
   const { projectId, actionId, correctionId, targetVersionId, description } = body;
 
   const user = await getUser(db, uid);
-  if (!user || !['CLIENT', 'STUDIO_ADMIN', 'ENGINEER'].includes(user.role as string)) return c.json({ error: 'Only clients or engineers can request corrections' }, 403);
+  if (!user || !['CLIENT', 'STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Only clients or admins can request corrections' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
-  if (project.client_id !== uid && user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Permission denied' }, 403);
+  if (project.client_id !== uid && !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
 
   if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in UNDER_CLIENT_REVIEW state' }, 400);
@@ -624,7 +669,7 @@ app.get('/api/draughtsman/summary', async (c) => {
       SUM(CASE WHEN a.status = 'PENDING' THEN 1 ELSE 0 END) as pending,
       SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' AND (p.correction_round IS NULL OR p.correction_round = 0) THEN 1 ELSE 0 END) as in_progress,
       SUM(CASE WHEN p.status = 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as under_review,
-      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.correction_round > 0 AND p.status != 'UNDER_CLIENT_REVIEW' THEN 1 ELSE 0 END) as corrections,
+      SUM(CASE WHEN a.status = 'ACCEPTED' AND p.status = 'IN_PROGRESS' AND p.correction_round > 0 THEN 1 ELSE 0 END) as corrections,
       SUM(CASE WHEN a.status = 'COMPLETED' OR p.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed,
       SUM(CASE WHEN a.status = 'REJECTED' THEN 1 ELSE 0 END) as rejected
     FROM assignments a
@@ -638,6 +683,31 @@ app.get('/api/draughtsman/summary', async (c) => {
   });
 });
 
+async function verifyDraughtsmanWorkspaceAccess(db: D1Database, project: any, uid: string): Promise<boolean> {
+  if (project.draughtsman_id !== uid) return false;
+  if (!project.current_assignment_id) return false;
+  const assignment = await db.prepare('SELECT status FROM assignments WHERE id = ?').bind(project.current_assignment_id).first();
+  if (!assignment || assignment.status !== 'ACCEPTED') return false;
+  return true;
+}
+
+async function canUserAccessProject(db: D1Database, project: any, user: any, uid: string): Promise<boolean> {
+  const role = user.role as string;
+  if (role === 'CLIENT') {
+    return project.client_id === uid;
+  }
+  if (role === 'DRAUGHTSMAN') {
+    return await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+  }
+  if (role === 'ENGINEER') {
+    return project.status !== 'DRAFT';
+  }
+  if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
+    return true;
+  }
+  return false;
+}
+
 // Get activity logs for a project
 app.get('/api/projects/:id/activity', async (c) => {
   const uid = c.get('uid');
@@ -647,25 +717,17 @@ app.get('/api/projects/:id/activity', async (c) => {
   const user = await getUser(db, uid);
   if (!user) return c.json({ error: 'Unauthorized' }, 403);
 
-  const project = await db.prepare('SELECT client_id, draughtsman_id FROM projects WHERE id = ?').bind(projectId).first();
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
 
   const { results } = await db.prepare('SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC').bind(projectId).all();
   return c.json(results);
 });
 
-// Upload endpoints moved to bottom
-
-
-// Get drawing versions for a project
-// Download endpoints remain
-
-
-
-// Get a single project by ID — accessible by the owning draughtsman or client
+// Get a single project by ID — accessible by the owning draughtsman, client, or reviewing engineer/admin
 app.get('/api/projects/:id', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('id');
@@ -676,26 +738,15 @@ app.get('/api/projects/:id', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  // Authorization: draughtsman must be assigned, client must own it, admin can see all
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden' }, 403);
 
   return c.json(project);
 });
 
-// Get activity logs for a project (draughtsman/client/admin access)
-// Draughtsman summary metrics (for Insights screen)
 // ==========================================
 // STORAGE API (Streaming via Worker)
 // ==========================================
-
-async function verifyDraughtsmanWorkspaceAccess(db: D1Database, project: any, uid: string) {
-  if (project.draughtsman_id !== uid) return false;
-  if (!project.current_assignment_id) return false;
-  const assignment = await db.prepare('SELECT status FROM assignments WHERE id = ?').bind(project.current_assignment_id).first();
-  if (!assignment || assignment.status !== 'ACCEPTED') return false;
-  return true;
-}
 
 app.get('/api/projects/:projectId/files', async (c) => {
   const uid = c.get('uid');
@@ -707,12 +758,8 @@ app.get('/api/projects/:projectId/files', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  // Check authorization
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN') {
-    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
-    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
-  }
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
 
   const { results } = await db.prepare('SELECT * FROM files WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
   return c.json(results);
@@ -728,11 +775,8 @@ app.get('/api/projects/:projectId/drawing_versions', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN') {
-    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
-    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
-  }
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
 
   const { results } = await db.prepare('SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ? ORDER BY dv.version_number DESC').bind(projectId).all();
   return c.json(results);
@@ -748,11 +792,8 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN') {
-    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
-    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
-  }
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
 
   const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
   return c.json(results);
@@ -763,7 +804,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   const projectId = c.req.param('projectId');
   const category = c.req.query('category');
 
-  if (!category || !['client_upload', 'draughtsman_version', 'correction_attachment'].includes(category)) {
+  if (!category || !['client_upload', 'draughtsman_version', 'correction_attachment', 'message_attachment'].includes(category)) {
     return c.json({ error: 'Invalid category' }, 400);
   }
 
@@ -777,7 +818,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   // Validate extension server-side
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   const ext = sanitizedName.split('.').pop()?.toLowerCase();
-  const allowedExtensions = ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip'];
+  const allowedExtensions = ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip', 'webm', 'm4a', 'mp3', 'wav', 'ogg', 'aac'];
 
   if (!ext || !allowedExtensions.includes(ext)) {
     return c.json({ error: 'Invalid file extension. Allowed: ' + allowedExtensions.join(', ') }, 400);
@@ -792,6 +833,12 @@ app.post('/api/projects/:projectId/files', async (c) => {
     zip: 'application/zip',
     dwg: 'application/acad',
     dxf: 'application/dxf',
+    webm: 'audio/webm',
+    m4a: 'audio/mp4',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    aac: 'audio/aac',
   };
   const contentType = mimeMap[ext] || 'application/octet-stream';
 
@@ -804,7 +851,12 @@ app.post('/api/projects/:projectId/files', async (c) => {
 
   // Authorization checks
   if (category === 'client_upload' || category === 'correction_attachment') {
-    if (!['CLIENT', 'ENGINEER'].includes(user.role as string) || project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
+    if ((user.role !== 'CLIENT' || project.client_id !== uid) && !['ADMIN', 'STUDIO_ADMIN'].includes(user.role as string)) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+  } else if (category === 'message_attachment') {
+    const hasAccess = await canUserAccessProject(db, project, user, uid);
+    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
   } else if (category === 'draughtsman_version') {
     const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
     if (!hasAccess || project.status !== 'IN_PROGRESS') {
@@ -916,11 +968,8 @@ app.get('/api/files/:fileId/download', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Authorization checks
-  if (['CLIENT', 'ENGINEER'].includes(user.role as string) && project.client_id !== uid) return c.json({ error: 'Forbidden' }, 403);
-  if (user.role === 'DRAUGHTSMAN') {
-    const hasAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
-    if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
-  }
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
 
   const object = await c.env.STORAGE.get(fileMeta.object_key as string);
   if (!object) return c.json({ error: 'File object missing in R2' }, 404);
@@ -944,6 +993,13 @@ app.get('/api/notifications', async (c) => {
   return c.json(results);
 });
 
+app.patch('/api/notifications/read-all', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').bind(uid).run();
+  return c.json({ success: true });
+});
+
 app.patch('/api/notifications/:id/read', async (c) => {
   const uid = c.get('uid');
   const notificationId = c.req.param('id');
@@ -955,6 +1011,102 @@ app.patch('/api/notifications/:id/read', async (c) => {
 
   await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').bind(notificationId).run();
   return c.json({ success: true });
+});
+
+// ==========================================
+// PROJECT MESSAGES / COLLABORATION API
+// ==========================================
+
+app.get('/api/projects/:projectId/messages', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+
+  const { results } = await db.prepare(`
+    SELECT pm.*, f.original_name as attachment_name, f.size as attachment_size, f.content_type as attachment_type
+    FROM project_messages pm
+    LEFT JOIN files f ON pm.attachment_file_id = f.id
+    WHERE pm.project_id = ?
+    ORDER BY pm.created_at ASC
+  `).bind(projectId).all();
+
+  return c.json(results);
+});
+
+app.post('/api/projects/:projectId/messages', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+
+  const body = await c.req.json();
+  const { message, attachment_file_id } = body;
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    return c.json({ error: 'Message cannot be empty' }, 400);
+  }
+
+  const messageId = crypto.randomUUID();
+  const senderRole = user.role as string;
+  const senderName = user.name || (senderRole === 'DRAUGHTSMAN' ? 'Draughtsman' : 'Engineer');
+
+  // Insert into project_messages
+  await db.prepare(`
+    INSERT INTO project_messages (id, project_id, sender_id, sender_name, sender_role, message, attachment_file_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(messageId, projectId, uid, senderName, senderRole, message.trim(), attachment_file_id ?? null).run();
+
+  // Create notification for counterpart
+  const notifId = crypto.randomUUID();
+  const projectTitle = (project.project_name as string) || (project.title as string) || 'Project';
+  if (senderRole === 'DRAUGHTSMAN') {
+    if (project.client_id) {
+      await db.prepare(`
+        INSERT INTO notifications (id, user_id, type, title, message)
+        VALUES (?, ?, 'CHAT_MESSAGE', ?, ?)
+      `).bind(
+        notifId,
+        project.client_id,
+        `New Message on ${projectTitle}`,
+        `${senderName}: ${message.trim().substring(0, 100)}`
+      ).run();
+    }
+  } else {
+    if (project.draughtsman_id) {
+      await db.prepare(`
+        INSERT INTO notifications (id, user_id, type, title, message)
+        VALUES (?, ?, 'CHAT_MESSAGE', ?, ?)
+      `).bind(
+        notifId,
+        project.draughtsman_id,
+        `New Remark on ${projectTitle}`,
+        `${senderName}: ${message.trim().substring(0, 100)}`
+      ).run();
+    }
+  }
+
+  const created = await db.prepare(`
+    SELECT pm.*, f.original_name as attachment_name, f.size as attachment_size, f.content_type as attachment_type
+    FROM project_messages pm
+    LEFT JOIN files f ON pm.attachment_file_id = f.id
+    WHERE pm.id = ?
+  `).bind(messageId).first();
+
+  return c.json(created, 201);
 });
 
 export default app;

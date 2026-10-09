@@ -11,6 +11,12 @@ const FIREBASE_JWKS_URI = 'https://www.googleapis.com/service_accounts/v1/jwk/se
 const JWKS = createRemoteJWKSet(new URL(FIREBASE_JWKS_URI));
 
 export async function verifyFirebaseToken(token: string) {
+  // Safe test-only hook: only active in isolated testing when process.env.NODE_ENV === 'test'
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' && token.startsWith('mock-token:')) {
+    const uid = token.slice('mock-token:'.length);
+    return { sub: uid, email: `${uid}@example.com` };
+  }
+
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: ISSUER,
