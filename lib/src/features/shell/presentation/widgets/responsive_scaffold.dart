@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/domain/user_profile.dart';
@@ -15,6 +16,7 @@ class ResponsiveScaffold extends StatelessWidget {
   final List<NavDestination> destinations;
   final ValueChanged<int> onDestinationSelected;
   final UserProfile? profile;
+  final bool? hideNavigation;
 
   const ResponsiveScaffold({
     super.key,
@@ -23,10 +25,21 @@ class ResponsiveScaffold extends StatelessWidget {
     required this.destinations,
     required this.onDestinationSelected,
     this.profile,
+    this.hideNavigation,
   });
 
   @override
   Widget build(BuildContext context) {
+    bool shouldHide = hideNavigation ?? false;
+    if (hideNavigation == null) {
+      try {
+        final loc = GoRouterState.of(context).matchedLocation;
+        if (loc.contains('/collaboration-hub')) {
+          shouldHide = true;
+        }
+      } catch (_) {}
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = AppBreakpoints.isMobile(constraints.maxWidth);
@@ -39,6 +52,18 @@ class ResponsiveScaffold extends StatelessWidget {
         );
 
         if (isMobile) {
+          if (shouldHide) {
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              body: Stack(
+                children: [
+                  background,
+                  body,
+                ],
+              ),
+            );
+          }
+
           return Scaffold(
             extendBody: true,
             extendBodyBehindAppBar: true,

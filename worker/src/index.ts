@@ -673,9 +673,10 @@ app.post('/api/projects/:projectId/messages', async (c) => {
     return c.json({ error: 'Message content or attachment is required' }, 400);
   }
 
+  let attachedFile: any = null;
   if (attachmentFileId) {
-    const file = await db.prepare('SELECT * FROM files WHERE id = ? AND project_id = ?').bind(attachmentFileId, projectId).first();
-    if (!file) {
+    attachedFile = await db.prepare('SELECT * FROM files WHERE id = ? AND project_id = ?').bind(attachmentFileId, projectId).first();
+    if (!attachedFile) {
       return c.json({ error: 'Attachment file not found' }, 404);
     }
   }
@@ -703,7 +704,17 @@ app.post('/api/projects/:projectId/messages', async (c) => {
     const notifId = crypto.randomUUID();
     const notifTitle = `New message on ${project.project_name || 'Project'}`;
     const snippet = rawMessage.length > 80 ? `${rawMessage.substring(0, 80)}...` : rawMessage;
-    const notifMsg = snippet || (attachmentFileId ? 'Sent an attachment' : 'New message');
+    let notifMsg = snippet;
+    if (!notifMsg) {
+      if (attachedFile) {
+        const ct = (attachedFile.content_type as string) || '';
+        const name = ((attachedFile.original_name as string) || '').toLowerCase();
+        const isVoice = ct.startsWith('audio/') || ['.webm', '.m4a', '.mp3', '.wav', '.aac', '.ogg'].some(ext => name.endsWith(ext));
+        notifMsg = isVoice ? 'Sent a voice message' : 'Sent an attachment';
+      } else {
+        notifMsg = 'New message';
+      }
+    }
     await db.prepare(`
       INSERT INTO notifications (id, user_id, project_id, type, title, message)
       VALUES (?, ?, ?, 'CHAT_MESSAGE', ?, ?)
@@ -750,7 +761,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   // Validate extension server-side
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   const ext = sanitizedName.split('.').pop()?.toLowerCase();
-  const allowedExtensions = ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip'];
+  const allowedExtensions = ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip', 'webm', 'm4a', 'mp3', 'wav', 'aac', 'ogg'];
   
   if (!ext || !allowedExtensions.includes(ext)) {
     return c.json({ error: 'Invalid file extension. Allowed: ' + allowedExtensions.join(', ') }, 400);
@@ -765,6 +776,12 @@ app.post('/api/projects/:projectId/files', async (c) => {
     zip: 'application/zip',
     dwg: 'application/acad',
     dxf: 'application/dxf',
+    webm: 'audio/webm',
+    m4a: 'audio/mp4',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
   };
   const contentType = mimeMap[ext] || 'application/octet-stream';
 
@@ -923,6 +940,12 @@ app.get('/api/files/:fileId/download', async (c) => {
     zip: 'application/zip',
     dwg: 'application/acad',
     dxf: 'application/dxf',
+    webm: 'audio/webm',
+    m4a: 'audio/mp4',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
   };
   const resolvedContentType = (fileMeta.content_type as string) || (ext ? mimeMap[ext] : null) || headers.get('content-type') || 'application/octet-stream';
   headers.set('Content-Type', resolvedContentType);

@@ -6,14 +6,14 @@ import 'package:archi_draft/src/core/theme/app_colors.dart';
 import 'package:archi_draft/src/core/theme/app_spacing.dart';
 import 'package:archi_draft/src/core/theme/app_typography.dart';
 
-import '../domain/drawing_type.dart';
-import '../domain/project_validators.dart';
-import '../providers/project_form_controller.dart';
-import '../providers/project_providers.dart';
-import '../providers/file_providers.dart';
-import '../../profile/providers/profile_providers.dart';
-import 'widgets/file_upload_button.dart';
-import 'widgets/file_attachment_card.dart';
+import 'package:archi_draft/src/features/projects/domain/drawing_type.dart';
+import 'package:archi_draft/src/features/projects/domain/project_validators.dart';
+import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
+import 'package:archi_draft/src/features/profile/providers/profile_providers.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/file_upload_button.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/file_attachment_card.dart';
 
 /// Single-page project brief form.
 ///

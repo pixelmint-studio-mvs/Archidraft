@@ -13,7 +13,7 @@ import 'package:archi_draft/src/features/projects/providers/project_providers.da
 import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 
-import 'widgets/project_status_chip.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/project_status_chip.dart';
 
 /// Client / Engineer Projects Dashboard Screen.
 ///

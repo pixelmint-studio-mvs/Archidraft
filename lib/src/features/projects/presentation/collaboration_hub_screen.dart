@@ -16,6 +16,11 @@ import '../domain/project_file.dart';
 import '../providers/project_providers.dart';
 import '../providers/message_providers.dart';
 import '../data/file_repository.dart';
+import '../providers/voice_recording_controller.dart';
+import 'widgets/voice_message_player.dart';
+import 'widgets/voice_recorder_bar.dart';
+import 'widgets/image_attachment_preview.dart';
+import 'widgets/cad_attachment_card.dart';
 
 /// Collaboration Hub Screen for Engineer Portal.
 ///
@@ -37,6 +42,8 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
 
   bool _isUploadingAttachment = false;
   ProjectFile? _pendingAttachment;
+  int _previousMessageCount = 0;
+  bool _initialScrollDone = false;
 
   @override
   void initState() {
@@ -208,6 +215,12 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(projectMessagesProvider(widget.projectId), (prev, next) {
+      if (next.hasValue && (next.value?.isNotEmpty ?? false)) {
+        _scrollToBottom();
+      }
+    });
+
     final projectAsync = ref.watch(projectProvider(widget.projectId));
     final messagesAsync = ref.watch(projectMessagesProvider(widget.projectId));
     final sendState = ref.watch(messageSenderControllerProvider);
@@ -264,76 +277,89 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _BlueprintGridPainter(),
-            ),
-          ),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                    border: Border.all(
-                      color: AppColors.outlineVariant.withValues(alpha: 0.5),
-                      width: 0.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 20,
-                        offset: const Offset(0, 4),
+      resizeToAvoidBottomInset: true,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 650;
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _BlueprintGridPainter(),
+                ),
+              ),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1200),
+                  child: Padding(
+                    padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(AppSpacing.md),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerLowest,
+                        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(AppSpacing.radiusXl),
+                        border: isMobile
+                            ? null
+                            : Border.all(
+                                color: AppColors.outlineVariant.withValues(alpha: 0.5),
+                                width: 0.5,
+                              ),
+                        boxShadow: isMobile
+                            ? null
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                       ),
-                    ],
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      // Panel Sub-Header (Project & Participant Context)
-                      _buildContextBanner(projectAsync.value),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          // Panel Sub-Header (Project & Participant Context)
+                          _buildContextBanner(projectAsync.value, isMobile: isMobile),
 
-                      // Messages List
-                      Expanded(
-                        child: messagesAsync.when(
-                          loading: () => const AppLoadingIndicator(message: 'Loading conversation...'),
-                          error: (err, _) => AppErrorWidget(
-                            message: 'Failed to load messages.',
-                            onRetry: () => ref.invalidate(projectMessagesProvider(widget.projectId)),
+                          // Messages List
+                          Expanded(
+                            child: messagesAsync.when(
+                              loading: () => const AppLoadingIndicator(message: 'Loading conversation...'),
+                              error: (err, _) => AppErrorWidget(
+                                message: 'Failed to load messages.',
+                                onRetry: () => ref.invalidate(projectMessagesProvider(widget.projectId)),
+                              ),
+                              data: (messages) {
+                                if (messages.isEmpty) {
+                                  return _buildEmptyState();
+                                }
+                                return _buildMessagesList(messages);
+                              },
+                            ),
                           ),
-                          data: (messages) {
-                            if (messages.isEmpty) {
-                              return _buildEmptyState();
-                            }
-                            return _buildMessagesList(messages);
-                          },
-                        ),
-                      ),
 
-                      // Input Composer
-                      _buildComposer(sendState.isLoading),
-                    ],
+                          // Input Composer
+                          _buildComposer(sendState.isLoading),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildContextBanner(Project? project) {
+  Widget _buildContextBanner(Project? project, {bool isMobile = false}) {
     final projectName = project?.projectName.isNotEmpty == true ? project!.projectName : 'Project #${widget.projectId.substring(0, 8)}';
     final isAssigned = project?.assignedDraughtsmanId != null && project!.assignedDraughtsmanId!.isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? AppSpacing.md : AppSpacing.xl,
+        vertical: isMobile ? AppSpacing.sm : AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
         border: Border(
@@ -456,6 +482,16 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
   }
 
   Widget _buildMessagesList(List<ProjectMessage> messages) {
+    if (!_initialScrollDone || messages.length > _previousMessageCount) {
+      _previousMessageCount = messages.length;
+      _initialScrollDone = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    }
+
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -588,7 +624,14 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
                       // Attachment card if present
                       if (message.hasAttachment) ...[
                         if (message.message.isNotEmpty) const SizedBox(height: AppSpacing.md),
-                        _buildAttachmentBubble(message),
+                        if (message.isVoiceMessage)
+                          VoiceMessagePlayer(message: message)
+                        else if (message.isImageAttachment)
+                          ImageAttachmentPreview(message: message)
+                        else if (message.isCadAttachment)
+                          CadAttachmentCard(message: message)
+                        else
+                          _buildAttachmentBubble(message),
                       ],
                     ],
                   ),
@@ -683,21 +726,45 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
   }
 
   Widget _buildComposer(bool isSending) {
+    final recordingState = ref.watch(voiceRecordingControllerProvider);
+    if (!recordingState.isIdle) {
+      return SafeArea(
+        top: false,
+        bottom: true,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            border: Border(
+              top: BorderSide(
+                color: AppColors.outlineVariant.withValues(alpha: 0.4),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: VoiceRecorderBar(projectId: widget.projectId),
+        ),
+      );
+    }
+
     final hasText = _textController.text.trim().isNotEmpty;
     final canSend = (hasText || _pendingAttachment != null) && !isSending && !_isUploadingAttachment;
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.outlineVariant.withValues(alpha: 0.4),
-            width: 0.5,
+    return SafeArea(
+      top: false,
+      bottom: true,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          border: Border(
+            top: BorderSide(
+              color: AppColors.outlineVariant.withValues(alpha: 0.4),
+              width: 0.5,
+            ),
           ),
         ),
-      ),
-      child: Column(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Pending attachment preview
@@ -782,6 +849,15 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
                   onPressed: _isUploadingAttachment || isSending ? null : _pickAndUploadAttachment,
                 ),
 
+                // Record voice message button
+                IconButton(
+                  icon: const Icon(Icons.mic_rounded, color: AppColors.outline),
+                  tooltip: 'Record voice message',
+                  onPressed: _isUploadingAttachment || isSending
+                      ? null
+                      : () => ref.read(voiceRecordingControllerProvider.notifier).startRecording(),
+                ),
+
                 // Text field
                 Expanded(
                   child: TextField(
@@ -835,6 +911,7 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }

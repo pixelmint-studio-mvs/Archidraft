@@ -14,10 +14,10 @@ import 'package:archi_draft/src/features/projects/providers/file_providers.dart'
 import 'package:archi_draft/src/features/api/providers/api_providers.dart';
 import 'package:uuid/uuid.dart';
 
-import 'widgets/file_attachment_card.dart';
-import 'widgets/file_upload_button.dart';
-import 'widgets/correction_dialog.dart';
-import 'widgets/workflow_timeline_widget.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/file_attachment_card.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/file_upload_button.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/correction_dialog.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/workflow_timeline_widget.dart';
 
 /// Detail screen for viewing a project.
 ///

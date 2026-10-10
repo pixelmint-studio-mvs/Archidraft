@@ -9,7 +9,7 @@ import 'package:archi_draft/src/core/theme/app_typography.dart';
 import 'package:archi_draft/src/core/utils/file_category_labels.dart';
 import 'package:archi_draft/src/shared/widgets/app_state_widgets.dart';
 
-import '../providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 
 /// Screen displaying the Engineer-specific activity feed.
 ///

@@ -21,8 +21,9 @@ lib/
       └── features/
            ├── api/                     (ApiClient, cross-platform streaming)
            ├── auth/                    (Firebase Auth controllers, login, registration)
+           ├── engineer/                (Engineer screens: projects dashboard, form, detail, activity)
            ├── profile/                 (Profile screens, UserRole, ProfileRepository)
-           ├── projects/                (Project CRUD, detail screen, workflow actions)
+           ├── projects/                (Project CRUD, detail screen, workflow actions, collaboration hub)
            └── notifications/           (Notifications list, read states)
 ```
 
@@ -69,3 +70,46 @@ Located in `worker/src/index.ts`:
   ```
 - **R2 Streaming with TransformStream:** Validates file size in flight to prevent memory exhaustion and buffer overflow attacks.
 - **Idempotent Batches:** Uses `db.batch()` to commit multi-record mutations atomically.
+
+---
+
+## 5. Collaboration Hub Media & File Architecture
+
+The Collaboration Hub incorporates dedicated media handling engines:
+- **WhatsApp-Style Voice Messages:**
+  - Audio playback directly in-chat via `VoiceMessagePlayer`.
+  - No user-facing download button or OS storage pollution.
+  - Bounded in-memory byte cache (`_audioCache`) fetched through authenticated file endpoints.
+  - Mutual-exclusion audio controller (`activeAudioPlayerIdProvider`) ensuring single-source playback.
+- **Inline Image Previews:**
+  - Raster formats (PNG, JPG, WebP, GIF, BMP, AVIF) detected via MIME and file extensions.
+  - Inline chat thumbnail box with shimmer loader and retry states.
+  - Tapping opens an interactive full-screen Lightbox with smooth 0.5x–5.0x zoom/pan via `InteractiveViewer`.
+- **CAD File Architecture (DXF & DWG):**
+  - **DXF:** Pure-Dart 2D ASCII vector parser (`DxfDrawing.parse`) rendering `LINE`, `CIRCLE`, `ARC`, `LWPOLYLINE`, `POINT`, and `TEXT` on a hardware-accelerated canvas with inverted CAD coordinate correction.
+  - **DWG:** Truthful fallback handling. On Android, launches installed compatible applications (Autodesk, DWG FastView) via `open_filex`. On Web, provides authenticated file download. Private R2 drawings are never uploaded to third-party conversion APIs.
+
+---
+
+## 6. Mobile Responsiveness & Layout Architecture
+
+- **Navigation Shell Isolation:**
+  - `ResponsiveScaffold` monitors the active path. When inside `/collaboration-hub`, mobile shell bars (`AppBottomNav`, `AppTopBar`) are automatically suppressed.
+  - Eliminates the mobile layout defect where the message composer was hidden beneath bottom navigation tabs.
+- **Safe Area & Keyboard Adaptation:**
+  - `Scaffold.resizeToAvoidBottomInset` ensures the message composer moves smoothly above on-screen software keyboards.
+  - Composer wrapped in `SafeArea(bottom: true)` to prevent obstruction by device gesture bars or home indicators.
+  - `LayoutBuilder` removes outer padding and card borders on screens `< 650px` for a native edge-to-edge chat experience.
+
+---
+
+## 7. Role Module Boundaries & Separation
+
+- **Role Feature Roots:**
+  - `lib/src/features/engineer/` (Engineer-owned dashboard, submissions, activity, financials)
+  - `lib/src/features/draughtsman/` (Reserved root with boundary specification README)
+  - `lib/src/features/student/` (Reserved root with boundary specification README)
+- **Shared Cross-Portal Modules:**
+  - `lib/src/features/projects/` (Domain models, file repositories, upload pipelines)
+  - `lib/src/features/collaboration/` (Collaboration Hub screen, voice player, image/CAD viewers)
+  - `lib/src/features/auth/` & `core/` (Authentication, theme tokens, HTTP client)

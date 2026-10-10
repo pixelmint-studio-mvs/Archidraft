@@ -243,14 +243,16 @@
 
 ## 29. Testing & Quality
 - **Flutter Analyze:** 0 errors, 0 warnings (`flutter analyze --no-fatal-infos`).
-- **Flutter Tests:** 63 passing unit and widget tests covering `CollaborationHubScreen`, `ProjectMessage`, `ProjectStatusChip`, and `Validators`.
+- **Flutter Tests:** 91 passing unit, widget, and domain tests covering `CollaborationHubScreen`, voice player, media attachments, DXF parser with text entities, `ProjectMessage`, `ProjectStatusChip`, and `Validators`.
 - **Worker Typecheck:** 0 TypeScript compilation errors (`npm run typecheck`).
+- **Live Chrome Verification:** Verified in Chrome with real voice note playback, inline JPEG preview, lightbox expansion, DXF 2D vector drawing with text labels ("SAMPLE FLOOR PLAN", "6000 x 4000 mm"), zoom/pan/fit controls, and mobile viewports (320px–412px).
 
 ---
 
 ## 30. Current Engineer Completion Status
-- The Engineer Portal feature set is **COMPLETED and FROZEN** on branch `Engineer_Panels`.
+- The Engineer Portal feature set, Collaboration Hub media enhancements, and mobile layout fixes are **COMPLETED and FROZEN** on branch `Engineer_Panels`.
 - All Engineer-facing flows (Auth, Projects, Files, Workflow, Hub, Activity, Profile) are operational.
+- Engineer-owned presentation screens are located under `lib/src/features/engineer/presentation/`.
 
 ---
 
@@ -262,3 +264,12 @@
 
 ## 32. Future Admin Integration
 - Admin dashboard metrics, user directory controls, and administrative financials remain isolated on backend endpoints for future administrative panel development.
+
+---
+
+## 33. Collaboration Hub Media & Role Boundary Updates
+- **WhatsApp-Style Voice Notes:** In-chat playback only without a separate download button. Temporary memory caching prevents saving to the user's Downloads folder simply for playback. Real Chrome recording and playback verified without MissingPluginException.
+- **Inline Image Previews:** PNG, JPG, WebP, GIF, BMP, AVIF render inline with shimmer loaders and click-to-expand interactive Lightbox.
+- **CAD File Routing & DXF Text Rendering:** DXF files render directly via pure-Dart 2D vector parser (`dxf_viewer.dart`), including lines, polylines, circles, arcs, and text entities (`DxfTextEntity`) with Zoom In, Zoom Out, and Fit to Drawing controls. DWG files provide a truthful external app fallback on Android and authenticated download on Web.
+- **Mobile Layout Optimization:** Shell navigation automatically adapts on mobile during Collaboration Hub sessions, ensuring the bottom composer is never obscured by navigation tabs or the on-screen keyboard across 320px, 360px, 390px, and 412px viewports.
+- **Role Feature Roots:** Engineer screens located under `lib/src/features/engineer/presentation/`, with reserved roots for `features/draughtsman/` and `features/student/` with clear ownership contracts.
