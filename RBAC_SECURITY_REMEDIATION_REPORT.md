@@ -12,10 +12,10 @@
 This remediation report addresses the security gaps, policy inconsistencies, and role-provisioning risks documented in `POST_FIX_RBAC_PORTAL_VERIFICATION_REPORT.md`.
 
 Key achievements:
-1. **Intended Policy Alignment:** Confirmed via authoritative workflow specifications ([`CORE_WORKFLOW.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/CORE_WORKFLOW.md) and [`USER_ROLES.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/USER_ROLES.md)) that **Final Drawing Approval** (`POST /api/projects/approve-final`) and **Correction Requests** (`POST /api/projects/request-correction`) are strictly **Client-only** operations (with Admin fallback). `ENGINEER` authorization has been removed from both endpoints.
+1. **Intended Policy Alignment:** Confirmed via authoritative workflow specifications ([`docs/01_project/CORE_WORKFLOW.md`](docs/01_project/CORE_WORKFLOW.md) and [`docs/01_project/USER_ROLES.md`](docs/01_project/USER_ROLES.md)) that **Final Drawing Approval** (`POST /api/projects/approve-final`) and **Correction Requests** (`POST /api/projects/request-correction`) are strictly **Client-only** operations (with Admin fallback). `ENGINEER` authorization has been removed from both endpoints.
 2. **Privilege Escalation Prevention:** Restriced public account registration (`POST /api/users`) strictly to `['CLIENT', 'DRAUGHTSMAN']`. Unauthorized attempts to self-assign privileged or broad-access roles (`ENGINEER`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN`) are now denied with `400 Bad Request`.
 3. **Profile Immutability:** Verified that `PATCH /api/users/me` strictly whitelists profile fields and never updates the `role` column, preventing post-registration privilege escalation.
-4. **Real Backend Authorization Test Suite:** Built and executed a 47-assertion, isolated backend test harness ([`worker/test/backend_authorization.test.mjs`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/test/backend_authorization.test.mjs)) executing directly against the Hono dispatch pipeline and an in-memory SQLite database running real D1 migrations `0001` through `0007`.
+4. **Real Backend Authorization Test Suite:** Built and executed a 47-assertion, isolated backend test harness ([`worker/test/backend_authorization.test.mjs`](worker/test/backend_authorization.test.mjs)) executing directly against the Hono dispatch pipeline and an in-memory SQLite database running real D1 migrations `0001` through `0007`.
 5. **Zero Breaking Regressions:** 100% of Worker tests (47/47), Flutter unit/widget tests (152/152), and Flutter static analyses (0 issues) passed cleanly. Existing test databases and retained fixtures were preserved without modification.
 
 ---
@@ -23,7 +23,7 @@ Key achievements:
 ## 2. Phase 1 — Policy Decisions & Confirmation
 
 ### 2.1 Final Drawing Approval & Correction Requests
-- **Authoritative Source:** [`docs/01_project/CORE_WORKFLOW.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/CORE_WORKFLOW.md) (Steps 6 & 7) and [`docs/01_project/USER_ROLES.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/USER_ROLES.md) (Role matrix & actions).
+- **Authoritative Source:** [`docs/01_project/CORE_WORKFLOW.md`](docs/01_project/CORE_WORKFLOW.md) (Steps 6 & 7) and [`docs/01_project/USER_ROLES.md`](docs/01_project/USER_ROLES.md) (Role matrix & actions).
 - **Finding:**
   - **Step 6 (Review & Correction):** *"Client reviews drawing on web viewer. If changes required: Adds redline annotations... Submits correction request."*
   - **Step 7 (Final Approval & Handoff):** *"Client approves final version."*
@@ -31,7 +31,7 @@ Key achievements:
 - **Decision:** **`ENGINEER` access to `POST /api/projects/approve-final` and `POST /api/projects/request-correction` was improper and has been completely removed.** Only the project's owning `CLIENT` or `ADMIN`/`STUDIO_ADMIN` are authorized.
 
 ### 2.2 Account Provisioning Policy
-- **Authoritative Source:** [`docs/01_project/USER_ROLES.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/USER_ROLES.md) and [`lib/src/features/auth/data/auth_repository.dart`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/lib/src/features/auth/data/auth_repository.dart).
+- **Authoritative Source:** [`docs/01_project/USER_ROLES.md`](docs/01_project/USER_ROLES.md) and [`lib/src/features/auth/data/auth_repository.dart`](lib/src/features/auth/data/auth_repository.dart).
 - **Finding:**
   - The public registration flow exposed in the client UI only allows selecting between "Client" and "Draughtsman".
   - `POST /api/users` originally permitted `['CLIENT', 'DRAUGHTSMAN', 'ENGINEER', 'STUDENT']`, allowing any unauthenticated/newly authenticated caller to self-assign `ENGINEER` (granting visibility into all non-draft projects) or `STUDENT`.
@@ -42,7 +42,7 @@ Key achievements:
 
 ## 3. Phase 2 — Applied Security Remediation
 
-The following modifications were made to [`worker/src/index.ts`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/src/index.ts):
+The following modifications were made to [`worker/src/index.ts`](worker/src/index.ts):
 
 ### 3.1 Restricted Role Allowlist on User Creation (`POST /api/users`)
 ```typescript
@@ -98,7 +98,7 @@ WHERE id = ?
 The `role` column cannot be updated by callers, preventing role spoofing post-registration.
 
 ### 3.5 Isolated Test Mode in Auth Middleware (`worker/src/auth.ts`)
-To allow real backend test execution without live Google Cloud / Firebase network calls or leaking test credentials, [`worker/src/auth.ts`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/src/auth.ts) supports an isolated test token format active **only** when `process.env.NODE_ENV === 'test'`:
+To allow real backend test execution without live Google Cloud / Firebase network calls or leaking test credentials, [`worker/src/auth.ts`](worker/src/auth.ts) supports an isolated test token format active **only** when `process.env.NODE_ENV === 'test'`:
 ```typescript
 if (process.env.NODE_ENV === 'test' && token.startsWith('mock-token:')) {
   const uid = token.split('mock-token:')[1];
@@ -111,7 +111,7 @@ if (process.env.NODE_ENV === 'test' && token.startsWith('mock-token:')) {
 ## 4. Phase 3 — Real Backend Test Suite Implementation
 
 ### 4.1 Test Architecture
-- **Location:** [`worker/test/backend_authorization.test.mjs`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/test/backend_authorization.test.mjs)
+- **Location:** [`worker/test/backend_authorization.test.mjs`](worker/test/backend_authorization.test.mjs)
 - **Engine:** Node.js v24 Native Test Runner (`node --test`)
 - **Database:** Node native `DatabaseSync(':memory:')` SQLite, wrapped with a Cloudflare D1-compatible query adapter (`prepare().bind().first() / .all() / .run()`).
 - **Schema Replay:** Executes raw D1 SQL migrations in order:
@@ -245,11 +245,11 @@ if (process.env.NODE_ENV === 'test' && token.startsWith('mock-token:')) {
   - Retained test fixtures and local database files untouched (test harness runs on `:memory:` SQLite).
   - No secrets, tokens, or credentials exposed.
 - **Modified Files:**
-  - [`worker/src/index.ts`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/src/index.ts)
-  - [`worker/src/auth.ts`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/src/auth.ts)
-  - [`worker/package.json`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/package.json)
+  - [`worker/src/index.ts`](worker/src/index.ts)
+  - [`worker/src/auth.ts`](worker/src/auth.ts)
+  - [`worker/package.json`](worker/package.json)
 - **New Test File:**
-  - [`worker/test/backend_authorization.test.mjs`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/worker/test/backend_authorization.test.mjs)
+  - [`worker/test/backend_authorization.test.mjs`](worker/test/backend_authorization.test.mjs)
 
 ---
 *Report generated and validated autonomously without multi-portal integration.*

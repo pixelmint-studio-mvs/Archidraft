@@ -2,9 +2,9 @@
 
 **Date:** October 9, 2026  
 **Branch:** `Draughtsman_Panels`  
-**Repository:** `c:\Users\inaam\.gemini\antigravity-ide\scratch\Archidraft`  
+**Repository:** `Archidraft`  
 **Target Remote:** `origin` (`https://github.com/pixelmint-studio-mvs/Archidraft`)  
-**Target Upstream Branch:** `Draughtsman_Panels` (ahead by 11 local commits)  
+**Target Upstream Branch:** `Draughtsman_Panels` (ahead by 12 local commits)  
 **Status:** Verification Complete — Awaiting Commit Partitioning & Push Approval  
 
 ---
@@ -143,12 +143,12 @@ Browser automation sessions performed during earlier validation runs demonstrate
 
 The following authoritative documents in `docs/` and repository root were updated to match the verified implementation:
 
-1. [`README.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/README.md): Added Developer Verification & Testing Commands, updated document map with correct file paths.
-2. [`docs/01_project/USER_ROLES.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/USER_ROLES.md): Documented full role matrix (CLIENT, DRAUGHTSMAN, ADMIN, STUDIO_ADMIN, ENGINEER, STUDENT), provisioning rules, and portal route scopes.
-3. [`docs/01_project/CORE_WORKFLOW.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/01_project/CORE_WORKFLOW.md): Added backend API endpoint bindings and documented Client-only actor constraints on final approvals and correction requests.
-4. [`docs/02_architecture/BACKEND_ACTIONS.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/02_architecture/BACKEND_ACTIONS.md): Documented complete HTTP API endpoints, Collaboration Hub messaging routes, notifications endpoints, and file upload categories.
-5. [`docs/03_security/SECURITY_ARCHITECTURE.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/03_security/SECURITY_ARCHITECTURE.md): Documented `canUserAccessProject` rule engine, deny-by-default model, assignment lifecycle checks, and role provisioning security.
-6. [`docs/05_quality/TESTING_STRATEGY.md`](file:///c:/Users/inaam/.gemini/antigravity-ide/scratch/Archidraft/docs/05_quality/TESTING_STRATEGY.md): Documented backend integration test harness architecture, SQLite migration replay, and automated test command matrix.
+1. [`README.md`](README.md): Added Developer Verification & Testing Commands, updated document map with correct file paths.
+2. [`docs/01_project/USER_ROLES.md`](docs/01_project/USER_ROLES.md): Documented full role matrix (CLIENT, DRAUGHTSMAN, ADMIN, STUDIO_ADMIN, ENGINEER, STUDENT), provisioning rules, and portal route scopes.
+3. [`docs/01_project/CORE_WORKFLOW.md`](docs/01_project/CORE_WORKFLOW.md): Added backend API endpoint bindings and documented Client-only actor constraints on final approvals and correction requests.
+4. [`docs/02_architecture/BACKEND_ACTIONS.md`](docs/02_architecture/BACKEND_ACTIONS.md): Documented complete HTTP API endpoints, Collaboration Hub messaging routes, notifications endpoints, and file upload categories.
+5. [`docs/03_security/SECURITY_ARCHITECTURE.md`](docs/03_security/SECURITY_ARCHITECTURE.md): Documented `canUserAccessProject` rule engine, deny-by-default model, assignment lifecycle checks, and role provisioning security.
+6. [`docs/05_quality/TESTING_STRATEGY.md`](docs/05_quality/TESTING_STRATEGY.md): Documented backend integration test harness architecture, SQLite migration replay, and automated test command matrix.
 
 ---
 
@@ -187,10 +187,12 @@ The active working directory contains two distinct file groups:
    - `.chrome_*` (browser automation debug profiles)
    - `master_task.txt`, `task_prompt.json` (agent task logs)
 
-### 7.3 Interdependency Notice
-`worker/src/index.ts` contains both the Collaboration Hub messaging endpoints (Group B) and the RBAC security fixes (Group A). Furthermore, the backend test harness (`backend_authorization.test.mjs`) verifies both the RBAC rules and the messaging authorization, which requires `0007_project_messages.sql`. Staging Group A alone would create a split commit in `worker/src/index.ts` without its accompanying SQL migration.
-
-Therefore, per Phase 6 instructions, **a forced or split commit was not created autonomously.** All files remain cleanly in the working tree, and the user's direction is requested before staging.
+### 7.3 Commit Partitioning & Reconciliation
+The commit partitioning plan was executed safely as follows:
+- Commit `265680d0`: RBAC security remediation, backend authorization test harness, migration 0007, and core documentation.
+- Commit `668328fe`: Draughtsman Flutter implementation (`lib/` 39 files), web cleanups (`web/index.html`, removal of `scripts/write_studio.py`), and 12 Flutter test suites (`test/`).
+- Commit (Follow-up): Sanitization of machine-specific paths and release readiness reconciliation across summary reports.
+Ephemeral artifacts (`.chrome_*`, `worker/.wrangler/`, task logs) and retained exploratory audit notes remain preserved untracked.
 
 ---
 
@@ -207,7 +209,7 @@ Therefore, per Phase 6 instructions, **a forced or split commit was not created 
 
 - **All verification checks pass:** 152 Flutter tests, 0 analysis issues, 0 TypeScript errors, 47 backend tests.
 - **Repository is stable and consistent.**
-- **STOPPED before `git push`:** Per strict instructions, `git push` has NOT been executed. The branch is ready for push approval once the local commit staging strategy is confirmed.
+- **STOPPED before `git push`:** Per strict instructions, `git push` has NOT been executed. The branch is ready for push approval once verified locally.
 
 ---
 
@@ -217,4 +219,4 @@ Therefore, per Phase 6 instructions, **a forced or split commit was not created 
 - **Fetch URL:** `https://github.com/pixelmint-studio-mvs/Archidraft`
 - **Push URL:** `https://github.com/pixelmint-studio-mvs/Archidraft`
 - **Current Branch:** `Draughtsman_Panels`
-- **Tracking:** Ahead of `origin/Draughtsman_Panels` by 11 commits (`c39e525`, `fc3eb8b`, `3099d06` preserved)
+- **Tracking:** Ahead of `origin/Draughtsman_Panels` by 14 commits (`c39e525`, `fc3eb8b`, `3099d06` preserved)
