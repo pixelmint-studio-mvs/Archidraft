@@ -20,8 +20,11 @@ import '../../features/projects/presentation/admin/admin_project_detail_screen.d
 import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_collaboration_hub_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_insights_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_drawings_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/projects/domain/assignment.dart';
 import '../../features/profile/presentation/draughtsman_onboarding_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
@@ -209,16 +212,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/draughtsman/workspace/:assignmentId',
             builder: (context, state) {
               final assignmentId = state.pathParameters['assignmentId']!;
-              return DraughtsmanWorkspaceScreen(assignmentId: assignmentId);
+              final tab = state.uri.queryParameters['tab'];
+              return DraughtsmanWorkspaceScreen(
+                assignmentId: assignmentId,
+                initialTab: tab,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/draughtsman/workspace/:assignmentId/collaboration',
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId']!;
+              return DraughtsmanCollaborationHubScreen(assignmentId: assignmentId);
+            },
+          ),
+          GoRoute(
+            path: '/draughtsman/collaboration/:assignmentId',
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId']!;
+              return DraughtsmanCollaborationHubScreen(assignmentId: assignmentId);
             },
           ),
           GoRoute(
             path: '/draughtsman/drawings',
-            builder: (context, state) => const DraughtsmanDrawingsScreen(),
+            builder: (context, state) {
+              final assignmentId = state.uri.queryParameters['id'] ?? (state.extra as Assignment?)?.id;
+              return DraughtsmanDrawingsScreen(initialAssignmentId: assignmentId);
+            },
+            routes: [
+              GoRoute(
+                path: ':assignmentId',
+                builder: (context, state) {
+                  final assignmentId = state.pathParameters['assignmentId'];
+                  return DraughtsmanDrawingsScreen(initialAssignmentId: assignmentId);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/draughtsman/insights',
             builder: (context, state) => const DraughtsmanInsightsScreen(),
+          ),
+          GoRoute(
+            path: '/draughtsman/notifications',
+            builder: (context, state) => const DraughtsmanNotificationsScreen(),
           ),
           GoRoute(
             path: '/draughtsman/profile',

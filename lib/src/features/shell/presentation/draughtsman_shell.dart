@@ -39,11 +39,19 @@ class DraughtsmanShell extends StatelessWidget {
   ];
 
   int _calculateSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).matchedLocation;
+    String location = '';
+    try {
+      location = GoRouterState.of(context).matchedLocation;
+    } catch (_) {
+      try {
+        location = GoRouter.of(context).routeInformationProvider.value.uri.path;
+      } catch (_) {}
+    }
     if (location.startsWith('/draughtsman/studio')) return 0;
     if (location.startsWith('/draughtsman/drawings')) return 1;
     if (location.startsWith('/draughtsman/insights')) return 2;
     if (location.startsWith('/draughtsman/profile')) return 3;
+    if (location.startsWith('/draughtsman/notifications')) return -1;
     return 0; // Default
   }
 

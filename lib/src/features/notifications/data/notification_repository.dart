@@ -19,4 +19,9 @@ class NotificationRepository {
   Future<void> markAsRead(String id) async {
     await _apiClient.patch('/api/notifications/$id/read');
   }
+
+  Future<void> markAllAsRead() async {
+    await _apiClient.patch('/api/notifications/read-all');
+  }
 }
+

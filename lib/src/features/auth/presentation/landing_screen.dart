@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,16 +8,9 @@ import '../../../shared/widgets/blueprint_background.dart';
 
 /// Landing / Welcome screen.
 ///
-/// Stitch reference: landing_experience_linked
-/// Key design elements:
-///   - Blueprint grid background (40px, #E4E2E4, 60% opacity)
-///   - Top-right floating login icon button (glass pill)
-///   - Hero: 280×280 glass logo panel (backdropFilter blur 20, white 60%)
-///   - Headline: "Precision.\nDesign.\nDelivery." — 24px SemiBold Inter, centered
-///   - Subtitle: bodyMd, onSurfaceVariant, centered
-///   - CTA: "Start Submission →" full-width, primaryContainer bg, onPrimary text
-///   - Stats bento grid: Projects Active (col-span-2) + Drawings Verified + Engineers Joined
-///   - Footer: PixelMint Studio MVS credit, 11px, outline color
+/// Faithfully reproduces:
+/// - REFERENCE DESIGN/stitch_draughtsman_studio_os/stitch_draughtsman_studio_os/landing_experience/code.html
+/// - REFERENCE DESIGN/stitch_draughtsman_studio_os/stitch_draughtsman_studio_os/landing_experience_linked/code.html
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
@@ -45,7 +36,7 @@ class _LandingScreenState extends State<LandingScreen>
       curve: Curves.easeOut,
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.06),
+      begin: const Offset(0, 0.04),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
@@ -60,24 +51,32 @@ class _LandingScreenState extends State<LandingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 768;
+
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: BlueprintBackground(
         child: SafeArea(
           child: Stack(
             children: [
-              // ── Scrollable main content ──
+              // ── Atmospheric Architectural Construction Lines ──
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _ConstructionLinesPainter(),
+                ),
+              ),
+
+              // ── Scrollable main content (max-w-lg / 512px) ──
               SingleChildScrollView(
-                padding: const EdgeInsets.only(
-                  left: AppSpacing.marginMobile,
-                  right: AppSpacing.marginMobile,
-                  top:
-                      AppSpacing.xxl +
-                      AppSpacing.xl, // space below fixed header
-                  bottom: AppSpacing.xxxl,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop
+                      ? AppSpacing.marginDesktop
+                      : AppSpacing.marginMobile,
+                  vertical: 32,
                 ),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
+                    constraints: const BoxConstraints(maxWidth: 512),
                     child: FadeTransition(
                       opacity: _fadeAnimation,
                       child: SlideTransition(
@@ -85,32 +84,46 @@ class _LandingScreenState extends State<LandingScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // ── Hero: Logo Panel ──
-                            _LogoPanel(),
+                            const SizedBox(height: 16),
 
-                            const SizedBox(height: AppSpacing.xxl),
+                            // ── Hero: Logo Glass Panel (max-w-[280px]) ──
+                            const _LogoPanel(),
 
-                            // ── Headline ──
+                            const SizedBox(height: 32),
+
+                            // ── Headline: Precision. Design. Delivery. ──
                             Text(
                               'Precision.\nDesign.\nDelivery.',
-                              style: AppTypography.headlineLgMobile.copyWith(
+                              style: AppTypography.headlineDisplay.copyWith(
                                 color: AppColors.primary,
+                                fontSize: isDesktop ? 44.0 : 32.0,
+                                height: 1.15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: isDesktop ? -0.88 : -0.64,
                               ),
                               textAlign: TextAlign.center,
                             ),
 
-                            const SizedBox(height: AppSpacing.lg),
+                            const SizedBox(height: 16),
 
                             // ── Subtitle ──
-                            Text(
-                              'Rigorous engineering software for architects and structural designers.',
-                              style: AppTypography.bodyMd.copyWith(
-                                color: AppColors.onSurfaceVariant,
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 380),
+                                child: Text(
+                                  'Rigorous engineering software for architects and structural designers.',
+                                  style: AppTypography.bodyMd.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                    fontSize: 16,
+                                    height: 1.5,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                              textAlign: TextAlign.center,
                             ),
 
-                            const SizedBox(height: AppSpacing.blueprintUnit),
+                            const SizedBox(height: 36),
 
                             // ── CTA: Start Submission ──
                             _CtaButton(
@@ -118,17 +131,15 @@ class _LandingScreenState extends State<LandingScreen>
                               onPressed: () => context.push('/role-selection'),
                             ),
 
-                            const SizedBox(height: AppSpacing.xxxl),
+                            const SizedBox(height: 48),
 
-                            // ── Stats Bento Grid ──
-                            _StatsBentoGrid(),
+                            // ── Live Stats Bento Grid ──
+                            const _StatsBentoGrid(),
 
-                            const SizedBox(height: AppSpacing.xxxl),
+                            const SizedBox(height: 48),
 
                             // ── Footer Credit ──
-                            _FooterCredit(),
-
-                            const SizedBox(height: AppSpacing.xl),
+                            const _FooterCredit(),
                           ],
                         ),
                       ),
@@ -137,11 +148,13 @@ class _LandingScreenState extends State<LandingScreen>
                 ),
               ),
 
-              // ── Fixed top-right: login icon button ──
+              // ── Fixed top-right: circular glass person icon button ──
               Positioned(
-                top: AppSpacing.lg,
-                right: AppSpacing.marginMobile,
-                child: _LoginIconButton(),
+                top: 16,
+                right: isDesktop
+                    ? AppSpacing.marginDesktop
+                    : AppSpacing.marginMobile,
+                child: const _LoginCircularIconButton(),
               ),
             ],
           ),
@@ -151,47 +164,44 @@ class _LandingScreenState extends State<LandingScreen>
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Logo Panel — glass card 280×280 with mix-blend-multiply logo
-// ─────────────────────────────────────────────────────────────
+/// Logo glass panel matching code.html:
+/// w-full max-w-[280px] aspect-square rounded-2xl glass-panel soft-elevation p-4
 class _LogoPanel extends StatelessWidget {
+  const _LogoPanel();
+
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            width: 280,
-            height: 280,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: const Color(0x99FFFFFF), // 60% white — glass
-              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-              border: Border.all(
-                color: const Color(0xCCFFFFFF), // 80% white border
-                width: 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryContainer.withValues(alpha: 0.05),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-                BoxShadow(
-                  color: AppColors.primaryContainer.withValues(alpha: 0.03),
-                  blurRadius: 24,
-                  spreadRadius: 8,
-                ),
-              ],
+      child: Container(
+        width: 260,
+        height: 260,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white,
+            width: 1.0,
+          ),
+          boxShadow: [
+            // Ambient elevation matching code.html .soft-elevation
+            BoxShadow(
+              color: const Color(0xFF0D1C32).withValues(alpha: 0.05),
+              offset: const Offset(0, 1),
+              blurRadius: 2,
             ),
-            child: Image.asset(
-              'assets/images/draughtsman_logo.jpeg',
-              fit: BoxFit.contain,
-              // mix-blend-multiply equivalent: use ColorFiltered to achieve
-              // darkened blending on white background
+            BoxShadow(
+              color: const Color(0xFF0D1C32).withValues(alpha: 0.03),
+              offset: const Offset(0, 8),
+              blurRadius: 24,
             ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.asset(
+            'assets/images/draughtsman_logo.jpeg',
+            fit: BoxFit.contain,
           ),
         ),
       ),
@@ -199,107 +209,99 @@ class _LogoPanel extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// CTA Button — full-width, primaryContainer bg, arrow icon
-// ─────────────────────────────────────────────────────────────
-class _CtaButton extends StatefulWidget {
+/// Start Submission CTA Button matching code.html:
+/// bg-primary-container text-on-primary py-4 px-6 rounded-lg font-button-text
+class _CtaButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
   const _CtaButton({required this.label, required this.onPressed});
 
   @override
-  State<_CtaButton> createState() => _CtaButtonState();
-}
-
-class _CtaButtonState extends State<_CtaButton> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onPressed,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(
-            vertical: AppSpacing.lg,
-            horizontal: AppSpacing.xl,
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryContainer,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
           ),
-          decoration: BoxDecoration(
-            color: _hovered ? AppColors.primary : AppColors.primaryContainer,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.2),
-                offset: const Offset(0, 1),
-                blurRadius: 0,
-                spreadRadius: 0,
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: AppTypography.buttonText.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                letterSpacing: 0.2,
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                widget.label,
-                style: AppTypography.buttonText.copyWith(
-                  color: AppColors.onPrimary,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              AnimatedSlide(
-                duration: const Duration(milliseconds: 200),
-                offset: _hovered ? const Offset(0.3, 0) : Offset.zero,
-                child: const Icon(
-                  Icons.arrow_forward,
-                  color: AppColors.onPrimary,
-                  size: 18,
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Stats Bento Grid — 2-column grid, first card full-width
-// ─────────────────────────────────────────────────────────────
+/// Live Stats Bento Grid matching code.html:
+/// Projects Active: 1,204 (+12% this week)
+/// Drawings Verified: 8.4k
+/// Engineers Joined: 450+
 class _StatsBentoGrid extends StatelessWidget {
+  const _StatsBentoGrid();
+
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Full-width card: Projects Active
+        // Full-width card: Projects Active 1,204
         _StatCard(
           label: 'PROJECTS ACTIVE',
           value: '1,204',
-          trailing: const Icon(
+          trendText: '+12% this week',
+          trailing: Icon(
             Icons.architecture_outlined,
-            size: 36,
+            size: 40,
             color: AppColors.primary,
           ),
-          trend: '+12% this week',
-          fullWidth: true,
         ),
-        const SizedBox(height: AppSpacing.gridGutter),
-        // Two half-width cards
-        Row(
-          children: [
-            Expanded(
-              child: _StatCard(label: 'DRAWINGS VERIFIED', value: '8.4k'),
-            ),
-            const SizedBox(width: AppSpacing.gridGutter),
-            Expanded(
-              child: _StatCard(label: 'ENGINEERS JOINED', value: '450+'),
-            ),
-          ],
+        SizedBox(height: 16),
+        // Two half-width cards: Drawings Verified (8.4k) and Engineers Joined (450+)
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _StatCard(
+                  label: 'DRAWINGS VERIFIED',
+                  value: '8.4k',
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _StatCard(
+                  label: 'ENGINEERS JOINED',
+                  value: '450+',
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -309,36 +311,43 @@ class _StatsBentoGrid extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
+  final String? trendText;
   final Widget? trailing;
-  final String? trend;
-  final bool fullWidth;
 
   const _StatCard({
     required this.label,
     required this.value,
+    this.trendText,
     this.trailing,
-    this.trend,
-    this.fullWidth = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: AppColors.surfaceVariant, width: 1.0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.surfaceVariant,
+          width: 1.0,
+        ),
         boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryContainer.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+          const BoxShadow(
+            color: Colors.white,
+            offset: Offset(0, 1),
+            blurRadius: 0,
           ),
           BoxShadow(
-            color: AppColors.primaryContainer.withValues(alpha: 0.03),
+            color: const Color(0xFF0D1C32).withValues(alpha: 0.05),
+            offset: const Offset(0, 1),
+            blurRadius: 2,
+          ),
+          BoxShadow(
+            color: const Color(0xFF0D1C32).withValues(alpha: 0.03),
+            offset: const Offset(0, 8),
             blurRadius: 24,
-            spreadRadius: 8,
           ),
         ],
       ),
@@ -346,35 +355,43 @@ class _StatCard extends StatelessWidget {
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 label,
                 style: AppTypography.labelMono.copyWith(
                   color: AppColors.outline,
-                  letterSpacing: 0.05 * 12,
+                  letterSpacing: 0.8,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: 4),
               Text(
                 value,
-                style: AppTypography.headlineLgMobile.copyWith(
+                style: AppTypography.headlineLg.copyWith(
                   color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 28,
+                  letterSpacing: -0.5,
                 ),
               ),
-              if (trend != null) ...[
-                const SizedBox(height: AppSpacing.sm),
+              if (trendText != null) ...[
+                const SizedBox(height: 6),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.trending_up,
+                    const Icon(
+                      Icons.trending_up_rounded,
                       size: 14,
-                      color: AppColors.onTertiaryContainer,
+                      color: Color(0xFF069669),
                     ),
-                    const SizedBox(width: AppSpacing.xs),
+                    const SizedBox(width: 4),
                     Text(
-                      trend!,
-                      style: AppTypography.bodySm.copyWith(
-                        color: AppColors.onTertiaryContainer,
+                      trendText!,
+                      style: AppTypography.labelMonoSm.copyWith(
+                        color: const Color(0xFF069669),
+                        fontWeight: FontWeight.w500,
                         fontSize: 12,
                       ),
                     ),
@@ -387,7 +404,10 @@ class _StatCard extends StatelessWidget {
             Positioned(
               top: 0,
               right: 0,
-              child: Opacity(opacity: 0.10, child: trailing!),
+              child: Opacity(
+                opacity: 0.10,
+                child: trailing!,
+              ),
             ),
         ],
       ),
@@ -395,88 +415,128 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Footer Credit
-// ─────────────────────────────────────────────────────────────
+/// Footer Credit matching code.html:
+/// pt-8 border-t border-outline-variant/30 text-center pb-8
 class _FooterCredit extends StatelessWidget {
+  const _FooterCredit();
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Divider(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
-          thickness: 1,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(
-          'UI/UX Design & Product Experience crafted by PixelMint Studio MVS',
-          style: AppTypography.labelMono.copyWith(
-            color: AppColors.outline,
-            fontSize: 11,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 32, bottom: 32),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.30),
+            width: 1.0,
           ),
-          textAlign: TextAlign.center,
         ),
-      ],
+      ),
+      child: Text(
+        'UI/UX Design & Product Experience crafted by PixelMint Studio MVS',
+        style: AppTypography.bodyMd.copyWith(
+          color: AppColors.outline,
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+        ),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Login Icon Button — top-right, glass pill
-// Stitch: p-2, bg-surface-container-lowest/80, backdrop-blur-md,
-//         rounded-full, border border-white/50, person icon
-// ─────────────────────────────────────────────────────────────
-class _LoginIconButton extends StatefulWidget {
-  @override
-  State<_LoginIconButton> createState() => _LoginIconButtonState();
-}
-
-class _LoginIconButtonState extends State<_LoginIconButton> {
-  bool _hovered = false;
+/// Top-right circular glass person button (landing_experience_linked)
+class _LoginCircularIconButton extends StatelessWidget {
+  const _LoginCircularIconButton();
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: () => context.push('/login'),
-        child: ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: _hovered
-                    ? AppColors.surfaceVariant.withValues(alpha: 0.9)
-                    : AppColors.surfaceContainerLowest.withValues(alpha: 0.8),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryContainer.withValues(alpha: 0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                  BoxShadow(
-                    color: AppColors.primaryContainer.withValues(alpha: 0.03),
-                    blurRadius: 24,
-                  ),
-                ],
+        borderRadius: BorderRadius.circular(9999),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest.withValues(alpha: 0.85),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.70),
+              width: 1.0,
+            ),
+            boxShadow: [
+              const BoxShadow(
+                color: Colors.white,
+                offset: Offset(0, 1),
+                blurRadius: 0,
               ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: AppColors.primary,
-                size: 24,
+              BoxShadow(
+                color: const Color(0xFF0D1C32).withValues(alpha: 0.05),
+                offset: const Offset(0, 1),
+                blurRadius: 2,
               ),
+              BoxShadow(
+                color: const Color(0xFF0D1C32).withValues(alpha: 0.03),
+                offset: const Offset(0, 8),
+                blurRadius: 24,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.person_rounded,
+              size: 22,
+              color: AppColors.primary,
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Construction lines matching code.html:
+/// line-h at 20% and 60%, line-v at 30% and 80%
+class _ConstructionLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.outlineVariant.withValues(alpha: 0.25)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    // Horizontal line 1 at 20%
+    canvas.drawLine(
+      Offset(0, size.height * 0.20),
+      Offset(size.width, size.height * 0.20),
+      paint,
+    );
+
+    // Horizontal line 2 at 60%
+    canvas.drawLine(
+      Offset(0, size.height * 0.60),
+      Offset(size.width, size.height * 0.60),
+      paint,
+    );
+
+    // Vertical line 1 at 30%
+    canvas.drawLine(
+      Offset(size.width * 0.30, 0),
+      Offset(size.width * 0.30, size.height),
+      paint,
+    );
+
+    // Vertical line 2 at 80%
+    canvas.drawLine(
+      Offset(size.width * 0.80, 0),
+      Offset(size.width * 0.80, size.height),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

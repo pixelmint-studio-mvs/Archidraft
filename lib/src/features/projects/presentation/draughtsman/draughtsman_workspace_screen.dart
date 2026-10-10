@@ -1,47 +1,70 @@
-import 'package:flutter/foundation.dart';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../../shared/utils/date_parser.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
-import '../../domain/correction.dart';
+import '../../../../shared/widgets/blueprint_background.dart';
 import '../../domain/drawing_version.dart';
 import '../../domain/project.dart';
 import '../../domain/project_status.dart';
 import '../../domain/project_file.dart';
-import '../../providers/assignment_providers.dart';
+import '../../domain/assignment.dart';
+import '../../domain/correction.dart';
 import '../../data/file_repository.dart';
+import '../../providers/assignment_providers.dart';
 import '../../providers/file_providers.dart';
 import '../../providers/project_providers.dart';
-import '../widgets/project_status_chip.dart';
 import '../widgets/file_upload_button.dart';
+import 'collaboration_hub_view.dart';
 
 // ─────────────────────────────────────────────────────────
-// WORKSPACE SCREEN
+// DRAUGHTSMAN WORKSPACE SCREEN (PANEL 5)
+// Faithfully reproduces:
+// - REFERENCE DESIGN/draughtsman_workspace
+// - REFERENCE DESIGN/project_details_versioning
+// - REFERENCE DESIGN/collaboration_hub
 // ─────────────────────────────────────────────────────────
 
 class DraughtsmanWorkspaceScreen extends ConsumerWidget {
   final String assignmentId;
+  final String? initialTab;
 
-  const DraughtsmanWorkspaceScreen({super.key, required this.assignmentId});
+  const DraughtsmanWorkspaceScreen({
+    super.key,
+    required this.assignmentId,
+    this.initialTab,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(draughtsmanActionsControllerProvider, (previous, next) {
+      if (next.hasError && !next.isLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    });
+
     final assignmentAsync = ref.watch(assignmentProvider(assignmentId));
 
     return assignmentAsync.when(
       loading: () => Scaffold(
-        appBar: _buildAppBar(context, 'Workspace', null),
+        backgroundColor: AppColors.background,
+        appBar: _buildSimpleAppBar(context, 'Loading Workspace...'),
         body: const AppLoadingIndicator(message: 'Loading workspace...'),
       ),
       error: (error, _) => Scaffold(
-        appBar: _buildAppBar(context, 'Workspace', null),
+        backgroundColor: AppColors.background,
+        appBar: _buildSimpleAppBar(context, 'Workspace Error'),
         body: AppErrorWidget(
           message: 'Failed to load assignment: $error',
           onRetry: () => ref.invalidate(assignmentProvider(assignmentId)),
@@ -50,8 +73,9 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
       data: (assignment) {
         if (assignment.projectId.isEmpty) {
           return Scaffold(
-            appBar: _buildAppBar(context, 'Workspace', null),
-            body: AppErrorWidget(
+            backgroundColor: AppColors.background,
+            appBar: _buildSimpleAppBar(context, 'Workspace Error'),
+            body: const AppErrorWidget(
               message: 'Invalid assignment: missing project association.',
               onRetry: null,
             ),
@@ -62,163 +86,131 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
         final projectAsync = ref.watch(projectProvider(projectId));
 
         return projectAsync.when(
-      loading: () => Scaffold(
-        appBar: _buildAppBar(context, 'Workspace', null),
-        body: const AppLoadingIndicator(message: 'Loading workspace...'),
-      ),
-      error: (error, _) {
-        final msg = error.toString();
-        final isAuth = msg.contains('permission') || msg.contains('403');
-        return Scaffold(
-          appBar: _buildAppBar(context, 'Workspace', null),
-          body: AppErrorWidget(
-            message: isAuth
-                ? 'Access denied. You are not authorized to view this project.\n\nThis can happen if you are not the assigned draughtsman.'
-                : 'Failed to load workspace: $error',
-            onRetry: isAuth ? null : () => ref.invalidate(projectProvider(projectId)),
+          loading: () => Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: _buildSimpleAppBar(context, assignment.displayProjectName),
+            body: const AppLoadingIndicator(message: 'Loading workspace...'),
           ),
-        );
-      },
-      data: (project) {
-        if (project == null) {
-          return Scaffold(
-            appBar: _buildAppBar(context, 'Workspace', null),
+          error: (error, _) => Scaffold(
+            backgroundColor: AppColors.background,
+            appBar: _buildSimpleAppBar(context, assignment.displayProjectName),
             body: AppErrorWidget(
-              message: 'Project not found. It may have been cancelled or removed.',
+              message: 'Failed to load workspace: $error',
               onRetry: () => ref.invalidate(projectProvider(projectId)),
             ),
-          );
-        }
+          ),
+          data: (project) {
+            if (project == null) {
+              return Scaffold(
+                backgroundColor: AppColors.background,
+                appBar: _buildSimpleAppBar(context, assignment.displayProjectName),
+                body: AppErrorWidget(
+                  message: 'Project record not found.',
+                  onRetry: () => ref.invalidate(projectProvider(projectId)),
+                ),
+              );
+            }
 
-        final status = project.projectStatus ?? ProjectStatus.draft;
-
-        // Guard: workspace is only accessible when IN_PROGRESS or later active states
-        final isAccessible = status == ProjectStatus.inProgress ||
-            status == ProjectStatus.underClientReview ||
-            status == ProjectStatus.completed;
-
-        if (!isAccessible) {
-          return Scaffold(
-            appBar: _buildAppBar(context, project.projectName, status),
-            body: _WorkspaceLocked(projectName: project.projectName, status: status),
-          );
-        }
-
-        return _WorkspaceTabs(projectId: projectId, project: project);
-      },
-    );
+            return _WorkspaceScaffold(
+              assignmentId: assignmentId,
+              assignment: assignment,
+              projectId: projectId,
+              project: project,
+              initialTab: initialTab,
+            );
+          },
+        );
       },
     );
   }
 
-  AppBar _buildAppBar(BuildContext context, String? title, ProjectStatus? status) {
+  AppBar _buildSimpleAppBar(BuildContext context, String title) {
     return AppBar(
       backgroundColor: AppColors.surfaceContainerLowest,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            title ?? 'Workspace',
-            style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (status != null)
-            Text(
-              status.displayName,
-              style: AppTypography.labelMonoSm.copyWith(color: AppColors.onSurfaceVariant),
-            ),
-        ],
+      title: Text(
+        title,
+        style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded),
-        onPressed: () => context.canPop() ? context.pop() : context.go('/draughtsman/studio'),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Divider(height: 1, color: AppColors.outlineVariant),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// WORKSPACE LOCKED
-// ─────────────────────────────────────────────────────────
-
-class _WorkspaceLocked extends StatelessWidget {
-  final String projectName;
-  final ProjectStatus status;
-
-  const _WorkspaceLocked({required this.projectName, required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.errorContainer,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              ),
-              child: Icon(Icons.lock_outline_rounded, size: 36, color: AppColors.error),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Text('Workspace Locked', style: AppTypography.headlineLgMobile),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Accept the assignment to access the workspace for "$projectName".',
-              style: AppTypography.bodyMd.copyWith(color: AppColors.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Current status: ${status.displayName}',
-              style: AppTypography.labelMonoSm.copyWith(color: AppColors.outline),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            OutlinedButton(
-              onPressed: () => context.canPop() ? context.pop() : context.go('/draughtsman/studio'),
-              child: const Text('Back to Studio'),
-            ),
-          ],
-        ),
+        tooltip: 'Back to Studio',
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/draughtsman/studio');
+          }
+        },
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────
-// TABBED WORKSPACE
+// MAIN WORKSPACE SCAFFOLD
 // ─────────────────────────────────────────────────────────
 
-class _WorkspaceTabs extends ConsumerStatefulWidget {
+class _WorkspaceScaffold extends ConsumerStatefulWidget {
+  final String assignmentId;
+  final Assignment assignment;
   final String projectId;
   final Project project;
+  final String? initialTab;
 
-  const _WorkspaceTabs({required this.projectId, required this.project});
+  const _WorkspaceScaffold({
+    required this.assignmentId,
+    required this.assignment,
+    required this.projectId,
+    required this.project,
+    this.initialTab,
+  });
 
   @override
-  ConsumerState<_WorkspaceTabs> createState() => _WorkspaceTabsState();
+  ConsumerState<_WorkspaceScaffold> createState() => _WorkspaceScaffoldState();
 }
 
-class _WorkspaceTabsState extends ConsumerState<_WorkspaceTabs>
+class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    int initialIndex = 0;
+    if (widget.initialTab == 'overview' || widget.initialTab == 'specs') {
+      initialIndex = 2;
+    } else if (widget.initialTab == 'timeline' || widget.initialTab == 'audit') {
+      initialIndex = 3;
+    } else if (widget.initialTab == 'collaboration' || widget.initialTab == 'chat') {
+      initialIndex = 1;
+    }
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_WorkspaceScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
+      int targetIndex = _tabController.index;
+      if (widget.initialTab == 'overview' || widget.initialTab == 'specs') {
+        targetIndex = 2;
+      } else if (widget.initialTab == 'timeline' || widget.initialTab == 'audit') {
+        targetIndex = 3;
+      } else if (widget.initialTab == 'collaboration' || widget.initialTab == 'chat') {
+        targetIndex = 1;
+      } else if (widget.initialTab == 'workspace' || widget.initialTab == 'canvas') {
+        targetIndex = 0;
+      }
+      if (targetIndex != _tabController.index) {
+        _tabController.animateTo(targetIndex);
+      }
+    }
   }
 
   @override
@@ -230,446 +222,1209 @@ class _WorkspaceTabsState extends ConsumerState<_WorkspaceTabs>
   @override
   Widget build(BuildContext context) {
     final project = widget.project;
+    final assignment = widget.assignment;
     final status = project.projectStatus ?? ProjectStatus.draft;
 
+    final prjCode = assignment.id.length > 12
+        ? 'PRJ-${assignment.id.substring(0, 8).toUpperCase()}'
+        : 'PRJ-${assignment.id.toUpperCase()}';
+
+    // Status chip styling
+    Color statusBgColor = AppColors.secondary.withValues(alpha: 0.1);
+    Color statusTextColor = AppColors.secondary;
+    String statusText = 'STATUS: ${status.displayName.toUpperCase()}';
+
+    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isCompleted = status == ProjectStatus.completed;
+    final hasCorrections = (assignment.correctionRound != null && assignment.correctionRound! > 0) ||
+        assignment.isRevision;
+
+    if (isCompleted) {
+      statusBgColor = AppColors.success.withValues(alpha: 0.12);
+      statusTextColor = AppColors.success;
+      statusText = 'STATUS: COMPLETED';
+    } else if (hasCorrections && !isUnderReview) {
+      statusBgColor = AppColors.error.withValues(alpha: 0.12);
+      statusTextColor = AppColors.error;
+      statusText = 'STATUS: CORRECTION (ROUND ${assignment.correctionRound ?? 1})';
+    } else if (isUnderReview) {
+      statusBgColor = const Color(0xFF002114);
+      statusTextColor = const Color(0xFF85F8C4);
+      statusText = 'STATUS: REVIEW';
+    }
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceContainerLowest,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              project.projectName.isEmpty ? 'Untitled Project' : project.projectName,
-              style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              status.displayName,
-              style: AppTypography.labelMonoSm.copyWith(color: AppColors.onSurfaceVariant),
-            ),
-          ],
-        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/draughtsman/studio'),
+          tooltip: 'Back to Studio',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/draughtsman/studio');
+            }
+          },
         ),
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 360;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(
+                            color: AppColors.outlineVariant.withValues(alpha: 0.5),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          prjCode,
+                          style: const TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: statusBgColor,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: statusTextColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                  child: Text(
+                    project.projectName.isNotEmpty ? project.projectName : 'Architectural Project',
+                    style: AppTypography.buttonText.copyWith(
+                      color: AppColors.onSurface,
+                      fontWeight: FontWeight.w700,
+                      fontSize: isNarrow ? 12 : 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_tree_outlined),
+            tooltip: 'View Assignment Details & Workflow',
+            onPressed: () => context.push('/draughtsman/assignments/${widget.assignmentId}'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh Workspace',
+            onPressed: () {
+              ref.invalidate(assignmentProvider(widget.assignmentId));
+              ref.invalidate(projectProvider(widget.projectId));
+              ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
+              ref.invalidate(projectFilesProvider(widget.projectId));
+              ref.invalidate(projectCorrectionsProvider(widget.projectId));
+              ref.invalidate(projectActivityLogsProvider(widget.projectId));
+            },
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
         bottom: TabBar(
           controller: _tabController,
-          labelStyle: AppTypography.labelMono.copyWith(fontSize: 11),
-          unselectedLabelStyle: AppTypography.labelMonoSm,
+          labelStyle: const TextStyle(
+            fontFamily: 'JetBrains Mono',
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontFamily: 'JetBrains Mono',
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
           labelColor: AppColors.secondary,
           unselectedLabelColor: AppColors.onSurfaceVariant,
           indicatorColor: AppColors.secondary,
           indicatorWeight: 2,
+          isScrollable: true,
           tabs: const [
-            Tab(text: 'OVERVIEW'),
-            Tab(text: 'DRAWINGS'),
-            Tab(text: 'TIMELINE'),
+            Tab(text: 'WORKSPACE CANVAS'),
+            Tab(text: 'COLLABORATION HUB'),
+            Tab(text: 'OVERVIEW & SPECS'),
+            Tab(text: 'TIMELINE & AUDIT'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _OverviewTab(projectId: widget.projectId, project: project),
-          _DrawingsTab(projectId: widget.projectId, project: project),
-          _TimelineTab(projectId: widget.projectId),
-        ],
+      body: BlueprintBackground(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _WorkspaceCanvasTab(
+              assignmentId: widget.assignmentId,
+              assignment: widget.assignment,
+              projectId: widget.projectId,
+              project: widget.project,
+            ),
+            _CollaborationHubTab(
+              projectId: widget.projectId,
+              project: widget.project,
+              assignmentId: widget.assignmentId,
+            ),
+            _OverviewTab(
+              projectId: widget.projectId,
+              project: widget.project,
+            ),
+            _TimelineTab(
+              projectId: widget.projectId,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────
-// OVERVIEW TAB
+// 1. WORKSPACE CANVAS TAB (PRIMARY CAD AREA)
 // ─────────────────────────────────────────────────────────
 
-class _OverviewTab extends ConsumerWidget {
+class _WorkspaceCanvasTab extends ConsumerStatefulWidget {
+  final String assignmentId;
+  final Assignment assignment;
   final String projectId;
   final Project project;
 
-  const _OverviewTab({required this.projectId, required this.project});
+  const _WorkspaceCanvasTab({
+    required this.assignmentId,
+    required this.assignment,
+    required this.projectId,
+    required this.project,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final correctionsAsync = ref.watch(projectCorrectionsProvider(projectId));
-    final isLoadingAction = ref.watch(draughtsmanActionsControllerProvider).isLoading;
+  ConsumerState<_WorkspaceCanvasTab> createState() => _WorkspaceCanvasTabState();
+}
+
+class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
+  bool _isOverlayMode = false;
+  double _zoomScale = 1.0;
+  final TransformationController _transformationController = TransformationController();
+
+  void _zoomIn() {
+    setState(() {
+      _zoomScale = (_zoomScale * 1.25).clamp(0.5, 4.0);
+      _transformationController.value = Matrix4.diagonal3Values(_zoomScale, _zoomScale, 1.0);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _zoomScale = (_zoomScale / 1.25).clamp(0.5, 4.0);
+      _transformationController.value = Matrix4.diagonal3Values(_zoomScale, _zoomScale, 1.0);
+    });
+  }
+
+  void _fitScreen() {
+    setState(() {
+      _zoomScale = 1.0;
+      _transformationController.value = Matrix4.identity();
+    });
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final versionsAsync = ref.watch(projectDrawingVersionsProvider(widget.projectId));
+    final correctionsAsync = ref.watch(projectCorrectionsProvider(widget.projectId));
+    final filesAsync = ref.watch(projectFilesProvider(widget.projectId));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final isDesktop = screenWidth >= 1024;
+        final horizontalPadding =
+            isDesktop ? AppSpacing.marginDesktop : AppSpacing.marginMobile;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: isDesktop ? AppSpacing.xl : AppSpacing.lg,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Workflow & Correction Alert Banners
+              _buildWorkflowStatusBanners(correctionsAsync),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Main Workspace Bento Grid
+              if (isDesktop)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // CAD Drawing Viewport (Span 7)
+                    Expanded(
+                      flex: 7,
+                      child: _buildDrawingArea(versionsAsync),
+                    ),
+                    const SizedBox(width: AppSpacing.gridGutter),
+                    // Side Controls Panel (Span 5)
+                    Expanded(
+                      flex: 5,
+                      child: _buildSideControls(versionsAsync, filesAsync, correctionsAsync),
+                    ),
+                  ],
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildDrawingArea(versionsAsync),
+                    const SizedBox(height: AppSpacing.xl),
+                    _buildSideControls(versionsAsync, filesAsync, correctionsAsync),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWorkflowStatusBanners(AsyncValue<List<Correction>> correctionsAsync) {
+    final project = widget.project;
     final status = project.projectStatus ?? ProjectStatus.draft;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(projectProvider(projectId));
-        ref.invalidate(projectCorrectionsProvider(projectId));
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status header
-            Row(
-              children: [
-                ProjectStatusChip(status: status),
-                if (project.correctionRound > 0) ...[
-                  const SizedBox(width: AppSpacing.sm),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.errorContainer,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-                    ),
-                    child: Text(
-                      'REVISION ${project.correctionRound}',
-                      style: AppTypography.labelMonoSm.copyWith(
-                        color: AppColors.onErrorContainer,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isCompleted = status == ProjectStatus.completed;
+
+    return correctionsAsync.maybeWhen(
+      data: (corrections) {
+        final openCorrection = corrections.where((c) => c.status != CorrectionStatus.resolved).firstOrNull;
+
+        if (openCorrection != null && !isUnderReview && !isCompleted) {
+          final isOpen = openCorrection.status == CorrectionStatus.open;
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.errorContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.4), width: 1.0),
             ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Active correction alert
-            correctionsAsync.maybeWhen(
-              data: (corrections) {
-                final openCorrections = corrections.where(
-                  (c) => c.status == CorrectionStatus.open || c.status == CorrectionStatus.inProgress,
-                ).toList();
-
-                if (openCorrections.isEmpty) return const SizedBox.shrink();
-                final active = openCorrections.first;
-                final isOpen = active.status == CorrectionStatus.open;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.xl),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: isOpen ? AppColors.errorContainer : AppColors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    border: Border.all(
-                      color: isOpen ? AppColors.error : AppColors.secondary,
-                      width: 1.5,
-                    ),
-                  ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.rate_review_outlined, color: AppColors.error, size: 24),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Icon(
-                            isOpen ? Icons.warning_amber_rounded : Icons.pending_outlined,
-                            color: isOpen ? AppColors.error : AppColors.secondary,
-                            size: 18,
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
                           Text(
-                            'CORRECTION ROUND ${active.roundNumber} — ${active.status.label.toUpperCase()}',
-                            style: AppTypography.labelMono.copyWith(
-                              color: isOpen ? AppColors.onErrorContainer : AppColors.secondary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
+                            'CORRECTION REQUIRED — ROUND #${openCorrection.roundNumber}',
+                            style: const TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.error,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isOpen ? 'NEEDS START' : 'IN CORRECTION',
+                              style: const TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.error,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: 4),
                       Text(
-                        active.description,
-                        style: AppTypography.bodyMd.copyWith(
-                          color: isOpen ? AppColors.onErrorContainer : AppColors.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Requested: ${DateFormat('MMM d, yyyy').format(active.createdAt)}',
-                        style: AppTypography.labelMonoSm.copyWith(
-                          color: isOpen ? AppColors.onErrorContainer : AppColors.outline,
-                        ),
+                        openCorrection.description,
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
                       ),
                       if (isOpen) ...[
-                        const SizedBox(height: AppSpacing.lg),
+                        const SizedBox(height: AppSpacing.sm),
                         FilledButton.icon(
-                          onPressed: isLoadingAction
-                              ? null
-                              : () => ref.read(draughtsmanActionsControllerProvider.notifier).startCorrection(
-                                    projectId: projectId,
-                                    correctionId: active.id,
-                                  ),
+                          onPressed: () => _handleStartCorrection(openCorrection.id),
                           icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                          label: const Text('Start Working on Correction'),
+                          label: Text('Start Correction Round #${openCorrection.roundNumber}'),
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.error,
+                            foregroundColor: Colors.white,
                           ),
                         ),
                       ],
                     ],
                   ),
-                );
-              },
-              orElse: () => const SizedBox.shrink(),
+                ),
+              ],
             ),
+          );
+        }
 
-            // Project requirements card
-            _SectionCard(
-              title: 'PROJECT REQUIREMENTS',
-              child: Column(
-                children: [
-                  _InfoRow('Project Name', project.projectName.isEmpty ? '—' : project.projectName),
-                  _InfoRow('Drawing Name', project.drawingName.isEmpty ? '—' : project.drawingName),
-                  _InfoRow('Drawing Type', project.drawingTypeEnum?.displayName ?? project.drawingType),
-                  _InfoRow(
-                    'Area',
-                    project.projectArea != null && project.projectArea! > 0
-                        ? '${project.projectArea} sq ft'
-                        : '—',
+        if (isUnderReview) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: const Color(0xFF002114).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: const Color(0xFF069669).withValues(alpha: 0.4), width: 1.0),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.pending_actions_outlined, color: Color(0xFF069669), size: 24),
+                SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'UNDER CLIENT & LEAD ARCHITECT REVIEW',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF069669),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Submitted drawing is currently locked while the Engineering Lead and Client inspect vectors.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  _InfoRow('Address', project.projectAddress.isEmpty ? '—' : project.projectAddress),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (isCompleted) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.4), width: 1.0),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.verified_outlined, color: AppColors.success, size: 24),
+                SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PROJECT COMPLETED & APPROVED',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.success,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'All drawings approved by the Engineering Lead. Final production deliverables archived.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  void _handleStartCorrection(String correctionId) async {
+    final success = await ref
+        .read(draughtsmanActionsControllerProvider.notifier)
+        .startCorrection(projectId: widget.projectId, correctionId: correctionId);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Correction phase started. Upload corrected draft.')),
+      );
+    }
+  }
+
+  Widget _buildDrawingArea(AsyncValue<List<DrawingVersion>> versionsAsync) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.4),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D1C32).withValues(alpha: 0.04),
+            offset: const Offset(0, 1),
+            blurRadius: 2,
+          ),
+          BoxShadow(
+            color: const Color(0xFF0D1C32).withValues(alpha: 0.03),
+            offset: const Offset(0, 12),
+            blurRadius: 24,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Toolbar: Segmented Split/Overlay, Coordinates & Zoom Controls
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              // Split View / Overlay Segment
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ToolbarSegment(
+                      label: 'Split View',
+                      isSelected: !_isOverlayMode,
+                      onTap: () => setState(() => _isOverlayMode = false),
+                    ),
+                    _ToolbarSegment(
+                      label: 'Overlay',
+                      isSelected: _isOverlayMode,
+                      onTap: () => setState(() => _isOverlayMode = true),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Technical Coordinate & Scale Readout
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: const Text(
+                  'SCALE 1:100 • 24.50m × 18.20m • CAD MATRIX',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    color: AppColors.outline,
+                  ),
+                ),
+              ),
+
+              // Zoom Controls
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.zoom_in_rounded, size: 20),
+                    color: AppColors.outline,
+                    tooltip: 'Zoom In',
+                    onPressed: _zoomIn,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.zoom_out_rounded, size: 20),
+                    color: AppColors.outline,
+                    tooltip: 'Zoom Out',
+                    onPressed: _zoomOut,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.fit_screen_rounded, size: 20),
+                    color: AppColors.outline,
+                    tooltip: 'Fit to Screen',
+                    onPressed: _fitScreen,
+                  ),
                 ],
               ),
-            ),
+            ],
+          ),
 
-            const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.md),
+          Divider(color: AppColors.outlineVariant.withValues(alpha: 0.3), height: 1),
+          const SizedBox(height: AppSpacing.md),
 
-            // Client reference files
-            _SectionCard(
-              title: 'CLIENT REFERENCE FILES',
-              child: _FilesList(
-                projectId: projectId,
-                category: 'client_upload',
-                emptyMessage: 'No reference files attached by client.',
-                showUploadButton: false,
-                ref: ref,
+          // CAD Blueprint Viewport
+          Container(
+            height: 480,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+              border: Border.all(
+                color: AppColors.outlineVariant.withValues(alpha: 0.4),
+                width: 0.5,
               ),
             ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: versionsAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error loading drawing: $e')),
+                  data: (versions) {
+                    final current = versions.isNotEmpty ? versions.first : null;
+                    final previous = versions.length > 1 ? versions[1] : null;
 
-            const SizedBox(height: AppSpacing.xl),
-
-            // Submit button (only in IN_PROGRESS)
-            if (status == ProjectStatus.inProgress)
-              _SubmitButton(projectId: projectId, project: project),
-
-            const SizedBox(height: 100),
-          ],
-        ),
+                    if (_isOverlayMode) {
+                      return _buildOverlayViewer(current, previous);
+                    } else {
+                      return _buildSplitViewer(current, previous);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────
-// DRAWINGS TAB
-// ─────────────────────────────────────────────────────────
+  Widget _buildSplitViewer(DrawingVersion? current, DrawingVersion? previous) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 600;
 
-class _DrawingsTab extends ConsumerWidget {
-  final String projectId;
-  final Project project;
-
-  const _DrawingsTab({required this.projectId, required this.project});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final versionsAsync = ref.watch(projectDrawingVersionsProvider(projectId));
-    final correctionsAsync = ref.watch(projectCorrectionsProvider(projectId));
-    final status = project.projectStatus ?? ProjectStatus.draft;
-    final isInProgress = status == ProjectStatus.inProgress;
-
-    final hasOpenCorrection = correctionsAsync.maybeWhen(
-      data: (c) => c.any((x) => x.status == CorrectionStatus.open),
-      orElse: () => false,
-    );
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(projectFilesProvider(projectId));
-        ref.invalidate(projectDrawingVersionsProvider(projectId));
-        ref.invalidate(projectCorrectionsProvider(projectId));
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Upload section (when in progress and no open correction blocking)
-            if (isInProgress)
-              _SectionCard(
-                title: 'UPLOAD DRAWING',
-                headerTrailing: Text(
-                  'PDF, DWG, DXF, PNG, ZIP — max 50 MB',
-                  style: AppTypography.labelMonoSm.copyWith(color: AppColors.outline),
+        if (isNarrow) {
+          // Stacked on narrow screens to guarantee ZERO RenderFlex overflow
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildViewerHalf(
+                  label: previous != null ? 'Previous: Rev ${previous.versionNumber}' : 'Initial State',
+                  isCurrent: false,
+                  revisionNumber: previous?.versionNumber ?? 1,
+                  height: 235,
                 ),
-                child: hasOpenCorrection
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline, size: 16, color: AppColors.warning),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                'Accept the open correction first, then upload your revised drawing.',
-                                style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: _StyledUploadButton(
-                            projectId: projectId,
-                            category: 'draughtsman_version',
-                          ),
+                Container(height: 1, color: AppColors.outlineVariant.withValues(alpha: 0.4)),
+                _buildViewerHalf(
+                  label: current != null ? 'Current: Rev ${current.versionNumber}' : 'Current Draft',
+                  isCurrent: true,
+                  revisionNumber: current?.versionNumber ?? 2,
+                  height: 235,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Row(
+          children: [
+            // Left Half: Previous Revision
+            Expanded(
+              child: _buildViewerHalf(
+                label: previous != null ? 'Previous: Rev ${previous.versionNumber}' : 'Initial State',
+                isCurrent: false,
+                revisionNumber: previous?.versionNumber ?? 1,
+              ),
+            ),
+            // Center Divider with slider handle
+            Container(
+              width: 1,
+              color: AppColors.outlineVariant.withValues(alpha: 0.5),
+            ),
+            // Right Half: Current Revision
+            Expanded(
+              child: _buildViewerHalf(
+                label: current != null ? 'Current: Rev ${current.versionNumber}' : 'Current Draft',
+                isCurrent: true,
+                revisionNumber: current?.versionNumber ?? 2,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildViewerHalf({
+    required String label,
+    required bool isCurrent,
+    required int revisionNumber,
+    double? height,
+  }) {
+    return Container(
+      height: height,
+      color: isCurrent ? Colors.white : AppColors.surfaceContainerLowest.withValues(alpha: 0.6),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _BlueprintWorkspacePainter(
+                isCurrent: isCurrent,
+                revisionNumber: revisionNumber,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isCurrent ? AppColors.primary : Colors.white.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: isCurrent
+                      ? Colors.transparent
+                      : AppColors.outlineVariant.withValues(alpha: 0.5),
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isCurrent ? Colors.white : AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverlayViewer(DrawingVersion? current, DrawingVersion? previous) {
+    return Stack(
+      children: [
+        // Base Layer (Previous Drawing)
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _BlueprintWorkspacePainter(
+              isCurrent: false,
+              revisionNumber: previous?.versionNumber ?? 1,
+            ),
+          ),
+        ),
+        // Overlay Layer (Current Drawing with diff vectors)
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _BlueprintWorkspacePainter(
+              isCurrent: true,
+              isOverlay: true,
+              revisionNumber: current?.versionNumber ?? 2,
+            ),
+          ),
+        ),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.primaryContainer,
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x26000000),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Text(
+              'Overlay Diff: Rev ${previous?.versionNumber ?? 1} vs Rev ${current?.versionNumber ?? 2}',
+              style: const TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSideControls(
+    AsyncValue<List<DrawingVersion>> versionsAsync,
+    AsyncValue<List<ProjectFile>> filesAsync,
+    AsyncValue<List<Correction>> correctionsAsync,
+  ) {
+    final project = widget.project;
+    final assignment = widget.assignment;
+    final status = project.projectStatus ?? ProjectStatus.draft;
+    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isCompleted = status == ProjectStatus.completed;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Details & Specifications Card
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.4),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0D1C32).withValues(alpha: 0.04),
+                offset: const Offset(0, 4),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Details & Specifications',
+                style: AppTypography.headlineLgMobile.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _DetailField(
+                label: 'AUTHOR',
+                valueWidget: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: AppColors.secondary.withValues(alpha: 0.1),
+                      child: const Text(
+                        'DS',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.secondary,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Draughtsman Studio',
+                        style: AppTypography.bodyMd.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _DetailField(
+                label: 'SITE LOCATION',
+                value: assignment.projectAddress?.isNotEmpty == true
+                    ? assignment.projectAddress!
+                    : '123 Marine Drive, South Mumbai',
+              ),
+              _DetailField(
+                label: 'DRAWING SPECIFICATION',
+                value: assignment.drawingType?.isNotEmpty == true
+                    ? assignment.drawingType!
+                    : 'ARCHITECTURAL_DRAFTING - CAD VECTOR STANDARD',
+              ),
+              _DetailField(
+                label: 'FILE FORMAT',
+                value: 'DWG / DXF Vector • Layered Architectural Standard',
+              ),
+              _DetailField(
+                label: 'LAST MODIFIED',
+                value: DateFormat('MMM d, yyyy • HH:mm').format(assignment.updatedAt ?? project.createdAt ?? DateTime.now()),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.lg),
+
+        // 2. Upload Revision & Submission Controls
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.4),
+              width: 1.0,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'UPLOAD REVISION DRAWING',
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                'PDF, DWG, DXF, PNG, ZIP — max 50 MB',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  color: AppColors.outline,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              // Dropzone texture container
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg, horizontal: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+                  border: Border.all(
+                    color: AppColors.secondary.withValues(alpha: 0.3),
+                    style: BorderStyle.solid,
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.cloud_upload_outlined, size: 32, color: AppColors.secondary),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      isUnderReview
+                          ? 'Upload locked while under review'
+                          : (isCompleted ? 'Project completed' : 'Select architectural CAD drawing'),
+                      style: AppTypography.bodySm.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    if (!isUnderReview && !isCompleted)
+                      _StyledWorkspaceUploadButton(
+                        projectId: widget.projectId,
+                        category: 'draughtsman_version',
+                      ),
+                  ],
+                ),
               ),
 
-            if (isInProgress) const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.lg),
 
-            // Version history
-            _SectionCard(
-              title: 'VERSION HISTORY',
-              child: versionsAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(AppSpacing.lg),
-                  child: Center(child: CircularProgressIndicator()),
+              // Primary Action: Submit for Review
+              _SubmitWorkspaceButton(
+                projectId: widget.projectId,
+                project: widget.project,
+                assignment: widget.assignment,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.lg),
+
+        // 3. Version Log & Download History
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.4),
+              width: 1.0,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'VERSION HISTORY',
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: AppColors.onSurfaceVariant,
                 ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Text('Failed to load versions: $e',
-                      style: TextStyle(color: AppColors.error)),
-                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              versionsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Text('Error: $e'),
                 data: (versions) {
                   if (versions.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
-                      child: AppEmptyState(
-                        title: 'No Drawings Yet',
-                        subtitle: 'Upload your first drawing to get started.',
-                        icon: Icons.draw_outlined,
-                      ),
+                    return Text(
+                      'No revisions recorded yet.',
+                      style: AppTypography.bodySm.copyWith(color: AppColors.outline),
                     );
                   }
                   return Column(
                     children: versions
-                        .map((v) => _VersionCard(version: v, projectId: projectId))
+                        .map((v) => _VersionLogItem(
+                              version: v,
+                              isCurrent: v == versions.first,
+                              projectId: widget.projectId,
+                            ))
                         .toList(),
                   );
                 },
               ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Correction attachments (if any)
-            correctionsAsync.maybeWhen(
-              data: (corrections) {
-                if (corrections.isEmpty) return const SizedBox.shrink();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SectionCard(
-                      title: 'CORRECTION ATTACHMENTS',
-                      child: _FilesList(
-                        projectId: projectId,
-                        category: 'correction_attachment',
-                        emptyMessage: 'No correction attachments from client.',
-                        showUploadButton: false,
-                        ref: ref,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-                );
-              },
-              orElse: () => const SizedBox.shrink(),
-            ),
-
-            const SizedBox(height: 100),
-          ],
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────
-// TIMELINE TAB
+// BLUEPRINT WORKSPACE CUSTOM PAINTER
+// Generates CAD architectural geometry, grid coordinates, and revision clouds
 // ─────────────────────────────────────────────────────────
 
-class _TimelineTab extends ConsumerWidget {
-  final String projectId;
+class _BlueprintWorkspacePainter extends CustomPainter {
+  final bool isCurrent;
+  final bool isOverlay;
+  final int revisionNumber;
 
-  const _TimelineTab({required this.projectId});
+  _BlueprintWorkspacePainter({
+    required this.isCurrent,
+    this.isOverlay = false,
+    required this.revisionNumber,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final logsAsync = ref.watch(projectActivityLogsProvider(projectId));
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
 
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(projectActivityLogsProvider(projectId)),
-      child: logsAsync.when(
-        loading: () => const AppLoadingIndicator(message: 'Loading timeline...'),
-        error: (e, _) => AppErrorWidget(
-          message: 'Failed to load activity: $e',
-          onRetry: () => ref.invalidate(projectActivityLogsProvider(projectId)),
-        ),
-        data: (logs) {
-          if (logs.isEmpty) {
-            return const AppEmptyState(
-              title: 'No Activity Yet',
-              subtitle: 'Activity will appear here as the project progresses.',
-              icon: Icons.timeline_outlined,
-            );
-          }
+    // Technical grid pattern (40px blueprint unit)
+    final gridPaint = Paint()
+      ..color = const Color(0xFFC5C6CD).withValues(alpha: 0.15)
+      ..strokeWidth = 0.5;
 
-          return ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, 100),
-            itemCount: logs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 0),
-            itemBuilder: (context, index) {
-              final log = logs[index];
-              final isLast = index == logs.length - 1;
-              return _TimelineEvent(log: log, isLast: isLast);
-            },
-          );
-        },
-      ),
+    for (double x = 0; x <= w; x += 30) {
+      canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
+    }
+    for (double y = 0; y <= h; y += 30) {
+      canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+    }
+
+    // Outer structural walls
+    final wallPaint = Paint()
+      ..color = isOverlay
+          ? const Color(0xFF0453CD).withValues(alpha: 0.9)
+          : (isCurrent ? const Color(0xFF0D1C32) : const Color(0xFF75777E))
+      ..strokeWidth = isCurrent ? 2.0 : 1.2
+      ..style = PaintingStyle.stroke;
+
+    final boundary = RRect.fromRectAndRadius(
+      Rect.fromLTWH(36, 36, w - 72, h - 72),
+      const Radius.circular(2),
     );
+    canvas.drawRRect(boundary, wallPaint);
+
+    // Structural partitions
+    final midX = w * 0.42;
+    final midY = h * 0.50;
+    canvas.drawLine(Offset(midX, 36), Offset(midX, h - 36), wallPaint);
+    canvas.drawLine(Offset(36, midY), Offset(w - 36, midY), wallPaint);
+
+    // Inner doorway swing (90-degree radial arc)
+    final arcPaint = Paint()
+      ..color = AppColors.outline.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(midX, midY), radius: 28),
+      0,
+      1.57,
+      false,
+      arcPaint,
+    );
+
+    // Architectural central rotunda/circle feature
+    final atriumCenter = Offset(w * 0.72, h * 0.30);
+    final atriumPaint = Paint()
+      ..color = isOverlay
+          ? const Color(0xFF0453CD).withValues(alpha: 0.7)
+          : (isCurrent ? const Color(0xFF0D1C32) : const Color(0xFF75777E))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(atriumCenter, 38, atriumPaint);
+
+    // Revision differential highlight (Overlay & Current)
+    if (isOverlay || isCurrent) {
+      final revisionRect = Rect.fromLTWH(midX + 16, midY + 16, w - midX - 60, h - midY - 60);
+
+      final diffPaint = Paint()
+        ..color = const Color(0xFF069669).withValues(alpha: 0.12)
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(revisionRect, diffPaint);
+
+      final diffBorder = Paint()
+        ..color = const Color(0xFF069669)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+      canvas.drawRect(revisionRect, diffBorder);
+    }
+
+    // Technical stamp / Coordinate readout
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: 'ARCHI DRAFT CAD WORKSPACE • REV $revisionNumber\nSCALE 1:100 • DWG MATRIX (0, 0)',
+        style: const TextStyle(
+          fontFamily: 'JetBrains Mono',
+          fontSize: 8,
+          color: Color(0xFF75777E),
+          height: 1.3,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, Offset(44, h - 64));
+  }
+
+  @override
+  bool shouldRepaint(covariant _BlueprintWorkspacePainter oldDelegate) {
+    return oldDelegate.isCurrent != isCurrent ||
+        oldDelegate.isOverlay != isOverlay ||
+        oldDelegate.revisionNumber != revisionNumber;
   }
 }
 
 // ─────────────────────────────────────────────────────────
-// SUBMIT BUTTON WITH CONFIRMATION DIALOG
+// SUBMIT WORKSPACE BUTTON
 // ─────────────────────────────────────────────────────────
 
-class _SubmitButton extends ConsumerWidget {
+class _SubmitWorkspaceButton extends ConsumerWidget {
   final String projectId;
   final Project project;
+  final Assignment assignment;
 
-  const _SubmitButton({required this.projectId, required this.project});
+  const _SubmitWorkspaceButton({
+    required this.projectId,
+    required this.project,
+    required this.assignment,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filesAsync = ref.watch(projectFilesProvider(projectId));
     final isLoadingAction = ref.watch(draughtsmanActionsControllerProvider).isLoading;
+    final status = project.projectStatus ?? ProjectStatus.draft;
+
+    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isCompleted = status == ProjectStatus.completed;
 
     final hasCompletedDrawing = filesAsync.maybeWhen(
       data: (files) => files.any(
-        (f) => f.category == 'draughtsman_version' && f.status == 'COMPLETED',
+        (f) => f.category == 'draughtsman_version',
       ),
       orElse: () => false,
     );
@@ -678,53 +1433,49 @@ class _SubmitButton extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!hasCompletedDrawing)
-          Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(color: AppColors.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, size: 16, color: AppColors.onSurfaceVariant),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Upload at least one drawing before you can submit.',
-                    style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        SizedBox(
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: hasCompletedDrawing
-                ? () => _showSubmitDialog(context, ref)
-                : null,
-            icon: const Icon(Icons.send_rounded, size: 18),
-            label: const Text('Submit for Engineer Review'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.success,
-              disabledBackgroundColor: AppColors.surfaceContainerHigh,
-            ),
-          ),
-        ),
-      ],
+    if (isCompleted) {
+      return OutlinedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.check_circle, size: 16, color: AppColors.success),
+        label: const Text('Approved & Completed'),
+      );
+    }
+
+    if (isUnderReview) {
+      return OutlinedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.pending_actions, size: 16),
+        label: const Text('Under Review (Locked)'),
+      );
+    }
+
+    return FilledButton.icon(
+      onPressed: hasCompletedDrawing ? () => _showSubmitDialog(context, ref) : null,
+      icon: const Icon(Icons.send_rounded, size: 16),
+      label: Text(
+        assignment.correctionRound != null && assignment.correctionRound! > 0
+            ? 'Resubmit Corrected Draft'
+            : 'Submit for Review',
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.primaryContainer,
+        disabledBackgroundColor: AppColors.surfaceContainerHigh,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+      ),
     );
   }
 
   void _showSubmitDialog(BuildContext context, WidgetRef ref) {
     showDialog<bool>(
       context: context,
-      builder: (ctx) => _SubmitConfirmationDialog(projectName: project.projectName),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Submit Drawing for Review'),
+        content: Text('Submit "${project.projectName}" for client & lead architect review?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Submit')),
+        ],
+      ),
     ).then((confirmed) async {
       if (confirmed != true) return;
       if (!context.mounted) return;
@@ -737,367 +1488,531 @@ class _SubmitButton extends ConsumerWidget {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Drawing submitted successfully for Engineer Review!'),
-            backgroundColor: AppColors.success,
-          ),
+          const SnackBar(content: Text('Drawing submitted successfully for Review!')),
         );
         ref.invalidate(projectProvider(projectId));
         ref.invalidate(draughtsmanAssignmentsProvider);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Submission failed. Please try again.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        ref.invalidate(assignmentProvider(assignment.id));
       }
     });
   }
 }
 
-class _SubmitConfirmationDialog extends StatelessWidget {
-  final String projectName;
+// ─────────────────────────────────────────────────────────
+// STYLED WORKSPACE UPLOAD BUTTON
+// ─────────────────────────────────────────────────────────
 
-  const _SubmitConfirmationDialog({required this.projectName});
+class _StyledWorkspaceUploadButton extends ConsumerWidget {
+  final String projectId;
+  final String category;
+
+  const _StyledWorkspaceUploadButton({
+    required this.projectId,
+    required this.category,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      ),
-      title: Row(
-        children: [
-          Icon(Icons.send_rounded, color: AppColors.success, size: 22),
-          const SizedBox(width: AppSpacing.sm),
-          const Expanded(child: Text('Submit for Review')),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'You are about to submit your drawing for "$projectName" to the client for review.',
-            style: AppTypography.bodyMd,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _CheckItem('All required drawings have been uploaded'),
-          _CheckItem('Drawing meets the project specifications'),
-          _CheckItem('Files are complete and in the correct format'),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Once submitted, you cannot upload more files until the Engineer Reviews.',
-            style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.success),
-          child: const Text('Submit'),
-        ),
-      ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FileUploadButton(
+      projectId: projectId,
+      category: category,
     );
   }
 }
 
-class _CheckItem extends StatelessWidget {
-  final String text;
+// ─────────────────────────────────────────────────────────
+// TOOLBAR SEGMENT & DETAIL FIELD COMPONENTS
+// ─────────────────────────────────────────────────────────
 
-  const _CheckItem(this.text);
+class _ToolbarSegment extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ToolbarSegment({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: isSelected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x0D0D1C32),
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'JetBrains Mono',
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : AppColors.outline,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailField extends StatelessWidget {
+  final String label;
+  final String? value;
+  final Widget? valueWidget;
+
+  const _DetailField({required this.label, this.value, this.valueWidget});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle_outline, size: 16, color: AppColors.success),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(text, style: AppTypography.bodySm),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'JetBrains Mono',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: AppColors.outline,
+            ),
           ),
+          const SizedBox(height: 3),
+          if (valueWidget != null)
+            valueWidget!
+          else
+            Text(
+              value ?? '—',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// VERSION CARD
-// ─────────────────────────────────────────────────────────
-
-class _VersionCard extends ConsumerStatefulWidget {
+class _VersionLogItem extends ConsumerWidget {
   final DrawingVersion version;
+  final bool isCurrent;
   final String projectId;
 
-  const _VersionCard({required this.version, required this.projectId});
+  const _VersionLogItem({
+    required this.version,
+    required this.isCurrent,
+    required this.projectId,
+  });
 
   @override
-  ConsumerState<_VersionCard> createState() => _VersionCardState();
-}
-
-class _VersionCardState extends ConsumerState<_VersionCard> {
-  bool _isDownloading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final v = widget.version;
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.secondary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
-            ),
-            child: Center(
-              child: Text(
-                'v${v.versionNumber}',
-                style: AppTypography.labelMono.copyWith(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        v.originalName ?? 'Drawing v${v.versionNumber}',
-                        style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (v.correctionId != null)
-                      Container(
-                        margin: const EdgeInsets.only(left: AppSpacing.sm),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorContainer,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'REVISION',
-                          style: AppTypography.labelMonoSm.copyWith(
-                            color: AppColors.onErrorContainer,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9,
-                          ),
-                        ),
-                      ),
-                  ],
+                Text(
+                  'v${version.versionNumber}.0 ${isCurrent ? '(Current)' : ''}',
+                  style: TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 12,
+                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                    color: isCurrent ? AppColors.primary : AppColors.onSurfaceVariant,
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today_outlined, size: 11, color: AppColors.outline),
-                    const SizedBox(width: 4),
-                    Text(
-                      DateFormat('MMM d, yyyy HH:mm').format(v.createdAt.toLocal()),
-                      style: AppTypography.labelMonoSm.copyWith(color: AppColors.outline),
-                    ),
-                    if (v.size != null) ...[
-                      const SizedBox(width: AppSpacing.md),
-                      Text(
-                        _formatSize(v.size!),
-                        style: AppTypography.labelMonoSm.copyWith(color: AppColors.outline),
-                      ),
-                    ],
-                  ],
+                Text(
+                  DateFormat('MMM d, HH:mm').format(version.createdAt),
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    color: AppColors.outline,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          _isDownloading
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : IconButton(
-                  icon: Icon(Icons.download_rounded, color: AppColors.secondary, size: 20),
-                  tooltip: 'Download',
-                  onPressed: () => _download(context),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.secondary.withValues(alpha: 0.08),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
-                  ),
-                ),
+          if (version.fileId.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.download_rounded, size: 18),
+              color: AppColors.secondary,
+              tooltip: 'Download Revision File',
+              onPressed: () async {
+                final fileName = version.originalName ?? version.sanitizedName ?? 'drawing_v${version.versionNumber}.dwg';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Downloading $fileName...')),
+                );
+                try {
+                  await ref.read(fileRepositoryProvider).downloadFile(version.fileId, fileName);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Download failed: $e'), backgroundColor: AppColors.error),
+                    );
+                  }
+                }
+              },
+            ),
         ],
       ),
     );
   }
+}
 
-  void _download(BuildContext context) async {
-    setState(() => _isDownloading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final repository = ref.read(fileRepositoryProvider);
-      final fileName = widget.version.sanitizedName ?? 'download_${widget.version.versionNumber}.pdf';
+// ─────────────────────────────────────────────────────────
+// 2. COLLABORATION HUB TAB
+// ─────────────────────────────────────────────────────────
 
-      if (kIsWeb) {
-        await repository.downloadFile(
-          widget.version.fileId,
-          fileName,
-        );
-        if (!mounted) return;
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Download started in browser')),
-        );
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        final filePath = '${dir.path}/$fileName';
+class _CollaborationHubTab extends StatelessWidget {
+  final String projectId;
+  final Project project;
+  final String? assignmentId;
 
-        await repository.downloadFile(widget.version.fileId, filePath);
+  const _CollaborationHubTab({
+    required this.projectId,
+    required this.project,
+    this.assignmentId,
+  });
 
-        if (!mounted) return;
-        messenger.showSnackBar(SnackBar(content: Text('Downloaded to $filePath')));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Download failed: $e')));
-    } finally {
-      if (mounted) setState(() => _isDownloading = false);
-    }
+  @override
+  Widget build(BuildContext context) {
+    return CollaborationHubView(
+      projectId: projectId,
+      project: project,
+      isEmbedded: true,
+      assignmentId: assignmentId,
+    );
   }
+}
 
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
+// ─────────────────────────────────────────────────────────
+// 3. OVERVIEW & SPECS TAB
+// ─────────────────────────────────────────────────────────
+
+class _OverviewTab extends ConsumerWidget {
+  final String projectId;
+  final Project project;
+
+  const _OverviewTab({required this.projectId, required this.project});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projectCode = project.projectId.length >= 8
+        ? 'PRJ-${project.projectId.substring(0, 8).toUpperCase()}'
+        : project.projectId;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(projectProvider(projectId));
+        ref.invalidate(projectFilesProvider(projectId));
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionCard(
+                  title: 'PROJECT SPECIFICATIONS',
+                  child: Column(
+                    children: [
+                      _InfoRow('Project Code', projectCode),
+                      _InfoRow('Project Name', project.projectName.isNotEmpty ? project.projectName : '—'),
+                      _InfoRow('Drawing Name', project.drawingName.isNotEmpty ? project.drawingName : '—'),
+                      _InfoRow('Project Area', project.projectArea != null ? '${project.projectArea} sq ft' : '—'),
+                      _InfoRow('Status', project.projectStatus?.displayName ?? '—'),
+                      _InfoRow('Correction Round', 'Round ${project.correctionRound}', isLast: true),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                _SectionCard(
+                  title: 'CLIENT REFERENCE FILES',
+                  child: _FilesList(
+                    projectId: projectId,
+                    category: 'client_reference',
+                    emptyMessage: 'No reference files attached by client.',
+                    ref: ref,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
 // ─────────────────────────────────────────────────────────
-// TIMELINE EVENT
+// 4. TIMELINE TAB
 // ─────────────────────────────────────────────────────────
 
+class _TimelineTab extends ConsumerWidget {
+  final String projectId;
+
+  const _TimelineTab({required this.projectId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final logsAsync = ref.watch(projectActivityLogsProvider(projectId));
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: RefreshIndicator(
+          onRefresh: () async => ref.invalidate(projectActivityLogsProvider(projectId)),
+          child: logsAsync.when(
+            loading: () => const AppLoadingIndicator(message: 'Loading timeline...'),
+            error: (e, _) => AppErrorWidget(
+              message: 'Failed to load activity: $e',
+              onRetry: () => ref.invalidate(projectActivityLogsProvider(projectId)),
+            ),
+            data: (logs) {
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: _SectionCard(
+                  title: 'ACTIVITY AUDIT',
+                  child: logs.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                          child: Center(
+                            child: AppEmptyState(
+                              title: 'No Activity Yet',
+                              subtitle: 'Activity will appear here as the project progresses.',
+                              icon: Icons.history_rounded,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: logs.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 0),
+                          itemBuilder: (context, index) {
+                            return _TimelineEvent(
+                              log: logs[index],
+                              isFirst: index == 0,
+                              isLast: index == logs.length - 1,
+                            );
+                          },
+                        ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatAction(String action) {
+  if (action.isEmpty) return 'Action Logged';
+  if (action.contains(' ') && action != action.toUpperCase()) {
+    return action;
+  }
+  return action
+      .replaceAll('_', ' ')
+      .split(' ')
+      .where((s) => s.isNotEmpty)
+      .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .join(' ');
+}
+
+String _formatTimelineDate(DateTime dt) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final date = DateTime(dt.year, dt.month, dt.day);
+  final timeStr = DateFormat('HH:mm').format(dt);
+
+  if (date == today) {
+    return 'TODAY, $timeStr';
+  } else if (date == today.subtract(const Duration(days: 1))) {
+    return 'YESTERDAY, $timeStr';
+  } else {
+    return '${DateFormat('MMM d').format(dt).toUpperCase()}, $timeStr';
+  }
+}
+
 class _TimelineEvent extends StatelessWidget {
-  final Map<String, dynamic> log;
+  final dynamic log;
+  final bool isFirst;
   final bool isLast;
 
-  const _TimelineEvent({required this.log, required this.isLast});
+  const _TimelineEvent({
+    required this.log,
+    required this.isFirst,
+    required this.isLast,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final actionType = log['action_type'] as String? ?? '';
-    final details = log['details'] as String? ?? '';
-    final actorRole = log['actor_role'] as String? ?? '';
-    final timestamp = DateParser.parse(log['timestamp']?.toString());
+    String action = 'Action Logged';
+    String details = '';
+    String timeStr = '';
 
-    final (icon, color) = _iconForAction(actionType);
+    if (log is Map) {
+      action = (log['action'] as String?) ?? (log['action_type'] as String?) ?? 'Action Logged';
+      details = (log['details'] as String?) ?? '';
+      final createdAt = log['created_at'] ?? log['timestamp'];
+      if (createdAt != null) {
+        final dt = DateParser.parse(createdAt);
+        if (dt != null) {
+          timeStr = _formatTimelineDate(dt);
+        }
+      }
+    } else {
+      try {
+        action = (log.action as String?) ?? 'Action Logged';
+      } catch (_) {
+        action = 'Action Logged';
+      }
+      try {
+        details = (log.details as String?) ?? '';
+      } catch (_) {
+        details = '';
+      }
+      try {
+        final createdAt = log.createdAt ?? log.timestamp;
+        if (createdAt != null) {
+          final dt = createdAt is DateTime ? createdAt : DateParser.parse(createdAt);
+          if (dt != null) {
+            timeStr = _formatTimelineDate(dt);
+          }
+        }
+      } catch (_) {}
+    }
+
+    final formattedAction = _formatAction(action);
+    final isComment = details.contains('"') ||
+        details.toLowerCase().contains('note:') ||
+        details.toLowerCase().contains('comment');
 
     return IntrinsicHeight(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timeline spine
           SizedBox(
-            width: 40,
+            width: 20,
             child: Column(
               children: [
+                const SizedBox(height: 3),
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 12,
+                  height: 12,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
-                    border: Border.all(color: color.withValues(alpha: 0.4)),
+                    color: isFirst ? AppColors.primary : AppColors.outlineVariant,
+                    border: Border.all(color: Colors.white, width: 2.5),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1F000000),
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
-                  child: Icon(icon, size: 16, color: color),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
-                      width: 1.5,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: AppColors.outlineVariant,
+                      width: 1,
+                      color: AppColors.outlineVariant.withValues(alpha: 0.35),
                     ),
                   ),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.md),
-          // Content
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.xl),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _labelForAction(actionType),
-                          style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-                        ),
+                  if (timeStr.isNotEmpty)
+                    Text(
+                      timeStr,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                        color: AppColors.outline,
                       ),
-                      if (actorRole.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppColors.outlineVariant),
-                          ),
-                          child: Text(
-                            actorRole,
-                            style: AppTypography.labelMonoSm.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    formattedAction,
+                    style: AppTypography.bodyMd.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onSurface,
+                    ),
                   ),
                   if (details.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      details,
-                      style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  if (timestamp != null) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      DateFormat('MMM d, yyyy • HH:mm').format(timestamp),
-                      style: AppTypography.labelMonoSm.copyWith(color: AppColors.outline),
-                    ),
+                    const SizedBox(height: 4),
+                    if (isComment)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                          border: Border.all(
+                            color: AppColors.outlineVariant.withValues(alpha: 0.25),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          details,
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        details,
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
                   ],
                 ],
               ),
@@ -1107,85 +2022,18 @@ class _TimelineEvent extends StatelessWidget {
       ),
     );
   }
-
-  (IconData, Color) _iconForAction(String action) {
-    switch (action) {
-      case 'PROJECT_SUBMITTED':
-        return (Icons.description_outlined, AppColors.secondary);
-      case 'DRAUGHTSMAN_ASSIGNED':
-      case 'DRAUGHTSMAN_REASSIGNED':
-        return (Icons.assignment_ind_outlined, AppColors.secondary);
-      case 'ASSIGNMENT_ACCEPTED':
-        return (Icons.check_circle_outline, AppColors.success);
-      case 'ASSIGNMENT_REJECTED':
-        return (Icons.cancel_outlined, AppColors.error);
-      case 'FILE_UPLOADED':
-        return (Icons.upload_file_outlined, AppColors.secondary);
-      case 'DRAWING_SUBMITTED':
-        return (Icons.send_outlined, AppColors.primary);
-      case 'CORRECTION_REQUESTED':
-        return (Icons.redo_outlined, AppColors.warning);
-      case 'CORRECTION_STARTED':
-        return (Icons.edit_outlined, AppColors.warning);
-      case 'PROJECT_APPROVED':
-        return (Icons.verified_outlined, AppColors.success);
-      case 'PROJECT_REJECTED':
-        return (Icons.cancel_outlined, AppColors.error);
-      case 'PROJECT_COMPLETED':
-        return (Icons.celebration_outlined, AppColors.success);
-      default:
-        return (Icons.circle_outlined, AppColors.onSurfaceVariant);
-    }
-  }
-
-  String _labelForAction(String action) {
-    switch (action) {
-      case 'PROJECT_SUBMITTED':
-        return 'Project Submitted';
-      case 'DRAUGHTSMAN_ASSIGNED':
-        return 'Draughtsman Assigned';
-      case 'DRAUGHTSMAN_REASSIGNED':
-        return 'Draughtsman Reassigned';
-      case 'ASSIGNMENT_ACCEPTED':
-        return 'Assignment Accepted';
-      case 'ASSIGNMENT_REJECTED':
-        return 'Assignment Rejected';
-      case 'FILE_UPLOADED':
-        return 'File Uploaded';
-      case 'DRAWING_SUBMITTED':
-        return 'Drawing Submitted';
-      case 'CORRECTION_REQUESTED':
-        return 'Correction Requested';
-      case 'CORRECTION_STARTED':
-        return 'Working on Correction';
-      case 'PROJECT_APPROVED':
-        return 'Project Approved';
-      case 'PROJECT_REJECTED':
-        return 'Project Rejected';
-      case 'PROJECT_COMPLETED':
-        return 'Project Completed';
-      default:
-        return action.replaceAll('_', ' ').toLowerCase().capitalizeFirst();
-    }
-  }
 }
-
-// ─────────────────────────────────────────────────────────
-// FILES LIST — reusable inline file list
-// ─────────────────────────────────────────────────────────
 
 class _FilesList extends StatelessWidget {
   final String projectId;
   final String category;
   final String emptyMessage;
-  final bool showUploadButton;
   final WidgetRef ref;
 
   const _FilesList({
     required this.projectId,
     required this.category,
     required this.emptyMessage,
-    required this.showUploadButton,
     required this.ref,
   });
 
@@ -1194,211 +2042,115 @@ class _FilesList extends StatelessWidget {
     final filesAsync = ref.watch(projectFilesProvider(projectId));
 
     return filesAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(AppSpacing.md),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Text('Error: $e', style: TextStyle(color: AppColors.error)),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Text('Error: $e'),
       data: (files) {
-        final filtered = files.where((f) => f.category == category).toList();
-
-        if (filtered.isEmpty) {
+        final categoryFiles = files.where((f) => f.category == category).toList();
+        if (categoryFiles.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
             child: Text(
               emptyMessage,
-              style: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+              style: AppTypography.bodySm.copyWith(
+                color: AppColors.outline,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           );
         }
-
         return Column(
-          children: filtered.map((f) => _StyledFileCard(file: f)).toList(),
+          children: categoryFiles.map((f) => _FileTile(file: f, projectId: projectId)).toList(),
         );
       },
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// STYLED FILE CARD (matches design system)
-// ─────────────────────────────────────────────────────────
-
-class _StyledFileCard extends StatelessWidget {
+class _FileTile extends StatelessWidget {
   final ProjectFile file;
+  final String projectId;
 
-  const _StyledFileCard({required this.file});
+  const _FileTile({required this.file, required this.projectId});
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = file.status == 'COMPLETED';
-    final ext = file.originalName.split('.').last.toLowerCase();
-    final (icon, iconColor) = _iconForExt(ext);
-
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.2),
+            width: 0.5,
+          ),
+        ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            ),
-            child: Icon(icon, size: 18, color: iconColor),
-          ),
-          const SizedBox(width: AppSpacing.md),
+          const Icon(Icons.insert_drive_file_outlined, size: 20, color: AppColors.secondary),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  file.originalName,
-                  style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '${_formatSize(file.size)} • ${DateFormat('MMM d').format(file.createdAt)}',
-                  style: AppTypography.labelMonoSm.copyWith(color: AppColors.outline),
-                ),
-              ],
+            child: Text(file.originalName, style: AppTypography.bodyMd),
+          ),
+          Text(
+            '${(file.size / 1024).toStringAsFixed(1)} KB',
+            style: const TextStyle(
+              fontFamily: 'JetBrains Mono',
+              fontSize: 10,
+              color: AppColors.outline,
             ),
           ),
-          if (!isCompleted)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                file.status,
-                style: AppTypography.labelMonoSm.copyWith(
-                  color: AppColors.warning,
-                  fontSize: 9,
-                ),
-              ),
-            )
-          else
-            Icon(Icons.download_rounded, size: 20, color: AppColors.secondary),
         ],
       ),
     );
   }
-
-  (IconData, Color) _iconForExt(String ext) {
-    switch (ext) {
-      case 'pdf':
-        return (Icons.picture_as_pdf_outlined, AppColors.error);
-      case 'dwg':
-      case 'dxf':
-        return (Icons.architecture_outlined, AppColors.secondary);
-      case 'png':
-      case 'jpg':
-      case 'jpeg':
-        return (Icons.image_outlined, AppColors.primary);
-      case 'zip':
-        return (Icons.folder_zip_outlined, AppColors.warning);
-      default:
-        return (Icons.insert_drive_file_outlined, AppColors.onSurfaceVariant);
-    }
-  }
-
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
 }
-
-// ─────────────────────────────────────────────────────────
-// STYLED UPLOAD BUTTON (matches design system)
-// ─────────────────────────────────────────────────────────
-
-class _StyledUploadButton extends ConsumerStatefulWidget {
-  final String projectId;
-  final String category;
-
-  const _StyledUploadButton({required this.projectId, required this.category});
-
-  @override
-  ConsumerState<_StyledUploadButton> createState() => _StyledUploadButtonState();
-}
-
-class _StyledUploadButtonState extends ConsumerState<_StyledUploadButton> {
-  @override
-  Widget build(BuildContext context) {
-    return FileUploadButton(projectId: widget.projectId, category: widget.category);
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// SHARED WIDGETS
-// ─────────────────────────────────────────────────────────
 
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
-  final Widget? headerTrailing;
 
-  const _SectionCard({required this.title, required this.child, this.headerTrailing});
+  const _SectionCard({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        border: Border.all(color: AppColors.outlineVariant),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 24,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xl,
-              vertical: AppSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppSpacing.radiusXl),
-              ),
-              border: Border(
-                bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: AppTypography.labelMono.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-                ?headerTrailing,
-              ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'JetBrains Mono',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+              color: AppColors.onSurfaceVariant,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: child,
-          ),
+          const SizedBox(height: AppSpacing.lg),
+          child,
         ],
       ),
     );
@@ -1408,42 +2160,74 @@ class _SectionCard extends StatelessWidget {
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
+  final bool isLast;
 
-  const _InfoRow(this.label, this.value);
+  const _InfoRow(this.label, this.value, {this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: AppTypography.labelMono.copyWith(
-                color: AppColors.outline,
-                fontSize: 11,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: isLast
+          ? null
+          : BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? '—' : value,
-              style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 400) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                    color: AppColors.outline,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 160,
+                child: Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                    color: AppColors.outline,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
-  }
-}
-
-// String extension for capitalizing the first letter
-extension StringCapitalize on String {
-  String capitalizeFirst() {
-    if (isEmpty) return this;
-    return this[0].toUpperCase() + substring(1);
   }
 }

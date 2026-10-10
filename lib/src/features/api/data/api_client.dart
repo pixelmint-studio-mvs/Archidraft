@@ -7,8 +7,8 @@ import 'api_client_io.dart' if (dart.library.html) 'api_client_web.dart' as plat
 
 class ApiClient {
   final FirebaseAuth _firebaseAuth;
-  // Use http://localhost:8787 for local dev or the deployed worker URL
-  final String baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8787');
+  // Use http://127.0.0.1:8787 for local dev or the deployed worker URL
+  final String baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://127.0.0.1:8787');
 
   ApiClient(this._firebaseAuth);
 

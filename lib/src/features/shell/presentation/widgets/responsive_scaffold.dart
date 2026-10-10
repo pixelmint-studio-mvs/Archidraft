@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/user_profile.dart';
 import 'app_bottom_nav.dart';
 import 'app_nav_rail.dart';
@@ -90,32 +92,36 @@ class ResponsiveScaffold extends StatelessWidget {
         }
 
         // Desktop
-        // On desktop, we put navigation in the TopBar
+        // On desktop, we put navigation in the TopBar matching REFERENCE DESIGN
         final desktopNavItems = List.generate(destinations.length, (index) {
           final dest = destinations[index];
           final isSelected = index == selectedIndex;
           
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: InkWell(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
               onTap: () => onDestinationSelected(index),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    dest.icon,
-                    size: 20,
-                    color: isSelected ? AppColors.secondary : AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    dest.label,
-                    style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      dest.icon,
+                      size: 18,
                       color: isSelected ? AppColors.secondary : AppColors.onSurfaceVariant,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Text(
+                      dest.label,
+                      style: AppTypography.labelMono.copyWith(
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? AppColors.secondary : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -139,6 +145,20 @@ class ResponsiveScaffold extends StatelessWidget {
                       maxWidth: AppBreakpoints.maxContentWidth,
                     ),
                     child: body,
+                  ),
+                ),
+              ),
+              // Reference Design System Signature Footer
+              const Positioned(
+                bottom: 16,
+                right: AppSpacing.marginDesktop,
+                child: Text(
+                  'UI/UX Design & Product Experience crafted by PixelMint Studio MVS',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF94A3B8),
                   ),
                 ),
               ),

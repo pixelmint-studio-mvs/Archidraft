@@ -30,4 +30,37 @@ class AppNotification {
       createdAt: DateParser.parse(map['created_at']) ?? DateTime.now(),
     );
   }
+
+  AppNotification copyWith({
+    String? id,
+    String? userId,
+    String? type,
+    String? title,
+    String? message,
+    bool? isRead,
+    DateTime? createdAt,
+  }) {
+    return AppNotification(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'type': type,
+      'title': title,
+      'message': message,
+      'is_read': isRead ? 1 : 0,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
 }
+

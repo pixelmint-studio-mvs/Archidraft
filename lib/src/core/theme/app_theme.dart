@@ -58,45 +58,61 @@ class AppTheme {
     ),
     cardTheme: CardThemeData(
       color: AppColors.surfaceContainerLowest,
-      elevation: 0, // Handled by custom shadow in container
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        side: const BorderSide(color: AppColors.outlineVariant, width: 0.5),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.5), width: 1.0),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surfaceContainerLow,
+      fillColor: AppColors.surfaceContainerLowest,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        borderSide: const BorderSide(color: AppColors.outlineVariant),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+        borderSide: const BorderSide(color: AppColors.outlineVariant, width: 1.0),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        borderSide: const BorderSide(color: AppColors.outlineVariant),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+        borderSide: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.6), width: 1.0),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+        borderSide: const BorderSide(color: AppColors.secondary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        borderSide: const BorderSide(color: AppColors.error),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.0),
       ),
-      labelStyle: AppTypography.labelMono.copyWith(color: AppColors.outline),
-      hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.outline),
+      labelStyle: const TextStyle(
+        fontFamily: 'JetBrains Mono',
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.05 * 12,
+        color: AppColors.onSurface,
+      ),
+      hintStyle: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: AppColors.outline,
+      ),
+      prefixIconColor: AppColors.outline,
+      suffixIconColor: AppColors.outline,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primaryContainer,
         foregroundColor: AppColors.onPrimary,
+        disabledBackgroundColor: AppColors.surfaceVariant,
+        disabledForegroundColor: AppColors.onSurfaceVariant,
         textStyle: AppTypography.buttonText,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xl,
           vertical: AppSpacing.md,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
         ),
         elevation: 0,
       ),
@@ -104,14 +120,17 @@ class AppTheme {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primary,
-        side: const BorderSide(color: AppColors.primary),
+        backgroundColor: AppColors.surfaceContainerLowest,
+        disabledForegroundColor: AppColors.outline,
+        disabledBackgroundColor: AppColors.surfaceContainerLow,
+        side: const BorderSide(color: AppColors.outlineVariant, width: 1.0),
         textStyle: AppTypography.buttonText,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xl,
           vertical: AppSpacing.md,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
         ),
       ),
     ),

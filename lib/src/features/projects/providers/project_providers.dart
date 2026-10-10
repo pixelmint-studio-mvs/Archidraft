@@ -6,6 +6,7 @@ import '../data/project_repository.dart';
 import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
+import '../domain/project_message.dart';
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
@@ -77,3 +78,16 @@ final draughtsmanSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getDraughtsmanSummary();
 });
+
+// ──────────────────────────────────────────
+// PROJECT MESSAGES (Collaboration Hub)
+// ──────────────────────────────────────────
+
+final projectMessagesProvider = FutureProvider.family<List<ProjectMessage>, String>((
+  ref,
+  projectId,
+) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getProjectMessages(projectId);
+});
+

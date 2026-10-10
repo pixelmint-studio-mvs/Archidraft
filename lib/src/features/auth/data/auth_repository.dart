@@ -103,12 +103,16 @@ class AuthRepository {
       final response = await _apiClient.get('/api/users/me');
       return UserProfile.fromMap(response);
     } catch (e) {
-      // If the backend returns an error (e.g. 404 — user not in D1), return null.
+      // If the backend returns a 404 (user genuinely not in D1), return null.
       // SECURITY: Never recreate a profile with a default role. A DRAUGHTSMAN with a
       // missing D1 row must not be silently demoted to CLIENT.
-      // The router handles null profile gracefully by keeping the user at '/'
-      // until the state is manually resolved.
-      return null;
+      if (e.toString().contains('404')) {
+        return null;
+      }
+      // For network errors, connection failures, or server 500s, rethrow so Riverpod enters
+      // an AsyncError state with a retry option rather than falsely claiming the profile
+      // does not exist and instructing the user to create a new account.
+      rethrow;
     }
   }
 }

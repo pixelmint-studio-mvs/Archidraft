@@ -1,6 +1,7 @@
 import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
+import '../domain/project_message.dart';
 import '../../api/data/api_client.dart';
 
 /// Repository for project CRUD operations.
@@ -215,5 +216,29 @@ class ProjectRepository {
       'completed': 0,
       'rejected': 0,
     };
+  }
+
+  Future<List<ProjectMessage>> getProjectMessages(String projectId) async {
+    final response = await _apiClient.get('/api/projects/$projectId/messages');
+    if (response is List) {
+      return response.map((json) => ProjectMessage.fromJson(json as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<ProjectMessage> sendProjectMessage({
+    required String projectId,
+    required String message,
+    String? attachmentFileId,
+  }) async {
+    final payload = <String, dynamic>{'message': message};
+    if (attachmentFileId != null) {
+      payload['attachment_file_id'] = attachmentFileId;
+    }
+    final response = await _apiClient.post(
+      '/api/projects/$projectId/messages',
+      body: payload,
+    );
+    return ProjectMessage.fromJson(response as Map<String, dynamic>);
   }
 }

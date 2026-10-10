@@ -34,7 +34,14 @@ class ClientShell extends StatelessWidget {
   ];
 
   int _calculateSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).matchedLocation;
+    String location = '';
+    try {
+      location = GoRouterState.of(context).matchedLocation;
+    } catch (_) {
+      try {
+        location = GoRouter.of(context).routeInformationProvider.value.uri.path;
+      } catch (_) {}
+    }
     if (location.startsWith('/client/projects')) return 0;
     if (location.startsWith('/client/activity')) return 1;
     if (location.startsWith('/client/profile')) return 2;

@@ -108,10 +108,19 @@ class UserProfile {
       'mobile': mobile,
     };
     if (qualification != null) map['qualification'] = qualification;
-    if (dateOfBirth != null) map['date_of_birth'] = dateOfBirth!.toIso8601String();
+    if (dateOfBirth != null) {
+      map['dateOfBirth'] = dateOfBirth!.toIso8601String();
+      map['date_of_birth'] = dateOfBirth!.toIso8601String();
+    }
     if (address != null) map['address'] = address;
-    if (companyName != null) map['company_name'] = companyName;
-    if (collegeName != null) map['college_name'] = collegeName;
+    if (companyName != null) {
+      map['companyName'] = companyName;
+      map['company_name'] = companyName;
+    }
+    if (collegeName != null) {
+      map['collegeName'] = collegeName;
+      map['college_name'] = collegeName;
+    }
     return map;
   }
 

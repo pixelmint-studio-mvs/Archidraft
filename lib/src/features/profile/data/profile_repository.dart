@@ -12,7 +12,10 @@ class ProfileRepository {
       final response = await _apiClient.get('/api/users/me');
       return UserProfile.fromMap(response);
     } catch (e) {
-      return null;
+      if (e.toString().contains('404')) {
+        return null;
+      }
+      rethrow;
     }
   }
 
