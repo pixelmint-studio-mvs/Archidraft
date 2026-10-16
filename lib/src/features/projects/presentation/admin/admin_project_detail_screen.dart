@@ -7,10 +7,13 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
+import '../../domain/evaluation.dart';
 import '../../domain/project.dart';
 import '../../domain/project_status.dart';
 import '../../providers/admin_providers.dart';
 import '../../providers/project_providers.dart';
+import '../student/widgets/evaluation_card.dart';
+import '../widgets/evaluation_dialog.dart';
 import '../widgets/project_status_chip.dart';
 
 class AdminProjectDetailScreen extends ConsumerWidget {
@@ -69,6 +72,7 @@ class AdminProjectDetailScreen extends ConsumerWidget {
   ) {
     final status = project.projectStatus ?? ProjectStatus.draft;
     final isLoading = ref.watch(adminActionsControllerProvider).isLoading;
+    final isTraining = project.isTrainingProject == 1;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -100,10 +104,30 @@ class AdminProjectDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xxl),
 
+          if (isTraining) ...[
+            _buildDetailSection(
+              title: 'TRAINING ASSIGNMENT',
+              fields: [
+                _DetailField(
+                  'Assigned Student',
+                  project.assignedDraughtsmanId ?? 'Unassigned',
+                ),
+                _DetailField(
+                  'Training Module ID',
+                  project.trainingModuleId ?? 'Not specified',
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+
           _buildDetailSection(
             title: 'PROJECT INFORMATION',
             fields: [
-              _DetailField('Client ID', project.clientId),
+              _DetailField(
+                isTraining ? 'Supervisor / Creator ID' : 'Client ID',
+                project.clientId,
+              ),
               _DetailField('Project Name', project.projectName),
               _DetailField('Project Address', project.projectAddress),
             ],
@@ -142,6 +166,240 @@ class AdminProjectDetailScreen extends ConsumerWidget {
 
           const SizedBox(height: AppSpacing.xxl),
 
+          // DRAWING VERSIONS & EVALUATION
+          if (status == ProjectStatus.inProgress ||
+              status == ProjectStatus.underClientReview ||
+              status == ProjectStatus.completed) ...[
+            _buildDetailSection(
+              title: 'DRAWING VERSIONS & SUBMISSIONS',
+              fields: [],
+              customContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ref
+                      .watch(projectDrawingVersionsProvider(project.projectId))
+                      .when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        error: (err, _) => Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Text(
+                            'Error loading versions: $err',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        ),
+                        data: (versions) {
+                          if (versions.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(AppSpacing.md),
+                              child: Text(
+                                'No drawings submitted yet.',
+                                style: TextStyle(color: AppColors.outline),
+                              ),
+                            );
+                          }
+
+                          final currentVersion = versions.first;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.description_outlined),
+                                title: Text(
+                                  'Version ${currentVersion.versionNumber} (Latest)',
+                                  style: AppTypography.bodyMd.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Submitted: ${DateFormat('MMM d, yyyy HH:mm').format(currentVersion.createdAt ?? DateTime.now())}\nAuthor: ${currentVersion.uploadedBy}',
+                                ),
+                              ),
+                              if (status == ProjectStatus.underClientReview)
+                                Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.md),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) =>
+                                                  EvaluationDialog(
+                                                projectId: project.projectId,
+                                                targetVersionId: currentVersion.id,
+                                                initialResult: EvaluationResult.needsCorrection,
+                                              ),
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppColors.error,
+                                            side: const BorderSide(
+                                              color: AppColors.error,
+                                            ),
+                                          ),
+                                          child: const Text('Request Correction'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.md),
+                                      Expanded(
+                                        child: FilledButton(
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) =>
+                                                  EvaluationDialog(
+                                                projectId: project.projectId,
+                                                targetVersionId: currentVersion.id,
+                                                initialResult: EvaluationResult.approved,
+                                              ),
+                                            );
+                                          },
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: AppColors.success,
+                                          ),
+                                          child: const Text('Approve Submission'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (versions.length > 1) ...[
+                                const Divider(),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                    vertical: AppSpacing.sm,
+                                  ),
+                                  child: Text(
+                                    'Previous Versions',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.outline,
+                                    ),
+                                  ),
+                                ),
+                                ...versions.skip(1).map(
+                                  (v) => ListTile(
+                                    title: Text('Version ${v.versionNumber}'),
+                                    subtitle: Text(
+                                      DateFormat('MMM d, yyyy HH:mm').format(
+                                        v.createdAt ?? DateTime.now(),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+
+            // EVALUATIONS SECTION
+            _buildDetailSection(
+              title: 'EVALUATIONS',
+              fields: [],
+              customContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ref
+                      .watch(projectEvaluationsProvider(project.projectId))
+                      .when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        error: (err, _) => Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Text('Error: $err'),
+                        ),
+                        data: (evaluations) {
+                          if (evaluations.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(AppSpacing.md),
+                              child: Text(
+                                'No evaluations yet.',
+                                style: TextStyle(color: AppColors.outline),
+                              ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Column(
+                              children: evaluations
+                                  .map((e) => EvaluationCard(evaluation: e))
+                                  .toList(),
+                            ),
+                          );
+                        },
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+
+            // CORRECTIONS SECTION
+            _buildDetailSection(
+              title: 'CORRECTIONS HISTORY',
+              fields: [],
+              customContent: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ref
+                      .watch(projectCorrectionsProvider(project.projectId))
+                      .when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(AppSpacing.md),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        error: (err, _) => Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Text('Error: $err'),
+                        ),
+                        data: (corrections) {
+                          if (corrections.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(AppSpacing.md),
+                              child: Text(
+                                'No corrections requested.',
+                                style: TextStyle(color: AppColors.outline),
+                              ),
+                            );
+                          }
+                          return Column(
+                            children: corrections
+                                .map(
+                                  (c) => ListTile(
+                                    title: Text(
+                                      'Round ${c.roundNumber} - ${c.status.label}',
+                                      style: AppTypography.bodyMd.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${c.description}\nRequested: ${DateFormat('MMM d, yyyy').format(c.createdAt)}',
+                                    ),
+                                    isThreeLine: true,
+                                  ),
+                                )
+                                .toList(),
+                          );
+                        },
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
+
           if (isLoading)
             const Center(child: CircularProgressIndicator())
           else ...[
@@ -176,7 +434,7 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => _showAssignDialog(context, ref, project),
-                  child: const Text('Assign Draughtsman'),
+                  child: Text(isTraining ? 'Assign Student' : 'Assign Draughtsman'),
                 ),
               ),
             ],
@@ -202,7 +460,7 @@ class AdminProjectDetailScreen extends ConsumerWidget {
                       child: OutlinedButton(
                         onPressed: () =>
                             _showReassignDialog(context, ref, project),
-                        child: const Text('Reassign Draughtsman'),
+                        child: Text(isTraining ? 'Reassign Student' : 'Reassign Draughtsman'),
                       ),
                     ),
                   ],
@@ -220,6 +478,7 @@ class AdminProjectDetailScreen extends ConsumerWidget {
   Widget _buildDetailSection({
     required String title,
     required List<_DetailField> fields,
+    Widget? customContent,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -252,34 +511,37 @@ class AdminProjectDetailScreen extends ConsumerWidget {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: fields.map((field) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        field.label,
-                        style: AppTypography.labelMono.copyWith(
-                          color: AppColors.outline,
-                          fontSize: 10,
+          if (customContent != null)
+            customContent
+          else
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: fields.map((field) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          field.label,
+                          style: AppTypography.labelMono.copyWith(
+                            color: AppColors.outline,
+                            fontSize: 10,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        field.value.isEmpty ? '—' : field.value,
-                        style: AppTypography.bodyMd,
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          field.value.isEmpty ? '—' : field.value,
+                          style: AppTypography.bodyMd,
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -340,41 +602,52 @@ class AdminProjectDetailScreen extends ConsumerWidget {
   }
 
   void _showAssignDialog(BuildContext context, WidgetRef ref, Project project) {
+    final isTraining = project.isTrainingProject == 1;
+    final targetRole = isTraining ? 'STUDENT' : 'DRAUGHTSMAN';
+    final roleLabel = isTraining ? 'Student' : 'Draughtsman';
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Assign Draughtsman'),
+          title: Text('Assign $roleLabel'),
           content: SizedBox(
             width: double.maxFinite,
             child: Consumer(
               builder: (context, ref, child) {
-                final draughtsmenAsync = ref.watch(draughtsmenListProvider);
-                return draughtsmenAsync.when(
-                  loading: () => const CircularProgressIndicator(),
+                final usersAsync = ref.watch(draughtsmenListProvider);
+                return usersAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Text('Error: $e'),
-                  data: (draughtsmen) {
-                    if (draughtsmen.isEmpty)
-                      return const Text('No draughtsmen found.');
+                  data: (users) {
+                    final candidates =
+                        users.where((u) => u.role == targetRole).toList();
+                    if (candidates.isEmpty) {
+                      return Text('No $roleLabel candidates found.');
+                    }
                     return ListView.builder(
                       shrinkWrap: true,
-                      itemCount: draughtsmen.length,
+                      itemCount: candidates.length,
                       itemBuilder: (context, index) {
-                        final d = draughtsmen[index];
+                        final u = candidates[index];
                         return ListTile(
-                          title: Text(d.name),
-                          subtitle: Text(d.email),
+                          title: Text(u.name),
+                          subtitle: Text(u.email),
                           onTap: () async {
                             Navigator.pop(context);
                             final success = await ref
                                 .read(adminActionsControllerProvider.notifier)
                                 .assignDraughtsman(
                                   projectId: project.projectId,
-                                  draughtsmanId: d.id,
+                                  draughtsmanId: u.id,
                                 );
                             if (success && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Assigned!')),
+                                SnackBar(
+                                  content: Text(
+                                    'Assigned $roleLabel successfully!',
+                                  ),
+                                ),
                               );
                             }
                           },
@@ -396,43 +669,57 @@ class AdminProjectDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     Project project,
   ) {
+    final isTraining = project.isTrainingProject == 1;
+    final targetRole = isTraining ? 'STUDENT' : 'DRAUGHTSMAN';
+    final roleLabel = isTraining ? 'Student' : 'Draughtsman';
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Reassign Draughtsman'),
+          title: Text('Reassign $roleLabel'),
           content: SizedBox(
             width: double.maxFinite,
             child: Consumer(
               builder: (context, ref, child) {
-                final draughtsmenAsync = ref.watch(draughtsmenListProvider);
-                return draughtsmenAsync.when(
-                  loading: () => const CircularProgressIndicator(),
+                final usersAsync = ref.watch(draughtsmenListProvider);
+                return usersAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Text('Error: $e'),
-                  data: (draughtsmen) {
-                    if (draughtsmen.isEmpty)
-                      return const Text('No draughtsmen found.');
+                  data: (users) {
+                    final candidates = users
+                        .where(
+                          (u) =>
+                              u.role == targetRole &&
+                              u.id != project.assignedDraughtsmanId,
+                        )
+                        .toList();
+                    if (candidates.isEmpty) {
+                      return Text('No other $roleLabel candidates found.');
+                    }
                     return ListView.builder(
                       shrinkWrap: true,
-                      itemCount: draughtsmen.length,
+                      itemCount: candidates.length,
                       itemBuilder: (context, index) {
-                        final d = draughtsmen[index];
-                        if (d.id == project.assignedDraughtsmanId)
-                          return const SizedBox.shrink();
+                        final u = candidates[index];
                         return ListTile(
-                          title: Text(d.name),
-                          subtitle: Text(d.email),
+                          title: Text(u.name),
+                          subtitle: Text(u.email),
                           onTap: () async {
                             Navigator.pop(context);
                             final success = await ref
                                 .read(adminActionsControllerProvider.notifier)
                                 .reassignDraughtsman(
                                   projectId: project.projectId,
-                                  draughtsmanId: d.id,
+                                  draughtsmanId: u.id,
                                 );
                             if (success && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Reassigned!')),
+                                SnackBar(
+                                  content: Text(
+                                    'Reassigned $roleLabel successfully!',
+                                  ),
+                                ),
                               );
                             }
                           },

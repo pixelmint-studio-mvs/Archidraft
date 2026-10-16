@@ -64,6 +64,13 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
                   ),
                   floating: true,
                   pinned: true,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.insights_outlined),
+                      tooltip: 'Performance Insights',
+                      onPressed: () => context.push('/student/insights'),
+                    ),
+                  ],
                   bottom: TabBar(
                     controller: _tabController,
                     isScrollable: true,
@@ -416,54 +423,66 @@ class _TrainingCategoryView extends StatelessWidget {
       TrainingModule? masterclass,
       List<Project> assignments) {
     
-    List<Widget> projectCards = [];
-    
-    for (final mock in mockProjects) {
-      projectCards.add(Expanded(child: _buildMockProjectCard(context, mock)));
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 600;
 
-    for (final assignment in assignments) {
-      projectCards.add(
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xs),
-            child: ProjectCard(
+        List<Widget> cards = [];
+        
+        for (final mock in mockProjects) {
+          cards.add(_buildMockProjectCard(context, mock));
+        }
+
+        for (final assignment in assignments) {
+          cards.add(
+            ProjectCard(
               project: assignment,
-              onTap: () => context.push('/student/projects/${assignment.projectId}'),
+              onTap: () => context.push('/student/workspace/${assignment.projectId}'),
             ),
-          ),
-        ),
-      );
-    }
+          );
+        }
 
-    List<Widget> rows = [];
-    for (int i = 0; i < projectCards.length; i += 2) {
-      rows.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              projectCards[i],
-              const SizedBox(width: AppSpacing.md),
-              if (i + 1 < projectCards.length)
-                projectCards[i + 1]
-              else
-                Expanded(child: const SizedBox()),
+        Widget content;
+        if (isWide) {
+          List<Widget> rows = [];
+          for (int i = 0; i < cards.length; i += 2) {
+            rows.add(
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: cards[i]),
+                    const SizedBox(width: AppSpacing.md),
+                    if (i + 1 < cards.length)
+                      Expanded(child: cards[i + 1])
+                    else
+                      const Expanded(child: SizedBox()),
+                  ],
+                ),
+              ),
+            );
+          }
+          content = Column(children: rows);
+        } else {
+          content = Column(
+            children: cards.map((card) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.md),
+              child: card,
+            )).toList(),
+          );
+        }
+
+        return Column(
+          children: [
+            content,
+            if (masterclass != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _buildMasterclassCard(context, masterclass),
             ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        ...rows,
-        if (masterclass != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          _buildMasterclassCard(context, masterclass),
-        ],
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -477,12 +496,18 @@ class _TrainingCategoryView extends StatelessWidget {
         context.push('/student/training/${module.id}');
       },
       child: Container(
-        height: 280, 
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
           border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,38 +533,20 @@ class _TrainingCategoryView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Container(
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainer,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              ),
-              child: const Center(
-                child: Icon(Icons.architecture, color: AppColors.outlineVariant, size: 40),
-              ),
+            Text(
+              module.title,
+              style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary, fontSize: 17),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              module.description,
+              style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    module.title,
-                    style: AppTypography.buttonText.copyWith(color: AppColors.primary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    module.description,
-                    style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -547,19 +554,23 @@ class _TrainingCategoryView extends StatelessWidget {
                   module.status,
                   style: AppTypography.labelMono.copyWith(
                     color: isCompleted ? AppColors.secondary : AppColors.onSurfaceVariant,
-                    fontSize: 10,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (!isCompleted && !module.isLocked)
+                if (!module.isLocked)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: isCompleted ? AppColors.surfaceContainerHigh : AppColors.primary,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                     ),
                     child: Text(
-                      module.status == 'In Progress' ? 'Continue' : 'Start',
-                      style: AppTypography.buttonText.copyWith(color: AppColors.onPrimary, fontSize: 10),
+                      isCompleted ? 'Review' : (module.status == 'In Progress' ? 'Continue' : 'Start'),
+                      style: AppTypography.buttonText.copyWith(
+                        color: isCompleted ? AppColors.onSurfaceVariant : AppColors.onPrimary,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
               ],

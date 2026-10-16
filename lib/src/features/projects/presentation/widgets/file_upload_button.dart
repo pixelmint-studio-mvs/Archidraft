@@ -9,11 +9,13 @@ import '../../providers/file_providers.dart';
 class FileUploadButton extends ConsumerStatefulWidget {
   final String projectId;
   final String category;
+  final bool enabled;
 
   const FileUploadButton({
     Key? key,
     required this.projectId,
     required this.category,
+    this.enabled = true,
   }) : super(key: key);
 
   @override
@@ -109,8 +111,9 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
 
   @override
   Widget build(BuildContext context) {
+    final canUpload = !_isUploading && widget.enabled;
     return ElevatedButton.icon(
-      onPressed: _isUploading ? null : _pickAndUpload,
+      onPressed: canUpload ? _pickAndUpload : null,
       icon: _isUploading
           ? Row(
               mainAxisSize: MainAxisSize.min,

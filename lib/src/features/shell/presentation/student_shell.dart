@@ -15,7 +15,7 @@ class StudentShell extends StatelessWidget {
 
   const StudentShell({super.key, required this.child, required this.profile});
 
-  static const _destinations = [
+  static const destinations = [
     NavDestination(
       label: 'Studio',
       icon: Icons.architecture,
@@ -42,13 +42,18 @@ class StudentShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/student/dashboard')) return 0;
     if (location.startsWith('/student/training')) return 1;
+    if (location.startsWith('/student/insights')) return 1;
     if (location.startsWith('/student/projects')) return 2;
+    if (location.startsWith('/student/workspace')) return 2;
+    if (location.startsWith('/student/assignments')) return 2;
+    if (location.startsWith('/student/drawings')) return 2;
     if (location.startsWith('/student/profile')) return 3;
-    return 0;
+    if (location.startsWith('/student/portfolio')) return -1;
+    return -1;
   }
 
   void _onDestinationSelected(BuildContext context, int index) {
-    context.go(_destinations[index].route);
+    context.go(destinations[index].route);
   }
 
   @override
@@ -59,7 +64,7 @@ class StudentShell extends StatelessWidget {
       body: child,
       profile: profile,
       selectedIndex: selectedIndex,
-      destinations: _destinations,
+      destinations: destinations,
       onDestinationSelected: (index) => _onDestinationSelected(context, index),
     );
   }

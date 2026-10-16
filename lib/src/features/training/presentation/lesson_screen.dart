@@ -33,7 +33,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
         backgroundColor: AppColors.surfaceContainerLowest,
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/student/training');
+            }
+          },
         ),
         title: Text(
           'LESSON VIEW',
@@ -114,7 +120,13 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                   const SizedBox(height: AppSpacing.md),
                   Center(
                     child: TextButton(
-                      onPressed: () => context.pop(),
+                      onPressed: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/student/training/${lesson.moduleId}');
+                        }
+                      },
                       child: Text(
                         'Return to Module',
                         style: AppTypography.buttonText.copyWith(color: AppColors.secondary),

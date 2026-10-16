@@ -26,7 +26,7 @@ final categoryProgressProvider = FutureProvider<List<TrainingCategoryProgress>>(
 });
 
 /// Fetches details for a specific training module.
-final moduleDetailProvider = FutureProvider.family<TrainingModule, String>((ref, moduleId) async {
+final moduleDetailProvider = FutureProvider.autoDispose.family<TrainingModule, String>((ref, moduleId) async {
   final repository = ref.watch(trainingRepositoryProvider);
   return repository.getModuleDetails(moduleId);
 });
@@ -53,13 +53,13 @@ final studentActivityProvider = FutureProvider.autoDispose<List<Map<String, dyna
 });
 
 /// Fetches lessons for a specific module.
-final moduleLessonsProvider = FutureProvider.family<List<Lesson>, String>((ref, moduleId) async {
+final moduleLessonsProvider = FutureProvider.autoDispose.family<List<Lesson>, String>((ref, moduleId) async {
   final repository = ref.watch(trainingRepositoryProvider);
   return repository.getModuleLessons(moduleId);
 });
 
 /// Fetches details for a specific lesson.
-final lessonDetailProvider = FutureProvider.family<Lesson, String>((ref, lessonId) async {
+final lessonDetailProvider = FutureProvider.autoDispose.family<Lesson, String>((ref, lessonId) async {
   final repository = ref.watch(trainingRepositoryProvider);
   return repository.getLesson(lessonId);
 });

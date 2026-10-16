@@ -58,10 +58,13 @@ INSERT OR REPLACE INTO projects (id, client_id, project_name, project_address, d
 VALUES ('PROJ_TRAIN_2', 'TEST_UID_CLIENT', '2BHK Working Drawing', 'Plot 45, Sector B', 'Working Drawing', 'Architectural', '1200 sqft', 'UNDER_CLIENT_REVIEW', 1, 'MOD_ARCH_3', 1);
 
 INSERT OR REPLACE INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, is_training_project, training_module_id, correction_round) 
-VALUES ('PROJ_TRAIN_3', 'TEST_UID_CLIENT', 'Small Office Interior', 'Suite 201', 'Furniture Layout', 'Interior', '800 sqft', 'WAITING_ACCEPTANCE', 1, 'MOD_INT_2', 0);
+VALUES ('PROJ_TRAIN_3', 'TEST_UID_CLIENT', 'Small Office Interior', 'Suite 201', 'Ceiling & Lighting Plan', 'Interior', '800 sqft', 'WAITING_ACCEPTANCE', 1, 'MOD_INT_3', 0);
 
 INSERT OR REPLACE INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, is_training_project, training_module_id, correction_round) 
 VALUES ('PROJ_TRAIN_4', 'TEST_UID_CLIENT', 'Municipal Approval Drawing', 'Plot 88, Zone C', 'Approval Set', 'Approval', '2400 sqft', 'COMPLETED', 1, 'MOD_APP_2', 1);
+
+INSERT OR REPLACE INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, is_training_project, training_module_id, correction_round) 
+VALUES ('PROJ_TRAIN_5', 'TEST_UID_CLIENT', 'Foundation & Footing Layout', 'Plot 102, Industrial Estate', 'Foundation & Footing Plan', 'Structural', '3200 sqft', 'WAITING_ACCEPTANCE', 1, 'MOD_STRUCT_3', 0);
 
 
 -- STUDENT ASSIGNMENTS
@@ -69,6 +72,7 @@ INSERT OR REPLACE INTO student_assignments (id, student_id, assignment_type, pro
 INSERT OR REPLACE INTO student_assignments (id, student_id, assignment_type, project_id, status) VALUES ('S_ASSIGN_2', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'MOCK_PROJECT', 'PROJ_TRAIN_2', 'IN_PROGRESS');
 INSERT OR REPLACE INTO student_assignments (id, student_id, assignment_type, project_id, status) VALUES ('S_ASSIGN_3', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'MOCK_PROJECT', 'PROJ_TRAIN_3', 'PENDING');
 INSERT OR REPLACE INTO student_assignments (id, student_id, assignment_type, project_id, status) VALUES ('S_ASSIGN_4', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'MOCK_PROJECT', 'PROJ_TRAIN_4', 'COMPLETED');
+INSERT OR REPLACE INTO student_assignments (id, student_id, assignment_type, project_id, status) VALUES ('S_ASSIGN_5', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'MOCK_PROJECT', 'PROJ_TRAIN_5', 'PENDING');
 
 
 -- DUMMY FILES (to attach to versions) - keeping it minimal just so corrections can work (since version requires a file)
@@ -104,9 +108,34 @@ INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_o
 INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_3', 'MOD_ARCH_1', 'Drawing Standards', 'Use standard line weights. Walls are typically 0.5mm. Windows are 0.2mm. Use proper hatching for materials like brick, concrete, etc.', 3, '15 mins');
 INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_4', 'MOD_ARCH_1', 'Practical Application', 'Now open AutoCAD and start with the site boundaries. Then construct the outer walls, followed by interior partitions.', 4, '20 mins');
 
+-- LESSONS for MOD_ARCH_2
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_7', 'MOD_ARCH_2', 'Site Analysis & Solar Orientation', 'Learn how to analyze site contours, wind direction, and solar paths to optimize building placement on residential plots.', 1, '10 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_8', 'MOD_ARCH_2', 'Setbacks & Zoning Bylaws', 'Understand statutory front, rear, and side setback requirements, maximum ground coverage, and floor area ratio (FAR).', 2, '15 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_9', 'MOD_ARCH_2', 'Access, Circulation & Plot Layout', 'Draft vehicular entry points, pedestrian walkways, parking bays, and drainage slopes conforming to local development regulations.', 3, '20 mins');
+
 -- LESSONS for MOD_ARCH_3
 INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_5', 'MOD_ARCH_3', 'Line Weights & Layers', 'Proper layer management is essential in professional drawings. Keep annotations on separate layers from geometry.', 1, '10 mins');
 INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_6', 'MOD_ARCH_3', 'Schedules & Legends', 'Always include door and window schedules, along with a comprehensive material legend.', 2, '15 mins');
+
+-- LESSONS for MOD_STRUCT_1
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_10', 'MOD_STRUCT_1', 'Understanding Column Grids', 'Grid lines define the structural skeleton. Learn standard alphanumeric labeling with numbers on horizontal axis and letters on vertical axis.', 1, '10 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_11', 'MOD_STRUCT_1', 'Aligning Grids with Architectural Walls', 'Coordinate structural column locations with wall intersections, plumbing shafts, and setbacks to avoid structural clashes.', 2, '15 mins');
+
+-- LESSONS for MOD_STRUCT_2
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_12', 'MOD_STRUCT_2', 'Column Sizing & Placement Principles', 'Determine preliminary column sizes, orientation along the minor axis, and spacing constraints for residential spans.', 1, '15 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_13', 'MOD_STRUCT_2', 'Primary & Secondary Beam Layout', 'Draft primary framing beams transferring slab loads to columns and secondary beams framing floor openings and stairs.', 2, '20 mins');
+
+-- LESSONS for MOD_INT_1
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_14', 'MOD_INT_1', 'Anthropometrics & Human Dimensions', 'Explore standard clearance zones, passage widths, and ergonomic dimensions required for residential interior spaces.', 1, '10 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_15', 'MOD_INT_1', 'Zone Division & Circulation Pathways', 'Establish active vs quiet zones and direct traffic paths between doors, windows, and primary furniture groupings.', 2, '15 mins');
+
+-- LESSONS for MOD_INT_2
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_16', 'MOD_INT_2', 'Standard Furniture Blocks & Symbol Libraries', 'Utilize standard 2D CAD blocks for living, dining, and bedroom elements to ensure true-to-scale representations.', 1, '10 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_17', 'MOD_INT_2', 'Dimensioning Living & Kitchen Layouts', 'Draft detailed dimension strings for custom cabinetry, kitchen countertops, and required appliance clearances.', 2, '15 mins');
+
+-- LESSONS for MOD_APP_1
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_18', 'MOD_APP_1', 'Overview of Municipal Building Bylaws', 'Study statutory requirements including Floor Area Ratio (FAR), permissible ground coverage, and height restrictions.', 1, '10 mins');
+INSERT OR REPLACE INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES ('LES_19', 'MOD_APP_1', 'Submission Drawing Sheet Structure', 'Format key plans, site plans, service plans, and calculation tables according to local municipal submission checklists.', 2, '15 mins');
 
 -- LESSON PROGRESS for student
 INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_1', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_1', 'COMPLETED', CURRENT_TIMESTAMP);
@@ -114,5 +143,17 @@ INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, statu
 INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_3', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_3', 'COMPLETED', CURRENT_TIMESTAMP);
 INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_4', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_4', 'COMPLETED', CURRENT_TIMESTAMP);
 
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_7', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_7', 'COMPLETED', CURRENT_TIMESTAMP);
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_8', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_8', 'COMPLETED', CURRENT_TIMESTAMP);
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_9', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_9', 'COMPLETED', CURRENT_TIMESTAMP);
+
 INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_5', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_5', 'COMPLETED', CURRENT_TIMESTAMP);
+
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_10', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_10', 'COMPLETED', CURRENT_TIMESTAMP);
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_11', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_11', 'COMPLETED', CURRENT_TIMESTAMP);
+
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_12', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_12', 'COMPLETED', CURRENT_TIMESTAMP);
+
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_18', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_18', 'COMPLETED', CURRENT_TIMESTAMP);
+INSERT OR REPLACE INTO student_lesson_progress (id, student_id, lesson_id, status, completed_at) VALUES ('SLP_19', 'VI6KEwP4rxaEEEvX3KfQjIhOGrp1', 'LES_19', 'COMPLETED', CURRENT_TIMESTAMP);
 

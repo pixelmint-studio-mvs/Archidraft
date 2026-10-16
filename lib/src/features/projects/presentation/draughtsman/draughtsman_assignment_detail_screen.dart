@@ -33,7 +33,13 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
         title: const Text('Assignment Details'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go('/draughtsman/studio'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/draughtsman/studio');
+            }
+          },
         ),
       ),
       body: projectAsync.when(
@@ -100,7 +106,7 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => _handleReject(context, ref),
+                    onPressed: isLoading ? null : () => _handleReject(context, ref),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.error,
                       side: BorderSide(color: AppColors.error),
@@ -111,7 +117,7 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => _handleAccept(context, ref),
+                    onPressed: isLoading ? null : () => _handleAccept(context, ref),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.success,
                     ),
@@ -151,6 +157,9 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
   }
 
   void _handleAccept(BuildContext context, WidgetRef ref) async {
+    final isLoading = ref.read(draughtsmanActionsControllerProvider).isLoading;
+    if (isLoading) return;
+
     final success = await ref
         .read(draughtsmanActionsControllerProvider.notifier)
         .acceptAssignment(
@@ -160,11 +169,18 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
     if (success && context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Assignment Accepted!')));
-      context.pop(); // go back
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/draughtsman/workspace/${assignment.projectId}');
+      }
     }
   }
 
   void _handleReject(BuildContext context, WidgetRef ref) async {
+    final isLoading = ref.read(draughtsmanActionsControllerProvider).isLoading;
+    if (isLoading) return;
+
     final success = await ref
         .read(draughtsmanActionsControllerProvider.notifier)
         .rejectAssignment(
@@ -174,7 +190,11 @@ class DraughtsmanAssignmentDetailScreen extends ConsumerWidget {
     if (success && context.mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Assignment Rejected')));
-      context.pop();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/draughtsman/studio');
+      }
     }
   }
 }

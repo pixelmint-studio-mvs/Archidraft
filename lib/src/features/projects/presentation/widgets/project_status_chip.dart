@@ -16,8 +16,17 @@ import '../../domain/project_status.dart';
 /// - Cancelled: Red
 class ProjectStatusChip extends StatelessWidget {
   final ProjectStatus status;
+  final String? label;
 
-  const ProjectStatusChip({super.key, required this.status});
+  const ProjectStatusChip({super.key, required this.status, this.label});
+
+  String get _displayLabel {
+    if (label != null) return label!;
+    if (status == ProjectStatus.underClientReview) {
+      return 'AWAITING REVIEW';
+    }
+    return status.toFirestoreString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +41,7 @@ class ProjectStatusChip extends StatelessWidget {
         border: Border.all(color: _borderColor, width: 0.5),
       ),
       child: Text(
-        status.toFirestoreString(),
+        _displayLabel,
         style: AppTypography.labelMono.copyWith(
           color: _textColor,
           fontSize: 10,

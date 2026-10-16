@@ -5,6 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../projects/domain/project.dart';
+import '../../projects/domain/project_status.dart';
+import '../../projects/presentation/student/widgets/evaluation_card.dart';
+import '../../projects/presentation/widgets/project_status_chip.dart';
+import '../../projects/providers/assignment_providers.dart';
+import '../../projects/providers/project_providers.dart';
 import '../domain/training_module.dart';
 import '../providers/training_providers.dart';
 
@@ -21,11 +27,14 @@ class TrainingModuleDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetailScreen> {
-  bool _isSubmitting = false;
+  bool _isAccepting = false;
 
   @override
   Widget build(BuildContext context) {
     final moduleDetailAsync = ref.watch(moduleDetailProvider(widget.moduleId));
+    final assignmentsAsync = ref.watch(studentAssignmentsProvider);
+    final assignments = assignmentsAsync.value ?? [];
+    final linkedProject = assignments.where((p) => p.trainingModuleId == widget.moduleId).firstOrNull;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -33,40 +42,64 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
         backgroundColor: AppColors.surfaceContainerLowest,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/student/training');
+            }
+          },
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '/ ACADEMY // MOD_04',
-              style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+              moduleDetailAsync.value != null
+                  ? '${moduleDetailAsync.value!.category.toUpperCase()} MODULE'
+                  : 'TRAINING MODULE',
+              style: AppTypography.labelMono.copyWith(
+                color: AppColors.onSurfaceVariant,
+                fontSize: 11,
+                letterSpacing: 0.5,
+              ),
             ),
             Text(
-              'PRJ-TRN-882',
-              style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontWeight: FontWeight.bold),
+              moduleDetailAsync.value?.title ?? 'Training Module',
+              style: AppTypography.labelMono.copyWith(
+                color: AppColors.secondary,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: AppSpacing.md),
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-            decoration: BoxDecoration(
-              color: AppColors.tertiaryFixed,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          if (moduleDetailAsync.value != null)
+            Container(
+              margin: const EdgeInsets.only(right: AppSpacing.md),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+              decoration: BoxDecoration(
+                color: AppColors.tertiaryFixed,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+              ),
+              child: Text(
+                moduleDetailAsync.value!.type.toUpperCase(),
+                style: AppTypography.labelMono.copyWith(
+                  color: AppColors.tertiaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            child: Text(
-              'BIM-202',
-              style: AppTypography.labelMono.copyWith(color: AppColors.tertiaryContainer, fontWeight: FontWeight.bold),
-            ),
-          ),
         ],
       ),
       body: moduleDetailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
         error: (error, stack) => Center(
-          child: SelectableText('Error loading module details for module ${widget.moduleId}: $error', style: const TextStyle(color: Colors.red)),
+          child: SelectableText(
+            'Error loading module details for module ${widget.moduleId}: $error',
+            style: const TextStyle(color: Colors.red),
+          ),
         ),
         data: (module) {
           return SingleChildScrollView(
@@ -74,18 +107,19 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeroCard(module),
+                _buildHeroCard(module, linkedProject),
                 const SizedBox(height: AppSpacing.lg),
-                if (module.type == 'Module')
-                  _buildLessonsList(module)
-                else ...[
-                  _buildLintingPanel(),
-                  const SizedBox(height: AppSpacing.lg),
-                  _buildMentorReview(),
-                  const SizedBox(height: AppSpacing.lg),
-                  _buildResubmissionDropzone(),
-                  const SizedBox(height: AppSpacing.lg),
-                  _buildActionPalette(module),
+                if (module.type == 'Module') ...[
+                  _buildLessonsList(module),
+                  if (linkedProject != null) ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    _buildPracticalAssignmentCard(context, ref, module, linkedProject),
+                  ],
+                ] else ...[
+                  if (linkedProject != null)
+                    _buildPracticalAssignmentCard(context, ref, module, linkedProject)
+                  else
+                    _buildPendingAssignmentCard(context),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
               ],
@@ -96,7 +130,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
     );
   }
 
-  Widget _buildHeroCard(TrainingModule module) {
+  Widget _buildHeroCard(TrainingModule module, Project? linkedProject) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -104,7 +138,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
         borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 1),
           ),
@@ -145,75 +179,132 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
           ),
           if (module.type == 'Module') ...[
             const SizedBox(height: AppSpacing.lg),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Module Progress',
-                  style: AppTypography.labelMono.copyWith(color: AppColors.onSurface),
-                ),
-                Text(
-                  '${module.progress}%',
-                  style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-              child: LinearProgressIndicator(
-                value: module.progress / 100,
-                backgroundColor: AppColors.surfaceContainer,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
-                minHeight: 6,
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
-            ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: module.imageUrl != null 
-                    ? Image.network(
-                        module.imageUrl!,
-                        fit: BoxFit.cover,
-                      )
-                    : const Center(child: Icon(Icons.image_not_supported, color: AppColors.outlineVariant, size: 48)),
-                ),
-                Positioned(
-                  bottom: 12,
-                  left: 12,
-                  right: 12,
-                  child: Row(
+            Builder(builder: (context) {
+              final double progressFraction = module.progress > 1.0
+                  ? (module.progress / 100.0).clamp(0.0, 1.0)
+                  : module.progress.clamp(0.0, 1.0);
+              final int progressPercent = (progressFraction * 100).round();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.verified, color: AppColors.tertiaryFixed, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            'REV_02.DWG (${module.status.toUpperCase()})',
-                            style: AppTypography.labelMono.copyWith(color: Colors.white),
-                          ),
-                        ],
+                      Text(
+                        'Module Progress',
+                        style: AppTypography.labelMono.copyWith(color: AppColors.onSurface),
                       ),
                       Text(
-                        'SCALE 1:50',
-                        style: AppTypography.labelMono.copyWith(color: Colors.white70),
+                        '$progressPercent%',
+                        style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                )
-              ],
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                    child: LinearProgressIndicator(
+                      value: progressFraction,
+                      backgroundColor: AppColors.surfaceContainer,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
+                      minHeight: 6,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          if (module.imageUrl != null)
+            Container(
+              height: 140,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Image.network(
+                      module.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${module.category.toUpperCase()} // ${module.type.toUpperCase()}',
+                          style: AppTypography.labelMono.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          module.status.toUpperCase(),
+                          style: AppTypography.labelMono.copyWith(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        module.status == 'Completed' ? Icons.check_circle : Icons.school_outlined,
+                        size: 16,
+                        color: module.status == 'Completed' ? AppColors.tertiaryFixedDim : AppColors.secondary,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        module.durationOrFormat ?? '${module.category} Track',
+                        style: AppTypography.labelMono.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: module.status == 'Completed'
+                          ? AppColors.tertiaryFixed
+                          : (module.status == 'In Progress' ? AppColors.primaryContainer : AppColors.surfaceContainerHigh),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      module.status.toUpperCase(),
+                      style: AppTypography.labelMono.copyWith(
+                        color: module.status == 'Completed'
+                            ? AppColors.tertiaryContainer
+                            : (module.status == 'In Progress' ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           if (module.status == 'Completed' && module.score != null) ...[
             const SizedBox(height: AppSpacing.lg),
             Container(
@@ -223,65 +314,60 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Text(
+                        'FINAL ASSESSMENT',
+                        style: AppTypography.labelMono.copyWith(color: AppColors.onPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
                           Text(
-                            'FINAL ASSESSMENT',
-                            style: AppTypography.labelMono.copyWith(color: AppColors.onPrimary),
+                            '${module.score}',
+                            style: AppTypography.headlineDisplay.copyWith(color: AppColors.onPrimary, fontSize: 34),
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                '${module.score}',
-                                style: AppTypography.headlineDisplay.copyWith(color: AppColors.onPrimary, fontSize: 34),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '/ 100',
-                                style: AppTypography.labelMono.copyWith(color: AppColors.outlineVariant),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.tertiaryFixed,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  module.score! >= 90 ? 'DISTINCTION' : 'PASS',
-                                  style: AppTypography.labelMono.copyWith(color: AppColors.tertiaryContainer, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '/ 100',
+                            style: AppTypography.labelMono.copyWith(color: AppColors.outlineVariant),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.tertiaryFixed,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              module.score! >= 90 ? 'DISTINCTION' : 'PASS',
+                              style: AppTypography.labelMono.copyWith(color: AppColors.tertiaryContainer, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ],
                       ),
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.secondaryContainer.withOpacity(0.3),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.military_tech, color: AppColors.tertiaryFixed, size: 28),
-                      ),
                     ],
+                  ),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondaryContainer.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.military_tech, color: AppColors.tertiaryFixed, size: 28),
                   ),
                 ],
               ),
@@ -292,7 +378,15 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
     );
   }
 
-  Widget _buildLintingPanel() {
+  Widget _buildPracticalAssignmentCard(
+    BuildContext context,
+    WidgetRef ref,
+    TrainingModule module,
+    Project project,
+  ) {
+    final isWaitingAcceptance = project.projectStatus == ProjectStatus.waitingAcceptance;
+    final evaluationsAsync = ref.watch(projectEvaluationsProvider(project.projectId));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -303,16 +397,16 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
             children: [
               Row(
                 children: [
-                  const Icon(Icons.rule, color: AppColors.secondary, size: 18),
+                  const Icon(Icons.architecture, color: AppColors.secondary, size: 18),
                   const SizedBox(width: 6),
                   Text(
-                    'AUTOMATED PRE-FLIGHT CAD LINTING',
+                    'PRACTICAL ASSIGNMENT',
                     style: AppTypography.labelMono.copyWith(color: AppColors.onSurface, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               Text(
-                'v4.1 ENGINE',
+                'STUDIO PROJECT',
                 style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
               ),
             ],
@@ -325,137 +419,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildLintItem(
-                title: 'Line Weight Hierarchy',
-                subtitle: '0.18mm - 0.70mm calibrated vector profiles compliant',
-                status: 'PASSED',
-                isPassed: true,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _buildLintItem(
-                title: 'Scale Annotation Consistency',
-                subtitle: '1:50 Metric Ortho & callout dimensions synchronized',
-                status: 'PASSED',
-                isPassed: true,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _buildLintItem(
-                title: 'Unassigned Layer Check',
-                subtitle: '2 structural polyline entities found on Layer 0',
-                status: 'FLAGGED',
-                isPassed: false,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLintItem({
-    required String title,
-    required String subtitle,
-    required String status,
-    required bool isPassed,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: isPassed ? AppColors.surface : AppColors.errorContainer.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: isPassed ? AppColors.tertiaryFixed : AppColors.error,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isPassed ? Icons.check : Icons.priority_high,
-              color: isPassed ? AppColors.tertiaryContainer : AppColors.onError,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-                    ),
-                    Text(
-                      status,
-                      style: AppTypography.labelMono.copyWith(
-                        color: isPassed ? AppColors.onTertiaryContainer : AppColors.error,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMentorReview() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.rate_review, color: AppColors.secondary, size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    'MENTOR REDLINE REVIEW',
-                    style: AppTypography.labelMono.copyWith(color: AppColors.onSurface, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              Text(
-                'GRADED OCT 24',
-                style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 1),
               ),
@@ -464,20 +428,164 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildMentorHeader(),
-              const SizedBox(height: AppSpacing.md),
-              _buildVoiceNoteWidget(),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'EVALUATION MATRIX',
-                style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ProjectStatusChip(status: project.projectStatus ?? ProjectStatus.draft),
+                  if (project.correctionRound > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondaryFixed,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'ROUND ${project.correctionRound}',
+                        style: AppTypography.labelMono.copyWith(
+                          color: AppColors.onSecondaryFixed,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              _buildRubricItem('Structural Geometry & Joinery', '24 / 25', '"Crisp framing lines. Great application of the parametric louvers, particularly the seismic relief joins."'),
-              const SizedBox(height: AppSpacing.xs),
-              _buildRubricItem('Drawing Readability & Density', '25 / 25', '"Dimension strings are unobstructed and follow standard metric offset margins flawlessly."'),
-              const SizedBox(height: AppSpacing.xs),
-              _buildRubricItem('Life Safety & Code Notes', '23 / 25', '"Check fire separation wall rating notes on sheet 2. Ensure IBC 2024 citation matches Japan local code."'),
+              Text(
+                project.projectName,
+                style: AppTypography.buttonText.copyWith(color: AppColors.onSurface, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                project.projectAddress,
+                style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.draw, size: 14, color: AppColors.onSurfaceVariant),
+                    const SizedBox(width: 6),
+                    Text(
+                      'DRAWING TYPE: ',
+                      style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant, fontSize: 11),
+                    ),
+                    Text(
+                      project.drawingType.toUpperCase(),
+                      style: AppTypography.labelMono.copyWith(
+                        color: AppColors.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (isWaitingAcceptance)
+                ElevatedButton(
+                  onPressed: _isAccepting
+                      ? null
+                      : () => _handleAcceptAssignment(context, ref, project),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                    foregroundColor: AppColors.onSecondary,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                    ),
+                  ),
+                  child: _isAccepting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: AppColors.onSecondary,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_outline, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Accept Practical Assignment',
+                              style: AppTypography.buttonText,
+                            ),
+                          ],
+                        ),
+                )
+              else
+                ElevatedButton(
+                  onPressed: () {
+                    context.push('/student/workspace/${project.projectId}');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.open_in_new, color: AppColors.tertiaryFixed, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Open Practical Workspace',
+                        style: AppTypography.buttonText,
+                      ),
+                    ],
+                  ),
+                ),
+              evaluationsAsync.when(
+                data: (evaluations) {
+                  if (evaluations.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.lg),
+                      const Divider(height: 1),
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        children: [
+                          const Icon(Icons.assignment_turned_in, color: AppColors.secondary, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'OFFICIAL EVALUATION',
+                            style: AppTypography.labelMono.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      EvaluationCard(evaluation: evaluations.first),
+                    ],
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.only(top: AppSpacing.md),
+                  child: Center(
+                    child: SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                error: (error, stack) => const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -485,164 +593,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
     );
   }
 
-  Widget _buildMentorHeader() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.surfaceContainer,
-                child: Icon(Icons.person, color: AppColors.onSurfaceVariant), // Placeholder for image
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Arch. Marcus Vance',
-                        style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.verified, color: AppColors.secondary, size: 16),
-                    ],
-                  ),
-                  Text(
-                    'AIA Fellow • Studio Partner',
-                    style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.secondaryFixed,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'LEAD',
-              style: AppTypography.labelMono.copyWith(color: AppColors.onSecondaryFixed, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVoiceNoteWidget() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.mic, color: AppColors.tertiaryFixed, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Mentor Voice Memo Critique',
-                    style: AppTypography.labelMono.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              Text(
-                '01:42',
-                style: AppTypography.labelMono.copyWith(color: AppColors.outlineVariant),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  color: AppColors.tertiaryFixed,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.play_arrow, color: AppColors.tertiaryContainer, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(15, (index) {
-                    final isActive = index == 2 || index == 3 || index == 4;
-                    return Container(
-                      width: 4,
-                      height: isActive ? 20 : (8 + (index % 3) * 6).toDouble(),
-                      decoration: BoxDecoration(
-                        color: isActive ? AppColors.tertiaryFixed : Colors.white.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Text(
-                '1.0x',
-                style: AppTypography.labelMono.copyWith(color: Colors.white70),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRubricItem(String title, String score, String comment) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-              ),
-              Text(
-                score,
-                style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            comment,
-            style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResubmissionDropzone() {
+  Widget _buildPendingAssignmentCard(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -653,29 +604,30 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
             children: [
               Row(
                 children: [
-                  const Icon(Icons.publish, color: AppColors.secondary, size: 18),
+                  const Icon(Icons.assignment_outlined, color: AppColors.secondary, size: 18),
                   const SizedBox(width: 6),
                   Text(
-                    'ITERATE REVISION V2.1',
+                    'PRACTICAL ASSIGNMENT',
                     style: AppTypography.labelMono.copyWith(color: AppColors.onSurface, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               Text(
-                'OPTIONAL RE-LINT',
+                'STUDIO_ADMIN',
                 style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
               ),
             ],
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 1),
               ),
@@ -684,58 +636,40 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
           child: Column(
             children: [
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceContainerHigh,
+                  shape: BoxShape.circle,
                 ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: AppColors.secondaryFixed,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.cloud_upload, color: AppColors.onSecondaryFixed, size: 20),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Tap or Drop .DWG / .RVT Bundle',
-                      style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Maximum bundle size 85MB • Auto-sanitizes',
-                      style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-                    ),
-                  ],
-                ),
+                child: const Icon(Icons.pending_actions_outlined, color: AppColors.secondary, size: 24),
               ),
               const SizedBox(height: AppSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Re-Linting Pipeline Readiness',
-                    style: AppTypography.labelMono.copyWith(color: AppColors.onSurface),
-                  ),
-                  Text(
-                    'Standby',
-                    style: AppTypography.labelMono.copyWith(color: AppColors.secondary, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              Text(
+                'Assignment Pending Studio Admin',
+                style: AppTypography.buttonText.copyWith(color: AppColors.onSurface, fontSize: 16),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                child: const LinearProgressIndicator(
-                  value: 1.0,
-                  backgroundColor: AppColors.surfaceContainer,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondary),
-                  minHeight: 6,
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'No practical project has been assigned to this module yet. Your Studio Admin (STUDIO_ADMIN) will assign a practical drafting project to your portal.',
+                style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'STATUS: PENDING ASSIGNMENT',
+                  style: AppTypography.labelMono.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -745,133 +679,53 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
     );
   }
 
-  Widget _buildActionPalette(TrainingModule module) {
-    return Column(
-      children: [
-        if (module.status != 'Completed') ...[
-          ElevatedButton(
-            onPressed: _isSubmitting ? null : () => _submitProgress(module),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.secondary,
-              foregroundColor: AppColors.onSecondary,
-              minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-              ),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: AppColors.onSecondary,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.check_circle_outline, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Submit Training Assignment',
-                        style: AppTypography.buttonText,
-                      ),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.onPrimary,
-            minimumSize: const Size.fromHeight(56),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.download, color: AppColors.tertiaryFixed, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Download Annotated Redline PDF',
-                style: AppTypography.buttonText,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '(18.4 MB)',
-                style: AppTypography.labelMono.copyWith(color: Colors.white70),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.surfaceContainerLowest,
-            foregroundColor: AppColors.onSurface,
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-            ),
-            elevation: 0,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.calendar_today, color: AppColors.secondary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Request 1-on-1 Mentor Office Hours',
-                style: AppTypography.buttonText,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _submitProgress(TrainingModule module) async {
+  Future<void> _handleAcceptAssignment(
+    BuildContext context,
+    WidgetRef ref,
+    Project project,
+  ) async {
     setState(() {
-      _isSubmitting = true;
+      _isAccepting = true;
     });
 
     try {
-      final repository = ref.read(trainingRepositoryProvider);
-      // Dummy score of 100 for completion
-      await repository.postStudentProgress(module.id, 'Completed', 100);
-      
-      if (!mounted) return;
+      final success = await ref
+          .read(draughtsmanActionsControllerProvider.notifier)
+          .acceptAssignment(
+            assignmentId: project.currentAssignmentId ?? project.projectId,
+            projectId: project.projectId,
+          );
 
-      // Invalidate providers so the UI refreshes
-      ref.invalidate(studentModulesProvider);
-      ref.invalidate(categoryProgressProvider);
-      ref.invalidate(moduleDetailProvider(widget.moduleId));
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Module ${module.title} completed successfully!'),
-          backgroundColor: AppColors.secondary,
-        ),
-      );
+      if (!context.mounted) return;
+
+      if (success) {
+        ref.invalidate(studentAssignmentsProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Practical assignment accepted! Workspace is ready.'),
+            backgroundColor: AppColors.secondary,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to accept practical assignment. Please retry.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to submit progress: $e'),
+          content: Text('Error: $e'),
           backgroundColor: AppColors.error,
         ),
       );
     } finally {
       if (mounted) {
         setState(() {
-          _isSubmitting = false;
+          _isAccepting = false;
         });
       }
     }
@@ -881,7 +735,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
     return Consumer(
       builder: (context, ref, child) {
         final lessonsAsync = ref.watch(moduleLessonsProvider(module.id));
-        
+
         return lessonsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
           error: (error, stack) => Center(child: Text('Error loading lessons: $error', style: const TextStyle(color: Colors.red))),
@@ -918,7 +772,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
                     final lesson = lessons[index];
                     final isCompleted = lesson.status == 'COMPLETED';
                     final isNext = !isCompleted && (index == 0 || lessons[index - 1].status == 'COMPLETED');
-                    
+
                     return InkWell(
                       onTap: () {
                         context.push('/student/training/lessons/${lesson.id}');
@@ -964,7 +818,7 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                    Text(
                                     lesson.title,
                                     style: AppTypography.buttonText.copyWith(color: AppColors.onSurface),
                                   ),

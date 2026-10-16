@@ -10,8 +10,13 @@ import '../../providers/file_providers.dart';
 
 class FileAttachmentCard extends ConsumerStatefulWidget {
   final ProjectFile file;
+  final bool enabled;
 
-  const FileAttachmentCard({super.key, required this.file});
+  const FileAttachmentCard({
+    super.key,
+    required this.file,
+    this.enabled = true,
+  });
 
   @override
   ConsumerState<FileAttachmentCard> createState() => _FileAttachmentCardState();
@@ -154,7 +159,11 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
       child: ListTile(
         leading: const Icon(Icons.insert_drive_file),
-        title: Text(widget.file.originalName),
+        title: Text(
+          widget.file.originalName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
           '${(widget.file.size / 1024).toStringAsFixed(1)} KB • ${widget.file.category}',
         ),
@@ -185,7 +194,7 @@ class _FileAttachmentCardState extends ConsumerState<FileAttachmentCard> {
                     icon: const Icon(Icons.delete_outline),
                     tooltip: 'Delete',
                     color: Theme.of(context).colorScheme.error,
-                    onPressed: widget.file.status == 'COMPLETED'
+                    onPressed: (widget.file.status == 'COMPLETED' && widget.enabled)
                         ? _deleteFile
                         : null,
                   ),

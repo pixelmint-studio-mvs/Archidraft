@@ -5,8 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
-import '../../domain/project.dart';
-import '../../providers/project_providers.dart';
+import '../../providers/admin_providers.dart';
 
 import '../widgets/project_card.dart';
 
@@ -16,7 +15,7 @@ class AdminProjectsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: AppBar(
@@ -27,6 +26,7 @@ class AdminProjectsScreen extends StatelessWidget {
               Tab(text: 'Pending'),
               Tab(text: 'Unassigned'),
               Tab(text: 'Active'),
+              Tab(text: 'Under Review'),
               Tab(text: 'Completed'),
             ],
             indicatorColor: AppColors.primary,
@@ -39,6 +39,7 @@ class AdminProjectsScreen extends StatelessWidget {
             _ProjectListTab(status: 'SUBMITTED'),
             _ProjectListTab(status: 'WAITING_ASSIGNMENT'),
             _ProjectListTab(status: 'IN_PROGRESS'),
+            _ProjectListTab(status: 'UNDER_CLIENT_REVIEW'),
             _ProjectListTab(status: 'COMPLETED'),
           ],
         ),
@@ -131,11 +132,3 @@ class _ProjectListTab extends ConsumerWidget {
     );
   }
 }
-
-final projectsByStatusProvider = FutureProvider.family<List<Project>, String>((
-  ref,
-  status,
-) async {
-  final repository = ref.watch(projectRepositoryProvider);
-  return repository.getProjectsByStatus(status);
-});

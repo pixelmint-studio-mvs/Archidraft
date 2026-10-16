@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -34,30 +35,35 @@ class AdminDashboardScreen extends ConsumerWidget {
                   'Total Projects',
                   metrics.totalProjects,
                   Icons.folder_outlined,
+                  onTap: () => context.go('/admin/projects'),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _buildMetricCard(
                   'Active Projects',
                   metrics.activeProjects,
                   Icons.trending_up,
+                  onTap: () => context.go('/admin/projects'),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _buildMetricCard(
                   'Awaiting Assignment',
                   metrics.projectsAwaitingAssignment,
                   Icons.person_add_outlined,
+                  onTap: () => context.go('/admin/projects'),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _buildMetricCard(
                   'Under Client Review',
                   metrics.projectsUnderClientReview,
                   Icons.rate_review_outlined,
+                  onTap: () => context.go('/admin/projects'),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _buildMetricCard(
                   'Completed Projects',
                   metrics.completedProjects,
                   Icons.check_circle_outline,
+                  onTap: () => context.go('/admin/projects'),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _buildMetricCard(
@@ -70,6 +76,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   'Pending Assignments',
                   metrics.pendingAssignments,
                   Icons.assignment_late_outlined,
+                  onTap: () => context.go('/admin/assignments'),
                 ),
               ],
             ),
@@ -79,38 +86,42 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMetricCard(String title, int value, IconData icon) {
+  Widget _buildMetricCard(String title, int value, IconData icon, {VoidCallback? onTap}) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.outline.withOpacity(0.2)),
+        side: BorderSide(color: AppColors.outline.withValues(alpha: 0.2)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Row(
-          children: [
-            Icon(icon, size: 32, color: AppColors.primary),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.onSurface,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            Text(
-              value.toString(),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+              Text(
+                value.toString(),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

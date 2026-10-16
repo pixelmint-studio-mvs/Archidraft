@@ -21,6 +21,7 @@ enum UserRole {
       case 'DRAUGHTSMAN':
         return UserRole.draughtsman;
       case 'ADMIN':
+      case 'STUDIO_ADMIN':
         return UserRole.admin;
       case 'STUDENT':
         return UserRole.student;

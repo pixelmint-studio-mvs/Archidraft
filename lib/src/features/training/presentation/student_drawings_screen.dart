@@ -17,6 +17,24 @@ class StudentDrawingsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        title: Text(
+          'Drawings Library',
+          style: AppTypography.headlineSmMobile.copyWith(color: AppColors.onSurface),
+        ),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/student/projects');
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -113,7 +131,7 @@ class StudentDrawingsScreen extends ConsumerWidget {
                           return ProjectCard(
                             project: assignment,
                             onTap: () => context.push(
-                                '/student/projects/${assignment.projectId}'),
+                                '/student/workspace/${assignment.projectId}'),
                           );
                         },
                         childCount: assignments.length,

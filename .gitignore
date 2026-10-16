@@ -55,3 +55,13 @@ app.*.map.json
 # Cloudflare Wrangler local state
 .wrangler/
 worker/.wrangler/
+
+# Dependencies & Local Hosting
+node_modules/
+**/node_modules/
+.firebase/
+
+# Local Scratch Test Scripts
+test_api.js
+worker/test-worker.ts
+worker/test_*.js

@@ -38,6 +38,8 @@ class ProjectDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectAsync = ref.watch(projectProvider(projectId));
+    final profile = ref.watch(userProfileProvider).value;
+    final userRole = UserRole.fromString(profile?.role) ?? UserRole.client;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -50,15 +52,33 @@ class ProjectDetailScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go('/client/projects'),
+          onPressed: () {
+            if (userRole == UserRole.student) {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/student/projects');
+              }
+            } else {
+              context.go('/client/projects');
+            }
+          },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.attach_money),
-            tooltip: 'Financials',
-            onPressed: () =>
-                context.push('/client/projects/$projectId/financials'),
-          ),
+          if (userRole == UserRole.student)
+            TextButton.icon(
+              icon: const Icon(Icons.draw_outlined, size: 18),
+              label: const Text('Workspace'),
+              onPressed: () =>
+                  context.push('/student/workspace/$projectId'),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.attach_money),
+              tooltip: 'Financials',
+              onPressed: () =>
+                  context.push('/client/projects/$projectId/financials'),
+            ),
         ],
       ),
       body: projectAsync.when(
@@ -84,7 +104,7 @@ class ProjectDetailScreen extends ConsumerWidget {
   ) {
     final status = project.projectStatus ?? ProjectStatus.draft;
     final profile = ref.watch(userProfileProvider).value;
-    final userRole = profile?.role ?? UserRole.client;
+    final userRole = UserRole.fromString(profile?.role) ?? UserRole.client;
     final isStudentTraining = project.isTrainingProject == 1 && userRole == UserRole.student;
 
     return SingleChildScrollView(
@@ -174,7 +194,7 @@ class ProjectDetailScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xxl),
 
           // STUDENT WORKSPACE ACTION
-          if (status == ProjectStatus.inProgress && userRole == UserRole.student) ...[
+          if (userRole == UserRole.student) ...[
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -720,7 +740,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               }).toList(),
             ),
           ),
-          if (customContent != null) customContent,
+          ?customContent,
         ],
       ),
     );

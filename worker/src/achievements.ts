@@ -55,7 +55,7 @@ export async function getStudentAchievements(db: D1Database, uid: string): Promi
       SELECT COUNT(p.id) as count, MIN(COALESCE(p.approved_at, p.created_at)) as earliest_at
       FROM projects p
       JOIN student_assignments sa ON p.id = sa.project_id
-      WHERE sa.student_id = ? AND p.status = 'COMPLETED' AND p.is_training_project = 1
+      WHERE sa.student_id = ? AND p.status = 'COMPLETED' AND p.is_training_project = 1 AND sa.status != 'REPLACED'
     `).bind(uid),
 
     // 4. First Approved Drawing: Student received at least one approved evaluation on submitted work
@@ -64,7 +64,7 @@ export async function getStudentAchievements(db: D1Database, uid: string): Promi
       FROM evaluations e
       JOIN projects p ON e.project_id = p.id
       JOIN student_assignments sa ON p.id = sa.project_id
-      WHERE sa.student_id = ? AND p.is_training_project = 1 AND e.overall_result = 'APPROVED'
+      WHERE sa.student_id = ? AND p.is_training_project = 1 AND e.overall_result = 'APPROVED' AND sa.status != 'REPLACED'
     `).bind(uid),
 
     // 5. Certified Draughtsman: Student has earned at least one formal credential

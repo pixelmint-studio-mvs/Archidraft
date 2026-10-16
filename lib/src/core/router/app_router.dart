@@ -18,6 +18,7 @@ import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/student/student_projects_screen.dart';
 import '../../features/projects/presentation/student/student_project_workspace_screen.dart';
+import '../../features/projects/presentation/student/student_assignment_resolver_screen.dart';
 import '../../features/portfolio/presentation/student_portfolio_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
@@ -25,8 +26,8 @@ import '../../features/projects/presentation/admin/admin_projects_screen.dart';
 import '../../features/projects/presentation/admin/admin_assignments_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
 import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
+import '../../features/projects/presentation/draughtsman/draughtsman_assignment_resolver_screen.dart';
 import '../../features/projects/domain/assignment.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
@@ -34,6 +35,8 @@ import '../../features/training/presentation/student_studio_screen.dart';
 import '../../features/training/presentation/student_training_screen.dart';
 import '../../features/training/presentation/training_module_detail_screen.dart';
 import '../../features/training/presentation/lesson_screen.dart';
+import '../../features/training/presentation/student_drawings_screen.dart';
+import '../../features/training/presentation/student_insights_screen.dart';
 import '../../features/verification/presentation/certificate_verification_screen.dart';
 
 
@@ -210,8 +213,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/draughtsman/assignments/:assignmentId',
             builder: (context, state) {
-              final assignment = state.extra as Assignment;
-              return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+              final assignmentId = state.pathParameters['assignmentId'] ?? '';
+              final extra = state.extra;
+              final assignment = extra is Assignment ? extra : null;
+              return DraughtsmanAssignmentResolverScreen(
+                assignmentId: assignmentId,
+                initialAssignment: assignment,
+              );
             },
           ),
           GoRoute(
@@ -323,8 +331,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/student/assignments/:assignmentId',
             builder: (context, state) {
-              final assignment = state.extra as Assignment;
-              return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+              final assignmentId = state.pathParameters['assignmentId'] ?? '';
+              final extra = state.extra;
+              final assignment = extra is Assignment ? extra : null;
+              return StudentAssignmentResolverScreen(
+                assignmentId: assignmentId,
+                initialAssignment: assignment,
+              );
             },
           ),
           GoRoute(
@@ -352,6 +365,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/student/portfolio',
             builder: (context, state) => const StudentPortfolioScreen(),
+          ),
+          GoRoute(
+            path: '/student/drawings',
+            builder: (context, state) => const StudentDrawingsScreen(),
+          ),
+          GoRoute(
+            path: '/student/insights',
+            builder: (context, state) => const StudentInsightsScreen(),
           ),
         ],
       ),

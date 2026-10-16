@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/evaluation.dart';
+import '../../providers/admin_providers.dart';
 import '../../providers/project_providers.dart';
 
 class EvaluationDialog extends ConsumerStatefulWidget {
@@ -89,6 +90,10 @@ class _EvaluationDialogState extends ConsumerState<EvaluationDialog> {
       ref.invalidate(projectEvaluationsProvider(widget.projectId));
       ref.invalidate(projectCorrectionsProvider(widget.projectId));
       ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
+      ref.invalidate(adminDashboardMetricsProvider);
+      ref.invalidate(projectsByStatusProvider('UNDER_CLIENT_REVIEW'));
+      ref.invalidate(projectsByStatusProvider('COMPLETED'));
+      ref.invalidate(projectsByStatusProvider('IN_PROGRESS'));
 
       if (mounted) {
         context.pop();

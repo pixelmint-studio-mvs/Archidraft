@@ -29,8 +29,14 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
   late TextEditingController _companyController;
   late TextEditingController _qualificationController;
   late TextEditingController _collegeController;
+  late TextEditingController _dobController;
 
   DateTime? _selectedDateOfBirth;
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
 
   @override
   void initState() {
@@ -48,12 +54,61 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
       text: widget.profile.collegeName,
     );
     _selectedDateOfBirth = widget.profile.dateOfBirth;
+    _dobController = TextEditingController(
+      text: _formatDate(_selectedDateOfBirth),
+    );
+  }
+
+  @override
+  void didUpdateWidget(ProfileForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.profile.id != oldWidget.profile.id) {
+      _nameController.text = widget.profile.name;
+      _mobileController.text = widget.profile.mobile;
+      _addressController.text = widget.profile.address ?? '';
+      _companyController.text = widget.profile.companyName ?? '';
+      _qualificationController.text = widget.profile.qualification ?? '';
+      _collegeController.text = widget.profile.collegeName ?? '';
+      _selectedDateOfBirth = widget.profile.dateOfBirth;
+      _dobController.text = _formatDate(_selectedDateOfBirth);
+    } else {
+      if (oldWidget.profile.dateOfBirth != widget.profile.dateOfBirth &&
+          _selectedDateOfBirth == oldWidget.profile.dateOfBirth) {
+        _selectedDateOfBirth = widget.profile.dateOfBirth;
+        _dobController.text = _formatDate(_selectedDateOfBirth);
+      }
+      if (oldWidget.profile.name != widget.profile.name &&
+          _nameController.text == oldWidget.profile.name) {
+        _nameController.text = widget.profile.name;
+      }
+      if (oldWidget.profile.mobile != widget.profile.mobile &&
+          _mobileController.text == oldWidget.profile.mobile) {
+        _mobileController.text = widget.profile.mobile;
+      }
+      if (oldWidget.profile.address != widget.profile.address &&
+          _addressController.text == (oldWidget.profile.address ?? '')) {
+        _addressController.text = widget.profile.address ?? '';
+      }
+      if (oldWidget.profile.companyName != widget.profile.companyName &&
+          _companyController.text == (oldWidget.profile.companyName ?? '')) {
+        _companyController.text = widget.profile.companyName ?? '';
+      }
+      if (oldWidget.profile.qualification != widget.profile.qualification &&
+          _qualificationController.text == (oldWidget.profile.qualification ?? '')) {
+        _qualificationController.text = widget.profile.qualification ?? '';
+      }
+      if (oldWidget.profile.collegeName != widget.profile.collegeName &&
+          _collegeController.text == (oldWidget.profile.collegeName ?? '')) {
+        _collegeController.text = widget.profile.collegeName ?? '';
+      }
+    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _mobileController.dispose();
+    _dobController.dispose();
     _addressController.dispose();
     _companyController.dispose();
     _qualificationController.dispose();
@@ -83,6 +138,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
     if (picked != null && picked != _selectedDateOfBirth) {
       setState(() {
         _selectedDateOfBirth = picked;
+        _dobController.text = _formatDate(picked);
       });
     }
   }
@@ -176,11 +232,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             onTap: _selectDateOfBirth,
             child: AbsorbPointer(
               child: AuthFormField(
-                controller: TextEditingController(
-                  text: _selectedDateOfBirth != null
-                      ? DateFormat('MMM dd, yyyy').format(_selectedDateOfBirth!)
-                      : '',
-                ),
+                controller: _dobController,
                 label: 'DATE OF BIRTH (Optional)',
                 prefixIcon: Icons.calendar_today_outlined,
                 hint: 'Select your date of birth',

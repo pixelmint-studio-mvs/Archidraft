@@ -5,6 +5,8 @@ import '../../api/providers/api_providers.dart';
 import '../data/assignment_repository.dart';
 import '../domain/assignment.dart';
 import 'project_providers.dart';
+import 'file_providers.dart';
+import '../../training/providers/training_providers.dart';
 
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
@@ -44,6 +46,7 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
     required String assignmentId,
     required String projectId,
   }) async {
+    if (state.isLoading) return false;
     state = const AsyncLoading();
     try {
       final repository = ref.read(assignmentRepositoryProvider);
@@ -56,6 +59,8 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
       );
 
       ref.invalidate(draughtsmanAssignmentsProvider);
+      ref.invalidate(studentAssignmentsProvider);
+      ref.invalidate(projectProvider(projectId));
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -68,6 +73,7 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
     required String assignmentId,
     required String projectId,
   }) async {
+    if (state.isLoading) return false;
     state = const AsyncLoading();
     try {
       final repository = ref.read(assignmentRepositoryProvider);
@@ -97,7 +103,12 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
       await repository.submitDrawing(projectId: projectId, actionId: actionId, draftFileId: draftFileId);
 
       ref.invalidate(draughtsmanAssignmentsProvider);
+      ref.invalidate(studentAssignmentsProvider);
+      ref.invalidate(studentCorrectionsProvider);
       ref.invalidate(projectProvider(projectId));
+      ref.invalidate(projectCorrectionsProvider(projectId));
+      ref.invalidate(projectDrawingVersionsProvider(projectId));
+      ref.invalidate(projectFilesProvider(projectId));
       state = const AsyncData(null);
       return true;
     } catch (e, st) {

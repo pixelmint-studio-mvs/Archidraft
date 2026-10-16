@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -16,6 +17,24 @@ class StudentInsightsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
+      appBar: AppBar(
+        title: Text(
+          'Performance Insights',
+          style: AppTypography.headlineSmMobile.copyWith(color: AppColors.primary),
+        ),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/student/training');
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {

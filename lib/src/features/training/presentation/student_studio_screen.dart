@@ -391,6 +391,14 @@ class _OverallProgressSection extends ConsumerWidget {
                       color: AppColors.primary,
                     ),
                   ),
+                  TextButton.icon(
+                    onPressed: () => context.push('/student/insights'),
+                    icon: const Icon(Icons.insights_outlined, size: 16),
+                    label: const Text('Insights'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.secondary,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
@@ -658,7 +666,7 @@ class _ActiveProjectSection extends ConsumerWidget {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () {
-                    context.push('/student/projects/${project.projectId}');
+                    context.push('/student/workspace/${project.projectId}');
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
@@ -791,7 +799,7 @@ class _PendingCorrectionsSection extends ConsumerWidget {
                           ),
                           TextButton(
                             onPressed: () {
-                              context.push('/student/projects/${project.projectId}');
+                              context.push('/student/workspace/${project.projectId}');
                             },
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.primary,

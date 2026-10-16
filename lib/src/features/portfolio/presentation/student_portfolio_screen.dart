@@ -47,6 +47,16 @@ class _StudentPortfolioScreenState extends ConsumerState<StudentPortfolioScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/student/dashboard');
+            }
+          },
+        ),
         title: Text(
           'Student Portfolio',
           style: AppTypography.headlineSmMobile.copyWith(

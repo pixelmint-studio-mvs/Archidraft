@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../shell/presentation/widgets/app_top_bar.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../data/notification_repository.dart';
 
@@ -21,7 +20,32 @@ class NotificationsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppTopBar(profile: user),
+      appBar: AppBar(
+        title: Text(
+          'Notifications',
+          style: AppTypography.headlineSmMobile.copyWith(color: AppColors.onSurface),
+        ),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              if (user?.role == 'STUDENT') {
+                context.go('/student/dashboard');
+              } else if (user?.role == 'DRAUGHTSMAN') {
+                context.go('/draughtsman/studio');
+              } else if (user?.role == 'ADMIN' || user?.role == 'STUDIO_ADMIN') {
+                context.go('/admin/dashboard');
+              } else {
+                context.go('/client/projects');
+              }
+            }
+          },
+        ),
+      ),
       body: notificationsAsync.when(
         data: (notifications) {
           if (notifications.isEmpty) {
@@ -85,11 +109,28 @@ class NotificationsScreen extends ConsumerWidget {
                           .markAsRead(n.id);
                       ref.invalidate(notificationsProvider);
                     }
-                    if (n.projectId != null && context.mounted) {
-                      if (user?.role == 'CLIENT') {
-                        context.go('/project/${n.projectId}');
-                      } else if (user?.role == 'DRAUGHTSMAN') {
-                        context.go('/draughtsman/assignment/${n.projectId}');
+                    if (context.mounted) {
+                      final role = user?.role;
+                      final projectId = n.projectId;
+                      if (role == 'ADMIN' || role == 'STUDIO_ADMIN') {
+                        if (projectId != null && projectId.isNotEmpty) {
+                          context.go('/admin/projects/$projectId');
+                        } else {
+                          context.go('/admin/dashboard');
+                        }
+                      } else if (projectId != null && projectId.isNotEmpty) {
+                        if (role == 'CLIENT') {
+                          context.go('/client/projects/$projectId');
+                        } else if (role == 'DRAUGHTSMAN') {
+                          if (n.type == 'DRAUGHTSMAN_ASSIGNED' ||
+                              n.type == 'WAITING_ACCEPTANCE') {
+                            context.go('/draughtsman/assignments/$projectId');
+                          } else {
+                            context.go('/draughtsman/workspace/$projectId');
+                          }
+                        } else if (role == 'STUDENT') {
+                          context.go('/student/workspace/$projectId');
+                        }
                       }
                     }
                   },

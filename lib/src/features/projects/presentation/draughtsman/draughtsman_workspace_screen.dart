@@ -32,7 +32,13 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
         title: const Text('Workspace'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/draughtsman/studio');
+            }
+          },
         ),
       ),
       body: projectAsync.when(
@@ -75,6 +81,69 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xxl),
+
+          // Waiting Acceptance Banner
+          if (status == ProjectStatus.waitingAcceptance) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.xxl),
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.warningContainer,
+                borderRadius: BorderRadius.circular(
+                  AppSpacing.radiusMd,
+                ),
+                border: Border.all(color: AppColors.warning),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.pending_actions_rounded,
+                        color: AppColors.warning,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'ASSIGNMENT AWAITING ACCEPTANCE',
+                        style: AppTypography.labelMono.copyWith(
+                          color: AppColors.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'You have been assigned to this project. Please review project details and accept the assignment before uploading drawings or starting work.',
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        final target =
+                            project.currentAssignmentId ?? project.projectId;
+                        context.push('/draughtsman/assignments/$target');
+                      },
+                      icon: const Icon(
+                        Icons.assignment_turned_in_outlined,
+                        size: 18,
+                      ),
+                      label: const Text('Review & Accept Assignment'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.warning,
+                        foregroundColor: AppColors.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // Client Reference Files
           _buildFilesSection(

@@ -22,5 +22,29 @@ void main() {
     );
 
     expect(find.text('SUBMITTED'), findsOneWidget);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProjectStatusChip(status: ProjectStatus.underClientReview),
+        ),
+      ),
+    );
+
+    expect(find.text('AWAITING REVIEW'), findsOneWidget);
+    expect(find.text('UNDER_CLIENT_REVIEW'), findsNothing);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProjectStatusChip(
+            status: ProjectStatus.underClientReview,
+            label: 'CUSTOM LABEL',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('CUSTOM LABEL'), findsOneWidget);
   });
 }

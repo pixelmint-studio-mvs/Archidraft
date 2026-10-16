@@ -35,6 +35,13 @@ class _StudentProjectsScreenState extends ConsumerState<StudentProjectsScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.grid_view_rounded),
+            tooltip: 'Drawings Library',
+            onPressed: () => context.push('/student/drawings'),
+          ),
+        ],
       ),
       body: assignmentsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.secondary)),
@@ -75,7 +82,7 @@ class _StudentProjectsScreenState extends ConsumerState<StudentProjectsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder_open_outlined, size: 64, color: AppColors.onSurfaceVariant.withOpacity(0.5)),
+                Icon(Icons.folder_open_outlined, size: 64, color: AppColors.onSurfaceVariant.withValues(alpha: 0.5)),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   'No projects yet',
@@ -325,11 +332,7 @@ class _FeaturedProjectCard extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        if (project.projectStatus == ProjectStatus.inProgress) {
-          context.push('/student/workspace/${project.projectId}');
-        } else {
-          context.push('/student/projects/${project.projectId}');
-        }
+        context.push('/student/workspace/${project.projectId}');
       },
       borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
       child: Container(
@@ -337,10 +340,10 @@ class _FeaturedProjectCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-          border: Border.all(color: project.correctionRound > 0 ? AppColors.error : AppColors.secondary.withOpacity(0.5), width: 2),
+          border: Border.all(color: project.correctionRound > 0 ? AppColors.error : AppColors.secondary.withValues(alpha: 0.5), width: 2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -355,7 +358,7 @@ class _FeaturedProjectCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
                   ),
                   child: Text(
@@ -428,7 +431,7 @@ class _FeaturedProjectCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             ElevatedButton(
               onPressed: () {
-                context.push('/student/projects/${project.projectId}');
+                context.push('/student/workspace/${project.projectId}');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.secondary,
@@ -459,11 +462,7 @@ class _ProjectListItem extends StatelessWidget {
 
     return InkWell(
       onTap: () {
-        if (project.projectStatus == ProjectStatus.inProgress) {
-          context.push('/student/workspace/${project.projectId}');
-        } else {
-          context.push('/student/projects/${project.projectId}');
-        }
+        context.push('/student/workspace/${project.projectId}');
       },
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       child: Container(
@@ -474,7 +473,7 @@ class _ProjectListItem extends StatelessWidget {
           border: Border.all(color: AppColors.surfaceVariant),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -501,7 +500,7 @@ class _ProjectListItem extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs / 2),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
                   ),
                   child: Text(
@@ -592,7 +591,7 @@ String _getStatusDisplay(ProjectStatus status) {
     case ProjectStatus.waitingAcceptance: return 'PENDING ACCEPT';
     case ProjectStatus.inProgress: return 'IN PROGRESS';
     case ProjectStatus.submitted: return 'SUBMITTED';
-    case ProjectStatus.underClientReview: return 'IN REVIEW';
+    case ProjectStatus.underClientReview: return 'AWAITING REVIEW';
     case ProjectStatus.completed: return 'COMPLETED';
     case ProjectStatus.draft: return 'DRAFT';
     case ProjectStatus.cancelled: return 'CANCELLED';
