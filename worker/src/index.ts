@@ -46,10 +46,10 @@ app.post('/api/users', async (c) => {
   const { email, name, mobile, role } = body;
 
   // Enforce role allowlist at the backend level.
-  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN'];
+  const allowedRoles = ['CLIENT', 'DRAUGHTSMAN', 'STUDENT'];
   const safeRole = allowedRoles.includes(role) ? role : null;
   if (!safeRole) {
-    return c.json({ error: 'Invalid role. Only CLIENT and DRAUGHTSMAN are permitted.' }, 400);
+    return c.json({ error: 'Invalid role. Only CLIENT, DRAUGHTSMAN, and STUDENT are permitted.' }, 400);
   }
 
   const db = c.env.DB;
@@ -132,6 +132,70 @@ app.get('/api/users', async (c) => {
   
   const { results } = await db.prepare('SELECT * FROM users').all();
   return c.json(results);
+});
+
+// Admin: Get specific user details with associated projects or assignments
+app.get('/api/users/:id', async (c) => {
+  const uid = c.get('uid');
+  const targetId = c.req.param('id');
+  const db = c.env.DB;
+  const adminUser = await getUser(db, uid);
+  if (!adminUser || adminUser.role !== 'ADMIN') return c.json({ error: 'Permission denied' }, 403);
+
+  const targetUser = await getUser(db, targetId);
+  if (!targetUser) return c.json({ error: 'User not found' }, 404);
+
+  let projects: any[] = [];
+  if (targetUser.role === 'CLIENT') {
+    const { results } = await db.prepare('SELECT * FROM projects WHERE client_id = ? ORDER BY created_at DESC').bind(targetId).all();
+    projects = results;
+  } else if (targetUser.role === 'DRAUGHTSMAN') {
+    const { results } = await db.prepare('SELECT a.*, p.project_name, p.status as project_status, p.drawing_type, p.project_area FROM assignments a JOIN projects p ON a.project_id = p.id WHERE a.draughtsman_id = ? ORDER BY a.created_at DESC').bind(targetId).all();
+    projects = results;
+  }
+
+  return c.json({
+    user: targetUser,
+    projects,
+  });
+});
+
+// Admin: Unified platform statistics covering all three portals & activity
+app.get('/api/admin/stats', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Permission denied' }, 403);
+
+  const { results: projectStats } = await db.prepare('SELECT status, COUNT(*) as count FROM projects GROUP BY status').all();
+  const byStatus: Record<string, number> = {};
+  let totalProjects = 0;
+  for (const row of projectStats as any[]) {
+    byStatus[row.status] = row.count;
+    totalProjects += row.count;
+  }
+
+  const { results: userStats } = await db.prepare('SELECT role, COUNT(*) as count FROM users GROUP BY role').all();
+  const byRole: Record<string, number> = {};
+  let totalUsers = 0;
+  for (const row of userStats as any[]) {
+    byRole[row.role] = row.count;
+    totalUsers += row.count;
+  }
+
+  const { results: recentActivity } = await db.prepare('SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 20').all();
+
+  return c.json({
+    projects: {
+      total: totalProjects,
+      byStatus,
+    },
+    users: {
+      total: totalUsers,
+      byRole,
+    },
+    recentActivity: recentActivity || [],
+  });
 });
 
 // Helper: UUID v4 (simple fallback for action/log IDs if client doesn't provide it)

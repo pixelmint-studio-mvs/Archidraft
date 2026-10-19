@@ -49,14 +49,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-14 w-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 items-center justify-center text-white shadow-xl shadow-blue-600/25 mb-4">
-            <Compass className="h-7 w-7" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100">
-            Archi Draft Admin
+          <img
+            src="/draughtsman_logo.jpeg"
+            alt="Draughtsman Studio Logo"
+            className="h-16 w-16 rounded-2xl object-cover bg-slate-900 border border-slate-700/60 shadow-xl shadow-blue-600/20 mb-4 inline-block"
+          />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-100 uppercase tracking-wider">
+            Archi Draft
           </h1>
           <p className="text-sm text-slate-400 mt-1 font-medium">
-            Studio Operations & Workflow Control
+            Draughtsman Studio &bull; Admin Console
           </p>
         </div>
 
@@ -125,14 +127,14 @@ export default function LoginPage() {
             <p className="text-xs text-slate-500">
               Admin identities are provisioned by Draughtsman Studio.
               <br />
-              Client and draughtsman accounts cannot log into this portal.
+              Engineer, Draughtsman, and Student accounts cannot log into this portal.
             </p>
           </div>
         </div>
 
         {/* Footer */}
         <p className="text-center text-[11px] text-slate-600 mt-8 tracking-wider">
-          ARCHI DRAFT ECOSYSTEM &bull; SECURITY LAYER 3 &bull; CLOUDFLARE D1
+          ARCHI DRAFT &bull; DRAUGHTSMAN STUDIO &bull; DEVELOPED BY PIXELMINT STUDIO MVS
         </p>
       </div>
     </div>

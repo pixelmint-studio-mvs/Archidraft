@@ -75,17 +75,62 @@ export const adminApi = {
     try {
       return await fetchApi<AdminStats>('/api/admin/stats');
     } catch {
-      return {
-        projects: {
-          total: 0,
-          byStatus: {},
-        },
-        users: {
-          total: 1,
-          byRole: { ADMIN: 1 },
-        },
-        recentActivity: [],
-      };
+      try {
+        const [projects, users] = await Promise.all([
+          this.getProjects(),
+          this.getUsers(),
+        ]);
+        const byStatus: Record<string, number> = {};
+        projects.forEach((p) => {
+          byStatus[p.status] = (byStatus[p.status] || 0) + 1;
+        });
+        const byRole: Record<string, number> = {};
+        users.forEach((u) => {
+          byRole[u.role] = (byRole[u.role] || 0) + 1;
+        });
+        return {
+          projects: {
+            total: projects.length,
+            byStatus,
+          },
+          users: {
+            total: users.length,
+            byRole,
+          },
+          recentActivity: [],
+        };
+      } catch {
+        return {
+          projects: {
+            total: 0,
+            byStatus: {},
+          },
+          users: {
+            total: 1,
+            byRole: { ADMIN: 1 },
+          },
+          recentActivity: [],
+        };
+      }
+    }
+  },
+
+  async getUserDetails(userId: string): Promise<{ user: User; projects: any[] }> {
+    try {
+      return await fetchApi<{ user: User; projects: any[] }>(`/api/users/${userId}`);
+    } catch {
+      const allUsers = await this.getUsers();
+      const user = allUsers.find((u) => u.id === userId);
+      if (!user) throw new Error('User not found');
+      
+      const allProjects = await this.getProjects();
+      let projects: any[] = [];
+      if (user.role === 'CLIENT') {
+        projects = allProjects.filter((p) => p.client_id === userId);
+      } else if (user.role === 'DRAUGHTSMAN') {
+        projects = allProjects.filter((p) => p.draughtsman_id === userId);
+      }
+      return { user, projects };
     }
   },
 

@@ -8,7 +8,27 @@
 
 // ── User ──
 
-export type UserRole = 'CLIENT' | 'DRAUGHTSMAN' | 'ADMIN';
+export type UserRole = 'CLIENT' | 'DRAUGHTSMAN' | 'ADMIN' | 'STUDENT';
+
+/**
+ * Helper to get the canonical user-facing role name.
+ * 'CLIENT' is the backend database identifier for Engineers.
+ */
+export function getDisplayRole(role?: string): string {
+  if (!role) return 'Unknown';
+  switch (role) {
+    case 'CLIENT':
+      return 'Engineer';
+    case 'DRAUGHTSMAN':
+      return 'Draughtsman';
+    case 'STUDENT':
+      return 'Student';
+    case 'ADMIN':
+      return 'Studio Admin';
+    default:
+      return role;
+  }
+}
 
 export interface User {
   id: string;

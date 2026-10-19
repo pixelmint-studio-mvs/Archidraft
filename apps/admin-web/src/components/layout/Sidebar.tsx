@@ -6,11 +6,12 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   FolderKanban,
-  Users,
+  HardHat,
+  PenTool,
+  GraduationCap,
   Activity,
   Settings,
   LogOut,
-  Compass,
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -27,9 +28,19 @@ const NAV_ITEMS = [
     icon: FolderKanban,
   },
   {
-    name: 'User Directory',
-    href: '/users',
-    icon: Users,
+    name: 'Engineers',
+    href: '/engineers',
+    icon: HardHat,
+  },
+  {
+    name: 'Draughtsmen',
+    href: '/draughtsmen',
+    icon: PenTool,
+  },
+  {
+    name: 'Students',
+    href: '/students',
+    icon: GraduationCap,
   },
   {
     name: 'Activity Feed',
@@ -52,17 +63,19 @@ export function Sidebar() {
       {/* Brand Header */}
       <div>
         <div className="h-16 flex items-center gap-3 px-6 border-b border-slate-800/80">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <Compass className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-wider text-slate-100 uppercase">
+          <img
+            src="/draughtsman_logo.jpeg"
+            alt="Draughtsman Studio Logo"
+            className="h-9 w-9 rounded-xl object-cover bg-slate-900 border border-slate-700/60 shadow-md shadow-blue-500/10 shrink-0"
+          />
+          <div className="overflow-hidden">
+            <h1 className="text-sm font-bold tracking-wider text-slate-100 uppercase truncate">
               Archi Draft
             </h1>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              <p className="text-[10px] tracking-widest text-slate-400 font-semibold uppercase">
-                Studio Admin
+              <p className="text-[10px] tracking-widest text-slate-400 font-semibold uppercase truncate">
+                Draughtsman Studio
               </p>
             </div>
           </div>
@@ -100,7 +113,7 @@ export function Sidebar() {
 
       {/* User Footer */}
       <div className="p-4 border-t border-slate-800/80 bg-[#090d16]/50">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2.5 overflow-hidden">
             <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-medium shrink-0">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
@@ -111,7 +124,7 @@ export function Sidebar() {
               </p>
               <div className="flex items-center gap-1 text-[10px] text-blue-400 font-medium">
                 <ShieldCheck className="h-3 w-3" />
-                <span>Admin</span>
+                <span>Studio Admin</span>
               </div>
             </div>
           </div>
@@ -122,6 +135,10 @@ export function Sidebar() {
           >
             <LogOut className="h-4 w-4" />
           </button>
+        </div>
+        <div className="pt-2 border-t border-slate-800/50 flex items-center justify-between text-[9px] text-slate-500 font-mono">
+          <span>Draughtsman Studio</span>
+          <span>PixelMint MVS</span>
         </div>
       </div>
     </aside>

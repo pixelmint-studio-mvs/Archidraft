@@ -6,13 +6,26 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { adminApi } from '@/lib/api';
-import { User, UserRole } from '@/lib/types';
-import { Search, Users, Mail, Phone, GraduationCap, Building, Calendar, AlertCircle } from 'lucide-react';
+import { User } from '@/lib/types';
+import {
+  Search,
+  Users,
+  Mail,
+  Phone,
+  GraduationCap,
+  Building,
+  Calendar,
+  AlertCircle,
+  HardHat,
+  PenTool,
+  ShieldCheck,
+} from 'lucide-react';
 
 const ROLE_TABS: { label: string; value: string }[] = [
   { label: 'All Users', value: 'ALL' },
+  { label: 'Engineers', value: 'CLIENT' },
   { label: 'Draughtsmen', value: 'DRAUGHTSMAN' },
-  { label: 'Clients', value: 'CLIENT' },
+  { label: 'Students', value: 'STUDENT' },
   { label: 'Studio Admins', value: 'ADMIN' },
 ];
 
@@ -63,14 +76,15 @@ export default function UsersPage() {
     });
   }, [users, selectedRole, searchQuery]);
 
+  const engineerCount = users.filter((u) => u.role === 'CLIENT').length;
   const draughtsmanCount = users.filter((u) => u.role === 'DRAUGHTSMAN').length;
-  const clientCount = users.filter((u) => u.role === 'CLIENT').length;
+  const studentCount = users.filter((u) => u.role === 'STUDENT').length;
   const adminCount = users.filter((u) => u.role === 'ADMIN').length;
 
   return (
     <AdminShell
       title="User Directory & Talent Pool"
-      subtitle="Complete platform user roster including verified draughtsmen and registered clients"
+      subtitle="Complete platform user roster across Engineers, Draughtsmen, Students, and Studio Admins"
       onRefresh={() => loadUsers(true)}
       isRefreshing={refreshing}
     >
@@ -85,22 +99,38 @@ export default function UsersPage() {
       )}
 
       {/* Role Summary Badges */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-        <Card className="p-4">
-          <p className="text-[11px] font-semibold uppercase text-slate-400">Total Registered</p>
-          <p className="text-2xl font-bold text-slate-100 mt-1">{users.length}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+        <Card className="p-3.5">
+          <p className="text-[10px] font-semibold uppercase text-slate-400">Total Registered</p>
+          <p className="text-xl font-bold text-slate-100 mt-1">{users.length}</p>
         </Card>
-        <Card className="p-4 border-cyan-900/30">
-          <p className="text-[11px] font-semibold uppercase text-cyan-400">Draughtsmen</p>
-          <p className="text-2xl font-bold text-cyan-300 mt-1">{draughtsmanCount}</p>
+        <Card className="p-3.5 border-indigo-900/30">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase text-indigo-400">Engineers</p>
+            <HardHat className="h-3.5 w-3.5 text-indigo-400" />
+          </div>
+          <p className="text-xl font-bold text-indigo-300 mt-1">{engineerCount}</p>
         </Card>
-        <Card className="p-4 border-indigo-900/30">
-          <p className="text-[11px] font-semibold uppercase text-indigo-400">Clients</p>
-          <p className="text-2xl font-bold text-indigo-300 mt-1">{clientCount}</p>
+        <Card className="p-3.5 border-cyan-900/30">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase text-cyan-400">Draughtsmen</p>
+            <PenTool className="h-3.5 w-3.5 text-cyan-400" />
+          </div>
+          <p className="text-xl font-bold text-cyan-300 mt-1">{draughtsmanCount}</p>
         </Card>
-        <Card className="p-4 border-rose-900/30">
-          <p className="text-[11px] font-semibold uppercase text-rose-400">Studio Admins</p>
-          <p className="text-2xl font-bold text-rose-300 mt-1">{adminCount}</p>
+        <Card className="p-3.5 border-emerald-900/30">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase text-emerald-400">Students</p>
+            <GraduationCap className="h-3.5 w-3.5 text-emerald-400" />
+          </div>
+          <p className="text-xl font-bold text-emerald-300 mt-1">{studentCount}</p>
+        </Card>
+        <Card className="p-3.5 border-rose-900/30 col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase text-rose-400">Studio Admins</p>
+            <ShieldCheck className="h-3.5 w-3.5 text-rose-400" />
+          </div>
+          <p className="text-xl font-bold text-rose-300 mt-1">{adminCount}</p>
         </Card>
       </div>
 
@@ -118,14 +148,14 @@ export default function UsersPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {ROLE_TABS.map((tab) => {
             const isSelected = selectedRole === tab.value;
             return (
               <button
                 key={tab.value}
                 onClick={() => setSelectedRole(tab.value)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                   isSelected
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800'

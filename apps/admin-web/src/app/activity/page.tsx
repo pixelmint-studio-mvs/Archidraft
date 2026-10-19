@@ -55,7 +55,7 @@ export default function ActivityPage() {
   return (
     <AdminShell
       title="Platform Activity Audit Trail"
-      subtitle="Immutable chronological feed of operations across clients, draughtsmen, and administrators"
+      subtitle="Immutable chronological feed of operations across engineers, draughtsmen, and administrators"
       onRefresh={() => loadActivity(true)}
       isRefreshing={refreshing}
     >

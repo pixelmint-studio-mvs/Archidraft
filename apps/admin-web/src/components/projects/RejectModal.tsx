@@ -28,7 +28,7 @@ export function RejectModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      setError('A rejection reason is required for client review.');
+      setError('A rejection reason is required for engineer review.');
       return;
     }
 
@@ -62,7 +62,7 @@ export function RejectModal({
 
         <div>
           <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-            Rejection Reason (Sent to Client)
+            Rejection Reason (Sent to Engineer)
           </label>
           <textarea
             rows={4}

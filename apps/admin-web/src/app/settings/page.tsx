@@ -86,7 +86,7 @@ export default function SettingsPage() {
               <h3 className="text-sm font-semibold text-slate-100">Firebase Identity Provider</h3>
             </div>
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              Shared identity directory with the Archi Draft Flutter client and draughtsman mobile apps.
+              Shared identity directory with the Archi Draft mobile portals (Engineers, Draughtsmen, and Students).
             </p>
             <div className="space-y-2.5 text-xs font-mono">
               <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 break-all text-slate-300">
@@ -149,7 +149,7 @@ export default function SettingsPage() {
                 <span>Correction Round Limit (Max 3)</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed pl-6">
-                Client correction requests are capped at 3 rounds server-side, preventing infinite scope creep while providing full visibility in the admin console.
+                Engineer correction requests are capped at 3 rounds server-side, preventing infinite scope creep while providing full visibility in the admin console.
               </p>
             </div>
           </div>

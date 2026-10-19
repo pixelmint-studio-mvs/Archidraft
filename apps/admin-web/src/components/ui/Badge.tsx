@@ -52,6 +52,9 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
       case 'CLIENT':
         style = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
         break;
+      case 'STUDENT':
+        style = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        break;
     }
   } else if (variant) {
     switch (variant) {
@@ -74,7 +77,7 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
   }
 
   const sizeClass = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-sm';
-  const label = children || (status ? formatStatus(status) : role);
+  const label = children || (status ? formatStatus(status) : formatRole(role));
 
   return (
     <span
@@ -86,7 +89,16 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
   );
 }
 
+function formatRole(role?: string): string {
+  if (!role) return '';
+  if (role === 'CLIENT') return 'ENGINEER';
+  return role.toUpperCase();
+}
+
 function formatStatus(status: string): string {
+  if (status === 'UNDER_CLIENT_REVIEW') {
+    return 'Under Engineer Review';
+  }
   return status
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())

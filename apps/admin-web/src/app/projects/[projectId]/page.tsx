@@ -212,7 +212,7 @@ export default function ProjectDetailPage({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Client ID: <code className="text-slate-300 font-mono">{project.client_id.substring(0, 8)}</code></span>
+                    <span>Engineer ID: <code className="text-slate-300 font-mono">{project.client_id.substring(0, 8)}</code></span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-slate-500" />
@@ -408,13 +408,13 @@ export default function ProjectDetailPage({
           {activeTab === 'files' && (
             <Card>
               <CardHeader
-                title="Client Reference Materials & Uploads"
+                title="Engineer Reference Materials & Uploads"
                 subtitle="Documents, sketches, and reference files stored securely in Cloudflare R2"
               />
 
               {files.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400">
-                  No reference files uploaded by client yet.
+                  No reference files uploaded by engineer yet.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-800">
@@ -520,7 +520,7 @@ export default function ProjectDetailPage({
           {activeTab === 'corrections' && (
             <Card>
               <CardHeader
-                title="Client Revision & Correction Rounds"
+                title="Engineer Revision & Correction Rounds"
                 subtitle="Maximum limit of 3 rounds enforced strictly by the Cloudflare Worker"
               />
 
