@@ -122,7 +122,7 @@ app.get('/api/users', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Permission denied' }, 403);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Permission denied' }, 403);
   
   const role = c.req.query('role');
   if (role) {
@@ -333,7 +333,7 @@ app.post('/api/projects/approve', async (c) => {
   const { projectId, actionId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can approve projects' }, 403);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Only admins can approve projects' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -343,7 +343,7 @@ app.post('/api/projects/approve', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'WAITING_ASSIGNMENT', approved_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_APPROVED', uid, 'STUDIO_ADMIN', 'Studio Admin approved the project.'
+      actionId, projectId, 'PROJECT_APPROVED', uid, 'ADMIN', 'Studio Admin approved the project.'
     )
   ];
   await db.batch(batch);
@@ -357,7 +357,7 @@ app.post('/api/projects/reject', async (c) => {
   const { projectId, actionId, reason } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can reject projects' }, 403);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Only admins can reject projects' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -367,7 +367,7 @@ app.post('/api/projects/reject', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'CANCELLED', rejection_reason = ?, cancelled_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(reason, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_REJECTED', uid, 'STUDIO_ADMIN', 'Studio Admin rejected the project. Reason: ' + reason
+      actionId, projectId, 'PROJECT_REJECTED', uid, 'ADMIN', 'Studio Admin rejected the project. Reason: ' + reason
     )
   ];
   await db.batch(batch);
@@ -443,7 +443,7 @@ app.post('/api/projects/assign', async (c) => {
   const { projectId, actionId, draughtsmanId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can assign projects' }, 403);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Only admins can assign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
   if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
@@ -459,7 +459,7 @@ app.post('/api/projects/assign', async (c) => {
     db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId),
     db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin assigned draughtsman: ' + dMan.name
+      actionId, projectId, 'DRAUGHTSMAN_ASSIGNED', uid, 'ADMIN', 'Studio Admin assigned draughtsman: ' + dMan.name
     )
   ];
   await db.batch(batch);
@@ -473,7 +473,7 @@ app.post('/api/projects/reassign', async (c) => {
   const { projectId, actionId, draughtsmanId } = body;
   
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'STUDIO_ADMIN') return c.json({ error: 'Only admins can reassign projects' }, 403);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Only admins can reassign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
   if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
@@ -498,7 +498,7 @@ app.post('/api/projects/reassign', async (c) => {
   batch.push(db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId));
   batch.push(db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId));
   batch.push(db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-    actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin reassigned to draughtsman: ' + dMan.name
+    actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, 'ADMIN', 'Studio Admin reassigned to draughtsman: ' + dMan.name
   ));
 
   await db.batch(batch);
@@ -812,6 +812,170 @@ app.get('/api/files/:fileId/download', async (c) => {
   headers.set('Content-Disposition', `attachment; filename="${fileMeta.sanitized_name}"`);
 
   return new Response(object.body, { headers });
+});
+
+// ──────────────────────────────────────────
+// ADMIN PANEL ENDPOINTS
+// ──────────────────────────────────────────
+
+// GET /api/admin/stats — Dashboard aggregate statistics (ADMIN only)
+app.get('/api/admin/stats', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Permission denied' }, 403);
+
+  const [
+    totalProjects,
+    byStatus,
+    totalUsers,
+    usersByRole,
+    recentActivity,
+  ] = await Promise.all([
+    db.prepare('SELECT COUNT(*) as count FROM projects').first(),
+    db.prepare(`
+      SELECT status, COUNT(*) as count FROM projects GROUP BY status
+    `).all(),
+    db.prepare('SELECT COUNT(*) as count FROM users').first(),
+    db.prepare(`
+      SELECT role, COUNT(*) as count FROM users GROUP BY role
+    `).all(),
+    db.prepare(`
+      SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 20
+    `).all(),
+  ]);
+
+  const statusCounts: Record<string, number> = {};
+  for (const row of (byStatus.results || [])) {
+    statusCounts[row.status as string] = row.count as number;
+  }
+
+  const roleCounts: Record<string, number> = {};
+  for (const row of (usersByRole.results || [])) {
+    roleCounts[row.role as string] = row.count as number;
+  }
+
+  return c.json({
+    projects: {
+      total: totalProjects?.count ?? 0,
+      byStatus: statusCounts,
+    },
+    users: {
+      total: totalUsers?.count ?? 0,
+      byRole: roleCounts,
+    },
+    recentActivity: recentActivity.results || [],
+  });
+});
+
+// GET /api/projects/:projectId — Single project fetch (role-scoped)
+app.get('/api/projects/:projectId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const projectId = c.req.param('projectId');
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  // Role-scoped access control
+  if (user.role === 'CLIENT' && project.client_id !== uid) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+  // ADMIN can view any project
+
+  return c.json(project);
+});
+
+// GET /api/projects/:projectId/activity — Activity logs for a project (role-scoped)
+app.get('/api/projects/:projectId/activity', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const projectId = c.req.param('projectId');
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  // Role-scoped access control
+  if (user.role === 'CLIENT' && project.client_id !== uid) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+  // ADMIN can view any project's activity
+
+  const { results } = await db.prepare(
+    'SELECT * FROM activity_logs WHERE project_id = ? ORDER BY timestamp DESC'
+  ).bind(projectId).all();
+
+  return c.json(results || []);
+});
+
+// GET /api/projects/:projectId/assignments — Assignment history for a project (ADMIN only)
+app.get('/api/projects/:projectId/assignments', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const projectId = c.req.param('projectId');
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Permission denied' }, 403);
+
+  const { results } = await db.prepare(`
+    SELECT a.*, u.name as draughtsman_name, u.email as draughtsman_email
+    FROM assignments a
+    LEFT JOIN users u ON a.draughtsman_id = u.id
+    WHERE a.project_id = ?
+    ORDER BY a.created_at DESC
+  `).bind(projectId).all();
+
+  return c.json(results || []);
+});
+
+// POST /api/projects/cancel — Admin cancels a project (ADMIN only)
+app.post('/api/projects/cancel', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, actionId, reason } = body;
+
+  const user = await getUser(db, uid);
+  if (!user || user.role !== 'ADMIN') return c.json({ error: 'Only admins can cancel projects' }, 403);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  // Cannot cancel already COMPLETED or CANCELLED projects
+  if (project.status === 'COMPLETED' || project.status === 'CANCELLED') {
+    return c.json({ error: `Cannot cancel project in ${project.status} state` }, 400);
+  }
+
+  // Idempotency check
+  if (project.last_action_id === actionId) {
+    return c.json({ message: 'Action already processed (idempotent)' }, 200);
+  }
+
+  const batch = [
+    db.prepare(`UPDATE projects SET status = 'CANCELLED', cancelled_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'PROJECT_CANCELLED', uid, 'ADMIN', 'Admin cancelled the project. Reason: ' + (reason || 'No reason provided')
+    )
+  ];
+
+  // If there's an active assignment, cancel it too
+  if (project.current_assignment_id) {
+    batch.push(
+      db.prepare(`UPDATE assignments SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(project.current_assignment_id)
+    );
+  }
+
+  await db.batch(batch);
+  return c.json({ message: 'Project cancelled successfully' });
 });
 
 export default app;
