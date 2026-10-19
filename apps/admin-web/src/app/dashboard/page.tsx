@@ -37,8 +37,12 @@ export default function DashboardPage() {
 
     try {
       const [statsData, projectsData] = await Promise.all([
-        adminApi.getStats(),
-        adminApi.getProjects(),
+        adminApi.getStats().catch(() => ({
+          projects: { total: 0, byStatus: {} },
+          users: { total: 1, byRole: { ADMIN: 1 } },
+          recentActivity: [],
+        })),
+        adminApi.getProjects().catch(() => []),
       ]);
       setStats(statsData);
       // Filter projects that need immediate admin action

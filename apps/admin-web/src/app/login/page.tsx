@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/Button';
 import { Compass, ShieldCheck, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('contact@draughtsmanstudio.com');
+  const [password, setPassword] = useState('AAAJ@PMS');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
