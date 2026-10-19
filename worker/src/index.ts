@@ -557,10 +557,19 @@ app.post('/api/assignments/accept', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const body = await c.req.json();
-  const { assignmentId, projectId, actionId } = body;
+  const { assignmentId, actionId } = body;
+  let { projectId } = body;
   
   const user = await getUser(db, uid);
   if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can accept assignments' }, 403);
+
+  const assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
+  if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
+
+  if (!projectId) {
+    projectId = assignment.project_id;
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -570,15 +579,13 @@ app.post('/api/assignments/accept', async (c) => {
   if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
 
-  const assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
-  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
-  if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
+  const effectiveActionId = actionId || uuidv4();
 
   const batch = [
     db.prepare(`UPDATE assignments SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId),
-    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(effectiveActionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, 'DRAUGHTSMAN', 'Draughtsman accepted the assignment.'
+      effectiveActionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, 'DRAUGHTSMAN', 'Draughtsman accepted the assignment.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.client_id, projectId, 'ASSIGNMENT_ACCEPTED', 'Project In Progress', 'A draughtsman has accepted and started your project.'
@@ -592,10 +599,19 @@ app.post('/api/assignments/reject', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const body = await c.req.json();
-  const { assignmentId, projectId, actionId } = body;
+  const { assignmentId, actionId } = body;
+  let { projectId } = body;
   
   const user = await getUser(db, uid);
   if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can reject assignments' }, 403);
+
+  const assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
+  if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
+
+  if (!projectId) {
+    projectId = assignment.project_id;
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -605,15 +621,13 @@ app.post('/api/assignments/reject', async (c) => {
   if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
 
-  const assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
-  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
-  if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
+  const effectiveActionId = actionId || uuidv4();
 
   const batch = [
     db.prepare(`UPDATE assignments SET status = 'REJECTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId),
-    db.prepare(`UPDATE projects SET status = 'WAITING_ASSIGNMENT', draughtsman_id = NULL, draughtsman_name = NULL, current_assignment_id = NULL, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`UPDATE projects SET status = 'WAITING_ASSIGNMENT', draughtsman_id = NULL, draughtsman_name = NULL, current_assignment_id = NULL, last_action_id = ? WHERE id = ?`).bind(effectiveActionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'ASSIGNMENT_REJECTED', uid, 'DRAUGHTSMAN', 'Draughtsman rejected the assignment.'
+      effectiveActionId, projectId, 'ASSIGNMENT_REJECTED', uid, 'DRAUGHTSMAN', 'Draughtsman rejected the assignment.'
     )
   ];
   await db.batch(batch);
