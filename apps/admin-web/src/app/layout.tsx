@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/lib/auth';
+import { Providers } from '@/components/providers';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -18,8 +18,6 @@ export const metadata: Metadata = {
   description: 'Executive operations, project assignments, and workflow governance for Draughtsman Studio',
 };
 
-import { Suspense } from 'react';
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,9 +29,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full dark`}
     >
       <body className="min-h-full bg-[#090d16] text-slate-100 antialiased selection:bg-blue-600 selection:text-white">
-        <AuthProvider>
-          <Suspense fallback={null}>{children}</Suspense>
-        </AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

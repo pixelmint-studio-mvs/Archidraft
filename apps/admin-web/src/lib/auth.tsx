@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import {
   User as FirebaseUser,
   onAuthStateChanged,
@@ -53,24 +53,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setError(err.message || 'Failed to authenticate admin session.');
       }
-      await firebaseSignOut(auth);
+      try {
+        await firebaseSignOut(auth);
+      } catch {}
       setUser(null);
       setFirebaseUser(null);
     }
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
-      if (fbUser) {
-        await fetchUserProfile(fbUser);
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
+    let isMounted = true;
 
-    return () => unsubscribe();
+    // Safety timeout: Ensure loading state unblocks within 2 seconds
+    const timeoutId = setTimeout(() => {
+      if (isMounted && loading) {
+        setLoading(false);
+      }
+    }, 2000);
+
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (fbUser) => {
+        if (!isMounted) return;
+        setFirebaseUser(fbUser);
+        if (fbUser) {
+          try {
+            await fetchUserProfile(fbUser);
+          } catch (e) {
+            console.error('Profile fetch error:', e);
+          }
+        } else {
+          setUser(null);
+        }
+        if (isMounted) setLoading(false);
+      },
+      (authErr) => {
+        console.error('Firebase onAuthStateChanged error:', authErr);
+        if (isMounted) {
+          setError(authErr.message);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, []);
 
   // Route protection
@@ -124,18 +154,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const contextValue = useMemo(
+    () => ({
+      firebaseUser,
+      user,
+      loading,
+      error,
+      login,
+      logout,
+      refreshProfile,
+    }),
+    [firebaseUser, user, loading, error]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        firebaseUser,
-        user,
-        loading,
-        error,
-        login,
-        logout,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
