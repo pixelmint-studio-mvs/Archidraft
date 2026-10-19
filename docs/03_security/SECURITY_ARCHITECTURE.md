@@ -1,44 +1,62 @@
 # SECURITY ARCHITECTURE
 
-## 1. Core Principle
-**UI Hiding is NOT Security.** Disabling a button or hiding a navigation tab provides zero protection against unauthorized requests.
+## 1. SECURITY PRINCIPLES
+**UI ≠ SECURITY.** A hidden button or disabled route is not security.
 
-True application security is established through defense-in-depth across the platform:
-```text
-Firebase Authentication (Identity Verification)
-  + Cloudflare Worker Middleware (JWT Cryptographic Validation)
-  + Cloudflare Worker Role & Ownership Checks (RBAC)
-  + Cloudflare D1 Parameterized Bindings (Data Isolation)
-  + Cloudflare R2 Protected Object Streaming (Storage Isolation)
+True security is established via:
+**Firebase Authentication (Verified JWT)** + **Cloudflare Worker Middleware (`authMiddleware`)** + **D1 Database Authorization Rules (`canUserAccessProject`)**
+
+---
+
+## 2. BACKEND PROJECT AUTHORIZATION ENGINE (`canUserAccessProject`)
+
+Access to any protected project-scoped endpoint (`GET /api/projects/:id`, `GET /api/projects/:id/activity`, `GET /api/projects/:id/files`, `GET /api/files/:fileId/download`, `GET/POST /api/projects/:id/messages`) is evaluated dynamically against authoritative D1 database records:
+
+```typescript
+async function canUserAccessProject(db: D1Database, project: any, user: any, uid: string): Promise<boolean>
 ```
 
----
+### Authorization Rules by Role:
 
-## 2. Authentication & Identity Security
-- **Token Verification:** Every request to `/api/*` requires a valid Firebase Auth ID token in the `Authorization: Bearer <token>` header.
-- **Worker Verification:** The Worker decodes and validates the token signature against Google's public JSON Web Key Sets (JWKS).
-- **No Client-Supplied User IDs:** The backend never trusts client-supplied user identifiers in the request payload. The authenticated user ID is strictly derived from the verified token (`c.get('uid')`).
-
----
-
-## 3. Role-Based Access Control (RBAC)
-- **Role Assignment:** Users select their role (`ENGINEER`, `DRAUGHTSMAN`, `STUDENT`) on registration. Once provisioned in D1, the role cannot be modified by the user.
-- **Admin Privilege Protection:** The `STUDIO_ADMIN` role cannot be self-assigned under any circumstances.
-- **Endpoint Authorization:**
-  - Engineers can only query and mutate projects where `client_id == uid`.
-  - Draughtsmen can only access projects where `draughtsman_id == uid`.
-  - Only Studio Admins can invoke administrative routes (`/api/projects/approve`, `/api/projects/assign`, `/api/admin/dashboard`, `/api/projects/:projectId/financials`).
-
----
-
-## 4. File Storage Security
-- **No Public R2 Access:** The R2 storage bucket has no public URL or CORS exposure.
-- **Mediated Access:** Every upload, download, and delete request passes through the Worker API, which verifies that the requesting user owns or is assigned to the project.
-- **50 MB Hard Limit:** Server-side streaming byte counters terminate requests exceeding 50 MB before R2 buffers overflow.
+1. **ADMIN & STUDIO_ADMIN:**
+   - Universal read and administrative write access across all projects, including client drafts.
+2. **CLIENT:**
+   - Strict resource ownership check: `project.client_id === uid`.
+   - Cross-client access is rejected with `403 Forbidden`. Clients cannot access another client's project, files, activity, or messages.
+3. **DRAUGHTSMAN:**
+   - Active assignment verification (`verifyDraughtsmanWorkspaceAccess`):
+     - Must match `assignments.draughtsman_id === uid` and `assignments.status === 'ACCEPTED'`.
+     - Direct pointer check: `project.draughtsman_id === uid`.
+     - If assignment is `PENDING`, `REJECTED`, `REPLACED`, or nonexistent, access is denied (`403 Forbidden`).
+4. **ENGINEER:**
+   - Technical review scope: Permitted to access non-draft projects (`SUBMITTED`, `WAITING_ASSIGNMENT`, `WAITING_ACCEPTANCE`, `IN_PROGRESS`, `UNDER_CLIENT_REVIEW`, `COMPLETED`).
+   - Client `DRAFT` projects are completely hidden from listings and direct access (`403 Forbidden`).
+   - Prohibited from final approvals (`approve-final`) and correction requests (`request-correction`).
+5. **STUDENT & UNKNOWN ROLES:**
+   - **Deny-by-Default:** Any unhandled, guest, or `STUDENT` role request is unconditionally rejected (`403 Forbidden`).
 
 ---
 
-## 5. Audit Trail & Log Security
-- **Server-Generated & Immutable:** Activity logs (`activity_logs`) are created exclusively by the Cloudflare Worker during transactional operations.
-- **No Client Modification:** Clients cannot create, alter, or delete activity log entries.
-- **Role Scoping:** Engineers are restricted to viewing activity logs from their owned projects; internal assignment rejections or financial actions are not leaked to Engineer feeds.
+## 3. ROLE PROVISIONING SECURITY
+Users cannot:
+- Self-assign privileged roles (`ENGINEER`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN`) during registration via `POST /api/users`.
+- Change their own or another user's role via `PATCH /api/users/me` (whitelisted profile columns only).
+- Access administrative endpoints without an active `ADMIN` or `STUDIO_ADMIN` database record.
+
+**Self-Registration Policy:**
+Only `CLIENT` and `DRAUGHTSMAN` are permitted in the public registration allowlist (`POST /api/users`). All other roles return `400 Bad Request`.
+
+---
+
+## 4. ACTIVITY LOG SECURITY
+Activity logs are **SERVER-GENERATED** and **IMMUTABLE**:
+- Client applications cannot insert, edit, or delete activity logs.
+- Every state transition executed through the Worker API generates an immutable activity log entry with timestamp and actor UID.
+
+---
+
+## 5. IDENTITY & AUTHENTICATION INTEGRITY
+- **Never trust client-supplied `userId` parameters.**
+- The actor's identity (`uid`) is extracted exclusively from the cryptographically verified Firebase ID token (`c.get('uid')`).
+- File uploads are validated server-side for allowed MIME types and file extensions.
+

@@ -79,6 +79,8 @@ class Validators {
   ///
   /// Accepts digits, optional leading +, spaces, and dashes.
   /// Must contain at least 7 digits.
+  static String? phone(String? value) => mobile(value);
+
   static String? mobile(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Mobile number is required.';

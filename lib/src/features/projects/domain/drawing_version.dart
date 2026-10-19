@@ -1,12 +1,15 @@
+import '../../../shared/utils/date_parser.dart';
+
 class DrawingVersion {
   final String id;
   final String projectId;
   final String fileId;
   final int versionNumber;
   final String uploadedBy;
+  final String? correctionId;
   final String? originalName;
   final String? sanitizedName;
-  final int size;
+  final int? size;
   final DateTime? createdAt;
 
   const DrawingVersion({
@@ -15,9 +18,10 @@ class DrawingVersion {
     required this.fileId,
     required this.versionNumber,
     required this.uploadedBy,
+    this.correctionId,
     this.originalName,
     this.sanitizedName,
-    this.size = 0,
+    this.size,
     this.createdAt,
   });
 
@@ -28,12 +32,14 @@ class DrawingVersion {
       fileId: data['file_id'] as String? ?? '',
       versionNumber: data['version_number'] as int? ?? 1,
       uploadedBy: data['uploaded_by'] as String? ?? '',
+      correctionId: data['correction_id'] as String?,
       originalName: data['original_name'] as String?,
       sanitizedName: data['sanitized_name'] as String?,
-      size: data['size'] as int? ?? 0,
-      createdAt: data['created_at'] != null
-          ? DateTime.tryParse(data['created_at'])
-          : null,
+      size: data['size'] as int?,
+      createdAt: DateParser.parse(data['created_at']),
     );
   }
+
+  factory DrawingVersion.fromJson(Map<String, dynamic> json) =>
+      DrawingVersion.fromMap(json);
 }

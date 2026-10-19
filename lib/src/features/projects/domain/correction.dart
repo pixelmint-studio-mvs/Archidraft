@@ -1,3 +1,5 @@
+import '../../../shared/utils/date_parser.dart';
+
 enum CorrectionStatus {
   open('OPEN', 'Open', 'Correction requested by client'),
   inProgress('IN_PROGRESS', 'In Progress', 'Draughtsman is working on it'),
@@ -40,6 +42,8 @@ class Correction {
     this.resolvedAt,
   });
 
+  factory Correction.fromMap(Map<String, dynamic> map) => Correction.fromJson(map);
+
   factory Correction.fromJson(Map<String, dynamic> json) {
     return Correction(
       id: json['id'] as String,
@@ -49,8 +53,8 @@ class Correction {
       roundNumber: json['round_number'] as int,
       description: json['description'] as String,
       status: CorrectionStatus.fromString(json['status'] as String),
-      createdAt: DateTime.parse(json['created_at'] as String),
-      resolvedAt: json['resolved_at'] != null ? DateTime.parse(json['resolved_at'] as String) : null,
+      createdAt: DateParser.parse(json['created_at']) ?? DateTime.now(),
+      resolvedAt: DateParser.parse(json['resolved_at']),
     );
   }
 }

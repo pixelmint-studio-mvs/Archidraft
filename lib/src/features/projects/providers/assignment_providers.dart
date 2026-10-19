@@ -25,6 +25,14 @@ final draughtsmanAssignmentsProvider = FutureProvider<List<Assignment>>((
   return repository.getAssignments();
 });
 
+final assignmentProvider = FutureProvider.family<Assignment, String>((
+  ref,
+  assignmentId,
+) async {
+  final repository = ref.watch(assignmentRepositoryProvider);
+  return repository.getAssignment(assignmentId);
+});
+
 // ──────────────────────────────────────────
 // DRAUGHTSMAN ACTIONS CONTROLLER
 // ──────────────────────────────────────────
@@ -51,11 +59,11 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
 
       await repository.acceptAssignment(
         assignmentId: assignmentId,
-        projectId: projectId,
         actionId: actionId,
       );
 
       ref.invalidate(draughtsmanAssignmentsProvider);
+      ref.invalidate(assignmentProvider(assignmentId));
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -75,11 +83,12 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
 
       await repository.rejectAssignment(
         assignmentId: assignmentId,
-        projectId: projectId,
         actionId: actionId,
+        reason: 'Manually rejected by draughtsman',
       );
 
       ref.invalidate(draughtsmanAssignmentsProvider);
+      ref.invalidate(assignmentProvider(assignmentId));
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -135,4 +144,31 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  Future<bool> startCorrection({
+    required String projectId,
+    required String correctionId,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final repository = ref.read(projectRepositoryProvider);
+      final actionId = const Uuid().v4();
+
+      await repository.startCorrection(
+        projectId: projectId,
+        correctionId: correctionId,
+        actionId: actionId,
+      );
+
+      ref.invalidate(projectProvider(projectId));
+      ref.invalidate(projectCorrectionsProvider(projectId));
+
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
 }
+

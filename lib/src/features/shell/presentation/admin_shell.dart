@@ -44,7 +44,14 @@ class AdminShell extends StatelessWidget {
   ];
 
   int _calculateSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).matchedLocation;
+    String location = '';
+    try {
+      location = GoRouterState.of(context).matchedLocation;
+    } catch (_) {
+      try {
+        location = GoRouter.of(context).routeInformationProvider.value.uri.path;
+      } catch (_) {}
+    }
     if (location.startsWith('/admin/dashboard')) return 0;
     if (location.startsWith('/admin/projects')) return 1;
     if (location.startsWith('/admin/assignments')) return 2;

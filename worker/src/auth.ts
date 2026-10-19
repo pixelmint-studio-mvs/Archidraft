@@ -12,7 +12,13 @@ const JWKS = createRemoteJWKSet(new URL(FIREBASE_JWKS_URI));
 
 export async function verifyFirebaseToken(token: string) {
   if (token.startsWith('TEST_UID_')) {
-    return { sub: token.replace('TEST_UID_', '') };
+    const uid = token.replace('TEST_UID_', '');
+    return { sub: uid, email: `${uid}@example.com` };
+  }
+  // Safe test-only hook: only active in isolated testing when process.env.NODE_ENV === 'test'
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' && token.startsWith('mock-token:')) {
+    const uid = token.slice('mock-token:'.length);
+    return { sub: uid, email: `${uid}@example.com` };
   }
   try {
     const { payload } = await jwtVerify(token, JWKS, {
@@ -25,3 +31,4 @@ export async function verifyFirebaseToken(token: string) {
     return null;
   }
 }
+

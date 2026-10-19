@@ -6,43 +6,56 @@ class AssignmentRepository {
 
   AssignmentRepository(this._apiClient);
 
+  /// Fetches all assignments for the authenticated draughtsman.
+  ///
+  /// Throws a descriptive [Exception] on API or parse failure.
+  /// Callers must distinguish between an empty list (success, zero assignments)
+  /// and a thrown exception (API/auth/server error).
   Future<List<Assignment>> getAssignments() async {
     try {
       final response = await _apiClient.get('/api/assignments');
-      return (response as List).map((a) => Assignment.fromMap(a)).toList();
+      if (response == null) return [];
+      return (response as List).map((a) => Assignment.fromMap(a as Map<String, dynamic>)).toList();
     } catch (e) {
-      // print('Error parsing assignments: $e');
-      return [];
+      throw Exception('Failed to load assignments: $e');
+    }
+  }
+
+  Future<Assignment> getAssignment(String id) async {
+    try {
+      final response = await _apiClient.get('/api/assignments/$id');
+      return Assignment.fromMap(response as Map<String, dynamic>);
+    } catch (e) {
+      throw Exception('Failed to load assignment $id: $e');
     }
   }
 
   Future<void> acceptAssignment({
     required String assignmentId,
-    required String projectId,
-    required String actionId,
+    String? actionId,
   }) async {
     await _apiClient.post(
       '/api/assignments/accept',
       body: {
         'assignmentId': assignmentId,
-        'projectId': projectId,
-        'actionId': actionId,
+        'actionId': ?actionId,
       },
     );
   }
 
   Future<void> rejectAssignment({
     required String assignmentId,
-    required String projectId,
-    required String actionId,
+    String? actionId,
+    String reason = '',
   }) async {
     await _apiClient.post(
       '/api/assignments/reject',
       body: {
         'assignmentId': assignmentId,
-        'projectId': projectId,
-        'actionId': actionId,
+        'actionId': ?actionId,
+        'reason': reason,
       },
     );
   }
 }
+

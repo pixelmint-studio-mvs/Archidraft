@@ -22,11 +22,15 @@ import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
 import '../../features/projects/presentation/admin/admin_projects_screen.dart';
 import '../../features/projects/presentation/admin/admin_assignments_screen.dart';
+import '../../features/draughtsman/presentation/studio/draughtsman_studio_screen.dart';
+import '../../features/draughtsman/presentation/assignments/draughtsman_assignment_detail_screen.dart';
+import '../../features/draughtsman/presentation/workspace/draughtsman_workspace_screen.dart';
+import '../../features/draughtsman/presentation/collaboration/draughtsman_collaboration_hub_screen.dart';
+import '../../features/draughtsman/presentation/insights/draughtsman_insights_screen.dart';
+import '../../features/draughtsman/presentation/drawings/draughtsman_drawings_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
 import '../../features/projects/domain/assignment.dart';
+import '../../features/profile/presentation/draughtsman_onboarding_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 
@@ -80,27 +84,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final role = ref.read(currentUserRoleProvider);
+      final isProfileComplete = ref.read(isProfileCompleteProvider);
 
       // Redirect from public routes, verify-email, or root to the role dashboard
       if (isPublicRoute ||
           currentPath == '/verify-email' ||
           currentPath == '/') {
-        if (role == UserRole.engineer) return '/engineer/projects';
-        if (role == UserRole.draughtsman) return '/draughtsman/studio';
+        if (role == UserRole.engineer || role == UserRole.client) return '/engineer/projects';
+        if (role == UserRole.draughtsman) {
+          return isProfileComplete
+              ? '/draughtsman/studio'
+              : '/draughtsman/onboarding';
+        }
         if (role == UserRole.admin) return '/admin/dashboard';
         // If role is null or unknown, stay on root to show error state in AppShell
         return '/';
       }
 
+      // Enforce draughtsman onboarding completion
+      if (role == UserRole.draughtsman) {
+        if (!isProfileComplete && currentPath != '/draughtsman/onboarding') {
+          return '/draughtsman/onboarding';
+        }
+        if (isProfileComplete && currentPath == '/draughtsman/onboarding') {
+          return '/draughtsman/studio';
+        }
+      }
+
       // Enforce role-based access restrictions
-      if (currentPath.startsWith('/engineer') && role != UserRole.engineer) {
+      if (currentPath.startsWith('/engineer') && role != UserRole.engineer && role != UserRole.client) {
         return '/'; // Redirect unauthorized access
       }
       if (currentPath.startsWith('/draughtsman') &&
           role != UserRole.draughtsman) {
         return '/';
       }
-      if (currentPath.startsWith('/admin') && role != UserRole.admin) {
+      if (currentPath.startsWith('/admin') && role != UserRole.admin && role != UserRole.engineer) {
         return '/';
       }
 
@@ -117,11 +136,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/role-selection',
         builder: (context, state) => const RoleSelectionScreen(),
       ),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) {
+          final role = state.extra as String?;
+          return LoginScreen(initialRole: role);
+        },
+      ),
       GoRoute(
         path: '/register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          final role = state.extra as String?;
+          return RegisterScreen(role: role);
+        },
       ),
+
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
@@ -139,12 +168,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          // ── COMMON ROUTES ──
+          // -- COMMON ROUTES --
           GoRoute(
             path: '/notifications',
             builder: (context, state) => const NotificationsScreen(),
           ),
-          // ── ENGINEER ROUTES ──
+          // -- ENGINEER ROUTES --
           GoRoute(
             path: '/engineer/projects',
             builder: (context, state) => const EngineerProjectsScreen(),
@@ -178,38 +207,68 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
           // ── DRAUGHTSMAN ROUTES ──
           GoRoute(
+            path: '/draughtsman/onboarding',
+            builder: (context, state) => const DraughtsmanOnboardingScreen(),
+          ),
+          GoRoute(
             path: '/draughtsman/studio',
             builder: (context, state) => const DraughtsmanStudioScreen(),
           ),
           GoRoute(
             path: '/draughtsman/assignments/:assignmentId',
             builder: (context, state) {
-              final assignment = state.extra as Assignment;
-              return DraughtsmanAssignmentDetailScreen(assignment: assignment);
+              final assignmentId = state.pathParameters['assignmentId']!;
+              return DraughtsmanAssignmentDetailScreen(assignmentId: assignmentId);
             },
           ),
           GoRoute(
-            path: '/draughtsman/workspace/:projectId',
+            path: '/draughtsman/workspace/:assignmentId',
             builder: (context, state) {
-              final projectId = state.pathParameters['projectId']!;
-              return DraughtsmanWorkspaceScreen(projectId: projectId);
+              final assignmentId = state.pathParameters['assignmentId']!;
+              final tab = state.uri.queryParameters['tab'];
+              return DraughtsmanWorkspaceScreen(
+                assignmentId: assignmentId,
+                initialTab: tab,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/draughtsman/workspace/:assignmentId/collaboration',
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId']!;
+              return DraughtsmanCollaborationHubScreen(assignmentId: assignmentId);
+            },
+          ),
+          GoRoute(
+            path: '/draughtsman/collaboration/:assignmentId',
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId']!;
+              return DraughtsmanCollaborationHubScreen(assignmentId: assignmentId);
             },
           ),
           GoRoute(
             path: '/draughtsman/drawings',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Drawings Library',
-              description: 'Access all your past and current drawings.',
-              icon: Icons.layers_outlined,
-            ),
+            builder: (context, state) {
+              final assignmentId = state.uri.queryParameters['id'] ?? (state.extra as Assignment?)?.id;
+              return DraughtsmanDrawingsScreen(initialAssignmentId: assignmentId);
+            },
+            routes: [
+              GoRoute(
+                path: ':assignmentId',
+                builder: (context, state) {
+                  final assignmentId = state.pathParameters['assignmentId'];
+                  return DraughtsmanDrawingsScreen(initialAssignmentId: assignmentId);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/draughtsman/insights',
-            builder: (context, state) => const PlaceholderScreen(
-              title: 'Insights',
-              description: 'View your performance and earnings analytics.',
-              icon: Icons.analytics_outlined,
-            ),
+            builder: (context, state) => const DraughtsmanInsightsScreen(),
+          ),
+          GoRoute(
+            path: '/draughtsman/notifications',
+            builder: (context, state) => const DraughtsmanNotificationsScreen(),
           ),
           GoRoute(
             path: '/draughtsman/profile',
@@ -278,3 +337,4 @@ class _GoRouterAuthNotifier extends ChangeNotifier {
 
   final Ref _ref;
 }
+

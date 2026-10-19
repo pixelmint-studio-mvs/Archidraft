@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// A styled, reusable form field for authentication screens.
 ///
@@ -15,6 +18,7 @@ class AuthFormField extends StatefulWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String>? onFieldSubmitted;
   final bool enabled;
+  final TextCapitalization textCapitalization;
 
   const AuthFormField({
     super.key,
@@ -28,6 +32,7 @@ class AuthFormField extends StatefulWidget {
     this.validator,
     this.onFieldSubmitted,
     this.enabled = true,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -46,6 +51,9 @@ class _AuthFormFieldState extends State<AuthFormField> {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      style: AppTypography.bodyMd.copyWith(
+        color: widget.enabled ? AppColors.onSurface : AppColors.outline,
+      ),
       controller: widget.controller,
       obscureText: _isObscured,
       keyboardType: widget.keyboardType,
@@ -53,11 +61,21 @@ class _AuthFormFieldState extends State<AuthFormField> {
       validator: widget.validator,
       onFieldSubmitted: widget.onFieldSubmitted,
       enabled: widget.enabled,
+      textCapitalization: widget.textCapitalization,
       decoration: InputDecoration(
-        labelText: widget.label,
+        labelText: widget.label.isNotEmpty ? widget.label : null,
         hintText: widget.hint,
+        hintStyle: AppTypography.bodyMd.copyWith(
+          color: AppColors.outline,
+        ),
+        filled: true,
+        fillColor: AppColors.surface,
         prefixIcon: widget.prefixIcon != null
-            ? Icon(widget.prefixIcon)
+            ? Icon(
+                widget.prefixIcon,
+                size: 20,
+                color: AppColors.outline,
+              )
             : null,
         suffixIcon: widget.obscureText
             ? IconButton(
@@ -65,6 +83,8 @@ class _AuthFormFieldState extends State<AuthFormField> {
                   _isObscured
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
+                  size: 20,
+                  color: AppColors.outline,
                 ),
                 onPressed: () {
                   setState(() {
@@ -73,7 +93,42 @@ class _AuthFormFieldState extends State<AuthFormField> {
                 },
               )
             : null,
-        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          borderSide: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.5),
+            width: 1.0,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          borderSide: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.5),
+            width: 1.0,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          borderSide: const BorderSide(
+            color: AppColors.secondary,
+            width: 1.5,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          borderSide: const BorderSide(
+            color: AppColors.error,
+            width: 1.0,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+          borderSide: const BorderSide(
+            color: AppColors.error,
+            width: 1.5,
+          ),
+        ),
       ),
     );
   }

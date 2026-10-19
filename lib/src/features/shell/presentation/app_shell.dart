@@ -42,14 +42,14 @@ class AppShell extends ConsumerWidget {
         }
 
         switch (role) {
+          case UserRole.client:
           case UserRole.engineer:
             return EngineerShell(profile: profile, child: child);
           case UserRole.draughtsman:
             return DraughtsmanShell(profile: profile, child: child);
-          case UserRole.admin:
+                    case UserRole.admin:
             return AdminShell(profile: profile, child: child);
           case UserRole.student:
-            // Future implementation
             return const Scaffold(
               body: Center(child: Text('Student Dashboard (Coming Soon)')),
             );
@@ -64,3 +64,4 @@ class AppShell extends ConsumerWidget {
     );
   }
 }
+

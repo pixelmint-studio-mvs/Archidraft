@@ -1,79 +1,50 @@
 # CORE WORKFLOW
 
-This document defines the official workflow and lifecycle states of an ARCHI DRAFT project.
+This document defines the exact, unchangeable main workflow of an ARCHI DRAFT project. 
 
----
+## The Linear Workflow
 
-## 1. The End-to-End Linear Workflow
+**CLIENT**
+↓ Creates Project
+**[ DRAFT ]**
+↓ Submits Project
+**[ SUBMITTED ]**
 
-```text
-ENGINEER
-  │
-  ├─► Creates Project Draft (Metadata + Reference Blueprints)
-  │   State: [ DRAFT ]
-  │
-  └─► Submits Project Brief (POST /api/projects/submit)
-      State: [ SUBMITTED ]
+**ADMIN REVIEW**
+↓ Approves Project
+**[ WAITING_ASSIGNMENT ]**
+↓ Assigns Draughtsman
+**[ WAITING_ACCEPTANCE ]**
 
-STUDIO ADMIN
-  │
-  ├─► Approves Project for Allocation (POST /api/projects/approve)
-  │   State: [ WAITING_ASSIGNMENT ]
-  │
-  └─► Dispatches Assignment to Draughtsman (POST /api/projects/assign)
-      State: [ WAITING_ACCEPTANCE ]
+**DRAUGHTSMAN ACTION**
+↓ Accepts Assignment
+**[ IN_PROGRESS ]**
+↓ Uploads Drawing & Submits
+**[ UNDER_CLIENT_REVIEW ]**
 
-DRAUGHTSMAN
-  │
-  ├─► Accepts Assignment (POST /api/assignments/accept)
-  │   State: [ IN_PROGRESS ]
-  │
-  ├─► Technical Q&A via Collaboration Hub (Continuous during drafting)
-  │
-  └─► Uploads Drawing & Submits Version (POST /api/projects/submit-drawing)
-      State: [ UNDER_CLIENT_REVIEW ]
-```
+## The Review Fork
 
----
-
-## 2. The Review Fork
-
-Once a project reaches `UNDER_CLIENT_REVIEW`, the Engineer evaluates the submitted drawing version:
+Once `UNDER_CLIENT_REVIEW`, the Client has two options:
 
 ### Option A: Approval (Happy Path)
-```text
-ENGINEER APPROVES FINAL DRAWING (POST /api/projects/approve-final)
-  │
-  ▼
-State: [ COMPLETED ]
-(Project is permanently locked in terminal state)
-```
+**CLIENT APPROVES** (`POST /api/projects/approve-final`)
+↓ 
+**[ COMPLETED ]**
 
-### Option B: Corrections (Iterative Revision Path)
-```text
-ENGINEER REQUESTS CORRECTION (POST /api/projects/request-correction)
-  │
-  ▼
-Correction Status: [ OPEN ]
-Project Status:    [ IN_PROGRESS ] (correction_round incremented)
-  │
-  ├─► Draughtsman Reviews Notes & Prepares Drawing Revision
-  │
-  ├─► Draughtsman Uploads Revised Drawing & Resolves Correction
-  │   Correction Status: [ RESOLVED ]
-  │
-  └─► Draughtsman Submits Revision for Review (POST /api/projects/submit-drawing)
-      Project Status:    [ UNDER_CLIENT_REVIEW ]
-```
+*Authorization:* Strictly the owning **Client** or platform **Admin/Studio Admin**. Engineers and Draughtsmen are prohibited from approving final drawings (`403 Forbidden`).
 
-> [!IMPORTANT]
-> **Strict Correction Limit:** A project allows a maximum of **3 correction rounds**. If an Engineer attempts to request a 4th correction, the Cloudflare Worker rejects the request with HTTP 400 (`Maximum correction rounds (3) exceeded`).
+### Option B: Corrections (Iterative Path)
+**CLIENT REQUESTS CORRECTION** (`POST /api/projects/request-correction`)
+↓ 
+**Correction Status: [ OPEN ]**
+↓ Draughtsman Begins Work
+**Correction Status: [ IN_PROGRESS ]**
+↓ Draughtsman Uploads Revision & Resolves (`POST /api/projects/resolve-correction`)
+**Correction Status: [ RESOLVED ]**
+↓ Draughtsman Submits Drawing Again (`POST /api/projects/submit-drawing`)
+**Project Status: [ UNDER_CLIENT_REVIEW ]**
 
----
+*(Note: The maximum number of correction rounds allowed per project is **3**. The backend will automatically reject a 4th request).*
 
-## 3. Collaboration Hub Integration
-Throughout the `IN_PROGRESS` and `UNDER_CLIENT_REVIEW` states, the Engineer and Draughtsman utilize the **Collaboration Hub**:
-- Continuous project-scoped messaging.
-- Technical clarification queries.
-- Sharing file attachments (blueprints, markups, site photos).
-- Sending automated `CHAT_MESSAGE` push/in-app notifications to the counterpart.
+*Authorization:* Strictly the owning **Client** or platform **Admin/Studio Admin**. Engineers and Draughtsmen are prohibited from initiating correction requests (`403 Forbidden`). Only the assigned Draughtsman may resolve corrections.
+

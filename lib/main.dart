@@ -23,6 +23,7 @@ class ArchiDraftApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: 'Archi Draft',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
@@ -30,4 +31,5 @@ class ArchiDraftApp extends ConsumerWidget {
     );
   }
 }
+
 

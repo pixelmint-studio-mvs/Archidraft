@@ -56,3 +56,11 @@ app.*.map.json
 .wrangler/
 worker/.wrangler/
 worker/node_modules/
+
+# Ignored unused or temporary folders
+build_old/
+backend/
+functions/
+scratch/
+linux/flutter/ephemeral_locked_*/
+windows/flutter/ephemeral_old/

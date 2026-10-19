@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -133,10 +134,10 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
             color: const Color(0xFF0453CD).withValues(alpha: 0.4), // secondary/40
             width: 2,
           ),
-          image: const DecorationImage(
-            image: NetworkImage('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzhhYWGMYAEYB8RmROaABADeOQ8CXl/xfgAAAABJRU5ErkJggg=='),
+          image: DecorationImage(
+            image: MemoryImage(base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIklEQVQIW2NkQAKrVq36zwjjgzhhYWGMYAEYB8RmROaABADeOQ8CXl/xfgAAAABJRU5ErkJggg==')),
             repeat: ImageRepeat.repeat,
-            colorFilter: ColorFilter.mode(Colors.white54, BlendMode.srcATop),
+            colorFilter: const ColorFilter.mode(Colors.white54, BlendMode.srcATop),
           ),
         ),
         child: Stack(

@@ -1,3 +1,5 @@
+import '../../../shared/utils/date_parser.dart';
+
 /// Domain model representing a message in the Project Collaboration Hub.
 ///
 /// Ref: REFERENCE DESIGN/stitch_draughtsman_studio_os/collaboration_hub
@@ -14,7 +16,7 @@ class ProjectMessage {
   final String? attachmentContentType;
   final DateTime createdAt;
 
-  ProjectMessage({
+  const ProjectMessage({
     required this.id,
     required this.projectId,
     required this.senderId,
@@ -24,14 +26,23 @@ class ProjectMessage {
     this.attachmentFileId,
     this.attachmentName,
     this.attachmentSize,
-    this.attachmentContentType,
+    String? attachmentContentType,
+    String? attachmentType,
     required this.createdAt,
-  });
+  }) : attachmentContentType = attachmentContentType ?? attachmentType;
+
+  String? get attachmentType => attachmentContentType;
 
   bool get hasAttachment => attachmentFileId != null && attachmentFileId!.isNotEmpty;
 
   bool get isVoiceMessage {
-    if (!hasAttachment) return false;
+    final lowerMsg = message.toLowerCase();
+    if (lowerMsg.contains('voice note')) {
+      return true;
+    }
+    if (!hasAttachment) {
+      return false;
+    }
     final ct = attachmentContentType?.toLowerCase() ?? '';
     if (ct.startsWith('audio/')) return true;
     final name = (attachmentName ?? '').toLowerCase();
@@ -48,6 +59,25 @@ class ProjectMessage {
         name.endsWith('.wav') ||
         name.endsWith('.aac') ||
         name.endsWith('.ogg');
+  }
+
+  bool get isVoiceNote => isVoiceMessage;
+
+  bool get hasDocumentAttachment {
+    if (!hasAttachment && attachmentName == null) return false;
+    final ct = attachmentContentType?.toLowerCase() ?? '';
+    if (ct.startsWith('audio/')) return false;
+    final name = (attachmentName ?? '').toLowerCase();
+    if (name.endsWith('.webm') ||
+        name.endsWith('.m4a') ||
+        name.endsWith('.mp3') ||
+        name.endsWith('.wav') ||
+        name.endsWith('.aac') ||
+        name.endsWith('.ogg') ||
+        name.startsWith('voice_note_')) {
+      return false;
+    }
+    return true;
   }
 
   bool get isImageAttachment {
@@ -98,16 +128,18 @@ class ProjectMessage {
   bool get isFromEngineer => senderRole == 'ENGINEER' || senderRole == 'CLIENT';
 
   factory ProjectMessage.fromJson(Map<String, dynamic> json) {
-    final rawTs = json['created_at']?.toString() ?? '';
+    final rawTs = json['created_at'];
     DateTime parsedDate;
-    if (rawTs.endsWith('Z')) {
-      parsedDate = DateTime.tryParse(rawTs)?.toLocal() ?? DateTime.now();
+    if (rawTs is String) {
+      parsedDate = DateParser.parse(rawTs) ?? DateTime.now();
     } else {
-      parsedDate = DateTime.tryParse('${rawTs}Z')?.toLocal() ?? DateTime.now();
+      parsedDate = DateTime.now();
     }
 
     final rawRole = json['sender_role']?.toString().toUpperCase() ?? 'ENGINEER';
     final normalizedRole = rawRole == 'CLIENT' ? 'ENGINEER' : rawRole;
+    final contentType = json['attachment_content_type']?.toString() ??
+        json['attachment_type']?.toString();
 
     return ProjectMessage(
       id: json['id']?.toString() ?? '',
@@ -118,8 +150,10 @@ class ProjectMessage {
       message: json['message']?.toString() ?? '',
       attachmentFileId: json['attachment_file_id']?.toString(),
       attachmentName: json['attachment_name']?.toString(),
-      attachmentSize: json['attachment_size'] is int ? json['attachment_size'] as int : null,
-      attachmentContentType: json['attachment_content_type']?.toString(),
+      attachmentSize: json['attachment_size'] is int
+          ? json['attachment_size'] as int
+          : (json['attachment_size'] != null ? int.tryParse(json['attachment_size'].toString()) : null),
+      attachmentContentType: contentType,
       createdAt: parsedDate,
     );
   }

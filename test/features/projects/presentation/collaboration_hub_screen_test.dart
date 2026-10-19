@@ -5,7 +5,6 @@ import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/project_message.dart';
 import 'package:archi_draft/src/features/projects/presentation/collaboration_hub_screen.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
-import 'package:archi_draft/src/features/projects/providers/message_providers.dart';
 
 void main() {
   const testProjectId = '79c7f5b1-b96d-4db3-8987-b2743e092aa3';

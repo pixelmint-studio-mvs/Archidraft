@@ -1,45 +1,47 @@
-# Draughtsman Feature Module (`lib/src/features/draughtsman/`)
+﻿# Draughtsman Feature Module (`lib/src/features/draughtsman/`)
 
 ## 1. Overview & Ownership Boundary
 
-This directory reserves the role-specific feature root for the **Draughtsman** portal in ARCHI DRAFT.
-It is isolated to prevent accidental file moves or modifications during Engineer portal development while parallel work occurs in the dedicated Draughtsman branch.
+This directory provides the role-specific feature root for the **Draughtsman** portal in ARCHI DRAFT.
+It is organized into dedicated presentation and workflow subdirectories, while relying on shared project infrastructure.
 
 ### Role Ownership Rules
-- **Owned by Draughtsman:**
-  - Draughtsman Studio Dashboard (`draughtsman_studio_screen.dart`)
-  - Assignment Management & Accept/Reject Workflows (`draughtsman_assignment_detail_screen.dart`)
-  - CAD Drafting Workspace (`draughtsman_workspace_screen.dart`)
-  - Drawings Library & Revisions History
-  - Draughtsman Analytics & Earnings Insights
-- **Shared Modules (Not Owned by Draughtsman):**
-  - Project Core Domain Models (`Project`, `ProjectStatus`, `Assignment`)
-  - Collaboration Hub Chat, Audio Player & Media Previews (`VoiceMessagePlayer`, `ImageAttachmentPreview`, `CadAttachmentCard`)
-  - Authenticated File APIs & Cloudflare R2 Upload/Download
-  - Auth, Role Resolution & AppShell navigation
+- **Owned by Draughtsman (`lib/src/features/draughtsman/`):**
+  - Draughtsman Studio Dashboard (`presentation/studio/draughtsman_studio_screen.dart`)
+  - Assignment Management & Workflow (`presentation/assignments/draughtsman_assignment_detail_screen.dart`)
+  - CAD Drafting Workspace (`presentation/workspace/draughtsman_workspace_screen.dart`)
+  - Drawings Library & Revisions History (`presentation/drawings/draughtsman_drawings_screen.dart`)
+  - Draughtsman Analytics & Performance Insights (`presentation/insights/draughtsman_insights_screen.dart`)
+  - Draughtsman Collaboration Hub & Views (`presentation/collaboration/`)
+- **Shared Modules (Not Owned Exclusively by Draughtsman):**
+  - Project Core Domain Models (`Project`, `ProjectStatus`, `Assignment`, `DrawingVersion`, `Correction`) under `lib/src/features/projects/domain/`
+  - Collaboration, Audio & File Repositories under `lib/src/features/projects/data/`
+  - Cross-role Providers under `lib/src/features/projects/providers/`
+  - Authenticated File APIs & Cloudflare R2 Upload/Download under `lib/src/features/api/`
+  - Auth, Role Resolution & AppShell navigation under `lib/src/core/` and `lib/src/features/auth/`
 
 ---
 
-## 2. Directory Architecture Target
+## 2. Directory Architecture
 
 ```text
 lib/src/features/draughtsman/
 ├── README.md
-├── studio/                  # Studio dashboard, active tasks & workload
-│   ├── presentation/
-│   └── providers/
-├── assignments/             # Incoming requests, bidding & SLA timers
-│   ├── presentation/
-│   └── providers/
-├── workspace/               # Drawing uploads, revisions & CAD tools
-│   ├── presentation/
-│   └── providers/
-└── earnings/                # Payouts, completed drafting fees & reports
+├── presentation/
+│   ├── studio/                  # Studio dashboard, active tasks & workload
+│   ├── assignments/             # Incoming requests, status & assignment details
+│   ├── workspace/               # Drawing uploads, revisions & CAD tools
+│   ├── drawings/                # Drawings library & drawing version history
+│   ├── insights/                # Draughtsman analytics & performance insights
+│   └── collaboration/           # Collaboration hub view & voice note widgets
+├── providers/                   # Draughtsman-specific state providers (future)
+├── data/                        # Draughtsman-specific data sources (future)
+└── domain/                      # Draughtsman-specific domain logic (future)
 ```
 
 ---
 
 ## 3. Integration Notice
 
-**DO NOT** migrate Engineer code into this directory.
-This root is reserved for merging the completed Draughtsman branch into `main` during multi-portal integration.
+This module contains role-specific presentation and workflow logic for the Draughtsman portal.
+Shared project, assignment, file, and message domain models remain centralized under `lib/src/features/projects/`.

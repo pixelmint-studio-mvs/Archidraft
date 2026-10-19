@@ -1,85 +1,115 @@
-# USER ROLES & ACCESS CONTROL
+# USER ROLES
 
-ARCHI DRAFT enforces strict Role-Based Access Control (RBAC) across the Flutter client application and Cloudflare Worker API.
+ARCHI DRAFT enforces strict Role-Based Access Control (RBAC) at both the Flutter client routing level and the Cloudflare Worker backend API.
 
----
+## Role Provisioning Policy
 
-## 1. Active Product Roles
+| Role | Self-Registration via `POST /api/users` | Provisioning Method | Portal Route Scope |
+|---|:---:|---|---|
+| **CLIENT** | Allowed | Public self-registration (Email/Password) | `/client/*` |
+| **DRAUGHTSMAN** | Allowed | Public self-registration (Email/Password) | `/draughtsman/*` |
+| **ADMIN** | Blocked (400) | Administrative database insertion / system provisioning | `/admin/*` |
+| **STUDIO_ADMIN** | Blocked (400) | Administrative database insertion / system provisioning | `/admin/*` |
+| **ENGINEER** | Blocked (400) | Administrative directory provisioning / system invitation | `/admin/*` (Technical Review) |
+| **STUDENT** | Blocked (400) | Academic institution provisioning (Deferred) | *(Portal Deferred)* |
 
-### 1. ENGINEER
-The Engineer is the primary client-facing technical user who creates and manages project briefs.
-
-> [!NOTE]
-> **Compatibility Note:** In early baseline documentation, this role was labeled "CLIENT". While internal database columns (`client_id`) and enum strings (`UNDER_CLIENT_REVIEW`) retain this naming for backward compatibility, the user-facing role, UI copy, and domain models represent this user exclusively as **ENGINEER**.
-
-**Engineer Capabilities:**
-- Register and authenticate via Firebase Auth.
-- Select role during registration (`ENGINEER`, `DRAUGHTSMAN`, `STUDENT`).
-- Complete personal and professional profile details (Name, Mobile, Date of Birth, Address, Company Name).
-- Create architectural projects and save them as `DRAFT`.
-- Upload and manage Project Brief technical reference files (PDF, DWG, DXF, PNG, JPEG, ZIP up to 50 MB).
-- Formally submit projects (`DRAFT` → `SUBMITTED`).
-- Access the **Collaboration Hub** to chat with the assigned Draughtsman and share file attachments.
-- Review submitted drawing versions (`UNDER_CLIENT_REVIEW`).
-- Request structured corrections with descriptive feedback (Maximum 3 rounds).
-- Approve final drawings (`COMPLETED`).
-- View a personal, scoped Activity Feed reflecting events from their owned projects.
-- Receive project notifications (e.g. `CHAT_MESSAGE`, `DRAWING_SUBMITTED`, `ASSIGNMENT_ACCEPTED`).
-
-**Engineer Strict Boundaries:**
-- **NO Financials / Payments:** Engineers cannot view billing, make payments, request invoices, view financial cards, or access financial dashboards.
-- Cannot assign Draughtsmen or approve submitted projects for assignment (Admin responsibility).
-- Cannot access projects owned by other Engineers.
-- Cannot modify their user role post-registration.
+> **Security Rule:** Users cannot self-assign privileged or broad-access roles (`ENGINEER`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN`) during registration. Profile updates via `PATCH /api/users/me` strictly whitelist profile metadata fields and never permit mutating the user's `role`.
 
 ---
 
-### 2. DRAUGHTSMAN
-The Draughtsman is the drafting professional executing architectural and CAD work.
+## 1. CLIENT
+The Client is the project owner.
 
-**Draughtsman Capabilities:**
-- Register, authenticate, and manage drafter profile (including qualification and college).
-- View pending project assignments directed to them (`WAITING_ACCEPTANCE`).
-- Accept (`IN_PROGRESS`) or reject assignments.
-- View assigned project briefs and download authorized reference files.
-- Communicate with the Engineer via the project **Collaboration Hub**.
-- Upload drawing versions and submit them for review (`UNDER_CLIENT_REVIEW`).
-- Resolve correction requests across rounds.
+**Can:**
+- Register and Login via public portal
+- Create projects and save drafts
+- Submit projects for review
+- Upload client reference files
+- View own project progress
+- Review submitted drawings
+- Request corrections (Max 3 rounds)
+- Approve final drawings
+- Cancel eligible projects (in `DRAFT` or `SUBMITTED` state)
+- View activity logs and project messages for own projects
 
-**Draughtsman Strict Boundaries:**
-- Cannot access unassigned projects or projects where their assignment was replaced.
-- Cannot modify Engineer project metadata or reassign projects.
-- Cannot access other Draughtsmen's private workspaces.
-
----
-
-### 3. STUDENT
-The Student role is designed for educational access and training within the Draughtsman Studio ecosystem.
-- Self-service registration available during signup.
-- Structured learning and observation workflows (managed under `Student_panels`).
+**Cannot:**
+- Assign Draughtsmen
+- Modify another user's projects or download other clients' files
+- Modify user roles
+- Access `/draughtsman/*` or `/admin/*` portal routes
 
 ---
 
-### 4. STUDIO ADMIN
-The Administrator manages studio operations and assignment dispatching.
+## 2. DRAUGHTSMAN
+The Draughtsman is the technical professional executing the drawing work.
 
-**Admin Capabilities:**
-- Review submitted projects (`SUBMITTED`).
-- Approve projects for assignment (`WAITING_ASSIGNMENT`) or reject them (`CANCELLED`).
-- Assign and reassign Draughtsmen to projects (`WAITING_ACCEPTANCE`).
-- Monitor system-wide project metrics, assignment queues, and user directories.
-- Manage internal studio financial records and invoicing (Admin-only backend capabilities).
+**Can:**
+- Register and Login via public portal
+- Complete Draughtsman profile (qualifications, address, contact)
+- View pending assignments directed to them
+- Accept or reject assignments
+- View project details and reference files for **accepted** assignments
+- Upload drawing versions and revisions
+- Submit completed drawings for client review (`UNDER_CLIENT_REVIEW`)
+- Resolve assigned corrections
+- Send project messages and audio voice notes in Collaboration Hub
+- View completed assigned projects (historical access)
 
-**Admin Strict Boundaries:**
-- Normal self-service registration can never grant Admin privileges. Admin roles are strictly provisioned by database administrators.
+**Cannot:**
+- Access unassigned projects or projects where assignment is `PENDING`, `REJECTED`, or `REPLACED`
+- Self-assign to projects
+- Approve final drawings or request client corrections
+- Modify client personal information or project ownership
+- Modify user roles
 
 ---
 
-## 2. Legacy / Compatibility Terminology Mapping
+## 3. ADMIN & STUDIO_ADMIN
+The Admin / Studio Admin manages platform operations, project approvals, and assignments.
 
-| Context | Internal / Database Token | Product / User-Facing Name | Purpose / Rationale |
-|---|---|---|---|
-| Projects Table | `client_id` | Engineer ID | Foreign key in D1 linking projects to the owning user. |
-| Files Category | `client_upload` | Project Brief | Files uploaded by the Engineer as reference material. |
-| Project Status | `UNDER_CLIENT_REVIEW` | Under Review | State where the drawing is awaiting the Engineer's review. |
-| Users Table | `role = 'CLIENT'` | Engineer | Historical role string normalized to `ENGINEER` in the app. |
+**Can:**
+- Review submitted projects (`SUBMITTED`)
+- Approve projects (`WAITING_ASSIGNMENT`)
+- Reject submitted projects (`CANCELLED`)
+- Assign Draughtsmen to approved projects (`WAITING_ACCEPTANCE`)
+- Monitor assignment statuses and project timelines across all projects
+- Access any project directly, including draft projects
+- Manage authorized users
+- Approve final drawings or request corrections on behalf of clients when necessary
+- View system-wide activity logs
+
+**Cannot:**
+- Normal users can never self-promote to Admin. Admin provisioning is strictly controlled.
+
+---
+
+## 4. ENGINEER
+The Engineer conducts technical intake and feasibility reviews on active projects.
+
+**Can:**
+- Review non-draft projects (`SUBMITTED`, `WAITING_ASSIGNMENT`, `WAITING_ACCEPTANCE`, `IN_PROGRESS`, `UNDER_CLIENT_REVIEW`, `COMPLETED`)
+- Post project messages and technical remarks in the Collaboration Hub
+- Upload message attachments
+
+**Cannot:**
+- Self-register via public registration (blocked at backend)
+- View or list client `DRAFT` projects
+- Approve final drawings (`approve-final` is Client/Admin only)
+- Request client corrections (`request-correction` is Client/Admin only)
+- Assign draughtsmen (Admin only)
+- Modify project status directly
+
+---
+
+## 5. STUDENT (Deferred / Placeholder)
+The Student role represents academic learners in future educational modules.
+
+**Can:**
+- Authenticate if provisioned
+
+**Cannot:**
+- Self-register via public registration (blocked at backend)
+- Access any protected client or draughtsman project (returns `403 Forbidden` on all project, file, and download routes)
+- View internal activity logs or files
+- The Student Portal implementation is intentionally deferred until multi-portal integration.
+

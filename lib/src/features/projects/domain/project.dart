@@ -1,3 +1,4 @@
+import '../../../shared/utils/date_parser.dart';
 import 'drawing_type.dart';
 import 'project_status.dart';
 
@@ -114,15 +115,9 @@ class Project {
       correctionRound: data['correction_round'] is int 
           ? data['correction_round'] as int 
           : int.tryParse(data['correction_round']?.toString() ?? '') ?? 0,
-      createdAt: data['created_at'] != null
-          ? DateTime.tryParse(data['created_at'].toString())
-          : null,
-      submittedAt: data['submitted_at'] != null
-          ? DateTime.tryParse(data['submitted_at'].toString())
-          : null,
-      completedAt: data['completed_at'] != null
-          ? DateTime.tryParse(data['completed_at'].toString())
-          : null,
+      createdAt: DateParser.parse(data['created_at']),
+      submittedAt: DateParser.parse(data['submitted_at']),
+      completedAt: DateParser.parse(data['completed_at']),
       lastActionId: data['last_action_id']?.toString(),
     );
   }

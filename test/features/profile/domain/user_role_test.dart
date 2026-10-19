@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('UserRole', () {
     test('fromString parses correctly', () {
+      expect(UserRole.fromString('CLIENT'), UserRole.client);
       expect(UserRole.fromString('ENGINEER'), UserRole.engineer);
       expect(UserRole.fromString('engineer'), UserRole.engineer);
       expect(UserRole.fromString('STUDENT'), UserRole.student);
@@ -15,6 +16,7 @@ void main() {
     });
 
     test('toFirestoreString converts correctly', () {
+      expect(UserRole.client.toFirestoreString(), 'CLIENT');
       expect(UserRole.engineer.toFirestoreString(), 'ENGINEER');
       expect(UserRole.student.toFirestoreString(), 'STUDENT');
       expect(UserRole.draughtsman.toFirestoreString(), 'DRAUGHTSMAN');
@@ -22,6 +24,7 @@ void main() {
     });
 
     test('displayName returns user friendly name', () {
+      expect(UserRole.client.displayName, 'Client');
       expect(UserRole.engineer.displayName, 'Engineer');
       expect(UserRole.student.displayName, 'Student');
       expect(UserRole.draughtsman.displayName, 'Draughtsman');

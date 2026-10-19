@@ -25,6 +25,12 @@ final unassignedProjectsProvider = FutureProvider<List<Project>>((ref) async {
   return repository.getProjectsByStatus('WAITING_ASSIGNMENT');
 });
 
+/// Stream of projects in WAITING_ACCEPTANCE state (assigned, pending draughtsman acceptance)
+final waitingAcceptanceProjectsProvider = FutureProvider<List<Project>>((ref) async {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getProjectsByStatus('WAITING_ACCEPTANCE');
+});
+
 /// Stream of projects in IN_PROGRESS state
 final activeProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final repository = ref.watch(projectRepositoryProvider);
@@ -79,6 +85,11 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
 
       await repository.approveProject(projectId: projectId, actionId: actionId);
 
+      // Refresh dashboard lists so the project moves from Pending → Unassigned.
+      ref.invalidate(pendingProjectsProvider);
+      ref.invalidate(unassignedProjectsProvider);
+      ref.invalidate(projectProvider(projectId));
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -101,6 +112,10 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
         actionId: actionId,
         reason: reason,
       );
+
+      // Refresh dashboard so the rejected project leaves Pending tab.
+      ref.invalidate(pendingProjectsProvider);
+      ref.invalidate(projectProvider(projectId));
 
       state = const AsyncData(null);
       return true;
@@ -125,6 +140,12 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
         draughtsmanId: draughtsmanId,
       );
 
+      // Refresh dashboard so project moves Unassigned → Active, and
+      // draughtsman portal picks up the new assignment on next load.
+      ref.invalidate(unassignedProjectsProvider);
+      ref.invalidate(activeProjectsProvider);
+      ref.invalidate(projectProvider(projectId));
+
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -147,6 +168,10 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
         actionId: actionId,
         draughtsmanId: draughtsmanId,
       );
+
+      // Refresh dashboard and project detail after reassignment.
+      ref.invalidate(activeProjectsProvider);
+      ref.invalidate(projectProvider(projectId));
 
       state = const AsyncData(null);
       return true;

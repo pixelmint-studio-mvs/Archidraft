@@ -9,6 +9,8 @@ import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
 import '../domain/activity_log.dart';
 
+export 'message_providers.dart' show projectMessagesProvider;
+
 // ──────────────────────────────────────────
 // REPOSITORY PROVIDER
 // ──────────────────────────────────────────
@@ -22,6 +24,9 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
 // ──────────────────────────────────────────
 
 /// Fetches the authenticated engineer's projects.
+/// Backward compatibility alias
+final clientProjectsProvider = engineerProjectsProvider;
+
 final engineerProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
   final user = authState.value;
@@ -99,6 +104,10 @@ final projectCorrectionsProvider = FutureProvider.family<List<Correction>, Strin
   return repository.getCorrections(projectId);
 });
 
+// ------------------------------------------
+// ACTIVITY LOGS
+// ------------------------------------------
+
 final projectActivityLogsProvider = FutureProvider.family<List<ActivityLog>, String>((
   ref,
   projectId,
@@ -110,4 +119,13 @@ final projectActivityLogsProvider = FutureProvider.family<List<ActivityLog>, Str
 final engineerActivityLogsProvider = FutureProvider<List<ActivityLog>>((ref) {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.fetchEngineerActivityLogs();
+});
+
+// ------------------------------------------
+// DRAUGHTSMAN SUMMARY (Insights)
+// ------------------------------------------
+
+final draughtsmanSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getDraughtsmanSummary();
 });

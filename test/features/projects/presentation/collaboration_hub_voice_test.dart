@@ -8,7 +8,6 @@ import 'package:archi_draft/src/features/projects/domain/project_message.dart';
 import 'package:archi_draft/src/features/projects/presentation/collaboration_hub_screen.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/voice_message_player.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/voice_recorder_bar.dart';
-import 'package:archi_draft/src/features/projects/providers/message_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 
 class TestMockVoiceRecorderService implements VoiceRecorderService {

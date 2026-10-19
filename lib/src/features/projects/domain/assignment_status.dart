@@ -5,10 +5,10 @@ enum AssignmentStatus {
   replaced,
   completed;
 
-  static AssignmentStatus? fromString(String? status) {
-    switch (status) {
-      case 'PENDING':
-        return AssignmentStatus.pending;
+  static AssignmentStatus fromString(String? status) {
+    if (status == null) return AssignmentStatus.pending;
+    
+    switch (status.toUpperCase()) {
       case 'ACCEPTED':
         return AssignmentStatus.accepted;
       case 'REJECTED':
@@ -17,8 +17,9 @@ enum AssignmentStatus {
         return AssignmentStatus.replaced;
       case 'COMPLETED':
         return AssignmentStatus.completed;
+      case 'PENDING':
       default:
-        return null;
+        return AssignmentStatus.pending;
     }
   }
 

@@ -1,9 +1,9 @@
-# Student Feature Module (`lib/src/features/student/`)
+﻿# Student Feature Module (`lib/src/features/student/`)
 
 ## 1. Overview & Ownership Boundary
 
 This directory reserves the role-specific feature root for the **Student** portal in ARCHI DRAFT.
-It is isolated to prevent accidental feature collisions during Engineer portal development while parallel work occurs in the dedicated Student branch.
+It is isolated to prevent accidental feature collisions during Engineer and Draughtsman development while parallel work occurs.
 
 ### Role Ownership Rules
 - **Owned by Student:**
@@ -39,5 +39,5 @@ lib/src/features/student/
 
 ## 3. Integration Notice
 
-**DO NOT** migrate Engineer code into this directory.
-This root is reserved for merging the completed Student branch into `main` during multi-portal integration.
+**DO NOT** migrate Engineer or Draughtsman code into this directory.
+This root is reserved for future integration when the Student panel is ready.

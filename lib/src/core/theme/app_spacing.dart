@@ -46,20 +46,23 @@ class AppSpacing {
   /// Grid gutter (24px) — gap between grid items
   static const double gridGutter = 24.0;
 
-  // ── Border Radius ──
-  /// Default radius (4px)
-  static const double radiusDefault = 4.0;
+  // ── Border Radius (Architectural Precision System) ──
+  /// Small radius (4px) — chips, badges
+  static const double radiusSm = 4.0;
 
-  /// Medium radius (8px)
-  static const double radiusMd = 8.0;
+  /// Default radius (8px) — inputs, buttons
+  static const double radiusDefault = 8.0;
 
-  /// Large radius (12px)
-  static const double radiusLg = 12.0;
+  /// Medium radius (12px) — cards, bento cells
+  static const double radiusMd = 12.0;
 
-  /// Extra large radius (16px)
-  static const double radiusXl = 16.0;
+  /// Large radius (16px) — prominent cards, modal dialogs
+  static const double radiusLg = 16.0;
 
-  /// Full/pill radius
+  /// Extra large radius (24px) — main outer containers, hero panels
+  static const double radiusXl = 24.0;
+
+  /// Full/circular radius
   static const double radiusFull = 9999.0;
 
   // ── Elevation ──

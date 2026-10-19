@@ -1,5 +1,7 @@
 
 
+import '../../../shared/utils/date_parser.dart';
+
 /// Represents the user's profile data stored in Firestore `users/{uid}`.
 ///
 /// This model maps to the schema defined in DATA_ARCHITECTURE.md.
@@ -77,14 +79,14 @@ class UserProfile {
       email: data['email'] as String? ?? '',
       mobile: data['mobile'] as String? ?? '',
       role: data['role'] as String? ?? '',
-      createdAt: data['created_at'] != null ? DateTime.tryParse(data['created_at']) : null,
+      createdAt: DateParser.parse(data['created_at']),
       qualification: data['qualification'] as String?,
-      dateOfBirth: data['date_of_birth'] != null ? DateTime.tryParse(data['date_of_birth']) : null,
+      dateOfBirth: DateParser.parse(data['date_of_birth']),
       address: data['address'] as String?,
       companyName: data['company_name'] as String?,
       collegeName: data['college_name'] as String?,
       proofDocument: data['proof_document'] as String?,
-      updatedAt: data['updated_at'] != null ? DateTime.tryParse(data['updated_at']) : null,
+      updatedAt: DateParser.parse(data['updated_at']),
     );
   }
 
@@ -106,10 +108,19 @@ class UserProfile {
       'mobile': mobile,
     };
     if (qualification != null) map['qualification'] = qualification;
-    if (dateOfBirth != null) map['date_of_birth'] = dateOfBirth!.toIso8601String();
+    if (dateOfBirth != null) {
+      map['dateOfBirth'] = dateOfBirth!.toIso8601String();
+      map['date_of_birth'] = dateOfBirth!.toIso8601String();
+    }
     if (address != null) map['address'] = address;
-    if (companyName != null) map['company_name'] = companyName;
-    if (collegeName != null) map['college_name'] = collegeName;
+    if (companyName != null) {
+      map['companyName'] = companyName;
+      map['company_name'] = companyName;
+    }
+    if (collegeName != null) {
+      map['collegeName'] = collegeName;
+      map['college_name'] = collegeName;
+    }
     return map;
   }
 

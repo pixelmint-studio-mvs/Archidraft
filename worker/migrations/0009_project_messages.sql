@@ -1,4 +1,4 @@
--- Project Messages Table (Shared cross-portal Collaboration Hub)
+-- Migration 0009: Project Messages Table (Shared cross-portal Collaboration Hub)
 CREATE TABLE IF NOT EXISTS project_messages (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,

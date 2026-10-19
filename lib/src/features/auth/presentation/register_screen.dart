@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/auth_error_mapper.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/validators.dart';
-import '../../../shared/widgets/blueprint_background.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../providers/auth_providers.dart';
 import 'widgets/auth_form_field.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({super.key});
+  final String? role;
+  const RegisterScreen({super.key, this.role});
 
   @override
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
@@ -25,7 +24,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _selectedRole = 'ENGINEER';
+  late String _selectedRole;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.role?.toUpperCase() ?? 'ENGINEER';
+    if (_selectedRole == 'CLIENT') _selectedRole = 'ENGINEER';
+  }
+
+  String get _roleTitle {
+    if (_selectedRole == 'STUDENT') return 'Student Registration';
+    if (_selectedRole == 'DRAUGHTSMAN') return 'Draughtsman Registration';
+    return 'Engineer Registration';
+  }
+
+  String get _roleSubtitle {
+    if (_selectedRole == 'STUDENT') {
+      return 'Create your student account to begin training';
+    }
+    if (_selectedRole == 'DRAUGHTSMAN') {
+      return 'Create your draughtsman account to join the studio';
+    }
+    return 'Create your engineer account to join the studio';
+  }
+
+  String get _roleLabel => _selectedRole;
 
   @override
   void dispose() {
@@ -56,8 +80,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (errorState.hasError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AuthErrorMapper.mapException(errorState.error!)),
-            behavior: SnackBarBehavior.floating,
+            content: Text(
+              errorState.error.toString().replaceAll('Exception: ', ''),
+            ),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -71,51 +97,45 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-          onPressed: isLoading ? null : () => context.pop(),
-        ),
-      ),
-      body: BlueprintBackground(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: GlassCard(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: GlassCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
                   child: Form(
                     key: _formKey,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
                           'ARCHI DRAFT',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.secondary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        Text(
-                          'Request Access',
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                          style: theme.textTheme.headlineMedium?.copyWith(
                             color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2.0,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Create your account to join the studio',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: AppColors.onSurfaceVariant,
+                          _roleTitle,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: AppColors.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _roleSubtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.outline,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -124,8 +144,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         AuthFormField(
                           controller: _nameController,
                           label: 'FULL NAME',
-                          hint: 'Jane Doe',
+                          hint: 'Er. Jane Doe',
                           prefixIcon: Icons.person_outline,
+                          textCapitalization: TextCapitalization.words,
                           validator: Validators.name,
                           enabled: !isLoading,
                         ),
@@ -133,8 +154,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
                         AuthFormField(
                           controller: _emailController,
-                          label: 'EMAIL ADDRESS',
-                          hint: 'user@example.com',
+                          label: 'EMAIL',
+                          hint: 'name@firm.com',
                           prefixIcon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: Validators.email,
@@ -145,47 +166,47 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         AuthFormField(
                           controller: _mobileController,
                           label: 'MOBILE NUMBER',
-                          hint: '+1 234 567 8900',
+                          hint: '+91 98765 43210',
                           prefixIcon: Icons.phone_outlined,
                           keyboardType: TextInputType.phone,
-                          validator: Validators.mobile,
+                          validator: Validators.phone,
                           enabled: !isLoading,
                         ),
                         const SizedBox(height: 24),
 
-                        Text(
-                          'ACCOUNT TYPE',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.outline,
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 16,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment<String>(
-                              value: 'ENGINEER',
-                              label: Text('ENGINEER'),
-                              icon: Icon(Icons.engineering_outlined),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.radiusMd,
                             ),
-                            ButtonSegment<String>(
-                              value: 'DRAUGHTSMAN',
-                              label: Text('DRAUGHTSMAN'),
-                              icon: Icon(Icons.architecture_outlined),
-                            ),
-                          ],
-                          selected: {_selectedRole},
-                          onSelectionChanged: isLoading
-                              ? null
-                              : (Set<String> selection) {
-                                  setState(() {
-                                    _selectedRole = selection.first;
-                                  });
-                                },
-                          style: SegmentedButton.styleFrom(
-                            backgroundColor: AppColors.surfaceContainerLowest,
-                            selectedForegroundColor: AppColors.onPrimaryContainer,
-                            selectedBackgroundColor: AppColors.secondaryFixed,
-                            side: const BorderSide(color: AppColors.outlineVariant),
+                            border: Border.all(color: AppColors.outlineVariant),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _selectedRole == 'DRAUGHTSMAN'
+                                    ? Icons.architecture_outlined
+                                    : (_selectedRole == 'STUDENT'
+                                          ? Icons.school_outlined
+                                          : Icons.engineering_outlined),
+                                size: 20,
+                                color: AppColors.outline,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Registering as: $_roleLabel',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: AppColors.outline,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -249,7 +270,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               onPressed: isLoading ? null : () => context.pop(),
                               style: TextButton.styleFrom(
                                 foregroundColor: AppColors.secondary,
-                                textStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                                textStyle: theme.textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               child: const Text('SIGN IN'),
                             ),
