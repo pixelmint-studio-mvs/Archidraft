@@ -7,7 +7,7 @@ import 'package:archi_draft/src/features/projects/domain/drawing_version.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
-import 'package:archi_draft/src/features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
+import 'package:archi_draft/src/features/draughtsman/presentation/workspace/draughtsman_workspace_screen.dart';
 
 void main() {
   final testAssignment = Assignment(

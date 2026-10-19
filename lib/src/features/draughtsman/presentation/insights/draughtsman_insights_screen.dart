@@ -8,10 +8,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
-import '../../domain/assignment.dart';
-import '../../domain/assignment_status.dart';
-import '../../providers/assignment_providers.dart';
-import '../../providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/domain/assignment.dart';
+import 'package:archi_draft/src/features/projects/domain/assignment_status.dart';
+import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 
 // ---------------------------------------------------------------------------
 // TIME RANGE FILTER ENUM

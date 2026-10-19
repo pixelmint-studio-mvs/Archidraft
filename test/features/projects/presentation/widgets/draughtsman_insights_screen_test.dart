@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
-import 'package:archi_draft/src/features/projects/presentation/draughtsman/draughtsman_insights_screen.dart';
+import 'package:archi_draft/src/features/draughtsman/presentation/insights/draughtsman_insights_screen.dart';
 
 void main() {
   final testSummary = {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,12 +17,12 @@ import '../../features/projects/presentation/project_detail_screen.dart';
 import '../../features/projects/presentation/project_form_screen.dart';
 import '../../features/projects/presentation/admin/admin_dashboard_screen.dart';
 import '../../features/projects/presentation/admin/admin_project_detail_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_studio_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_assignment_detail_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_workspace_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_collaboration_hub_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_insights_screen.dart';
-import '../../features/projects/presentation/draughtsman/draughtsman_drawings_screen.dart';
+import '../../features/draughtsman/presentation/studio/draughtsman_studio_screen.dart';
+import '../../features/draughtsman/presentation/assignments/draughtsman_assignment_detail_screen.dart';
+import '../../features/draughtsman/presentation/workspace/draughtsman_workspace_screen.dart';
+import '../../features/draughtsman/presentation/collaboration/draughtsman_collaboration_hub_screen.dart';
+import '../../features/draughtsman/presentation/insights/draughtsman_insights_screen.dart';
+import '../../features/draughtsman/presentation/drawings/draughtsman_drawings_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/projects/domain/assignment.dart';
 import '../../features/profile/presentation/draughtsman_onboarding_screen.dart';
@@ -32,9 +32,9 @@ import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 /// Provides the GoRouter configuration with authentication-aware redirects.
 ///
 /// Listens to [authStateChangesProvider] and [userProfileProvider] to reactively redirect users:
-/// - Not logged in → /login
-/// - Logged in but email not verified → /verify-email
-/// - Logged in and verified → Role-specific dashboard
+/// - Not logged in â†’ /login
+/// - Logged in but email not verified â†’ /verify-email
+/// - Logged in and verified â†’ Role-specific dashboard
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateChangesProvider);
 
@@ -60,9 +60,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Not logged in
       if (!isLoggedIn) {
-        // Already on a public route — stay there
+        // Already on a public route â€” stay there
         if (isPublicRoute) return null;
-        // Trying to access protected route — redirect to landing
+        // Trying to access protected route â€” redirect to landing
         return '/landing';
       }
 
@@ -122,7 +122,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      // ── PUBLIC ROUTES ──
+      // â”€â”€ PUBLIC ROUTES â”€â”€
       GoRoute(
         path: '/landing',
         builder: (context, state) => const LandingScreen(),
@@ -163,7 +163,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          // ── CLIENT ROUTES ──
+          // â”€â”€ CLIENT ROUTES â”€â”€
           GoRoute(
             path: '/client/projects',
             builder: (context, state) => const ClientProjectsScreen(),
@@ -192,7 +192,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
           ),
 
-          // ── DRAUGHTSMAN ROUTES ──
+          // â”€â”€ DRAUGHTSMAN ROUTES â”€â”€
           GoRoute(
             path: '/draughtsman/onboarding',
             builder: (context, state) => const DraughtsmanOnboardingScreen(),
@@ -262,7 +262,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
           ),
 
-          // ── ADMIN ROUTES ──
+          // â”€â”€ ADMIN ROUTES â”€â”€
           GoRoute(
             path: '/admin/dashboard',
             builder: (context, state) => const AdminDashboardScreen(),

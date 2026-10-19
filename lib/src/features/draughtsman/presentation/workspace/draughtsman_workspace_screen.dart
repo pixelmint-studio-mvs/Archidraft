@@ -10,18 +10,18 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
 import '../../../../shared/widgets/blueprint_background.dart';
-import '../../domain/drawing_version.dart';
-import '../../domain/project.dart';
-import '../../domain/project_status.dart';
-import '../../domain/project_file.dart';
-import '../../domain/assignment.dart';
-import '../../domain/correction.dart';
-import '../../data/file_repository.dart';
-import '../../providers/assignment_providers.dart';
-import '../../providers/file_providers.dart';
-import '../../providers/project_providers.dart';
-import '../widgets/file_upload_button.dart';
-import 'collaboration_hub_view.dart';
+import 'package:archi_draft/src/features/projects/domain/drawing_version.dart';
+import 'package:archi_draft/src/features/projects/domain/project.dart';
+import 'package:archi_draft/src/features/projects/domain/project_status.dart';
+import 'package:archi_draft/src/features/projects/domain/project_file.dart';
+import 'package:archi_draft/src/features/projects/domain/assignment.dart';
+import 'package:archi_draft/src/features/projects/domain/correction.dart';
+import 'package:archi_draft/src/features/projects/data/file_repository.dart';
+import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/file_upload_button.dart';
+import '../collaboration/collaboration_hub_view.dart';
 
 // ─────────────────────────────────────────────────────────
 // DRAUGHTSMAN WORKSPACE SCREEN (PANEL 5)

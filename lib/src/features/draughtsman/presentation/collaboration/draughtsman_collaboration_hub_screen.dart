@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
-import '../../providers/assignment_providers.dart';
-import '../../providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
+import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'collaboration_hub_view.dart';
 
 /// Standalone Collaboration Hub screen for Panel 6.

@@ -6,12 +6,12 @@ import 'package:archi_draft/src/features/projects/domain/project_message.dart';
 import 'package:archi_draft/src/features/projects/domain/project_file.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
-import 'package:archi_draft/src/features/projects/presentation/draughtsman/collaboration_hub_view.dart';
+import 'package:archi_draft/src/features/draughtsman/presentation/collaboration/collaboration_hub_view.dart';
 import 'package:archi_draft/src/features/notifications/providers/notification_providers.dart';
 import 'package:archi_draft/src/features/notifications/domain/app_notification.dart';
 import 'package:archi_draft/src/features/projects/data/audio_service.dart';
-import 'package:archi_draft/src/features/projects/presentation/draughtsman/widgets/voice_note_player_widget.dart';
-import 'package:archi_draft/src/features/projects/presentation/draughtsman/widgets/voice_note_recorder_widget.dart';
+import 'package:archi_draft/src/features/draughtsman/presentation/collaboration/widgets/voice_note_player_widget.dart';
+import 'package:archi_draft/src/features/draughtsman/presentation/collaboration/widgets/voice_note_recorder_widget.dart';
 import 'package:archi_draft/src/features/projects/data/audio_service_io.dart';
 
 void main() {
