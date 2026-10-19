@@ -1,0 +1,10 @@
+{
+  "name": "archidraft-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix apps/admin-web run dev",
+    "build": "npm --prefix apps/admin-web run build",
+    "admin:dev": "npm --prefix apps/admin-web run dev",
+    "admin:build": "npm --prefix apps/admin-web run build"
+  }
+}
