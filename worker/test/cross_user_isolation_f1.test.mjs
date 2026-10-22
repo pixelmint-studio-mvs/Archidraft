@@ -1354,22 +1354,19 @@ test('Finding F1.2-02: Project Financials & Invoicing Role Restrictions (ADMIN/S
     assert.equal(res.status, 403);
   });
 
-  let createdInvoiceId;
-  await t.test('Admin adm-1 CAN create project invoice within total_value (200)', async () => {
+  await t.test('Admin adm-1 receives 501 FEATURE_FROZEN when attempting to create invoice', async () => {
     const res = await testRequest(env, '/api/projects/prj-eng-a/invoices', {
       method: 'POST',
       token: 'adm-1',
       body: { amount: 20000, due_date: '2026-12-31' }
     });
-    assert.equal(res.status, 200);
+    assert.equal(res.status, 501);
     const data = await res.json();
-    assert.ok(data.success);
-    assert.ok(data.id);
-    createdInvoiceId = data.id;
+    assert.equal(data.code, 'FEATURE_FROZEN');
   });
 
   await t.test('Engineer A is DENIED recording payment on invoice (403)', async () => {
-    const res = await testRequest(env, `/api/invoices/${createdInvoiceId}/payments`, {
+    const res = await testRequest(env, '/api/invoices/inv-dummy/payments', {
       method: 'POST',
       token: 'eng-a',
       body: { amount: 10000, payment_method: 'MANUAL' }
@@ -1377,15 +1374,20 @@ test('Finding F1.2-02: Project Financials & Invoicing Role Restrictions (ADMIN/S
     assert.equal(res.status, 403);
   });
 
-  await t.test('Admin adm-1 CAN record payment on invoice (200)', async () => {
-    const res = await testRequest(env, `/api/invoices/${createdInvoiceId}/payments`, {
+  await t.test('Admin adm-1 receives 501 FEATURE_FROZEN when attempting to record payment', async () => {
+    // Seed an invoice to test payment endpoint frozen behavior
+    rawDb.prepare(`
+      INSERT INTO invoices (id, project_id, invoice_number, amount, currency, status, due_date, created_at)
+      VALUES ('inv-test-1', 'prj-eng-a', 'INV-20261023-TEST', 20000, 'INR', 'ISSUED', '2026-12-31', CURRENT_TIMESTAMP)
+    `).run();
+
+    const res = await testRequest(env, '/api/invoices/inv-test-1/payments', {
       method: 'POST',
       token: 'adm-1',
       body: { amount: 10000, payment_method: 'MANUAL' }
     });
-    assert.equal(res.status, 200);
+    assert.equal(res.status, 501);
     const data = await res.json();
-    assert.ok(data.success);
-    assert.equal(data.new_status, 'PARTIALLY_PAID');
+    assert.equal(data.code, 'FEATURE_FROZEN');
   });
 });

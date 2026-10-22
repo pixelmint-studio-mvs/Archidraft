@@ -511,16 +511,15 @@ test('5. Draughtsman Assignment Lifecycle & Access Control', async (t) => {
   });
 });
 
-test('6. Engineer Review Scope & Draft Exclusion', async (t) => {
+test('6. SEC-01: Cross-Tenant Project Isolation & IDOR Prevention', async (t) => {
   const { rawDb, env } = createIsolatedTestDb();
   seedTestData(rawDb);
 
-  await t.test('Engineer project list EXCLUDES client DRAFT projects', async () => {
+  await t.test('Engineer project list EXCLUDES another client/engineer non-draft projects (SEC-01)', async () => {
     const res = await testRequest(env, '/api/projects', { token: 'engineer-1' });
     assert.equal(res.status, 200);
     const projects = await res.json();
-    assert.ok(projects.length > 0);
-    assert.ok(projects.every(p => p.status !== 'DRAFT'), 'Engineer received a DRAFT project!');
+    assert.equal(projects.length, 0, 'Engineer should not see projects belonging to client-1');
   });
 
   await t.test('Engineer direct access to Client DRAFT project is DENIED (403)', async () => {
@@ -528,12 +527,21 @@ test('6. Engineer Review Scope & Draft Exclusion', async (t) => {
     assert.equal(res.status, 403);
   });
 
-  await t.test('Engineer direct access to SUBMITTED and IN_PROGRESS projects is ALLOWED (200)', async () => {
+  await t.test('Engineer direct IDOR access to another user SUBMITTED and IN_PROGRESS projects is DENIED (403)', async () => {
     const resSub = await testRequest(env, '/api/projects/prj-submitted-c1', { token: 'engineer-1' });
-    assert.equal(resSub.status, 200);
+    assert.equal(resSub.status, 403);
 
     const resProg = await testRequest(env, '/api/projects/prj-accepted-c1', { token: 'engineer-1' });
-    assert.equal(resProg.status, 200);
+    assert.equal(resProg.status, 403);
+  });
+
+  await t.test('Engineer CAN access their own project (200)', async () => {
+    rawDb.prepare(`
+      INSERT INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status)
+      VALUES ('prj-eng-own', 'engineer-1', 'Engineer Own Project', '101 Tech Way', 'Floor Plan', 'Architectural', '1000 sq ft', 'SUBMITTED')
+    `).run();
+    const res = await testRequest(env, '/api/projects/prj-eng-own', { token: 'engineer-1' });
+    assert.equal(res.status, 200);
   });
 });
 

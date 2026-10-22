@@ -107,7 +107,7 @@ app.use('*', async (c, next) => {
 
   const token = authHeader.split('Bearer ')[1];
   const payload = await verifyFirebaseToken(token, c.env);
-  
+
   if (!payload || !payload.sub) {
     if (isPublicDocRead || isPublicVerify) {
       return await next();
@@ -119,13 +119,32 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// Enforce account suspension governance on protected business operations
+app.use('*', async (c, next) => {
+  const uid = c.get('uid');
+  if (uid) {
+    const user = await getUser(c.env.DB, uid);
+    if (user && user.status === 'SUSPENDED') {
+      const allowedPaths = ['/api/users/me', '/api/users/profile', '/api/legal/documents', '/api/public/'];
+      const isAllowed = c.req.method === 'GET' && allowedPaths.some(p => c.req.path.startsWith(p));
+      if (!isAllowed) {
+        return c.json({
+          error: 'Account suspended. Contact administrator.',
+          code: 'ACCOUNT_SUSPENDED'
+        }, 403);
+      }
+    }
+  }
+  await next();
+});
+
 // Enforce affirmative Terms acceptance on protected business operations
 app.use('*', async (c, next) => {
   const method = c.req.method;
   const path = c.req.path;
 
   // Protected business operational endpoints that require active Terms acceptance
-  const isBusinessMutation = 
+  const isBusinessMutation =
     ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) &&
     (
       path === '/api/projects' ||
@@ -252,7 +271,7 @@ app.get('/api/student/metrics', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  
+
   if (!user || user.role !== 'STUDENT') {
     return c.json({ error: 'Only students can access their metrics' }, 403);
   }
@@ -289,7 +308,7 @@ app.get('/api/student/metrics', async (c) => {
     GROUP BY p.drawing_type
   `;
   const { results: activityResults } = await db.prepare(activityQuery).bind(uid).all();
-  
+
   let totalCompletedProjects = 0;
   let totalCorrectionRounds = 0;
   for (const r of activityResults) {
@@ -308,7 +327,7 @@ app.get('/api/student/metrics', async (c) => {
   const { results: evalResults } = await db.prepare(evalQuery).bind(uid).all();
 
   const skillAggregates: Record<string, { sum: number, count: number }> = {};
-  
+
   for (const row of evalResults) {
     if (row.criteria_json) {
       try {
@@ -370,8 +389,8 @@ app.get('/api/student/metrics', async (c) => {
     totalCurriculumLessons += item.totalLessons;
     completedCurriculumLessons += item.completedLessons;
   }
-  const curriculumPercentage = totalCurriculumLessons > 0 
-    ? Math.round((completedCurriculumLessons / totalCurriculumLessons) * 100) 
+  const curriculumPercentage = totalCurriculumLessons > 0
+    ? Math.round((completedCurriculumLessons / totalCurriculumLessons) * 100)
     : 0;
 
   // Derive Pillar 2: Practical Execution
@@ -393,8 +412,8 @@ app.get('/api/student/metrics', async (c) => {
     totalScoreSum += agg.sum;
     totalScoreCount += agg.count;
   }
-  const averagePrecisionScore = totalScoreCount > 0 
-    ? Number((totalScoreSum / totalScoreCount).toFixed(1)) 
+  const averagePrecisionScore = totalScoreCount > 0
+    ? Number((totalScoreSum / totalScoreCount).toFixed(1))
     : null;
 
   // Derive Pillar 4: Revision Discipline
@@ -518,15 +537,52 @@ app.get('/api/users', async (c) => {
   const db = c.env.DB;
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
-  
+
   const role = c.req.query('role');
   if (role) {
     const { results } = await db.prepare('SELECT * FROM users WHERE role = ?').bind(role).all();
     return c.json(results);
   }
-  
+
   const { results } = await db.prepare('SELECT * FROM users').all();
   return c.json(results);
+});
+
+app.get('/api/users/:id', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
+
+  const targetId = c.req.param('id');
+  const targetUser = await getUser(db, targetId);
+  if (!targetUser) return c.json({ error: 'User not found' }, 404);
+  return c.json(targetUser);
+});
+
+app.patch('/api/users/:id/status', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
+
+  const targetId = c.req.param('id');
+  if (targetId === uid) {
+    return c.json({ error: 'Administrators cannot alter their own account status', code: 'SELF_SUSPENSION_FORBIDDEN' }, 400);
+  }
+
+  const targetUser = await getUser(db, targetId);
+  if (!targetUser) return c.json({ error: 'User not found' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const newStatus = body.status;
+  if (!['ACTIVE', 'SUSPENDED'].includes(newStatus)) {
+    return c.json({ error: 'Invalid status. Must be ACTIVE or SUSPENDED', code: 'INVALID_STATUS' }, 400);
+  }
+
+  await db.prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(newStatus, targetId).run();
+
+  return c.json({ success: true, id: targetId, status: newStatus });
 });
 
 // Helper: UUID v4 (simple fallback for action/log IDs if client doesn't provide it)
@@ -541,7 +597,7 @@ async function verifyDraughtsmanWorkspaceAccess(db: D1Database, project: any, ui
 
 async function canUserAccessProject(db: D1Database, project: any, user: any, uid: string): Promise<boolean> {
   const role = user.role as string;
-  if (role === 'CLIENT') {
+  if (role === 'CLIENT' || role === 'ENGINEER') {
     return project.client_id === uid;
   }
   if (role === 'DRAUGHTSMAN') {
@@ -551,19 +607,6 @@ async function canUserAccessProject(db: D1Database, project: any, user: any, uid
   if (role === 'STUDENT') {
     if (project.is_training_project !== 1) return false;
     return await verifyStudentAssignment(db, uid, project.id);
-  }
-  if (role === 'ENGINEER') {
-    if (project.client_id === uid) return true;
-    // Cross-user data isolation: An engineer's private project is strictly invisible and inaccessible to another engineer.
-    const owner = await getUser(db, project.client_id);
-    if (owner?.role === 'ENGINEER') {
-      return false;
-    }
-    // Backward compatibility for legacy CLIENT-submitted projects under engineer review
-    if (owner?.role === 'CLIENT' && project.status !== 'DRAFT') {
-      return true;
-    }
-    return false;
   }
   if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
     return true;
@@ -583,13 +626,13 @@ app.get('/api/projects', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  
+
   if (!user) return c.json({ error: 'User not found' }, 404);
 
   const role = user.role as string;
   const status = c.req.query('status');
 
-  if (role === 'CLIENT') {
+  if (role === 'CLIENT' || role === 'ENGINEER') {
     let query = 'SELECT * FROM projects WHERE client_id = ?';
     const params: any[] = [uid];
     if (status) {
@@ -609,22 +652,6 @@ app.get('/api/projects', async (c) => {
       params.push(status);
     }
     query += ' ORDER BY created_at DESC';
-    const { results } = await db.prepare(query).bind(...params).all();
-    return c.json(results);
-  }
-
-  if (role === 'ENGINEER') {
-    let query = `
-      SELECT p.* FROM projects p
-      LEFT JOIN users u ON p.client_id = u.id
-      WHERE (p.client_id = ? OR (u.role = 'CLIENT' AND p.status != 'DRAFT'))
-    `;
-    const params: any[] = [uid];
-    if (status) {
-      query += ' AND p.status = ?';
-      params.push(status);
-    }
-    query += ' ORDER BY p.created_at DESC';
     const { results } = await db.prepare(query).bind(...params).all();
     return c.json(results);
   }
@@ -650,7 +677,7 @@ app.get('/api/projects/:id', async (c) => {
   const projectId = c.req.param('id');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  
+
   if (!user) return c.json({ error: 'User not found' }, 404);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
@@ -667,7 +694,7 @@ app.get('/api/projects/:projectId', async (c) => {
   const projectId = c.req.param('projectId');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  
+
   if (!user) return c.json({ error: 'User not found' }, 404);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
@@ -684,11 +711,11 @@ app.post('/api/projects', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'ENGINEER') return c.json({ error: 'Only engineers can create projects' }, 403);
+  if (!user || !['ENGINEER', 'CLIENT'].includes(user.role as string)) return c.json({ error: 'Only engineers can create projects' }, 403);
 
   const body = await c.req.json();
   const projectId = body.id || body.projectId || uuidv4();
-  
+
   // Verify ownership and DRAFT status if modifying an existing project
   if (body.id || body.projectId) {
     const targetId = body.id || body.projectId;
@@ -703,11 +730,11 @@ app.post('/api/projects', async (c) => {
     }
   }
 
-  const projectName = body.project_name || body.projectName;
-  const projectAddress = body.project_address || body.projectAddress;
-  const drawingName = body.drawing_name || body.drawingName;
-  const drawingType = body.drawing_type || body.drawingType;
-  const projectArea = body.project_area || body.projectArea;
+  const projectName = body.project_name || body.projectName || 'Draft Project';
+  const projectAddress = body.project_address || body.projectAddress || '';
+  const drawingName = body.drawing_name || body.drawingName || 'Initial Drawing';
+  const drawingType = body.drawing_type || body.drawingType || 'Architectural';
+  const projectArea = body.project_area || body.projectArea || '';
 
   await db.prepare(`
     INSERT INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status)
@@ -731,9 +758,9 @@ app.post('/api/projects/submit', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId } = body;
-  
+
   const user = await getUser(db, uid);
-  if (!user || user.role !== 'ENGINEER') return c.json({ error: 'Only engineers can submit projects' }, 403);
+  if (!user || !['ENGINEER', 'CLIENT'].includes(user.role as string)) return c.json({ error: 'Only engineers can submit projects' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -744,7 +771,7 @@ app.post('/api/projects/submit', async (c) => {
   const batch = [
     db.prepare(`UPDATE projects SET status = 'SUBMITTED', submitted_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_SUBMITTED', uid, 'ENGINEER', 'Engineer submitted the project brief.'
+      actionId, projectId, 'PROJECT_SUBMITTED', uid, user.role, (user.role === 'CLIENT' ? 'Client' : 'Engineer') + ' submitted the project brief.'
     )
   ];
   await db.batch(batch);
@@ -756,7 +783,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId, draftFileId } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) {
     return c.json({ error: 'Only draughtsmen or students can submit drawings' }, 403);
@@ -859,7 +886,7 @@ app.post('/api/projects/approve', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Only admins can approve projects' }, 403);
 
@@ -883,7 +910,7 @@ app.post('/api/projects/reject', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId, reason } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Only admins can reject projects' }, 403);
 
@@ -922,7 +949,7 @@ app.post('/api/projects/approve-final', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId } = body;
-  
+
   const user = await getUser(db, uid);
   const allowedApprovers = ['CLIENT', 'ENGINEER', 'STUDIO_ADMIN', 'ADMIN'];
   if (!user || !allowedApprovers.includes(user.role as string)) {
@@ -953,7 +980,7 @@ app.post('/api/projects/request-correction', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId, correctionId, targetVersionId, description } = body;
-  
+
   const user = await getUser(db, uid);
   const allowedRequestors = ['CLIENT', 'ENGINEER', 'STUDIO_ADMIN', 'ADMIN'];
   if (!user || !allowedRequestors.includes(user.role as string)) {
@@ -963,7 +990,7 @@ app.post('/api/projects/request-correction', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
   if (project.client_id !== uid && !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
-  
+
   if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_ENGINEER_REVIEW' && project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in review state' }, 400);
 
@@ -996,7 +1023,7 @@ app.post('/api/projects/assign', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId, draughtsmanId } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'STUDIO_ADMIN' && user.role !== 'ADMIN')) return c.json({ error: 'Only admins can assign projects' }, 403);
 
@@ -1015,6 +1042,23 @@ app.post('/api/projects/assign', async (c) => {
   }
   if (project.is_training_project !== 1 && dMan.role === 'STUDENT') {
     return c.json({ error: 'Students cannot be assigned to commercial projects', code: 'INVALID_ASSIGNEE_ROLE' }, 400);
+  }
+
+  // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
+  if (dMan.role === 'DRAUGHTSMAN') {
+    const activeCountRes = await db.prepare(`
+      SELECT COUNT(*) as count
+      FROM projects
+      WHERE draughtsman_id = ?
+        AND status IN ('WAITING_ACCEPTANCE', 'IN_PROGRESS', 'UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')
+    `).bind(draughtsmanId).first();
+    const activeCount = (activeCountRes?.count as number) || 0;
+    if (activeCount >= 4) {
+      return c.json({
+        error: 'Draughtsman is at maximum capacity (4/4 active projects)',
+        code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED'
+      }, 400);
+    }
   }
 
   const assignmentId = uuidv4();
@@ -1041,18 +1085,33 @@ app.post('/api/projects/reassign', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { projectId, actionId, draughtsmanId } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Only admins can reassign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
   if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
 
+  // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
+  const activeCountRes = await db.prepare(`
+    SELECT COUNT(*) as count
+    FROM projects
+    WHERE draughtsman_id = ?
+      AND status IN ('WAITING_ACCEPTANCE', 'IN_PROGRESS', 'UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')
+  `).bind(draughtsmanId).first();
+  const activeCount = (activeCountRes?.count as number) || 0;
+  if (activeCount >= 4) {
+    return c.json({
+      error: 'Draughtsman is at maximum capacity (4/4 active projects)',
+      code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED'
+    }, 400);
+  }
+
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
-  
+
   if (project.last_action_id === actionId) return c.json({ success: true });
-  
+
   // Can reassign if waiting acceptance, in progress, or waiting assignment
   if (!['WAITING_ACCEPTANCE', 'IN_PROGRESS', 'WAITING_ASSIGNMENT'].includes(project.status as string)) {
     return c.json({ error: 'Project cannot be reassigned in its current state' }, 400);
@@ -1060,7 +1119,7 @@ app.post('/api/projects/reassign', async (c) => {
 
   const assignmentId = uuidv4();
   const batch = [];
-  
+
   if (project.current_assignment_id) {
     batch.push(db.prepare(`UPDATE assignments SET status = 'REPLACED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(project.current_assignment_id));
   }
@@ -1080,19 +1139,19 @@ app.post('/api/assignments/accept', async (c) => {
   const db = c.env.DB;
   const body = await c.req.json();
   const { assignmentId, projectId, actionId } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) return c.json({ error: 'Only draughtsmen or students can accept assignments' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
   if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
-  
+
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
 
   let assignment: any;
   let updateAssignmentQuery;
-  
+
   if (user.role === 'STUDENT') {
     if (project.is_training_project !== 1) return c.json({ error: 'Forbidden: Students cannot access commercial projects' }, 403);
     assignment = await db.prepare("SELECT * FROM student_assignments WHERE (id = ? OR project_id = ?) AND student_id = ? AND status != 'REPLACED' ORDER BY created_at DESC").bind(assignmentId, projectId, uid).first();
@@ -1132,7 +1191,7 @@ app.post('/api/assignments/reject', async (c) => {
   const body = await c.req.json();
   const { assignmentId, actionId } = body;
   let { projectId } = body;
-  
+
   const user = await getUser(db, uid);
   if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can reject assignments' }, 403);
 
@@ -1147,7 +1206,7 @@ app.post('/api/assignments/reject', async (c) => {
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
   if (project.status === 'WAITING_ASSIGNMENT' && project.last_action_id === actionId) return c.json({ success: true });
-  
+
   if (project.current_assignment_id !== assignmentId) return c.json({ error: 'Not the current assignment' }, 400);
   if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
@@ -1169,7 +1228,7 @@ app.get('/api/assignments', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  
+
   if (!user) return c.json({ error: 'User not found' }, 404);
   if (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDIO_ADMIN' && user.role !== 'ADMIN') return c.json({ error: 'Forbidden' }, 403);
 
@@ -1278,7 +1337,7 @@ app.get('/api/admin/dashboard', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
-  
+
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Forbidden' }, 403);
 
   const batch = [
@@ -1505,7 +1564,7 @@ app.post('/api/projects/evaluate', async (c) => {
   const body = await c.req.json();
   const { projectId, actionId, drawingVersionId, overallResult, generalFeedback, criteriaJson, correctionId } = body;
   const actualActionId = actionId || uuidv4();
-  
+
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'CLIENT' && user.role !== 'ENGINEER' && user.role !== 'STUDIO_ADMIN' && user.role !== 'ADMIN')) {
     return c.json({ error: 'Only clients, engineers or admins can evaluate drawings' }, 403);
@@ -1528,7 +1587,7 @@ app.post('/api/projects/evaluate', async (c) => {
   if (project.last_action_id === actionId) {
     return c.json({ success: true });
   }
-  
+
   if (project.status !== 'UNDER_ENGINEER_REVIEW' && project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not under review' }, 400);
 
   const drawingVersion = await db.prepare('SELECT * FROM drawing_versions WHERE id = ?').bind(drawingVersionId).first();
@@ -1567,12 +1626,12 @@ app.post('/api/projects/evaluate', async (c) => {
         return c.json({ error: 'criteriaJson must be valid JSON' }, 400);
       }
     }
-    
+
     // Normalize and validate criteria if present
     if (typeof parsedCriteria === 'object' && parsedCriteria !== null && !Array.isArray(parsedCriteria)) {
       const allowedKeys = ['Accuracy', 'Technical Standards'];
       const keys = Object.keys(parsedCriteria);
-      
+
       if (keys.length !== allowedKeys.length || !allowedKeys.every(k => keys.includes(k))) {
         return c.json({ error: 'Criteria must contain exactly "Accuracy" and "Technical Standards"' }, 400);
       }
@@ -1879,6 +1938,95 @@ app.post('/api/projects/:projectId/messages', async (c) => {
   return c.json(createdMessage, 201);
 });
 
+// ==========================================
+// COLLABORATION HUB ADAPTER (ADMIN & MOBILE UNIFICATION)
+// ==========================================
+
+app.get('/api/projects/:projectId/comments', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Access to comments denied' }, 403);
+
+  const { results } = await db.prepare(`
+    SELECT
+      m.id,
+      m.project_id,
+      m.sender_id AS author_id,
+      m.sender_name AS author_name,
+      m.sender_role AS author_role,
+      m.message AS content,
+      f.original_name AS attachment_name,
+      CAST(f.size AS TEXT) AS attachment_size,
+      f.content_type AS attachment_type,
+      m.created_at
+    FROM project_messages m
+    LEFT JOIN files f ON m.attachment_file_id = f.id
+    WHERE m.project_id = ?
+    ORDER BY m.created_at ASC
+  `).bind(projectId).all();
+
+  return c.json(results || []);
+});
+
+app.post('/api/projects/:projectId/comments', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Access to comments denied' }, 403);
+
+  const body = await c.req.json().catch(() => ({}));
+  const content = (typeof body.content === 'string' ? body.content : typeof body.message === 'string' ? body.message : '').trim();
+  const attachmentName = body.attachmentName || body.attachment_name || null;
+  const attachmentSize = body.attachmentSize || body.attachment_size || null;
+  const attachmentType = body.attachmentType || body.attachment_type || null;
+
+  if (!content && !attachmentName) {
+    return c.json({ error: 'Comment content or attachment is required' }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  const authorName = (user.name as string) || (['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string) ? 'Studio Admin' : user.role === 'CLIENT' || user.role === 'ENGINEER' ? 'Engineer' : 'Draughtsman');
+  const authorRole = user.role === 'CLIENT' ? 'CLIENT' : user.role;
+
+  // Insert into authoritative project_messages table
+  await db.prepare(`
+    INSERT INTO project_messages (id, project_id, sender_id, sender_name, sender_role, message)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(id, projectId, uid, authorName, authorRole, content).run();
+
+  const commentRecord = {
+    id,
+    project_id: projectId,
+    author_id: uid,
+    author_name: authorName,
+    author_role: authorRole,
+    content,
+    attachment_name: attachmentName,
+    attachment_size: attachmentSize ? String(attachmentSize) : null,
+    attachment_type: attachmentType,
+    created_at: new Date().toISOString()
+  };
+
+  return c.json({ success: true, comment: commentRecord }, 201);
+});
+
 app.post('/api/projects/:projectId/files', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
@@ -1891,7 +2039,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
     'message_attachment',
     'workspace_draft'
   ];
-  
+
   if (!category || !allowedCategories.includes(category)) {
     return c.json({ error: 'Invalid category' }, 400);
   }
@@ -1907,7 +2055,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
   const ext = sanitizedName.split('.').pop()?.toLowerCase();
   const allowedExtensions = ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip', 'webm', 'm4a', 'mp3', 'wav', 'aac', 'ogg'];
-  
+
   if (!ext || !allowedExtensions.includes(ext)) {
     return c.json({ error: 'Invalid file extension. Allowed: ' + allowedExtensions.join(', ') }, 400);
   }
@@ -1984,13 +2132,29 @@ app.post('/api/projects/:projectId/files', async (c) => {
   try {
     if (!c.req.raw.body) throw new Error('Empty body');
 
-    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+    let MAX_SIZE = 50 * 1024 * 1024; // 50MB default
+    let ceilingLabel = '50MB';
+    try {
+      const settingRow = await db.prepare("SELECT value FROM studio_settings WHERE key = 'maxUploadCeiling'").first();
+      if (settingRow && settingRow.value) {
+        ceilingLabel = settingRow.value as string;
+        const match = ceilingLabel.match(/^(\d+)(MB|GB)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          const unit = match[2].toUpperCase();
+          MAX_SIZE = unit === 'GB' ? num * 1024 * 1024 * 1024 : num * 1024 * 1024;
+        }
+      }
+    } catch {
+      // fallback to 50MB
+    }
+
     const contentLengthHeader = c.req.header('Content-Length');
     if (!contentLengthHeader) throw new Error('Content-Length header is required');
-    
+
     const expectedSize = parseInt(contentLengthHeader, 10);
     if (isNaN(expectedSize) || expectedSize <= 0) throw new Error('Invalid Content-Length');
-    if (expectedSize > MAX_SIZE) throw new Error('File exceeds 50MB limit');
+    if (expectedSize > MAX_SIZE) throw new Error(`File exceeds ${ceilingLabel} limit`);
 
     let bytesReceived = 0;
     const byteCounter = new TransformStream({
@@ -1999,7 +2163,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
         if (bytesReceived > expectedSize) {
           controller.error(new Error('Body exceeded declared Content-Length'));
         } else if (bytesReceived > MAX_SIZE) {
-          controller.error(new Error('File exceeds 50MB limit during streaming'));
+          controller.error(new Error(`File exceeds ${ceilingLabel} limit during streaming`));
         } else {
           controller.enqueue(chunk);
         }
@@ -2014,7 +2178,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
     const fixedStream = typeof (globalThis as any).FixedLengthStream !== 'undefined'
       ? new (globalThis as any).FixedLengthStream(expectedSize)
       : new TransformStream();
-    
+
     let streamError: any = null;
     const streamingPromise = c.req.raw.body
       .pipeThrough(byteCounter)
@@ -2032,12 +2196,12 @@ app.post('/api/projects/:projectId/files', async (c) => {
 
     // Update status to COMPLETED and save actual byte count
     await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(finalSize, actionId).run();
-    
+
     if (category === 'draughtsman_version') {
       const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
       const vNum = ((latest?.v as number) || 0) + 1;
       const corr = await db.prepare("SELECT id FROM corrections WHERE project_id = ? AND status = 'OPEN'").bind(projectId).first();
-      
+
       await db.prepare(`
         INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id) 
         VALUES (?, ?, ?, ?, ?, ?)
@@ -2062,7 +2226,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
 app.get('/api/files/:fileId/download', async (c) => {
   const uid = c.get('uid');
   const fileId = c.req.param('fileId');
-  
+
   const db = c.env.DB;
   const user = await getUser(db, uid);
   if (!user) return c.json({ error: 'User not found' }, 404);
@@ -2176,7 +2340,7 @@ app.delete('/api/projects/:projectId/files/:fileId', async (c) => {
     if (fileMeta.object_key) {
       await c.env.STORAGE.delete(fileMeta.object_key as string);
     }
-    
+
     // Delete from D1
     await db.prepare('DELETE FROM files WHERE id = ?').bind(fileId).run();
 
@@ -2301,7 +2465,7 @@ app.get('/api/projects/:projectId/financials', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
   const db = c.env.DB;
-  
+
   const user = await getUser(db, uid);
   if (!user) return c.json({ error: 'User not found' }, 404);
 
@@ -2311,7 +2475,7 @@ app.get('/api/projects/:projectId/financials', async (c) => {
   if (!['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Forbidden' }, 403);
 
   const { results: invoices } = await db.prepare('SELECT * FROM invoices WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
-  
+
   const { results: payments } = await db.prepare(`
     SELECT p.* FROM payments p 
     JOIN invoices i ON p.invoice_id = i.id 
@@ -2319,10 +2483,10 @@ app.get('/api/projects/:projectId/financials', async (c) => {
   `).bind(projectId).all();
 
   const now = new Date().getTime();
-  
+
   let paidAmount = 0;
   payments.forEach((p: any) => paidAmount += (p.amount as number));
-  
+
   const mappedInvoices = invoices.map((inv: any) => {
     let currentStatus = inv.status;
     const dueTime = new Date(inv.due_date).getTime();
@@ -2345,7 +2509,7 @@ app.patch('/api/projects/:projectId/financials/total_value', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
   const db = c.env.DB;
-  
+
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Forbidden' }, 403);
 
@@ -2357,7 +2521,7 @@ app.patch('/api/projects/:projectId/financials/total_value', async (c) => {
 
   const sumInvRes = await db.prepare('SELECT SUM(amount) as sum FROM invoices WHERE project_id = ?').bind(projectId).first();
   const sumInvoiced = (sumInvRes?.sum as number) || 0;
-  
+
   const sumPayRes = await db.prepare(`
     SELECT SUM(p.amount) as sum FROM payments p JOIN invoices i ON p.invoice_id = i.id WHERE i.project_id = ?
   `).bind(projectId).first();
@@ -2380,7 +2544,7 @@ app.patch('/api/projects/:projectId/financials/total_value', async (c) => {
   }
 
   await db.prepare('UPDATE projects SET total_value = ? WHERE id = ?').bind(newTotalValue, projectId).run();
-  
+
   await db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
     uuidv4(), projectId, 'TOTAL_VALUE_UPDATED', uid, 'STUDIO_ADMIN', `Updated total value to ${newTotalValue}`
   ).run();
@@ -2392,113 +2556,36 @@ app.post('/api/projects/:projectId/invoices', async (c) => {
   const uid = c.get('uid');
   const projectId = c.req.param('projectId');
   const db = c.env.DB;
-  
+
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Forbidden' }, 403);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
-  if (project.total_value === null) {
-    return c.json({ error: 'Project total_value is not set' }, 400);
-  }
-
-  const body = await c.req.json();
-  const amount = body.amount;
-  const due_date = body.due_date;
-
-  if (typeof amount !== 'number' || amount <= 0) {
-    return c.json({ error: 'Invalid invoice amount' }, 400);
-  }
-  if (!due_date) return c.json({ error: 'Missing due_date' }, 400);
-
-  const sumInvRes = await db.prepare('SELECT SUM(amount) as sum FROM invoices WHERE project_id = ?').bind(projectId).first();
-  const sumInvoiced = (sumInvRes?.sum as number) || 0;
-
-  if (amount + sumInvoiced > (project.total_value as number)) {
-    return c.json({ error: 'Invoice amount exceeds remaining project total_value' }, 400);
-  }
-
-  const invoiceId = uuidv4();
-  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  let invoiceNumber = `INV-${today}-${crypto.randomUUID().split('-')[0]}`;
-
-  let retryCount = 0;
-  while(true) {
-    try {
-      await db.prepare(`
-        INSERT INTO invoices (id, project_id, invoice_number, amount, currency, status, due_date, created_at)
-        VALUES (?, ?, ?, ?, 'INR', 'ISSUED', ?, CURRENT_TIMESTAMP)
-      `).bind(invoiceId, projectId, invoiceNumber, amount, new Date(due_date).toISOString()).run();
-      break;
-    } catch (e: any) {
-      if (e.message && e.message.includes('UNIQUE constraint failed') && retryCount < 5) {
-        retryCount++;
-        invoiceNumber = `INV-${today}-${crypto.randomUUID().split('-')[0]}`;
-      } else {
-        throw e;
-      }
-    }
-  }
-
-  await db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-    uuidv4(), projectId, 'INVOICE_CREATED', uid, 'STUDIO_ADMIN', `Created invoice ${invoiceNumber} for ${amount} INR`
-  ).run();
-
-  return c.json({ success: true, id: invoiceId, invoice_number: invoiceNumber });
+  // Payments Scope Frozen (Section 3): Payment and invoicing mutations are frozen in this release
+  return c.json({
+    error: 'Financial mutations are disabled: payments scope is frozen in this release',
+    code: 'FEATURE_FROZEN'
+  }, 501);
 });
 
 app.post('/api/invoices/:invoiceId/payments', async (c) => {
   const uid = c.get('uid');
   const invoiceId = c.req.param('invoiceId');
   const db = c.env.DB;
-  
+
   const user = await getUser(db, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Forbidden' }, 403);
 
   const invoice = await db.prepare('SELECT * FROM invoices WHERE id = ?').bind(invoiceId).first();
   if (!invoice) return c.json({ error: 'Invoice not found' }, 404);
 
-  if (invoice.status !== 'ISSUED' && invoice.status !== 'PARTIALLY_PAID') {
-    return c.json({ error: 'Invoice is not payable' }, 400);
-  }
-
-  const body = await c.req.json();
-  const amount = body.amount;
-  const payment_method = body.payment_method || 'MANUAL';
-
-  if (typeof amount !== 'number' || amount <= 0) {
-    return c.json({ error: 'Invalid payment amount' }, 400);
-  }
-
-  const sumPayRes = await db.prepare('SELECT SUM(amount) as sum FROM payments WHERE invoice_id = ?').bind(invoiceId).first();
-  const sumPaid = (sumPayRes?.sum as number) || 0;
-
-  const remainingBalance = (invoice.amount as number) - sumPaid;
-
-  if (amount > remainingBalance) {
-    return c.json({ error: 'Payment amount exceeds invoice remaining balance' }, 400);
-  }
-
-  const newSumPaid = sumPaid + amount;
-  const newStatus = (newSumPaid >= (invoice.amount as number)) ? 'PAID' : 'PARTIALLY_PAID';
-
-  const paymentId = uuidv4();
-
-  const batch = [
-    db.prepare(`
-      INSERT INTO payments (id, invoice_id, amount, payment_method, processed_at, recorded_by)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-    `).bind(paymentId, invoiceId, amount, payment_method, uid),
-    db.prepare('UPDATE invoices SET status = ? WHERE id = ?').bind(newStatus, invoiceId),
-    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), invoice.project_id, 'PAYMENT_RECORDED', uid, 'STUDIO_ADMIN', `Recorded payment of ${amount} INR against ${invoice.invoice_number}`
-    )
-  ];
-
-  await db.batch(batch);
-
-  return c.json({ success: true, payment_id: paymentId, new_status: newStatus });
+  // Payments Scope Frozen (Section 3): Payment and invoicing mutations are frozen in this release
+  return c.json({
+    error: 'Financial mutations are disabled: payments scope is frozen in this release',
+    code: 'FEATURE_FROZEN'
+  }, 501);
 });
 
 
@@ -2702,7 +2789,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
 
   let totalLessons = allLessons.results.length;
   let completedLessons = 0;
-  
+
   for (const l of allLessons.results) {
     let lessonStatus = l.status;
     if (l.id === lessonId) {
@@ -2729,7 +2816,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
   if (totalLessons > 0) {
     let moduleStatus = 'In Progress';
     let score = Math.round((completedLessons / totalLessons) * 100);
-    
+
     if (completedLessons === totalLessons) {
       // Check if this module requires a practical project for this student
       const practicalProject: any = await db.prepare(`
@@ -2768,7 +2855,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
         score = 90;
       }
     }
-    
+
     const moduleProgId = uuidv4();
     batch.push(
       db.prepare(`
@@ -2839,7 +2926,7 @@ app.post('/api/student/training/progress', async (c) => {
   }
 
   const id = uuidv4();
-  
+
   // Upsert progress for non-terminal statuses (e.g. 'In Progress')
   await db.prepare(`
     INSERT INTO student_progress (id, student_id, module_id, status, score, updated_at)
@@ -2977,13 +3064,13 @@ app.post('/api/student/credentials/:credentialId/certificate', async (c) => {
   const uid = c.get('uid');
   const credentialId = c.req.param('credentialId');
   const db = c.env.DB;
-  
+
   const user = await getUser(db, uid);
   if (!user || user.role !== 'STUDENT') return c.json({ error: 'Unauthorized' }, 403);
 
   const credential = await db.prepare('SELECT * FROM student_credentials WHERE id = ? AND student_id = ?').bind(credentialId, uid).first();
   if (!credential) return c.json({ error: 'Credential not found' }, 404);
-  
+
   // NOTE: If certificate exists, we still regenerate if the QR code wasn't included, but for Part 5C,
   // we just regenerate anyway to ensure it has the QR. Or we can just overwrite. 
   // The instruction: "preserve the existing credential, update the certificate artifact deterministically"
@@ -3003,14 +3090,14 @@ app.post('/api/student/credentials/:credentialId/certificate', async (c) => {
     const issueDate = new Date(credential.issued_at as string).toLocaleDateString();
 
     const pdfBytes = generateSimpleCertificatePdf(studentName, credentialTitle, issueDate, credential.id as string, publicUrl);
-    
+
     const objectKey = `certificates/${uid}/${credentialId}.pdf`;
     await c.env.STORAGE.put(objectKey, pdfBytes, {
       httpMetadata: { contentType: 'application/pdf' },
     });
-    
+
     await db.prepare('UPDATE student_credentials SET certificate_object_key = ? WHERE id = ?').bind(objectKey, credentialId).run();
-    
+
     return c.json({ message: 'Certificate generated', certificateObjectKey: objectKey, verificationToken });
   } catch (error: any) {
     console.error('PDF generation error:', error);
@@ -3029,7 +3116,7 @@ app.get('/api/student/credentials/:credentialId/certificate', async (c) => {
 
   const credential = await db.prepare('SELECT * FROM student_credentials WHERE id = ? AND student_id = ?').bind(credentialId, uid).first();
   if (!credential) return c.json({ error: 'Credential not found' }, 404);
-  
+
   if (!credential.certificate_object_key) {
     return c.json({ error: 'Certificate not generated yet' }, 404);
   }
@@ -3100,7 +3187,7 @@ app.get('/api/student/portfolio', async (c) => {
 
   const projectIds = projects.map((p: any) => p.id);
   const chunkSize = 100;
-  
+
   let allEvaluations: any[] = [];
   for (let i = 0; i < projectIds.length; i += chunkSize) {
     const chunk = projectIds.slice(i, i + chunkSize);
@@ -3163,7 +3250,7 @@ app.get('/api/student/portfolio', async (c) => {
             maxScore: 5
           });
         }
-        
+
         if (criteria.length > 0) {
           const totalScore = criteria.reduce((sum: number, c: any) => sum + c.score, 0);
           overallPercentage = Math.round((totalScore / (criteria.length * 5)) * 100);
@@ -3205,6 +3292,150 @@ app.get('/api/student/portfolio', async (c) => {
   }
 
   return c.json({ portfolio });
+});
+
+// ==========================================
+// ADMIN SETTINGS & GOVERNANCE ENDPOINTS
+// ==========================================
+
+const DEFAULT_STUDIO_SETTINGS = {
+  multiDiscipline: true,
+  turnaround: '24h',
+  autoRasterizer: true,
+  strictLayerCompliance: true,
+  maxUploadCeiling: '50MB',
+  notifySubmissions: true,
+  notifyAssignments: true,
+  notifyCorrections: true,
+  notifyDigest: false,
+};
+
+app.get('/api/admin/settings', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const { results } = await db.prepare('SELECT key, value, updated_at, updated_by FROM studio_settings').all();
+  const settings: Record<string, any> = { ...DEFAULT_STUDIO_SETTINGS };
+
+  if (results && results.length > 0) {
+    for (const row of results as any[]) {
+      try {
+        if (row.value === 'true') settings[row.key] = true;
+        else if (row.value === 'false') settings[row.key] = false;
+        else settings[row.key] = row.value;
+      } catch {
+        settings[row.key] = row.value;
+      }
+    }
+    const latest = results[results.length - 1] as any;
+    settings.updated_at = latest.updated_at;
+    settings.updated_by = latest.updated_by;
+  }
+
+  return c.json(settings);
+});
+
+app.put('/api/admin/settings', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const keys = Object.keys(body).filter(k => k !== 'updated_at' && k !== 'updated_by');
+
+  for (const k of keys) {
+    const val = String(body[k]);
+    await db.prepare(`
+      INSERT INTO studio_settings (key, value, updated_at, updated_by)
+      VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = excluded.updated_at,
+        updated_by = excluded.updated_by
+    `).bind(k, val, uid).run();
+  }
+
+  return c.json({ success: true, settings: { ...DEFAULT_STUDIO_SETTINGS, ...body, updated_at: new Date().toISOString(), updated_by: uid } });
+});
+
+// ==========================================
+// ADMIN ASSIGNMENTS CONSOLE ENDPOINT
+// ==========================================
+
+app.get('/api/admin/assignments', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const { results } = await db.prepare(`
+    SELECT
+      a.id,
+      a.project_id,
+      a.draughtsman_id,
+      a.status,
+      a.created_at,
+      a.updated_at,
+      p.project_name,
+      p.drawing_type,
+      p.status AS project_status,
+      u.name AS draughtsman_name,
+      u.email AS draughtsman_email
+    FROM assignments a
+    JOIN projects p ON a.project_id = p.id
+    LEFT JOIN users u ON a.draughtsman_id = u.id
+    ORDER BY a.created_at DESC
+  `).all();
+
+  return c.json(results || []);
+});
+
+// ==========================================
+// PROJECT CANCELLATION ENDPOINT
+// ==========================================
+
+app.post('/api/projects/cancel', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json().catch(() => ({}));
+  const { projectId, actionId, reason } = body;
+
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const isAdmin = ['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string);
+  const isOwner = (user.role === 'ENGINEER' || user.role === 'CLIENT') && project.client_id === uid;
+  if (!isAdmin && !isOwner) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  if (project.status === 'CANCELLED' && project.last_action_id === actionId) {
+    return c.json({ success: true });
+  }
+
+  const batch = [
+    db.prepare(`UPDATE projects SET status = 'CANCELLED', rejection_reason = COALESCE(?, rejection_reason), cancelled_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(reason || 'Cancelled by admin', actionId || uuidv4(), projectId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId || uuidv4(), projectId, 'PROJECT_CANCELLED', uid, user.role, `Project was cancelled: ${reason || 'No reason provided'}`
+    )
+  ];
+  await db.batch(batch);
+  return c.json({ success: true });
 });
 
 registerLegalRoutes(app);
