@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -440,6 +440,25 @@ class _CollaborationHubViewState extends ConsumerState<CollaborationHubView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<ProjectMessage>>>(
+      projectMessagesProvider(widget.projectId),
+      (previous, next) {
+        final prevLen = previous?.value?.length ?? 0;
+        final nextLen = next.value?.length ?? 0;
+        if (nextLen > prevLen) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                _scrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
+      },
+    );
+
     final messagesAsync = ref.watch(projectMessagesProvider(widget.projectId));
     final filesAsync = ref.watch(projectFilesProvider(widget.projectId));
     final currentUid = ref.watch(currentUserIdProvider);

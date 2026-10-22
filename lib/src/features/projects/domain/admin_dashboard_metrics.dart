@@ -3,6 +3,7 @@ class AdminDashboardMetrics {
   final int activeProjects;
   final int projectsAwaitingAssignment;
   final int projectsUnderClientReview;
+  int get projectsUnderEngineerReview => projectsUnderClientReview;
   final int completedProjects;
   final int activeDraughtsmen;
   final int pendingAssignments;
@@ -22,7 +23,7 @@ class AdminDashboardMetrics {
       totalProjects: map['totalProjects'] as int? ?? 0,
       activeProjects: map['activeProjects'] as int? ?? 0,
       projectsAwaitingAssignment: map['projectsAwaitingAssignment'] as int? ?? 0,
-      projectsUnderClientReview: map['projectsUnderClientReview'] as int? ?? 0,
+      projectsUnderClientReview: (map['projectsUnderEngineerReview'] ?? map['projectsUnderClientReview']) as int? ?? 0,
       completedProjects: map['completedProjects'] as int? ?? 0,
       activeDraughtsmen: map['activeDraughtsmen'] as int? ?? 0,
       pendingAssignments: map['pendingAssignments'] as int? ?? 0,

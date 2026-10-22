@@ -1,4 +1,4 @@
-import 'package:archi_draft/src/features/projects/domain/activity_log.dart';
+﻿import 'package:archi_draft/src/features/projects/domain/activity_log.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,11 +117,14 @@ class _DraughtsmanAssignmentDetailScreenState
 
   Widget _buildContent(BuildContext context, Assignment assignment) {
     final status = assignment.assignmentStatus ?? AssignmentStatus.pending;
+    final isPending = status == AssignmentStatus.pending;
     final isLoading = ref.watch(draughtsmanActionsControllerProvider).isLoading;
-    final versionsAsync =
-        ref.watch(projectDrawingVersionsProvider(assignment.projectId));
-    final activitiesAsync =
-        ref.watch(projectActivityLogsProvider(assignment.projectId));
+    final versionsAsync = isPending
+        ? const AsyncValue<List<DrawingVersion>>.data([])
+        : ref.watch(projectDrawingVersionsProvider(assignment.projectId));
+    final activitiesAsync = isPending
+        ? const AsyncValue<List<ActivityLog>>.data([])
+        : ref.watch(projectActivityLogsProvider(assignment.projectId));
 
     final projectStatusValue = assignment.projectStatus;
     final projectStatus = projectStatusValue != null
@@ -530,7 +533,7 @@ class _DraughtsmanAssignmentDetailScreenState
     Color fg;
 
     final rawStatus = assignment.projectStatus ?? 'PENDING';
-    if (rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
+    if (rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
       text = 'STATUS: REVIEW';
       bg = const Color(0xFF85F8C4);
       fg = const Color(0xFF069669);
@@ -1107,7 +1110,7 @@ class _DraughtsmanAssignmentDetailScreenState
     final rawStatus = assignment.projectStatus ?? 'PENDING';
     final isPending = status == AssignmentStatus.pending;
     final isAccepted = status == AssignmentStatus.accepted;
-    final isUnderReview = rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW';
+    final isUnderReview = rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW';
     final isCompleted = rawStatus == 'COMPLETED' || status == AssignmentStatus.completed;
     final correctionRound = assignment.correctionRound ?? 0;
     final isCorrectionMode = correctionRound > 0 && !isCompleted;
@@ -1129,7 +1132,7 @@ class _DraughtsmanAssignmentDetailScreenState
     final step4Completed = isUnderReview || isCompleted || isCorrectionMode;
     final step4Active = isAccepted && !isUnderReview && !isCompleted && !isCorrectionMode;
 
-    // 5. Client Review / Correction Rounds
+    // 5. Engineer Review / Correction Rounds
     final step5Completed = isCompleted;
     final step5Active = isUnderReview || isCorrectionMode;
 
@@ -1230,12 +1233,12 @@ class _DraughtsmanAssignmentDetailScreenState
             stepNumber: '5',
             title: isCorrectionMode
                 ? '5. Correction Requested (Round $correctionRound)'
-                : '5. Client & Engineer Review',
+                : '5. Engineer Review',
             description: isCorrectionMode
-                ? 'Revisions required by client or engineer. See review notes.'
+                ? 'Revisions required by the assigned Engineer. See review notes.'
                 : (isUnderReview
-                    ? 'Drawings submitted and currently pending approval.'
-                    : 'Initial structural and specifications review.'),
+                    ? 'Drawings submitted and currently pending Engineer review and approval.'
+                    : 'Assigned Engineer review of submitted drawings and project specifications.'),
             isCompleted: step5Completed,
             isActive: step5Active,
             isCorrection: isCorrectionMode,
@@ -1407,7 +1410,7 @@ class _DraughtsmanAssignmentDetailScreenState
                 child: Text(
                   isCorrectionMode
                       ? 'CORRECTION CYCLE #$correctionRound ACTIVE'
-                      : 'UNDER CLIENT & LEAD ARCHITECT REVIEW',
+                      : 'UNDER ENGINEER REVIEW',
                   style: AppTypography.labelMonoSm.copyWith(
                     color: isCorrectionMode ? AppColors.error : AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -1419,8 +1422,8 @@ class _DraughtsmanAssignmentDetailScreenState
           const SizedBox(height: 6),
           Text(
             isCorrectionMode
-                ? 'Client requested amendments to the submitted draft. Please make updates in Workspace and resubmit.'
-                : 'Current revision submitted. Awaiting approval or correction feedback.',
+                ? 'Engineer requested amendments to the submitted draft. Please make updates in Workspace and resubmit.'
+                : 'Current revision submitted. Awaiting Engineer review or correction feedback.',
             style: AppTypography.bodySm.copyWith(
               color: AppColors.onSurfaceVariant,
             ),

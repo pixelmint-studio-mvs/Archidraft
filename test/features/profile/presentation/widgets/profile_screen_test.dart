@@ -96,10 +96,15 @@ void main() {
       expect(find.text('anas.draughtsman@archidraft.com'), findsWidgets);
       expect(find.text('ROLE: DRAUGHTSMAN'), findsOneWidget);
       expect(find.text('STATUS: ACTIVE'), findsOneWidget);
-      expect(find.textContaining('UID: uid-draughtsman-101'), findsOneWidget);
+      expect(find.textContaining('UID:'), findsNothing);
 
-      // Verify read-only email indicator
-      expect(find.text('READ-ONLY (FIREBASE AUTH)'), findsOneWidget);
+      // Verify clean verified email indicator (no backend provider leak)
+      expect(find.text('READ-ONLY (FIREBASE AUTH)'), findsNothing);
+      expect(find.text('VERIFIED EMAIL'), findsOneWidget);
+
+      // Verify absence of backend/infrastructure references
+      expect(find.textContaining('Firebase Auth'), findsNothing);
+      expect(find.textContaining('Cloudflare D1'), findsNothing);
 
       // Verify form sections and inputs
       expect(find.text('PERSONAL & CONTACT VITALS'), findsOneWidget);
@@ -287,7 +292,7 @@ void main() {
       );
     });
 
-    testWidgets('10. UID copy button triggers clipboard message', (tester) async {
+    testWidgets('10. Privacy & Security notice verification — zero technical disclosures', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -295,13 +300,95 @@ void main() {
       await tester.pumpWidget(createTestWidget(profileOverride: testDraughtsman));
       await tester.pumpAndSettle();
 
-      final copyBtn = find.byTooltip('Copy UID');
-      expect(copyBtn, findsOneWidget);
+      // Approved consistent security notice
+      expect(
+        find.text('Your account is protected by security controls designed to safeguard your account and information. Never share your password or sign-in codes with anyone.'),
+        findsOneWidget,
+      );
 
-      await tester.tap(copyBtn);
-      await tester.pump();
+      // Absolute zero technical infrastructure leaks
+      expect(find.textContaining('Firebase Auth'), findsNothing);
+      expect(find.textContaining('Cloudflare D1'), findsNothing);
+      expect(find.textContaining('UID:'), findsNothing);
+      expect(find.byTooltip('Copy UID'), findsNothing);
+    });
 
-      expect(find.text('User ID copied to clipboard'), findsOneWidget);
+    testWidgets('11. Engineer Profile renders business credentials and zero technical disclosures', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final testEngineer = UserProfile(
+        id: 'uid-engineer-202',
+        email: 'engineer@archidraft.com',
+        name: 'Sarah Connor',
+        role: 'ENGINEER',
+        mobile: '+15551234567',
+        companyName: 'Connor Structural Design Studio',
+        createdAt: DateTime(2026, 1, 15),
+      );
+
+      await tester.pumpWidget(createTestWidget(profileOverride: testEngineer));
+      await tester.pumpAndSettle();
+
+      // Breadcrumb & title
+      expect(find.text('CLIENT  /  PROFILE & SETTINGS'), findsOneWidget);
+      expect(find.text('User Profile & Settings'), findsOneWidget);
+
+      // Identity & Credentials
+      expect(find.text('Sarah Connor'), findsWidgets);
+      expect(find.text('engineer@archidraft.com'), findsWidgets);
+      expect(find.text('ROLE: ENGINEER'), findsOneWidget);
+      expect(find.text('STATUS: ACTIVE'), findsOneWidget);
+      expect(find.text('BUSINESS & CLIENT CREDENTIALS'), findsOneWidget);
+      expect(find.text('Connor Structural Design Studio'), findsOneWidget);
+
+      // Zero technical leaks
+      expect(find.textContaining('UID:'), findsNothing);
+      expect(find.text('READ-ONLY (FIREBASE AUTH)'), findsNothing);
+      expect(find.textContaining('Firebase Auth'), findsNothing);
+      expect(find.textContaining('Cloudflare D1'), findsNothing);
+    });
+
+    testWidgets('12. Student Profile renders academic credentials, achievements and zero technical disclosures', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final testStudent = UserProfile(
+        id: 'uid-student-303',
+        email: 'ashraf.student@archidraft.test',
+        name: 'Ashraf Bari',
+        role: 'STUDENT',
+        mobile: '+919876543210',
+        collegeName: 'National Institute of Technology',
+        qualification: 'B.Arch Year 3',
+        createdAt: DateTime(2026, 3, 1),
+      );
+
+      await tester.pumpWidget(createTestWidget(profileOverride: testStudent));
+      await tester.pumpAndSettle();
+
+      // Breadcrumb & title
+      expect(find.text('STUDENT  /  PROFILE & SETTINGS'), findsOneWidget);
+      expect(find.text('Student Profile & Learning Credentials'), findsOneWidget);
+
+      // Identity & Role
+      expect(find.text('Ashraf Bari'), findsWidgets);
+      expect(find.text('ashraf.student@archidraft.test'), findsWidgets);
+      expect(find.text('ROLE: STUDENT'), findsOneWidget);
+      expect(find.text('STATUS: ACTIVE'), findsOneWidget);
+
+      // Academic details section
+      expect(find.text('ACADEMIC & LEARNING DETAILS'), findsOneWidget);
+      expect(find.text('National Institute of Technology'), findsOneWidget);
+      expect(find.text('B.Arch Year 3'), findsOneWidget);
+
+      // Zero technical leaks
+      expect(find.textContaining('UID:'), findsNothing);
+      expect(find.text('READ-ONLY (FIREBASE AUTH)'), findsNothing);
+      expect(find.textContaining('Firebase Auth'), findsNothing);
+      expect(find.textContaining('Cloudflare D1'), findsNothing);
     });
   });
 }

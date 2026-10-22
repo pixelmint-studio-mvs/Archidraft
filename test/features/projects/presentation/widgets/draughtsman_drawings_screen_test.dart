@@ -17,7 +17,7 @@ void main() {
       projectName: 'Civic Center Pavilion',
       projectAddress: '100 Civic Center Blvd, Metropolitan',
       status: 'IN_PROGRESS',
-      projectStatus: 'UNDER_CLIENT_REVIEW',
+      projectStatus: 'UNDER_ENGINEER_REVIEW',
       assignedAt: DateTime.now().subtract(const Duration(days: 5)),
       updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
       drawingType: 'FLOOR_PLAN',

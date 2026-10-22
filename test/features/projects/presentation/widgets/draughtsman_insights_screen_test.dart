@@ -25,7 +25,7 @@ void main() {
       projectName: 'Civic Center Pavilion',
       projectAddress: '100 Civic Center Blvd',
       status: 'IN_PROGRESS',
-      projectStatus: 'UNDER_CLIENT_REVIEW',
+      projectStatus: 'UNDER_ENGINEER_REVIEW',
       assignedAt: DateTime.now().subtract(const Duration(days: 10)),
       submittedAt: DateTime.now().subtract(const Duration(days: 2)),
       updatedAt: DateTime.now().subtract(const Duration(hours: 2)),

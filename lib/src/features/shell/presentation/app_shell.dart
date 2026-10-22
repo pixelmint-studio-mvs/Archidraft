@@ -8,6 +8,7 @@ import '../../profile/providers/profile_providers.dart';
 import 'admin_shell.dart';
 import 'engineer_shell.dart';
 import 'draughtsman_shell.dart';
+import 'student_shell.dart';
 import '../../auth/presentation/provision_profile_screen.dart';
 
 /// AppShell determines which role-specific shell to display based on
@@ -50,9 +51,7 @@ class AppShell extends ConsumerWidget {
                     case UserRole.admin:
             return AdminShell(profile: profile, child: child);
           case UserRole.student:
-            return const Scaffold(
-              body: Center(child: Text('Student Dashboard (Coming Soon)')),
-            );
+            return StudentShell(profile: profile, child: child);
           case null:
             return const Scaffold(
               body: AppErrorWidget(
@@ -64,4 +63,5 @@ class AppShell extends ConsumerWidget {
     );
   }
 }
+
 

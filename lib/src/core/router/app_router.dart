@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/landing_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/provision_profile_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/role_selection_screen.dart';
 import '../../features/auth/presentation/verify_email_screen.dart';
@@ -34,6 +35,20 @@ import '../../features/projects/domain/assignment.dart';
 import '../../features/profile/presentation/draughtsman_onboarding_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
+import '../../features/portfolio/presentation/student_portfolio_screen.dart';
+import '../../features/projects/presentation/student/student_assignment_resolver_screen.dart';
+import '../../features/projects/presentation/student/student_projects_screen.dart';
+import '../../features/projects/presentation/student/student_project_workspace_screen.dart';
+import '../../features/training/presentation/lesson_screen.dart';
+import '../../features/training/presentation/student_drawings_screen.dart';
+import '../../features/training/presentation/student_insights_screen.dart';
+import '../../features/training/presentation/student_studio_screen.dart';
+import '../../features/training/presentation/student_training_screen.dart';
+import '../../features/training/presentation/training_module_detail_screen.dart';
+import '../../features/verification/presentation/certificate_verification_screen.dart';
+import '../../features/legal/presentation/legal_center_screen.dart';
+import '../../features/legal/presentation/legal_onboarding_screen.dart';
+import '../../features/legal/providers/legal_providers.dart';
 
 /// Provides the GoRouter configuration with authentication-aware redirects.
 ///
@@ -42,17 +57,19 @@ import '../../features/shell/presentation/placeholders/placeholder_screen.dart';
 /// - Logged in but email not verified → /verify-email
 /// - Logged in and verified → Role-specific dashboard
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateChangesProvider);
-
   return GoRouter(
     initialLocation: '/landing',
     refreshListenable: _GoRouterAuthNotifier(ref),
     redirect: (context, state) {
+      final currentPath = state.matchedLocation;
+      final authState = ref.read(authStateChangesProvider);
+      if (authState.isLoading) {
+        return null;
+      }
+
       final user = authState.value;
       final isLoggedIn = user != null;
       final isEmailVerified = (user?.emailVerified ?? false) || (kDebugMode && ((user?.email?.endsWith('.test') ?? false) || (user?.email?.endsWith('.studio') ?? false)));
-
-      final currentPath = state.matchedLocation;
 
       // Public routes that don't require authentication
       const publicPaths = [
@@ -62,7 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/register',
         '/forgot-password',
       ];
-      final isPublicRoute = publicPaths.contains(currentPath);
+      final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/');
 
       // Not logged in
       if (!isLoggedIn) {
@@ -87,6 +104,55 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final role = ref.read(currentUserRoleProvider);
       final isProfileComplete = ref.read(isProfileCompleteProvider);
 
+      // Enforce legal policy acceptance (Terms & Conditions)
+      final legalStatusAsync = ref.read(userLegalStatusProvider);
+
+      // 1. While legal status is unresolved (loading or network/server error),
+      // do NOT grant normal protected workspace access. Hold the user on /legal/onboarding
+      // where the explicit loading or recoverable error UI is presented.
+      if (legalStatusAsync.isLoading || legalStatusAsync.hasError) {
+        if (role == UserRole.admin && currentPath.startsWith('/admin')) {
+          return null; // Admin recovery operations permitted
+        }
+        if (currentPath != '/legal/onboarding') {
+          return '/legal/onboarding';
+        }
+        return null;
+      }
+
+      final legalStatus = legalStatusAsync.value;
+
+      // 2. Missing mandatory documents (Platform Policy Maintenance Mode)
+      // When no effective mandatory terms document is available, hold users in maintenance mode.
+      if (legalStatus == null || legalStatus.missingMandatoryDocs) {
+        if (role == UserRole.admin && currentPath.startsWith('/admin')) {
+          return null; // Admin access permitted to publish/repair documents
+        }
+        if (currentPath != '/legal/onboarding') {
+          return '/legal/onboarding';
+        }
+        return null;
+      }
+
+      // 3. User requires mandatory legal action (unaccepted terms or new version effective)
+      if (legalStatus.requiresAction) {
+        if (currentPath != '/legal/onboarding') {
+          return '/legal/onboarding';
+        }
+        return null;
+      }
+
+      // 4. User is fully compliant; redirect out of /legal/onboarding to their role dashboard
+      if (currentPath == '/legal/onboarding') {
+        if (role == UserRole.engineer || role == UserRole.client) return '/engineer/projects';
+        if (role == UserRole.draughtsman) {
+          return isProfileComplete ? '/draughtsman/studio' : '/draughtsman/onboarding';
+        }
+        if (role == UserRole.student) return '/student/dashboard';
+        if (role == UserRole.admin) return '/admin/dashboard';
+        return '/';
+      }
+
       // Redirect from public routes, verify-email, or root to the role dashboard
       if (isPublicRoute ||
           currentPath == '/verify-email' ||
@@ -98,6 +164,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               : '/draughtsman/onboarding';
         }
         if (role == UserRole.admin) return '/admin/dashboard';
+        if (role == UserRole.student) return '/student/dashboard';
         // If role is null or unknown, stay on root to show error state in AppShell
         return '/';
       }
@@ -121,6 +188,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/';
       }
       if (currentPath.startsWith('/admin') && role != UserRole.admin && role != UserRole.engineer) {
+        return '/';
+      }
+      if (currentPath.startsWith('/student') && role != UserRole.student) {
         return '/';
       }
 
@@ -319,7 +389,97 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               icon: Icons.settings_system_daydream_outlined,
             ),
           ),
+          // -- STUDENT ROUTES --
+          GoRoute(
+            path: '/student/dashboard',
+            builder: (context, state) => const StudentStudioScreen(),
+          ),
+          GoRoute(
+            path: '/student/training',
+            builder: (context, state) => const StudentTrainingScreen(),
+          ),
+          GoRoute(
+            path: '/student/training/:moduleId',
+            builder: (context, state) {
+              final moduleId = state.pathParameters['moduleId']!;
+              return TrainingModuleDetailScreen(moduleId: moduleId);
+            },
+          ),
+          GoRoute(
+            path: '/student/training/lessons/:lessonId',
+            builder: (context, state) {
+              final lessonId = state.pathParameters['lessonId']!;
+              return LessonScreen(lessonId: lessonId);
+            },
+          ),
+          GoRoute(
+            path: '/student/assignments/:assignmentId',
+            builder: (context, state) {
+              final assignmentId = state.pathParameters['assignmentId'] ?? '';
+              final extra = state.extra;
+              final assignment = extra is Assignment ? extra : null;
+              return StudentAssignmentResolverScreen(
+                assignmentId: assignmentId,
+                initialAssignment: assignment,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/student/projects/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return ProjectDetailScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: '/student/workspace/:projectId',
+            builder: (context, state) {
+              final projectId = state.pathParameters['projectId']!;
+              return StudentProjectWorkspaceScreen(projectId: projectId);
+            },
+          ),
+          GoRoute(
+            path: '/student/projects',
+            builder: (context, state) => const StudentProjectsScreen(),
+          ),
+          GoRoute(
+            path: '/student/profile',
+            builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/student/portfolio',
+            builder: (context, state) => const StudentPortfolioScreen(),
+          ),
+          GoRoute(
+            path: '/student/drawings',
+            builder: (context, state) => const StudentDrawingsScreen(),
+          ),
+          GoRoute(
+            path: '/student/insights',
+            builder: (context, state) => const StudentInsightsScreen(),
+          ),
         ],
+      ),
+      GoRoute(
+        path: '/verify/:token',
+        builder: (context, state) {
+          final token = state.pathParameters['token']!;
+          return CertificateVerificationScreen(token: token);
+        },
+      ),
+      GoRoute(
+        path: '/legal/onboarding',
+        builder: (context, state) => const LegalOnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/legal/center',
+        builder: (context, state) => const LegalCenterScreen(),
+      ),
+      GoRoute(
+        path: '/provision-profile',
+        builder: (context, state) => ProvisionProfileScreen(
+          onProvisioned: () => context.go('/'),
+        ),
       ),
     ],
   );
@@ -334,8 +494,12 @@ class _GoRouterAuthNotifier extends ChangeNotifier {
     _ref.listen(userProfileProvider, (_, _) {
       notifyListeners();
     });
+    _ref.listen(userLegalStatusProvider, (_, _) {
+      notifyListeners();
+    });
   }
 
   final Ref _ref;
 }
+
 

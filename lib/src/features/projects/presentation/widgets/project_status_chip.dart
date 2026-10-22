@@ -52,7 +52,7 @@ class ProjectStatusChip extends StatelessWidget {
         return AppColors.warningContainer;
       case ProjectStatus.inProgress:
         return AppColors.warningContainer;
-      case ProjectStatus.underClientReview:
+      case ProjectStatus.underEngineerReview:
         return AppColors.secondaryFixed;
       case ProjectStatus.completed:
         return AppColors.successContainer;
@@ -72,7 +72,7 @@ class ProjectStatusChip extends StatelessWidget {
         return AppColors.onSurface;
       case ProjectStatus.inProgress:
         return AppColors.onSurface;
-      case ProjectStatus.underClientReview:
+      case ProjectStatus.underEngineerReview:
         return AppColors.onSecondaryFixed;
       case ProjectStatus.completed:
         return AppColors.onTertiaryContainer;
@@ -92,7 +92,7 @@ class ProjectStatusChip extends StatelessWidget {
         return AppColors.warning;
       case ProjectStatus.inProgress:
         return AppColors.warning;
-      case ProjectStatus.underClientReview:
+      case ProjectStatus.underEngineerReview:
         return AppColors.secondary;
       case ProjectStatus.completed:
         return AppColors.success;

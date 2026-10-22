@@ -1,7 +1,7 @@
 import '../../../shared/utils/date_parser.dart';
 
 enum CorrectionStatus {
-  open('OPEN', 'Open', 'Correction requested by client'),
+  open('OPEN', 'Open', 'Correction requested by engineer'),
   inProgress('IN_PROGRESS', 'In Progress', 'Draughtsman is working on it'),
   resolved('RESOLVED', 'Resolved', 'Correction completed');
 

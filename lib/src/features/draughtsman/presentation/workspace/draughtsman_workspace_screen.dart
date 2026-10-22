@@ -234,7 +234,7 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
     Color statusTextColor = AppColors.secondary;
     String statusText = 'STATUS: ${status.displayName.toUpperCase()}';
 
-    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isUnderReview = status == ProjectStatus.underEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
     final hasCorrections = (assignment.correctionRound != null && assignment.correctionRound! > 0) ||
         assignment.isRevision;
@@ -533,7 +533,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     final project = widget.project;
     final status = project.projectStatus ?? ProjectStatus.draft;
 
-    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isUnderReview = status == ProjectStatus.underEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
 
     return correctionsAsync.maybeWhen(
@@ -1049,7 +1049,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     final project = widget.project;
     final assignment = widget.assignment;
     final status = project.projectStatus ?? ProjectStatus.draft;
-    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isUnderReview = status == ProjectStatus.underEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
 
     return Column(
@@ -1419,7 +1419,7 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
     final isLoadingAction = ref.watch(draughtsmanActionsControllerProvider).isLoading;
     final status = project.projectStatus ?? ProjectStatus.draft;
 
-    final isUnderReview = status == ProjectStatus.underClientReview;
+    final isUnderReview = status == ProjectStatus.underEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
 
     final hasCompletedDrawing = filesAsync.maybeWhen(

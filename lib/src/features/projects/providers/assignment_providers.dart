@@ -1,3 +1,4 @@
+import '../../training/providers/training_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -97,13 +98,15 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> submitDrawing({required String projectId}) async {
+  Future<bool> submitDrawing({required String projectId, String? draftFileId}) async {
     state = const AsyncLoading();
     try {
       final repository = ref.read(projectRepositoryProvider);
       final actionId = const Uuid().v4();
 
-      await repository.submitDrawing(projectId: projectId, actionId: actionId);
+      await repository.submitDrawing(projectId: projectId, actionId: actionId, draftFileId: draftFileId);
+      ref.invalidate(studentAssignmentsProvider);
+      ref.invalidate(studentCorrectionsProvider);
 
       ref.invalidate(draughtsmanAssignmentsProvider);
       ref.invalidate(projectProvider(projectId));
@@ -171,4 +174,5 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
     }
   }
 }
+
 

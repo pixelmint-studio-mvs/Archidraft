@@ -7,6 +7,10 @@ This project uses Cloudflare Workers, D1 (SQL Database), and R2 (Object Storage)
 
 We maintain a strict separation between **Local Development** and **Production**. Read these instructions carefully to ensure you do not break the live production database.
 
+> [!NOTE]
+> **Canonical Documentation Reference:**
+> This summary is retained as a quick reference for local Miniflare emulator commands and AI agent safety rules. The comprehensive, authoritative Cloudflare onboarding and architecture guide is maintained in [docs/04_development/CLOUDFLARE_ONBOARDING.md](docs/04_development/CLOUDFLARE_ONBOARDING.md) and [README.md](README.md).
+
 ---
 
 ## 💻 1. How to Run the Backend Locally

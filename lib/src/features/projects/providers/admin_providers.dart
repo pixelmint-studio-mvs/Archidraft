@@ -181,3 +181,12 @@ class AdminActionsController extends Notifier<AsyncValue<void>> {
     }
   }
 }
+
+/// Provider for projects filtered by arbitrary status code
+final projectsByStatusProvider = FutureProvider.family<List<Project>, String>((
+  ref,
+  status,
+) async {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getProjectsByStatus(status);
+});

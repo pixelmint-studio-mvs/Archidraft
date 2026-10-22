@@ -38,6 +38,10 @@ class Project {
   /// UID of the Client who owns this project. Immutable, derived from auth.
   final String clientId;
 
+  /// Alias for project owner / engineer UID.
+  String get engineerId => clientId;
+  String get ownerId => clientId;
+
   /// UID of the assigned Draughtsman. Server-controlled.
   final String? assignedDraughtsmanId;
 
@@ -62,6 +66,9 @@ class Project {
   /// Identifier for the last critical action performed on this project.
   /// Used for idempotency.
   final String? lastActionId;
+  final String? trainingModuleId;
+  final int? isTrainingProject;
+  final String? rejectionReason;
 
   const Project({
     required this.projectId,
@@ -80,6 +87,9 @@ class Project {
     this.submittedAt,
     this.completedAt,
     this.lastActionId,
+    this.trainingModuleId,
+    this.isTrainingProject,
+    this.rejectionReason,
   });
 
   /// Parses the [status] string into a [ProjectStatus] enum.
@@ -119,6 +129,9 @@ class Project {
       submittedAt: DateParser.parse(data['submitted_at']),
       completedAt: DateParser.parse(data['completed_at']),
       lastActionId: data['last_action_id']?.toString(),
+      trainingModuleId: data['training_module_id']?.toString(),
+      isTrainingProject: data['is_training_project'] is int ? data['is_training_project'] as int : int.tryParse(data['is_training_project']?.toString() ?? ''),
+      rejectionReason: data['rejection_reason']?.toString(),
     );
   }
 
@@ -157,6 +170,9 @@ class Project {
     double? estimatedAmount,
     String? status,
     String? lastActionId,
+    String? trainingModuleId,
+    int? isTrainingProject,
+    String? rejectionReason,
   }) {
     return Project(
       projectId: projectId,
@@ -175,6 +191,11 @@ class Project {
       submittedAt: submittedAt,
       completedAt: completedAt,
       lastActionId: lastActionId ?? this.lastActionId,
+      trainingModuleId: trainingModuleId ?? this.trainingModuleId,
+      isTrainingProject: isTrainingProject ?? this.isTrainingProject,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 }
+
+

@@ -10,6 +10,8 @@ enum AssignmentStatus {
     
     switch (status.toUpperCase()) {
       case 'ACCEPTED':
+      case 'IN_PROGRESS':
+      case 'ACTIVE':
         return AssignmentStatus.accepted;
       case 'REJECTED':
         return AssignmentStatus.rejected;

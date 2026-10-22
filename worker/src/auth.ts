@@ -10,16 +10,28 @@ const FIREBASE_JWKS_URI = 'https://www.googleapis.com/service_accounts/v1/jwk/se
 
 const JWKS = createRemoteJWKSet(new URL(FIREBASE_JWKS_URI));
 
-export async function verifyFirebaseToken(token: string) {
-  if (token.startsWith('TEST_UID_')) {
-    const uid = token.replace('TEST_UID_', '');
-    return { sub: uid, email: `${uid}@example.com` };
+export async function verifyFirebaseToken(token: string, env?: any) {
+  // Safe test-only hook: strictly active ONLY when explicitly executing in isolated local Node.js test runner
+  // Never active in Cloudflare Workers runtime (navigator.userAgent === 'Cloudflare-Workers')
+  // and NOT in a production-configured environment (env?.ENVIRONMENT !== 'production').
+  // Cannot be triggered or forged in production or deployed runtimes even if environment is missing or misconfigured.
+  const isCloudflareWorker = typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+  const isTestRuntime = !isCloudflareWorker &&
+                        typeof process !== 'undefined' && 
+                        process.env?.NODE_ENV === 'test' && 
+                        (!env || env?.ENVIRONMENT !== 'production');
+
+  if (isTestRuntime) {
+    if (token.startsWith('mock-token:')) {
+      const uid = token.slice('mock-token:'.length);
+      return { sub: uid, email: `${uid}@example.com` };
+    }
+    if (token.startsWith('TEST_UID_')) {
+      const uid = token.replace('TEST_UID_', '');
+      return { sub: uid, email: `${uid}@example.com` };
+    }
   }
-  // Safe test-only hook: only active in isolated testing when process.env.NODE_ENV === 'test'
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' && token.startsWith('mock-token:')) {
-    const uid = token.slice('mock-token:'.length);
-    return { sub: uid, email: `${uid}@example.com` };
-  }
+
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: ISSUER,

@@ -9,6 +9,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
 import 'widgets/profile_form.dart';
 import 'widgets/profile_header.dart';
+import 'package:go_router/go_router.dart';
+import 'widgets/student_credentials_card.dart';
+import 'widgets/student_achievements_card.dart';
 
 // ---------------------------------------------------------------------------
 // BLUEPRINT GRID BACKGROUND PAINTER (40px unit from DESIGN.md)
@@ -133,6 +136,29 @@ class ProfileScreen extends ConsumerWidget {
                             ],
                           ),
 
+                        if (profile.role.toUpperCase() == 'STUDENT') ...[
+                          const SizedBox(height: AppSpacing.xl),
+                          const StudentAchievementsCard(),
+                          const SizedBox(height: AppSpacing.xl),
+                          const StudentCredentialsCard(),
+                          const SizedBox(height: AppSpacing.xl),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => context.push('/student/portfolio'),
+                              icon: const Icon(Icons.work_outline),
+                              label: const Text('View Full Student Portfolio \u2192'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary),
+                                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.xxxl),
                       ],
                     ),
@@ -152,8 +178,10 @@ class ProfileScreen extends ConsumerWidget {
     UserProfile profile,
     bool isDesktop,
   ) {
-    final isDraughtsman = profile.role.toUpperCase() == 'DRAUGHTSMAN';
-    final rolePrefix = isDraughtsman ? 'DRAUGHTSMAN' : 'CLIENT';
+    final roleUpper = profile.role.toUpperCase();
+    final isDraughtsman = roleUpper == 'DRAUGHTSMAN';
+    final isStudent = roleUpper == 'STUDENT';
+    final rolePrefix = isStudent ? 'STUDENT' : (isDraughtsman ? 'DRAUGHTSMAN' : 'CLIENT');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,9 +241,7 @@ class ProfileScreen extends ConsumerWidget {
 
         // Main Title & Subtitle
         Text(
-          isDraughtsman
-              ? 'Draughtsman Profile & Account Settings'
-              : 'User Profile & Settings',
+          isStudent ? 'Student Profile & Learning Credentials' : (isDraughtsman ? 'Draughtsman Profile & Account Settings' : 'User Profile & Settings'),
           style: isDesktop
               ? AppTypography.headlineLg.copyWith(
                   color: AppColors.primary,
@@ -228,9 +254,7 @@ class ProfileScreen extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          isDraughtsman
-              ? 'Manage your architectural draughtsman credentials, studio contact information, and verified CAD qualifications.'
-              : 'Manage your profile details and studio project contact preferences.',
+          isStudent ? 'Manage your training profile, track earned certificates, and review your drafting skill matrix.' : (isDraughtsman ? 'Manage your architectural draughtsman credentials, studio contact information, and verified CAD qualifications.' : 'Manage your profile details and studio project contact preferences.'),
           style: AppTypography.bodyMd.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
@@ -239,3 +263,4 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
+

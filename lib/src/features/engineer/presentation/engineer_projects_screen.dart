@@ -320,7 +320,7 @@ class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen>
     final counts = {
       _FilterOption.all: projects.length,
       _FilterOption.underReview: projects
-          .where((p) => p.projectStatus == ProjectStatus.underClientReview)
+          .where((p) => p.projectStatus == ProjectStatus.underEngineerReview)
           .length,
       _FilterOption.inDrafting: projects
           .where((p) =>
@@ -572,7 +572,7 @@ class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen>
         return projects;
       case _FilterOption.underReview:
         return projects
-            .where((p) => p.projectStatus == ProjectStatus.underClientReview)
+            .where((p) => p.projectStatus == ProjectStatus.underEngineerReview)
             .toList();
       case _FilterOption.inDrafting:
         return projects
@@ -742,7 +742,7 @@ class _StitchProjectCard extends StatelessWidget {
       case ProjectStatus.inProgress:
       case ProjectStatus.waitingAcceptance:
         return AppColors.secondary; // blue
-      case ProjectStatus.underClientReview:
+      case ProjectStatus.underEngineerReview:
         return const Color(0xFF38BDF8); // cyan
       case ProjectStatus.completed:
         return AppColors.success; // green

@@ -1,3 +1,4 @@
+import '../domain/evaluation.dart';
 import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
@@ -143,12 +144,14 @@ class ProjectRepository {
   Future<void> submitDrawing({
     required String projectId,
     required String actionId,
+    String? draftFileId,
   }) async {
     await _apiClient.post(
       '/api/projects/submit-drawing',
       body: {
         'projectId': projectId,
         'actionId': actionId,
+        'draftFileId': ?draftFileId,
       },
     );
   }
@@ -358,4 +361,39 @@ class ProjectRepository {
     );
   }
 
+  Future<List<Evaluation>> getEvaluations(String projectId) async {
+    final response = await _apiClient.get(
+      '/api/projects/$projectId/evaluations',
+    );
+    if (response is List) {
+      return response
+          .map((item) => Evaluation.fromMap(item as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<void> evaluateDrawing({
+    required String projectId,
+    required String actionId,
+    required String drawingVersionId,
+    required String overallResult,
+    String? generalFeedback,
+    Map<String, dynamic>? criteriaJson,
+    String? correctionId,
+  }) async {
+    await _apiClient.post(
+      '/api/projects/evaluate',
+      body: {
+        'projectId': projectId,
+        'actionId': actionId,
+        'drawingVersionId': drawingVersionId,
+        'overallResult': overallResult,
+        'generalFeedback': ?generalFeedback,
+        'criteriaJson': ?criteriaJson,
+        'correctionId': ?correctionId,
+      },
+    );
+  }
 }
+

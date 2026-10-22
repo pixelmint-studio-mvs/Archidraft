@@ -867,7 +867,7 @@ class _DraughtsmanInsightsScreenState
                       final isCorrecting = (a.correctionRound ?? 0) > 0 ||
                           a.projectStatus == 'CORRECTIONS';
                       final isUnderReview =
-                          a.projectStatus == 'UNDER_CLIENT_REVIEW';
+                          a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
                       final isCompleted =
                           a.assignmentStatus == AssignmentStatus.completed ||
                               a.projectStatus == 'COMPLETED';

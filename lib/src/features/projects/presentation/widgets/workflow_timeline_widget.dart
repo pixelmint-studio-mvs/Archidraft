@@ -27,7 +27,7 @@ class WorkflowTimelineWidget extends StatelessWidget {
       case ProjectStatus.waitingAssignment: return 2;
       case ProjectStatus.waitingAcceptance: return 3;
       case ProjectStatus.inProgress: return 4;
-      case ProjectStatus.underClientReview: return 5;
+      case ProjectStatus.underEngineerReview: return 5;
       case ProjectStatus.completed: return 6;
       case ProjectStatus.cancelled: return -1;
     }
@@ -45,7 +45,7 @@ class WorkflowTimelineWidget extends StatelessWidget {
       _TimelineStage('Waiting Assignment', 'Allocating to draughtsman', ProjectStatus.waitingAssignment),
       _TimelineStage('Waiting Acceptance', 'Draughtsman review', ProjectStatus.waitingAcceptance),
       _TimelineStage('In Progress', 'Drawing creation', ProjectStatus.inProgress),
-      _TimelineStage('Under Review', 'Client review and corrections', ProjectStatus.underClientReview),
+      _TimelineStage('Under Review', 'Engineer review and corrections', ProjectStatus.underEngineerReview),
       _TimelineStage('Completed', 'Final delivery', ProjectStatus.completed),
     ];
 

@@ -1,157 +1,279 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_state_widgets.dart';
-import '../../shell/presentation/widgets/app_top_bar.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../projects/domain/assignment.dart';
 import '../../projects/providers/assignment_providers.dart';
 import '../domain/app_notification.dart';
 import '../providers/notification_providers.dart';
+import 'widgets/notification_ui_components.dart';
 
-class NotificationsScreen extends ConsumerWidget {
+/// Panel 9 ? Notifications Screen for the Engineer Portal.
+///
+/// Follows the visual design of the Draughtsman Notifications:
+/// - Warm white `#FBF9FB` drafting canvas with 40px grid lines.
+/// - Pure white surface cards with subtle borders and dual soft shadows.
+/// - Bell icon header with subtitle, "ALL CAUGHT UP" / unread badge, and actions.
+/// - Filter chips: All, Unread, Reviews, Remarks.
+/// - Categorized notification cards with live server persistence and routing.
+/// - Engineer top navigation bar and authorized routing.
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  NotificationFilter _activeFilter = NotificationFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(notificationsProvider);
     final userProfileAsync = ref.watch(userProfileProvider);
     final user = userProfileAsync.value;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppTopBar(profile: user),
-      body: notificationsAsync.when(
-        data: (notifications) {
-          if (notifications.isEmpty) {
-            return const Center(child: Text('No notifications'));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final n = notifications[index];
-              return Card(
-                elevation: 0,
-                color: n.isRead ? AppColors.surface : AppColors.primaryContainer.withValues(alpha: 0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  side: BorderSide(
-                    color: AppColors.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: ListTile(
-                  title: Text(
-                    n.title,
-                    style: AppTypography.bodyMd.copyWith(
-                      fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text(n.message, style: AppTypography.bodyMd),
-                      const SizedBox(height: 4),
-                      Text(
-                        DateFormat('MMM d, y h:mm a').format(n.createdAt),
-                        style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                  trailing: n.isRead
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.check_circle_outline),
-                          onPressed: () async {
-                            await ref.read(notificationRepositoryProvider).markAsRead(n.id);
-                            ref.invalidate(notificationsProvider);
-                          },
-                        ),
-                  onTap: () async {
-                    if (!n.isRead) {
-                      await ref.read(notificationRepositoryProvider).markAsRead(n.id);
-                      ref.invalidate(notificationsProvider);
-                    }
-                    if (n.projectId != null && context.mounted) {
-                      if (n.type == 'CHAT_MESSAGE') {
-                        if (user?.role == 'ENGINEER' || user?.role == 'CLIENT') {
-                          context.push('/engineer/projects/${n.projectId}/collaboration-hub');
-                        } else if (user?.role == 'DRAUGHTSMAN') {
-                          context.push('/draughtsman/workspace/${n.projectId}');
-                        }
-                      } else {
-                        if (user?.role == 'ENGINEER' || user?.role == 'CLIENT') {
-                          context.push('/engineer/projects/${n.projectId}');
-                        } else if (user?.role == 'DRAUGHTSMAN') {
-                          context.push('/draughtsman/workspace/${n.projectId}');
-                        }
-                      }
-                    }
-                  },
-                ),
-              );
+      backgroundColor: const Color(0xFFFBF9FB),
+      // appBar provided by EngineerShell
+      body: CustomPaint(
+        painter: const BlueprintGridBackgroundPainter(),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(notificationsProvider);
+          },
+          child: notificationsAsync.when(
+            loading: () => const AppLoadingIndicator(
+              message: 'Loading notifications stream...',
+            ),
+            error: (err, _) => AppErrorWidget(
+              message: 'Failed to load notifications.',
+              onRetry: () => ref.invalidate(notificationsProvider),
+            ),
+            data: (notifications) {
+              return _buildContent(context, notifications, user?.role);
             },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
+          ),
+        ),
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// FILTER ENUM
-// ---------------------------------------------------------------------------
+  Widget _buildContent(
+    BuildContext context,
+    List<AppNotification> allNotifications,
+    String? role,
+  ) {
+    final filtered = allNotifications.where((n) {
+      switch (_activeFilter) {
+        case NotificationFilter.all:
+          return true;
+        case NotificationFilter.unread:
+          return !n.isRead;
+        case NotificationFilter.reviews:
+          return n.type == 'DRAWING_SUBMITTED' ||
+              n.type == 'PROJECT_APPROVED' ||
+              n.type == 'CORRECTION_REQUESTED' ||
+              n.type == 'REVISION_SUBMITTED';
+        case NotificationFilter.remarks:
+          return n.type == 'CHAT_MESSAGE';
+      }
+    }).toList();
 
-enum _NotificationFilter { all, unread, reviews, messages }
+    final unreadCount = allNotifications.where((n) => !n.isRead).length;
+    final reviewsCount = allNotifications
+        .where((n) =>
+            n.type == 'DRAWING_SUBMITTED' ||
+            n.type == 'PROJECT_APPROVED' ||
+            n.type == 'CORRECTION_REQUESTED' ||
+            n.type == 'REVISION_SUBMITTED')
+        .length;
+    final remarksCount =
+        allNotifications.where((n) => n.type == 'CHAT_MESSAGE').length;
 
-// ---------------------------------------------------------------------------
-// BLUEPRINT GRID BACKGROUND PAINTER (40px unit from DESIGN.md)
-// ---------------------------------------------------------------------------
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.lg,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Header Card
+              NotificationHeaderCard(
+                subtitle:
+                    'Direct notifications on project milestones, draughtsman submissions, and review actions.',
+                totalCount: allNotifications.length,
+                unreadCount: unreadCount,
+                onMarkAllRead: unreadCount > 0
+                    ? () async {
+                        try {
+                          await ref
+                              .read(markAllNotificationsReadProvider.future);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('All notifications marked as read.'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to update: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    : null,
+                onRefresh: () {
+                  ref.invalidate(notificationsProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Notifications refreshed.'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
 
-class _BlueprintGridBackgroundPainter extends CustomPainter {
-  const _BlueprintGridBackgroundPainter();
+              const SizedBox(height: AppSpacing.lg),
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double gridSize = 40.0;
-    final gridPaint = Paint()
-      ..color = const Color(0xFF75777E).withValues(alpha: 0.05)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
+              // 2. Filter Bar
+              NotificationFilterBar(
+                activeFilter: _activeFilter,
+                totalCount: allNotifications.length,
+                unreadCount: unreadCount,
+                reviewsCount: reviewsCount,
+                remarksCount: remarksCount,
+                onFilterChanged: (filter) =>
+                    setState(() => _activeFilter = filter),
+              ),
 
-    for (double x = 0; x < size.width; x += gridSize) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += gridSize) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
+              const SizedBox(height: AppSpacing.lg),
+
+              // 3. Notification List or Empty State
+              if (filtered.isEmpty)
+                NotificationEmptyStateCard(
+                  message:
+                      'You have no notifications under this filter. Updates on project milestones, draughtsman submissions, and reviews will appear here.',
+                  actionLabel: 'Back to Dashboard',
+                  onAction: () => context.go('/engineer/dashboard'),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: AppSpacing.sm),
+                  itemBuilder: (context, index) {
+                    final n = filtered[index];
+                    return NotificationItemCard(
+                      notification: n,
+                      onTap: () async {
+                        if (!n.isRead) {
+                          try {
+                            await ref
+                                .read(markNotificationReadProvider(n.id).future);
+                          } catch (_) {}
+                        }
+                        if (context.mounted) {
+                          _navigateToNotificationTarget(context, n, role);
+                        }
+                      },
+                      onMarkAsRead: !n.isRead
+                          ? () async {
+                              try {
+                                await ref.read(
+                                    markNotificationReadProvider(n.id).future);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Marked as read.'),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Failed: $e')),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
+                    );
+                  },
+                ),
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // 4. System Footer
+              const NotificationSystemFooter(),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  void _navigateToNotificationTarget(
+    BuildContext context,
+    AppNotification n,
+    String? role,
+  ) {
+    final normalizedRole = role?.toUpperCase();
+    if (n.projectId != null && n.projectId!.isNotEmpty) {
+      if (n.type == 'CHAT_MESSAGE') {
+        if (normalizedRole == 'DRAUGHTSMAN') {
+          context.push('/draughtsman/collaboration/${n.projectId}');
+        } else if (normalizedRole == 'STUDENT') {
+          context.push('/student/workspace/${n.projectId}');
+        } else {
+          context.push('/engineer/projects/${n.projectId}/collaboration-hub');
+        }
+      } else {
+        if (normalizedRole == 'STUDENT') {
+          context.push('/student/workspace/${n.projectId}');
+        } else if (normalizedRole == 'DRAUGHTSMAN') {
+          context.push('/draughtsman/workspace/${n.projectId}');
+        } else {
+          context.push('/engineer/projects/${n.projectId}');
+        }
+      }
+    } else {
+      if (normalizedRole == 'STUDENT') {
+        context.go('/student/dashboard');
+      } else if (normalizedRole == 'DRAUGHTSMAN') {
+        context.go('/draughtsman/studio');
+      } else {
+        context.go('/engineer/dashboard');
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
-// NOTIFICATIONS SCREEN
+// DRAUGHTSMAN NOTIFICATIONS SCREEN
 // ---------------------------------------------------------------------------
 
-/// Panel 9 — Notifications Screen for the Draughtsman Portal.
-///
-/// Adheres to the Architectural Precision System in `REFERENCE DESIGN`:
-/// - Warm white `#FBF9FB` drafting canvas with 40px grid lines.
-/// - Pure white surface cards with dual architectural soft shadows.
-/// - JetBrains Mono for technical codes, tags, and timestamps.
-/// - Distinct read vs unread indicators with real server persistence.
-/// - Direct navigation to corresponding assignments, drawings, and chat.
+/// Draughtsman Notifications Screen
 class DraughtsmanNotificationsScreen extends ConsumerStatefulWidget {
   const DraughtsmanNotificationsScreen({super.key});
 
@@ -162,7 +284,7 @@ class DraughtsmanNotificationsScreen extends ConsumerStatefulWidget {
 
 class _DraughtsmanNotificationsScreenState
     extends ConsumerState<DraughtsmanNotificationsScreen> {
-  _NotificationFilter _activeFilter = _NotificationFilter.all;
+  NotificationFilter _activeFilter = NotificationFilter.all;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +294,7 @@ class _DraughtsmanNotificationsScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9FB),
       body: CustomPaint(
-        painter: const _BlueprintGridBackgroundPainter(),
+        painter: const BlueprintGridBackgroundPainter(),
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(notificationsProvider);
@@ -205,23 +327,30 @@ class _DraughtsmanNotificationsScreenState
     List<AppNotification> allNotifications,
     List<Assignment> assignments,
   ) {
-    // ── Filter notifications ──────────────────────────────────────────
     final filtered = allNotifications.where((n) {
       switch (_activeFilter) {
-        case _NotificationFilter.all:
+        case NotificationFilter.all:
           return true;
-        case _NotificationFilter.unread:
+        case NotificationFilter.unread:
           return !n.isRead;
-        case _NotificationFilter.reviews:
+        case NotificationFilter.reviews:
           return n.type == 'CORRECTION_REQUESTED' ||
               n.type == 'PROJECT_APPROVED' ||
               n.type == 'DRAWING_SUBMITTED';
-        case _NotificationFilter.messages:
+        case NotificationFilter.remarks:
           return n.type == 'CHAT_MESSAGE';
       }
     }).toList();
 
     final unreadCount = allNotifications.where((n) => !n.isRead).length;
+    final reviewsCount = allNotifications
+        .where((n) =>
+            n.type == 'CORRECTION_REQUESTED' ||
+            n.type == 'PROJECT_APPROVED' ||
+            n.type == 'DRAWING_SUBMITTED')
+        .length;
+    final remarksCount =
+        allNotifications.where((n) => n.type == 'CHAT_MESSAGE').length;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -235,19 +364,69 @@ class _DraughtsmanNotificationsScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── 1. Top Header Card ──
-              _buildHeaderCard(context, allNotifications.length, unreadCount),
+              NotificationHeaderCard(
+                subtitle:
+                    'Direct notifications on assignments, engineering remarks, and review cycles.',
+                totalCount: allNotifications.length,
+                unreadCount: unreadCount,
+                onMarkAllRead: unreadCount > 0
+                    ? () async {
+                        try {
+                          await ref
+                              .read(markAllNotificationsReadProvider.future);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('All notifications marked as read.'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to update: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    : null,
+                onRefresh: () {
+                  ref.invalidate(notificationsProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Notifications refreshed.'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
 
               const SizedBox(height: AppSpacing.lg),
 
-              // ── 2. Filter Bar ──
-              _buildFilterBar(allNotifications, unreadCount),
+              NotificationFilterBar(
+                activeFilter: _activeFilter,
+                totalCount: allNotifications.length,
+                unreadCount: unreadCount,
+                reviewsCount: reviewsCount,
+                remarksCount: remarksCount,
+                onFilterChanged: (filter) =>
+                    setState(() => _activeFilter = filter),
+              ),
 
               const SizedBox(height: AppSpacing.lg),
 
-              // ── 3. Notification List or Empty State ──
               if (filtered.isEmpty)
-                _buildEmptyState(context)
+                NotificationEmptyStateCard(
+                  message:
+                      'You have no notifications under this filter. Updates on assigned drawings, revisions, and remarks will appear here.',
+                  actionLabel: 'Back to Studio',
+                  onAction: () => context.go('/draughtsman/studio'),
+                )
               else
                 ListView.separated(
                   shrinkWrap: true,
@@ -257,668 +436,60 @@ class _DraughtsmanNotificationsScreenState
                       const SizedBox(height: AppSpacing.sm),
                   itemBuilder: (context, index) {
                     final n = filtered[index];
-                    return _buildNotificationCard(context, n, assignments);
+                    return NotificationItemCard(
+                      notification: n,
+                      onTap: () async {
+                        if (!n.isRead) {
+                          try {
+                            await ref
+                                .read(markNotificationReadProvider(n.id).future);
+                          } catch (_) {}
+                        }
+                        if (context.mounted) {
+                          _navigateToNotificationTarget(context, n, assignments);
+                        }
+                      },
+                      onMarkAsRead: !n.isRead
+                          ? () async {
+                              try {
+                                await ref.read(
+                                    markNotificationReadProvider(n.id).future);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Marked as read.'),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Failed: $e')),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
+                    );
                   },
                 ),
 
               const SizedBox(height: AppSpacing.xxl),
 
-              // ── 4. System Footer Signature ──
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                  child: Text(
-                    'UI/UX Design & Product Experience crafted by PixelMint Studio MVS',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyMd.copyWith(
-                      color: AppColors.outline,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
+              const NotificationSystemFooter(),
             ],
           ),
         ),
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // 1. HEADER CARD
-  // ---------------------------------------------------------------------------
-
-  Widget _buildHeaderCard(
-    BuildContext context,
-    int totalCount,
-    int unreadCount,
-  ) {
-    final isMobile = MediaQuery.sizeOf(context).width < 600;
-
-    return Container(
-      padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.5),
-          width: 1.0,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            offset: Offset(0, 1),
-            blurRadius: 2,
-          ),
-          BoxShadow(
-            color: Color(0x05000000),
-            offset: Offset(0, 12),
-            blurRadius: 24,
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Subtle ambient glow on top right
-          Positioned(
-            top: -25,
-            right: -25,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.secondary.withValues(alpha: 0.04),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isMobile) ...[
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.xs),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerHigh,
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusDefault),
-                      ),
-                      child: const Icon(
-                        Icons.notifications_active_outlined,
-                        size: 20,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'Notifications',
-                        style: AppTypography.headlineLgMobile.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 22,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _buildUnreadBadge(unreadCount),
-              ] else ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(AppSpacing.xs),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusDefault),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_active_outlined,
-                            size: 22,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'Notifications',
-                          style: AppTypography.headlineDisplay.copyWith(
-                            color: AppColors.primary,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                    _buildUnreadBadge(unreadCount),
-                  ],
-                ),
-              ],
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Direct notifications on assignments, engineering remarks, and review cycles.',
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-
-              // Action Buttons Row
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  OutlinedButton.icon(
-                    key: const Key('notifications_mark_all_read_button'),
-                    onPressed: unreadCount > 0
-                        ? () async {
-                            try {
-                              await ref.read(
-                                  markAllNotificationsReadProvider.future);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('All notifications marked as read.'),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Failed to update: $e'),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                              }
-                            }
-                          }
-                        : null,
-                    icon: const Icon(Icons.done_all_rounded, size: 16),
-                    label: const Text('Mark All as Read'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: BorderSide(
-                        color: unreadCount > 0
-                            ? AppColors.primary
-                            : AppColors.outlineVariant,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusDefault),
-                      ),
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    key: const Key('notifications_refresh_button'),
-                    onPressed: () {
-                      ref.invalidate(notificationsProvider);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Notifications refreshed.'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Refresh'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.onSurfaceVariant,
-                      side: const BorderSide(color: AppColors.outlineVariant),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusDefault),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnreadBadge(int unreadCount) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: unreadCount > 0
-            ? const Color(0xFFFFDAD6).withValues(alpha: 0.7)
-            : const Color(0xFF85F8C4).withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: unreadCount > 0
-              ? const Color(0xFFBA1A1A).withValues(alpha: 0.3)
-              : const Color(0xFF069669).withValues(alpha: 0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: unreadCount > 0
-                  ? const Color(0xFFBA1A1A)
-                  : const Color(0xFF069669),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            unreadCount > 0 ? '$unreadCount UNREAD' : 'ALL CAUGHT UP',
-            style: AppTypography.labelMonoSm.copyWith(
-              color: unreadCount > 0
-                  ? const Color(0xFF93000A)
-                  : const Color(0xFF005137),
-              fontWeight: FontWeight.w700,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 2. FILTER BAR
-  // ---------------------------------------------------------------------------
-
-  Widget _buildFilterBar(
-    List<AppNotification> allNotifications,
-    int unreadCount,
-  ) {
-    final reviewsCount = allNotifications
-        .where((n) =>
-            n.type == 'CORRECTION_REQUESTED' ||
-            n.type == 'PROJECT_APPROVED' ||
-            n.type == 'DRAWING_SUBMITTED')
-        .length;
-    final messagesCount =
-        allNotifications.where((n) => n.type == 'CHAT_MESSAGE').length;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildFilterChip(
-            label: 'All (${allNotifications.length})',
-            filter: _NotificationFilter.all,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _buildFilterChip(
-            label: 'Unread ($unreadCount)',
-            filter: _NotificationFilter.unread,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _buildFilterChip(
-            label: 'Reviews ($reviewsCount)',
-            filter: _NotificationFilter.reviews,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _buildFilterChip(
-            label: 'Remarks ($messagesCount)',
-            filter: _NotificationFilter.messages,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required _NotificationFilter filter,
-  }) {
-    final isSelected = _activeFilter == filter;
-    return InkWell(
-      onTap: () => setState(() => _activeFilter = filter),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary
-              : AppColors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : AppColors.outlineVariant.withValues(alpha: 0.5),
-            width: 1.0,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: AppTypography.labelMonoSm.copyWith(
-            color: isSelected ? Colors.white : AppColors.onSurfaceVariant,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 11,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 3. NOTIFICATION CARD
-  // ---------------------------------------------------------------------------
-
-  Widget _buildNotificationCard(
-    BuildContext context,
-    AppNotification n,
-    List<Assignment> assignments,
-  ) {
-    final isUnread = !n.isRead;
-    final iconData = _iconForType(n.type);
-    final accentColor = _colorForType(n.type);
-    final typeLabel = _typeDisplayLabel(n.type);
-    final formattedTime = _formatRelativeTime(n.createdAt);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isUnread
-            ? AppColors.secondaryFixed.withValues(alpha: 0.12)
-            : AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: isUnread
-              ? AppColors.secondary.withValues(alpha: 0.35)
-              : AppColors.outlineVariant.withValues(alpha: 0.4),
-          width: isUnread ? 1.5 : 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF000000).withValues(alpha: 0.02),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        onTap: () async {
-          if (isUnread) {
-            try {
-              await ref.read(markNotificationReadProvider(n.id).future);
-            } catch (_) {}
-          }
-          if (context.mounted) {
-            _navigateToNotificationTarget(context, n, assignments);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Unread Blue Bullet Indicator
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isUnread ? AppColors.secondary : Colors.transparent,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-
-              // Category Icon Container
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: 0.25),
-                    width: 0.5,
-                  ),
-                ),
-                child: Icon(iconData, size: 18, color: accentColor),
-              ),
-              const SizedBox(width: AppSpacing.md),
-
-              // Details & Message
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top Row: Type Tag + Relative Time
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: AppTypography.labelMonoSm.copyWith(
-                              color: accentColor,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          formattedTime,
-                          style: AppTypography.labelMonoSm.copyWith(
-                            color: AppColors.outline,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Notification Title
-                    Text(
-                      n.title,
-                      style: AppTypography.buttonText.copyWith(
-                        color: AppColors.onSurface,
-                        fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Notification Message Body
-                    Text(
-                      n.message,
-                      style: AppTypography.bodyMd.copyWith(
-                        color: isUnread
-                            ? AppColors.onSurface
-                            : AppColors.onSurfaceVariant,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-
-              // Trailing Action Controls
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isUnread)
-                    IconButton(
-                      tooltip: 'Mark as read',
-                      icon: const Icon(
-                        Icons.check_circle_outline_rounded,
-                        size: 20,
-                        color: AppColors.secondary,
-                      ),
-                      onPressed: () async {
-                        try {
-                          await ref
-                              .read(markNotificationReadProvider(n.id).future);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Marked as read.'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Failed: $e')),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: AppColors.outline,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 4. EMPTY STATE
-  // ---------------------------------------------------------------------------
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.5),
-          width: 1.0,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x05000000),
-            offset: Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.surfaceContainerHigh,
-              ),
-              child: const Icon(
-                Icons.notifications_off_outlined,
-                size: 28,
-                color: AppColors.outline,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'No Notifications Found',
-              style: AppTypography.headlineLgMobile.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
-              child: Text(
-                'You have no notifications under this filter. Updates on assigned drawings, revisions, and remarks will appear here.',
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.outline,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            OutlinedButton(
-              onPressed: () => context.go('/draughtsman/studio'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusDefault),
-                ),
-              ),
-              child: const Text('Back to Studio'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // NAVIGATION ROUTING HELPER
-  // ---------------------------------------------------------------------------
 
   void _navigateToNotificationTarget(
     BuildContext context,
     AppNotification n,
     List<Assignment> assignments,
   ) {
-    // Attempt matching assignment from notification text
     Assignment? matched;
     for (final a in assignments) {
       if (a.projectName != null &&
@@ -933,7 +504,6 @@ class _DraughtsmanNotificationsScreenState
       }
     }
 
-    // Route based on genuine notification type
     switch (n.type) {
       case 'CHAT_MESSAGE':
         if (matched != null) {
@@ -960,7 +530,7 @@ class _DraughtsmanNotificationsScreenState
         if (matched != null) {
           context.push('/draughtsman/drawings/${matched.id}');
         } else {
-          context.go('/draughtsman/drawings');
+          context.push('/draughtsman/drawings');
         }
         break;
 
@@ -973,63 +543,4 @@ class _DraughtsmanNotificationsScreenState
         break;
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // HELPERS
-  // ---------------------------------------------------------------------------
-
-  IconData _iconForType(String type) {
-    switch (type) {
-      case 'CHAT_MESSAGE':
-        return Icons.chat_bubble_outline_rounded;
-      case 'CORRECTION_REQUESTED':
-        return Icons.edit_note_rounded;
-      case 'PROJECT_APPROVED':
-        return Icons.check_circle_outline_rounded;
-      case 'DRAWING_SUBMITTED':
-        return Icons.description_outlined;
-      default:
-        return Icons.notifications_outlined;
-    }
-  }
-
-  Color _colorForType(String type) {
-    switch (type) {
-      case 'CHAT_MESSAGE':
-        return AppColors.secondary;
-      case 'CORRECTION_REQUESTED':
-        return const Color(0xFFBA1A1A); // Error red
-      case 'PROJECT_APPROVED':
-        return const Color(0xFF069669); // Emerald
-      case 'DRAWING_SUBMITTED':
-        return const Color(0xFF0D1C32); // Primary container
-      default:
-        return AppColors.outline;
-    }
-  }
-
-  String _typeDisplayLabel(String type) {
-    switch (type) {
-      case 'CHAT_MESSAGE':
-        return 'REMARK';
-      case 'CORRECTION_REQUESTED':
-        return 'CORRECTION';
-      case 'PROJECT_APPROVED':
-        return 'APPROVED';
-      case 'DRAWING_SUBMITTED':
-        return 'SUBMISSION';
-      default:
-        return type.replaceAll('_', ' ');
-    }
-  }
-
-  String _formatRelativeTime(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return DateFormat('MMM d, HH:mm').format(date);
-  }
 }
-

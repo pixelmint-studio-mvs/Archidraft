@@ -225,6 +225,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
     final role = UserRole.fromString(widget.profile.role);
     final isEngineer = role == UserRole.engineer;
     final isDraughtsman = role == UserRole.draughtsman;
+    final isStudent = role == UserRole.student;
 
     final profileState = ref.watch(profileEditingControllerProvider);
     final isLoading = profileState is AsyncLoading;
@@ -245,7 +246,7 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
                 label: 'REGISTERED EMAIL ADDRESS',
                 value: widget.profile.email,
                 icon: Icons.mail_outline_rounded,
-                badgeText: 'READ-ONLY (FIREBASE AUTH)',
+                badgeText: 'VERIFIED EMAIL',
               ),
               const SizedBox(height: AppSpacing.md),
 
@@ -344,6 +345,31 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
                 ),
               ],
             ),
+
+          if (isStudent)
+            _buildCard(
+              title: 'ACADEMIC & LEARNING DETAILS',
+              subtitle:
+                  'Educational background and drafting program details.',
+              children: [
+                AuthFormField(
+                  controller: _collegeController,
+                  label: 'COLLEGE / INSTITUTION (OPTIONAL)',
+                  prefixIcon: Icons.account_balance_outlined,
+                  hint: 'e.g. Department of Architecture, College of Engineering',
+                  enabled: !isLoading,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AuthFormField(
+                  controller: _qualificationController,
+                  label: 'DEGREE / DRAFTING PROGRAM (OPTIONAL)',
+                  prefixIcon: Icons.school_outlined,
+                  hint: 'e.g. B.Arch Year 3, CAD Internship Program',
+                  enabled: !isLoading,
+                ),
+              ],
+            ),
+
 
           const SizedBox(height: AppSpacing.xl),
 

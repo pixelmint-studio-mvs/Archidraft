@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,10 +8,14 @@ import 'package:archi_draft/src/core/theme/app_typography.dart';
 import 'package:archi_draft/src/shared/widgets/app_state_widgets.dart';
 import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/project_status.dart';
+import 'package:archi_draft/src/features/profile/domain/user_role.dart';
+import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
+import 'package:archi_draft/src/features/projects/domain/drawing_version.dart';
+import 'package:archi_draft/src/features/projects/data/file_repository.dart';
 import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
-import 'package:archi_draft/src/features/api/providers/api_providers.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/cad_drawing_viewer.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:archi_draft/src/features/projects/presentation/widgets/file_attachment_card.dart';
@@ -22,14 +26,23 @@ import 'package:archi_draft/src/features/projects/presentation/widgets/workflow_
 /// Detail screen for viewing a project.
 ///
 /// Implements the Stitch 12-column Bento Grid layout for the Engineer.
-class ProjectDetailScreen extends ConsumerWidget {
+class ProjectDetailScreen extends ConsumerStatefulWidget {
   final String projectId;
 
   const ProjectDetailScreen({super.key, required this.projectId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final projectAsync = ref.watch(projectProvider(projectId));
+  ConsumerState<ProjectDetailScreen> createState() => _ProjectDetailScreenState();
+}
+
+class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
+  int? _selectedVersionNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    final projectAsync = ref.watch(projectProvider(widget.projectId));
+    final profile = ref.watch(userProfileProvider).value;
+    final userRole = UserRole.fromString(profile?.role) ?? UserRole.engineer;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -42,33 +55,48 @@ class ProjectDetailScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.go('/engineer/projects'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else if (userRole == UserRole.student) {
+              context.go('/student/projects');
+            } else {
+              context.go('/engineer/projects');
+            }
+          },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.forum_outlined),
-            tooltip: 'Collaboration Hub',
-            onPressed: () => context.push('/engineer/projects/$projectId/collaboration-hub'),
-          ),
+          if (userRole == UserRole.student)
+            TextButton.icon(
+              icon: const Icon(Icons.draw_outlined, size: 18),
+              label: const Text('Workspace'),
+              onPressed: () => context.push('/student/workspace/${widget.projectId}'),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.forum_outlined),
+              tooltip: 'Collaboration Hub',
+              onPressed: () => context.push('/engineer/projects/${widget.projectId}/collaboration-hub'),
+            ),
         ],
       ),
       body: projectAsync.when(
         loading: () => const AppLoadingIndicator(message: 'Loading project...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load project.',
-          onRetry: () => ref.invalidate(projectProvider(projectId)),
+          onRetry: () => ref.invalidate(projectProvider(widget.projectId)),
         ),
         data: (project) {
           if (project == null) {
             return const AppErrorWidget(message: 'Project not found.');
           }
-          return _buildProjectDetail(context, ref, project);
+          return _buildProjectDetail(context, project);
         },
       ),
     );
   }
 
-  Widget _buildProjectDetail(BuildContext context, WidgetRef ref, Project project) {
+  Widget _buildProjectDetail(BuildContext context, Project project) {
     return Stack(
       children: [
         Positioned.fill(
@@ -87,7 +115,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(context, ref, project),
+                  _buildHeader(context, project),
                   const SizedBox(height: AppSpacing.xxl),
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -95,18 +123,18 @@ class ProjectDetailScreen extends ConsumerWidget {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(flex: 8, child: _buildMainArea(context, ref, project)),
+                            Expanded(flex: 8, child: _buildMainArea(context, project)),
                             const SizedBox(width: AppSpacing.gridGutter),
-                            Expanded(flex: 4, child: _buildSideArea(context, ref, project)),
+                            Expanded(flex: 4, child: _buildSideArea(context, project)),
                           ],
                         );
                       } else {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildMainArea(context, ref, project),
+                            _buildMainArea(context, project),
                             const SizedBox(height: AppSpacing.gridGutter),
-                            _buildSideArea(context, ref, project),
+                            _buildSideArea(context, project),
                           ],
                         );
                       }
@@ -122,13 +150,13 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, WidgetRef ref, Project project) {
+  Widget _buildHeader(BuildContext context, Project project) {
     final status = project.projectStatus ?? ProjectStatus.draft;
     
     // Status color mapping for the badge
     Color badgeColor = AppColors.surfaceContainerHigh;
     Color badgeTextColor = AppColors.onSurfaceVariant;
-    if (status == ProjectStatus.underClientReview) {
+    if (status == ProjectStatus.underEngineerReview) {
       badgeColor = AppColors.tertiaryFixed;
       badgeTextColor = AppColors.onTertiaryContainer;
     } else if (status == ProjectStatus.completed) {
@@ -158,7 +186,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    project.projectId.substring(0, 8).toUpperCase(),
+                    project.projectId.length >= 8 ? project.projectId.substring(0, 8).toUpperCase() : project.projectId.toUpperCase(),
                     style: AppTypography.labelMono.copyWith(color: AppColors.outline),
                   ),
                 ),
@@ -183,7 +211,7 @@ class ProjectDetailScreen extends ConsumerWidget {
           ],
         );
 
-        final actions = _buildHeaderActions(context, ref, project, status);
+        final actions = _buildHeaderActions(context, project, status);
 
         if (isMobile) {
           return Column(
@@ -210,8 +238,25 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget? _buildHeaderActions(BuildContext context, WidgetRef ref, Project project, ProjectStatus status) {
-    if (status == ProjectStatus.draft) {
+  Widget? _buildHeaderActions(BuildContext context, Project project, ProjectStatus status) {
+    final profile = ref.watch(userProfileProvider).value;
+    final userRole = UserRole.fromString(profile?.role) ?? UserRole.engineer;
+    final isStudentTraining = project.isTrainingProject == 1 && userRole == UserRole.student;
+
+    if (isStudentTraining && (status == ProjectStatus.inProgress || status == ProjectStatus.waitingAcceptance)) {
+      return FilledButton.icon(
+        onPressed: () => context.push('/student/workspace/${project.projectId}'),
+        icon: const Icon(Icons.edit_document, size: 18),
+        label: const Text('Open Workspace'),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
+        ),
+      );
+    }
+
+    if (status == ProjectStatus.draft && !isStudentTraining) {
       return FilledButton.icon(
         onPressed: () {
           ref.read(projectFormControllerProvider.notifier).loadDraft(project);
@@ -225,7 +270,7 @@ class ProjectDetailScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
         ),
       );
-    } else if (status == ProjectStatus.underClientReview) {
+    } else if (status == ProjectStatus.underEngineerReview && userRole != UserRole.student) {
       return Wrap(
         spacing: AppSpacing.md,
         runSpacing: AppSpacing.md,
@@ -307,12 +352,12 @@ class ProjectDetailScreen extends ConsumerWidget {
     return null;
   }
 
-  Widget _buildMainArea(BuildContext context, WidgetRef ref, Project project) {
+  Widget _buildMainArea(BuildContext context, Project project) {
     return Column(
       children: [
         // Drawing Versions / Comparison
-        if (project.projectStatus == ProjectStatus.underClientReview || project.projectStatus == ProjectStatus.completed)
-          _buildDrawingComparisonSection(context, ref, project)
+        if (project.projectStatus == ProjectStatus.underEngineerReview || project.projectStatus == ProjectStatus.completed)
+          _buildDrawingComparisonSection(context, project)
         else
           _buildSectionCard(
             title: 'Drawing Versions',
@@ -393,7 +438,7 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDrawingComparisonSection(BuildContext context, WidgetRef ref, Project project) {
+  Widget _buildDrawingComparisonSection(BuildContext context, Project project) {
     return ref.watch(projectDrawingVersionsProvider(project.projectId)).when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => AppErrorWidget(
@@ -408,8 +453,13 @@ class ProjectDetailScreen extends ConsumerWidget {
           );
         }
 
-        final current = versions.first;
-        final headersAsync = ref.watch(authHeadersProvider);
+        final sortedVersions = List<DrawingVersion>.from(versions)
+          ..sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
+        final latestVersion = sortedVersions.first;
+        final current = sortedVersions.firstWhere(
+          (v) => v.versionNumber == _selectedVersionNumber,
+          orElse: () => latestVersion,
+        );
 
         return _buildSectionCard(
           title: 'Drawing Viewer',
@@ -420,99 +470,156 @@ class ProjectDetailScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(4),
+                  if (sortedVersions.length > 1)
+                    PopupMenuButton<int>(
+                      tooltip: 'Select Drawing Version',
+                      initialValue: current.versionNumber,
+                      onSelected: (ver) {
+                        setState(() {
+                          _selectedVersionNumber = ver;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Version ${current.versionNumber}${current.versionNumber == latestVersion.versionNumber ? ' (Latest)' : ''}',
+                              style: AppTypography.labelMono.copyWith(color: Colors.white),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_drop_down, color: Colors.white, size: 18),
+                          ],
+                        ),
+                      ),
+                      itemBuilder: (context) => sortedVersions
+                          .map((v) => PopupMenuItem<int>(
+                                value: v.versionNumber,
+                                child: Text(
+                                  'Version ${v.versionNumber}${v.versionNumber == latestVersion.versionNumber ? ' (Latest)' : ''}',
+                                  style: AppTypography.labelMono,
+                                ),
+                              ))
+                          .toList(),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Version ${current.versionNumber} (Latest)',
+                        style: AppTypography.labelMono.copyWith(color: Colors.white),
+                      ),
                     ),
-                    child: Text('Version ${current.versionNumber} (Latest)', style: AppTypography.labelMono.copyWith(color: Colors.white)),
-                  ),
                   OutlinedButton.icon(
                     onPressed: () {
-                      // Action handled via file provider or separate trigger in a real app
+                      ref.read(fileRepositoryProvider).downloadFile(
+                            current.fileId,
+                            current.originalName ?? 'drawing.dwg',
+                            openInBrowser: false,
+                          );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Downloading ${current.originalName ?? "drawing"}...')),
+                      );
                     },
                     icon: const Icon(Icons.download, size: 16),
-                    label: const Text('Download'),
+                    label: const Text('Download Original'),
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              // Viewer Frame
-              Container(
-                height: 400,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                child: headersAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => const Center(child: Text('Failed to load credentials')),
-                  data: (headers) {
-                    final isImage = current.originalName?.toLowerCase().endsWith('.png') == true ||
-                                    current.originalName?.toLowerCase().endsWith('.jpg') == true ||
-                                    current.originalName?.toLowerCase().endsWith('.jpeg') == true;
 
-                    if (!isImage) {
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.preview_outlined, size: 64, color: AppColors.outlineVariant),
-                          const SizedBox(height: AppSpacing.md),
-                          Text('Preview unavailable for this file type', style: AppTypography.bodyMd.copyWith(color: AppColors.outline)),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text('${current.originalName ?? "drawing"} • ${current.size} bytes', style: AppTypography.labelMono.copyWith(color: AppColors.outlineVariant)),
-                        ],
+              // Interactive CAD Drawing Viewer
+              CadDrawingViewer(
+                fileId: current.fileId,
+                fileName: current.originalName ?? 'drawing.dwg',
+                fileSize: current.size,
+                versionNumber: current.versionNumber,
+                onDownload: () {
+                  ref.read(fileRepositoryProvider).downloadFile(
+                        current.fileId,
+                        current.originalName ?? 'drawing.dwg',
+                        openInBrowser: false,
                       );
-                    }
-
-                    final baseUrl = ref.read(apiClientProvider).baseUrl;
-                    final url = '$baseUrl/api/files/${current.fileId}/download';
-
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                      child: Image.network(
-                        url,
-                        headers: headers,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.broken_image_outlined, size: 64, color: AppColors.outlineVariant),
-                            const SizedBox(height: AppSpacing.md),
-                            Text('Failed to load image', style: AppTypography.bodyMd.copyWith(color: AppColors.outline)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                ),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Downloading ${current.originalName ?? "drawing"}...')),
+                  );
+                },
               ),
 
-              if (versions.length > 1) ...[
+              if (sortedVersions.length > 1) ...[
                 const SizedBox(height: AppSpacing.lg),
                 const Divider(),
                 const SizedBox(height: AppSpacing.sm),
-                Text('Previous Versions', style: AppTypography.labelMono.copyWith(color: AppColors.outline)),
+                Text('All Revisions', style: AppTypography.labelMono.copyWith(color: AppColors.outline)),
                 const SizedBox(height: AppSpacing.sm),
-                ...versions.skip(1).map((v) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.history, color: AppColors.outline),
-                  title: Text('Version ${v.versionNumber}', style: AppTypography.bodyMd),
-                  subtitle: Text(v.originalName ?? 'Unknown file'),
-                  trailing: IconButton(icon: const Icon(Icons.download), onPressed: () {}),
-                )),
-              ]
+                ...sortedVersions.map((v) {
+                  final isCurrent = v.versionNumber == current.versionNumber;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      isCurrent ? Icons.check_circle_rounded : Icons.history_rounded,
+                      color: isCurrent ? AppColors.primary : AppColors.outline,
+                    ),
+                    title: Text(
+                      'Version ${v.versionNumber}${v.versionNumber == latestVersion.versionNumber ? ' (Latest)' : ''}',
+                      style: AppTypography.bodyMd.copyWith(
+                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    subtitle: Text('${v.originalName ?? "drawing"} \u2022 ${v.size ?? 0} bytes'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isCurrent)
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedVersionNumber = v.versionNumber;
+                              });
+                            },
+                            child: const Text('View'),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.download, size: 18),
+                          tooltip: 'Download file',
+                          onPressed: () {
+                            ref.read(fileRepositoryProvider).downloadFile(
+                                  v.fileId,
+                                  v.originalName ?? 'drawing.dwg',
+                                  openInBrowser: false,
+                                );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Downloading ${v.originalName ?? "drawing"}...')),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _selectedVersionNumber = v.versionNumber;
+                      });
+                    },
+                  );
+                }),
+              ],
             ],
-          )
+          ),
         );
-      }
+      },
     );
   }
 
-  Widget _buildSideArea(BuildContext context, WidgetRef ref, Project project) {
+  Widget _buildSideArea(BuildContext context, Project project) {
     return Column(
       children: [
         // Metadata Card
@@ -630,4 +737,3 @@ class _BlueprintGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

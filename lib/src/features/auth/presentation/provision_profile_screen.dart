@@ -70,10 +70,16 @@ class _ProvisionProfileScreenState extends ConsumerState<ProvisionProfileScreen>
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width < 600 ? 16.0 : 24.0,
+                vertical: 16.0,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: GlassCard(
+                  padding: EdgeInsets.all(
+                    MediaQuery.of(context).size.width < 600 ? 18.0 : 24.0,
+                  ),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -135,38 +141,87 @@ class _ProvisionProfileScreenState extends ConsumerState<ProvisionProfileScreen>
                           ),
                         ),
                         const SizedBox(height: 8),
-                        SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment<String>(
-                              value: 'ENGINEER',
-                              label: Text('ENGINEER'),
-                              icon: Icon(Icons.engineering_outlined),
-                            ),
-                            ButtonSegment<String>(
-                              value: 'DRAUGHTSMAN',
-                              label: Text('DRAUGHTSMAN'),
-                              icon: Icon(Icons.architecture_outlined),
-                            ),
-                            ButtonSegment<String>(
-                              value: 'STUDENT',
-                              label: Text('STUDENT'),
-                              icon: Icon(Icons.school_outlined),
-                            ),
-                          ],
-                          selected: {_selectedRole},
-                          onSelectionChanged: isLoading
-                              ? null
-                              : (Set<String> selection) {
-                                  setState(() {
-                                    _selectedRole = selection.first;
-                                  });
-                                },
-                          style: SegmentedButton.styleFrom(
-                            backgroundColor: AppColors.surfaceContainerLowest,
-                            selectedForegroundColor: AppColors.onPrimaryContainer,
-                            selectedBackgroundColor: AppColors.secondaryFixed,
-                            side: const BorderSide(color: AppColors.outlineVariant),
-                          ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isNarrow = constraints.maxWidth < 420;
+                            final isCompact = constraints.maxWidth < 360;
+
+                            return SegmentedButton<String>(
+                              segments: [
+                                ButtonSegment<String>(
+                                  value: 'ENGINEER',
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'ENGINEER',
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        fontSize: isCompact ? 10.0 : (isNarrow ? 11.0 : 12.5),
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: isNarrow ? 0.2 : 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                  icon: Icon(Icons.engineering_outlined, size: isNarrow ? 16 : 18),
+                                ),
+                                ButtonSegment<String>(
+                                  value: 'DRAUGHTSMAN',
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'DRAUGHTSMAN',
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        fontSize: isCompact ? 10.0 : (isNarrow ? 11.0 : 12.5),
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: isNarrow ? 0.2 : 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                  icon: Icon(Icons.architecture_outlined, size: isNarrow ? 16 : 18),
+                                ),
+                                ButtonSegment<String>(
+                                  value: 'STUDENT',
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'STUDENT',
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        fontSize: isCompact ? 10.0 : (isNarrow ? 11.0 : 12.5),
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: isNarrow ? 0.2 : 0.4,
+                                      ),
+                                    ),
+                                  ),
+                                  icon: Icon(Icons.school_outlined, size: isNarrow ? 16 : 18),
+                                ),
+                              ],
+                              selected: {_selectedRole},
+                              selectedIcon: Icon(Icons.check, size: isNarrow ? 15 : 18),
+                              onSelectionChanged: isLoading
+                                  ? null
+                                  : (Set<String> selection) {
+                                      setState(() {
+                                        _selectedRole = selection.first;
+                                      });
+                                    },
+                              style: SegmentedButton.styleFrom(
+                                backgroundColor: AppColors.surfaceContainerLowest,
+                                selectedForegroundColor: AppColors.onPrimaryContainer,
+                                selectedBackgroundColor: AppColors.secondaryFixed,
+                                side: const BorderSide(color: AppColors.outlineVariant),
+                                visualDensity: isNarrow ? VisualDensity.compact : VisualDensity.standard,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isNarrow ? 4 : 10,
+                                  vertical: isNarrow ? 8 : 12,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 32),
 

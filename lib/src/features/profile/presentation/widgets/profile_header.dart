@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +13,7 @@ import '../../../auth/providers/auth_providers.dart';
 ///
 /// Implements the Architectural Precision System from `REFERENCE DESIGN/DESIGN.md`:
 /// - High-contrast typography and subtle hairline borders.
-/// - JetBrains Mono technical status chips and copyable UID.
+/// - JetBrains Mono technical status chips and account specifications.
 /// - Detailed specification breakdown of account vitals.
 class ProfileHeader extends ConsumerWidget {
   final UserProfile profile;
@@ -45,6 +44,7 @@ class ProfileHeader extends ConsumerWidget {
         : 'Up to date';
 
     final isDraughtsman = profile.role.toUpperCase() == 'DRAUGHTSMAN';
+    final isStudent = profile.role.toUpperCase() == 'STUDENT';
 
     return Container(
       decoration: BoxDecoration(
@@ -237,64 +237,12 @@ class ProfileHeader extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
 
-          // UID Copy Card
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-              border: Border.all(
-                color: AppColors.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.fingerprint_rounded,
-                  size: 16,
-                  color: AppColors.outline,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'UID: ${profile.id}',
-                    style: AppTypography.labelMono.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.copy_rounded, size: 14),
-                  color: AppColors.secondary,
-                  tooltip: 'Copy UID',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: profile.id));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('User ID copied to clipboard'),
-                        behavior: SnackBarBehavior.floating,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
+
 
           const Divider(height: 1, color: AppColors.surfaceContainerHigh),
           const SizedBox(height: AppSpacing.lg),
 
-          // Account Telemetry Specifications
+          // Account Specifications
           Text(
             'ACCOUNT SPECIFICATIONS',
             style: AppTypography.labelMono.copyWith(
@@ -305,10 +253,15 @@ class ProfileHeader extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _buildSpecRow('Identity Provider', 'Firebase Auth (Cloud Verified)'),
-          _buildSpecRow('Security Clearance', isDraughtsman ? 'Architectural Studio' : 'Client Access'),
-          _buildSpecRow('Registration Date', createdAtStr),
-          _buildSpecRow('Last Persisted Sync', updatedAtStr),
+          _buildSpecRow('Account Status', 'Active & Verified'),
+          _buildSpecRow(
+            'Access Level',
+            isStudent
+                ? 'Student Training Portal'
+                : (isDraughtsman ? 'Architectural Studio' : 'Engineering Client'),
+          ),
+          _buildSpecRow('Member Since', createdAtStr),
+          _buildSpecRow('Last Updated', updatedAtStr),
 
           const SizedBox(height: AppSpacing.xl),
           const Divider(height: 1, color: AppColors.surfaceContainerHigh),
@@ -338,15 +291,15 @@ class ProfileHeader extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Identity & Access Security',
+                        'Account Security Notice',
                         style: AppTypography.buttonText.copyWith(
                           fontSize: 12,
                           color: AppColors.primary,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
-                        'Your email and core authentication credentials are protected by Firebase Auth and Cloudflare D1 policies.',
+                        'Your account is protected by security controls designed to safeguard your account and information. Never share your password or sign-in codes with anyone.',
                         style: AppTypography.bodySm.copyWith(
                           fontSize: 11,
                           color: AppColors.onSurfaceVariant,

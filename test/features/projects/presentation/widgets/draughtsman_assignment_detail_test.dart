@@ -16,7 +16,7 @@ void main() {
     projectName: 'Draughtsman Portal TEST Project - TEST_FIXTURE_2026',
     projectAddress: '123 Test Street, Dev City',
     status: 'IN_PROGRESS',
-    projectStatus: 'UNDER_CLIENT_REVIEW',
+    projectStatus: 'UNDER_ENGINEER_REVIEW',
     assignedAt: DateTime.now().subtract(const Duration(days: 2)),
     drawingType: 'FLOOR_PLAN',
     correctionRound: 1,
@@ -136,6 +136,52 @@ void main() {
     expect(splitButton, findsOneWidget);
     await tester.tap(splitButton);
     await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('Workflow Timeline displays step 5 as "5. Engineer Review" when pending review', (tester) async {
+    final reviewAssignment = Assignment(
+      id: 'test-assign-review-01',
+      projectId: 'test-proj-01',
+      draughtsmanId: 'd-01',
+      projectName: 'Draughtsman Portal TEST Project - TEST_FIXTURE_2026',
+      projectAddress: '123 Test Street, Dev City',
+      status: 'ACCEPTED',
+      projectStatus: 'UNDER_ENGINEER_REVIEW',
+      assignedAt: DateTime.now().subtract(const Duration(days: 2)),
+      drawingType: 'FLOOR_PLAN',
+      correctionRound: 0,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assignmentProvider('test-assign-review-01').overrideWith(
+            (ref) => Future.value(reviewAssignment),
+          ),
+          projectDrawingVersionsProvider('test-proj-01').overrideWith(
+            (ref) => Future.value(testVersions),
+          ),
+          projectActivityLogsProvider('test-proj-01').overrideWith(
+            (ref) => Future.value(testLogs.map((m) => ActivityLog.fromJson(m)).toList()),
+          ),
+        ],
+        child: const MaterialApp(
+          home: DraughtsmanAssignmentDetailScreen(assignmentId: 'test-assign-review-01'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Step 5 title is "5. Engineer Review"
+    expect(find.text('5. Engineer Review'), findsOneWidget);
+
+    // Verify there are no occurrences of "Client & Engineer Review"
+    expect(find.textContaining('Client & Engineer Review'), findsNothing);
+
+    // Verify associated description clearly mentions Engineer review
+    expect(find.textContaining('Drawings submitted and currently pending Engineer review'), findsOneWidget);
+    expect(find.text('UNDER ENGINEER REVIEW'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
   });

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -19,6 +20,7 @@ class AuthFormField extends StatefulWidget {
   final ValueChanged<String>? onFieldSubmitted;
   final bool enabled;
   final TextCapitalization textCapitalization;
+  final Iterable<String>? autofillHints;
 
   const AuthFormField({
     super.key,
@@ -33,6 +35,7 @@ class AuthFormField extends StatefulWidget {
     this.onFieldSubmitted,
     this.enabled = true,
     this.textCapitalization = TextCapitalization.none,
+    this.autofillHints,
   });
 
   @override
@@ -62,20 +65,15 @@ class _AuthFormFieldState extends State<AuthFormField> {
       onFieldSubmitted: widget.onFieldSubmitted,
       enabled: widget.enabled,
       textCapitalization: widget.textCapitalization,
+      autofillHints: widget.autofillHints,
       decoration: InputDecoration(
         labelText: widget.label.isNotEmpty ? widget.label : null,
         hintText: widget.hint,
-        hintStyle: AppTypography.bodyMd.copyWith(
-          color: AppColors.outline,
-        ),
+        hintStyle: AppTypography.bodyMd.copyWith(color: AppColors.outline),
         filled: true,
         fillColor: AppColors.surface,
         prefixIcon: widget.prefixIcon != null
-            ? Icon(
-                widget.prefixIcon,
-                size: 20,
-                color: AppColors.outline,
-              )
+            ? Icon(widget.prefixIcon, size: 20, color: AppColors.outline)
             : null,
         suffixIcon: widget.obscureText
             ? IconButton(
@@ -93,7 +91,10 @@ class _AuthFormFieldState extends State<AuthFormField> {
                 },
               )
             : null,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
           borderSide: BorderSide(
@@ -110,24 +111,15 @@ class _AuthFormFieldState extends State<AuthFormField> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-          borderSide: const BorderSide(
-            color: AppColors.secondary,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: AppColors.secondary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-          borderSide: const BorderSide(
-            color: AppColors.error,
-            width: 1.0,
-          ),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.0),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-          borderSide: const BorderSide(
-            color: AppColors.error,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
       ),
     );

@@ -91,7 +91,10 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
                     offset: const Offset(0, 45),
                     onSelected: (value) {
                       if (value == 'profile') {
-                        if (profile?.role.toUpperCase() == 'DRAUGHTSMAN') {
+                        final roleUpper = profile?.role.toUpperCase();
+                        if (roleUpper == 'STUDENT') {
+                          context.go('/student/profile');
+                        } else if (roleUpper == 'DRAUGHTSMAN') {
                           context.go('/draughtsman/profile');
                         } else {
                           context.go('/engineer/profile');

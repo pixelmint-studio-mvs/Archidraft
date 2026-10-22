@@ -15,7 +15,7 @@ void main() {
     projectName: 'Draughtsman Portal TEST Project - TEST_FIXTURE_2026',
     projectAddress: '123 Test Street, Dev City',
     status: 'IN_PROGRESS',
-    projectStatus: 'UNDER_CLIENT_REVIEW',
+    projectStatus: 'UNDER_ENGINEER_REVIEW',
     assignedAt: DateTime.now(),
     drawingType: 'FLOOR_PLAN',
     correctionRound: 1,

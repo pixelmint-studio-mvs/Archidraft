@@ -61,6 +61,10 @@ function createIsolatedTestDb() {
             }
           };
         },
+        async first() {
+          const stmt = db.prepare(sql);
+          return stmt.get();
+        },
         async all() {
           const stmt = db.prepare(sql);
           return { results: stmt.all() };
@@ -73,10 +77,17 @@ function createIsolatedTestDb() {
       };
     },
     async batch(statements) {
+      const results = [];
       for (const stmt of statements) {
-        await stmt.run();
+        if (stmt.all) {
+          results.push(await stmt.all());
+        } else if (stmt.run) {
+          results.push(await stmt.run());
+        } else {
+          results.push({ results: [] });
+        }
       }
-      return [];
+      return results;
     }
   };
 
@@ -110,9 +121,58 @@ function seedTestData(rawDb) {
   insertUser.run('draughtsman-replaced', 'd_replaced@test.com', 'Draughtsman Replaced', 'DRAUGHTSMAN');
   insertUser.run('engineer-1', 'engineer1@test.com', 'Engineer One', 'ENGINEER');
   insertUser.run('student-1', 'student1@test.com', 'Student One', 'STUDENT');
+  insertUser.run('student-2', 'student2@test.com', 'Student Two', 'STUDENT');
   insertUser.run('guest-1', 'guest1@test.com', 'Guest Actor', 'GUEST');
   insertUser.run('admin-1', 'admin1@test.com', 'Admin One', 'ADMIN');
   insertUser.run('studio-admin-1', 'studioadmin1@test.com', 'Studio Admin', 'STUDIO_ADMIN');
+
+  // Baseline active Platform Terms and user acceptance fixtures
+  rawDb.prepare(`
+    INSERT INTO legal_documents (id, document_type, version, title, content, effective_at, status, is_mandatory, locale)
+    VALUES ('doc-terms-v1', 'TERMS_AND_CONDITIONS', '1.0.0', 'Platform Terms', '# Terms', CURRENT_TIMESTAMP, 'EFFECTIVE', 1, 'en-IN')
+  `).run();
+
+  const insertEvent = rawDb.prepare(`
+    INSERT INTO legal_consent_events (id, user_id, document_id, document_type, document_version, action_type, consent_purpose, idempotency_key, ip_hash, source)
+    VALUES (?, ?, 'doc-terms-v1', 'TERMS_AND_CONDITIONS', '1.0.0', 'ACCEPT', 'DEFAULT', ?, 'hash-ip', 'WEB_APP')
+  `);
+
+  const insertConsent = rawDb.prepare(`
+    INSERT INTO user_consent_state (id, user_id, consent_type, purpose_tag, current_status, accepted_version, last_event_id, updated_at)
+    VALUES (?, ?, 'TERMS', 'DEFAULT', 'ACCEPTED', '1.0.0', ?, CURRENT_TIMESTAMP)
+  `);
+
+  for (const uid of ['client-1', 'client-2', 'draughtsman-1', 'draughtsman-2', 'draughtsman-rejected', 'draughtsman-replaced', 'engineer-1', 'student-1', 'student-2']) {
+    const eventId = 'evt-terms-' + uid;
+    insertEvent.run(eventId, uid, 'idem-' + uid);
+    insertConsent.run('cst-' + uid, uid, eventId);
+  }
+
+  // Seed Training Modules & Lessons
+  rawDb.prepare("INSERT INTO training_modules (id, category, type, level, title, description) VALUES (?, ?, ?, ?, ?, ?)").run(
+    'mod-arch-1', 'Architectural', 'Module', 'Beginner', 'Residential Planning', 'Basics'
+  );
+  rawDb.prepare("INSERT INTO training_lessons (id, module_id, title, content, lesson_order, estimated_duration) VALUES (?, ?, ?, ?, ?, ?)").run(
+    'lsn-1', 'mod-arch-1', 'Lesson 1', 'Content for lesson 1', 1, '15 mins'
+  );
+
+  // Seed Training Project
+  rawDb.prepare(`
+    INSERT INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, is_training_project, draughtsman_id, draughtsman_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run('prj-train-s1', 'admin-1', 'Student Training Project', '100 Studio Way', 'Plan A', 'Architectural', '1000 sq ft', 'IN_PROGRESS', 1, 'student-1', 'Student One');
+
+  // Seed Student Assignment
+  rawDb.prepare(`
+    INSERT INTO student_assignments (id, student_id, project_id, assignment_type, status)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('asg-student-1', 'student-1', 'prj-train-s1', 'PRACTICAL', 'ACCEPTED');
+
+  // Seed Student Credential with verification token
+  rawDb.prepare(`
+    INSERT INTO student_credentials (id, student_id, type, reference_id, title, description, verification_token)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run('cred-1', 'student-1', 'MODULE_COMPLETION', 'mod-arch-1', 'Certified Draughtsman', 'Earned credential', 'verify-token-xyz-123');
 
   const insertProject = rawDb.prepare(`
     INSERT INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, draughtsman_id, draughtsman_name, current_assignment_id)
@@ -427,7 +487,7 @@ test('7. Workflow Policy Compliance: Final Approval & Correction Actions', async
   const { rawDb, env } = createIsolatedTestDb();
   seedTestData(rawDb);
 
-  await t.test('Engineer is BLOCKED from approving final drawings (403)', async () => {
+  await t.test('Unrelated Engineer is BLOCKED from approving non-owned project (403)', async () => {
     const res = await testRequest(env, '/api/projects/approve-final', {
       method: 'POST',
       token: 'engineer-1',
@@ -435,10 +495,10 @@ test('7. Workflow Policy Compliance: Final Approval & Correction Actions', async
     });
     assert.equal(res.status, 403);
     const body = await res.json();
-    assert.match(body.error, /Only clients or admins can approve final drawings/);
+    assert.match(body.error, /Permission denied|Only clients/);
   });
 
-  await t.test('Engineer is BLOCKED from requesting corrections (403)', async () => {
+  await t.test('Unrelated Engineer is BLOCKED from requesting corrections on non-owned project (403)', async () => {
     const res = await testRequest(env, '/api/projects/request-correction', {
       method: 'POST',
       token: 'engineer-1',
@@ -452,7 +512,42 @@ test('7. Workflow Policy Compliance: Final Approval & Correction Actions', async
     });
     assert.equal(res.status, 403);
     const body = await res.json();
-    assert.match(body.error, /Only clients or admins can request corrections/);
+    assert.match(body.error, /Permission denied|Only clients/);
+  });
+
+  await t.test('Owning Engineer CAN request correction (200, status -> IN_PROGRESS)', async () => {
+    rawDb.prepare(`
+      INSERT OR REPLACE INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, draughtsman_id, draughtsman_name, current_assignment_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('prj-review-eng1', 'engineer-1', 'Engineer Review Project', '909 Pine Rd', 'Detail Drawings', 'Architectural', '3000 sq ft', 'UNDER_ENGINEER_REVIEW', 'draughtsman-1', 'Draughtsman One', 'asg-review-eng1');
+
+    const res = await testRequest(env, '/api/projects/request-correction', {
+      method: 'POST',
+      token: 'engineer-1',
+      body: {
+        projectId: 'prj-review-eng1',
+        actionId: 'act-eng-corr-own-1',
+        correctionId: 'corr-eng-own-1',
+        targetVersionId: 'ver-1',
+        description: 'Please adjust dimension tolerances.'
+      }
+    });
+    assert.equal(res.status, 200);
+    const prj = rawDb.prepare('SELECT status, correction_round FROM projects WHERE id = ?').get('prj-review-eng1');
+    assert.equal(prj.status, 'IN_PROGRESS');
+    assert.equal(prj.correction_round, 1);
+  });
+
+  await t.test('Owning Engineer CAN approve final drawing (200, status -> COMPLETED)', async () => {
+    rawDb.prepare("UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW' WHERE id = ?").run('prj-review-eng1');
+    const res = await testRequest(env, '/api/projects/approve-final', {
+      method: 'POST',
+      token: 'engineer-1',
+      body: { projectId: 'prj-review-eng1', actionId: 'act-eng-app-own-1' }
+    });
+    assert.equal(res.status, 200);
+    const prj = rawDb.prepare('SELECT status FROM projects WHERE id = ?').get('prj-review-eng1');
+    assert.equal(prj.status, 'COMPLETED');
   });
 
   await t.test('Owning Client CAN request correction (200, status -> IN_PROGRESS)', async () => {
@@ -547,5 +642,163 @@ test('8. Admin & Studio Admin Privileged Operations', async (t) => {
       body: { projectId: 'prj-submitted-c1', draughtsmanId: 'draughtsman-1', actionId: 'act-unauth-asg' }
     });
     assert.equal(res.status, 403);
+  });
+});
+
+
+test('9. Collaboration Hub Pair-Only Privacy (Strict Access Control)', async (t) => {
+  const { rawDb, env } = createIsolatedTestDb();
+  seedTestData(rawDb);
+
+  await t.test('Assigned Client/Engineer CAN read project messages (200)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', { token: 'client-1' });
+    assert.equal(res.status, 200);
+    const msgs = await res.json();
+    assert.ok(Array.isArray(msgs));
+  });
+
+  await t.test('Assigned Draughtsman CAN read project messages (200)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', { token: 'draughtsman-1' });
+    assert.equal(res.status, 200);
+    const msgs = await res.json();
+    assert.ok(Array.isArray(msgs));
+  });
+
+  await t.test('Assigned Client/Engineer CAN send message (201)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', {
+      method: 'POST',
+      token: 'client-1',
+      body: { message: 'Hello Draughtsman from Engineer' }
+    });
+    assert.equal(res.status, 201);
+    const body = await res.json();
+    assert.equal(body.message, 'Hello Draughtsman from Engineer');
+  });
+
+  await t.test('Assigned Draughtsman CAN send message (201)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', {
+      method: 'POST',
+      token: 'draughtsman-1',
+      body: { message: 'Hello Engineer from Draughtsman' }
+    });
+    assert.equal(res.status, 201);
+    const body = await res.json();
+    assert.equal(body.message, 'Hello Engineer from Draughtsman');
+  });
+
+  await t.test('Unrelated Engineer is DENIED reading Project A messages (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', { token: 'engineer-1' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Unrelated Draughtsman is DENIED reading Project A messages (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', { token: 'draughtsman-2' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Unrelated Engineer is DENIED sending message to Project A (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', {
+      method: 'POST',
+      token: 'engineer-1',
+      body: { message: 'Unauthorized intrusion attempt' }
+    });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Unrelated Draughtsman is DENIED sending message to Project A (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1/messages', {
+      method: 'POST',
+      token: 'draughtsman-2',
+      body: { message: 'Unauthorized draughtsman message' }
+    });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Unrelated Engineer is DENIED downloading Project A attachment/file (403)', async () => {
+    const res = await testRequest(env, '/api/files/file-c1-drawing/download', { token: 'engineer-1' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Unrelated Draughtsman is DENIED downloading Project A attachment/file (403)', async () => {
+    const res = await testRequest(env, '/api/files/file-c1-drawing/download', { token: 'draughtsman-2' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Assigned Draughtsman CAN download Project A attachment/file (200)', async () => {
+    const res = await testRequest(env, '/api/files/file-c1-drawing/download', { token: 'draughtsman-1' });
+    assert.equal(res.status, 200);
+  });
+
+  await t.test('Assigned Client/Engineer CAN download Project A attachment/file (200)', async () => {
+    const res = await testRequest(env, '/api/files/file-c1-drawing/download', { token: 'client-1' });
+    assert.equal(res.status, 200);
+  });
+});
+
+
+test('10. Student Role Isolation & Training Security', async (t) => {
+  const { rawDb, env } = createIsolatedTestDb();
+  seedTestData(rawDb);
+
+  await t.test('Student cannot query commercial projects list via /api/projects (403)', async () => {
+    const res = await testRequest(env, '/api/projects', { token: 'student-1' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Student is DENIED access to commercial client project (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-accepted-c1', { token: 'student-1' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Commercial draughtsman is DENIED access to training project (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-train-s1', { token: 'draughtsman-1' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Assigned Student CAN access their training project (200)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-train-s1', { token: 'student-1' });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.id, 'prj-train-s1');
+  });
+
+  await t.test('Unassigned Student is DENIED access to another student training project (403)', async () => {
+    const res = await testRequest(env, '/api/projects/prj-train-s1', { token: 'student-2' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('Student CAN access their training metrics (200)', async () => {
+    const res = await testRequest(env, '/api/student/metrics', { token: 'student-1' });
+    assert.equal(res.status, 200);
+    const metrics = await res.json();
+    assert.ok(metrics !== null);
+  });
+
+  await t.test('Student CAN fetch training modules curriculum (200)', async () => {
+    const res = await testRequest(env, '/api/student/training/modules', { token: 'student-1' });
+    assert.equal(res.status, 200);
+    const modules = await res.json();
+    assert.ok(Array.isArray(modules));
+  });
+
+  await t.test('Student CAN retrieve their achievements (200)', async () => {
+    const res = await testRequest(env, '/api/student/achievements', { token: 'student-1' });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(Array.isArray(body.achievements));
+    assert.equal(body.achievements.length, 5);
+  });
+
+  await t.test('Public credential verification returns 200 for valid token', async () => {
+    const res = await testRequest(env, '/api/public/credentials/verify/verify-token-xyz-123');
+    assert.equal(res.status, 200);
+    const cert = await res.json();
+    assert.equal(cert.valid, true);
+    assert.equal(cert.credential.id, 'cred-1');
+  });
+
+  await t.test('Public credential verification returns 404 for invalid token', async () => {
+    const res = await testRequest(env, '/api/public/credentials/verify/invalid-fake-token');
+    assert.equal(res.status, 404);
   });
 });

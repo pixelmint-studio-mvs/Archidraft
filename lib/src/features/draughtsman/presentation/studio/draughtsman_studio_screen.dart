@@ -432,7 +432,7 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
     final hasCorrection = (a.correctionRound ?? 0) > 0;
-    final isUnderReview = a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
 
     // Status pill tokens matching code.html
     String statusLabel;
@@ -831,6 +831,7 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
                   // Version History Collapsible Section
                   _VersionHistorySection(
                     projectId: a.projectId,
+                    isPending: isPending,
                     isExpanded: _versionHistoryExpanded,
                     onToggle: () => setState(
                       () => _versionHistoryExpanded = !_versionHistoryExpanded,
@@ -854,12 +855,14 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
 class _VersionHistorySection extends ConsumerWidget {
   final String projectId;
   final bool isExpanded;
+  final bool isPending;
   final VoidCallback onToggle;
   final String Function(DateTime) formatDate;
 
   const _VersionHistorySection({
     required this.projectId,
     required this.isExpanded,
+    this.isPending = false,
     required this.onToggle,
     required this.formatDate,
   });
@@ -898,6 +901,18 @@ class _VersionHistorySection extends ConsumerWidget {
         if (isExpanded)
           Consumer(
             builder: (context, ref, _) {
+              if (isPending) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 6, top: 4),
+                  child: Text(
+                    'Drawing revisions will be available once accepted.',
+                    style: AppTypography.labelMono.copyWith(
+                      color: AppColors.onSurfaceVariant.withValues(alpha: 0.50),
+                      fontSize: 11,
+                    ),
+                  ),
+                );
+              }
               final versionsAsync =
                   ref.watch(projectDrawingVersionsProvider(projectId));
               return versionsAsync.when(

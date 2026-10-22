@@ -1,3 +1,4 @@
+import '../domain/evaluation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/providers/auth_providers.dart';
@@ -65,7 +66,7 @@ final engineerDashboardStatsProvider = Provider<AsyncValue<EngineerDashboardStat
             p.projectStatus == ProjectStatus.inProgress)
         .length;
     final pendingReview = projects
-        .where((p) => p.projectStatus == ProjectStatus.underClientReview)
+        .where((p) => p.projectStatus == ProjectStatus.underEngineerReview)
         .length;
     final completed = projects
         .where((p) => p.projectStatus == ProjectStatus.completed)
@@ -128,4 +129,10 @@ final engineerActivityLogsProvider = FutureProvider<List<ActivityLog>>((ref) {
 final draughtsmanSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) {
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getDraughtsmanSummary();
+});
+
+final projectEvaluationsProvider =
+    FutureProvider.family<List<Evaluation>, String>((ref, projectId) {
+  final repository = ref.watch(projectRepositoryProvider);
+  return repository.getEvaluations(projectId);
 });

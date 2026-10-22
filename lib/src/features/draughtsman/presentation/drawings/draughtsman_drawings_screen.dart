@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+﻿import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -101,7 +101,7 @@ class _DraughtsmanDrawingsScreenState
                   a.assignmentStatus == AssignmentStatus.accepted ||
                   a.assignmentStatus == AssignmentStatus.completed ||
                   a.projectStatus == 'IN_PROGRESS' ||
-                  a.projectStatus == 'UNDER_CLIENT_REVIEW' ||
+                  a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW' ||
                   a.projectStatus == 'COMPLETED')
               .toList();
 
@@ -192,8 +192,10 @@ class _DraughtsmanDrawingsScreenState
     required bool isDesktop,
     required double screenWidth,
   }) {
-    final versionsAsync =
-        ref.watch(projectDrawingVersionsProvider(assignment.projectId));
+    final isPending = assignment.assignmentStatus == AssignmentStatus.pending;
+    final versionsAsync = isPending
+        ? const AsyncValue<List<DrawingVersion>>.data([])
+        : ref.watch(projectDrawingVersionsProvider(assignment.projectId));
 
     return versionsAsync.when(
       loading: () =>
@@ -497,7 +499,7 @@ class _DraughtsmanDrawingsScreenState
     Color statusBg;
     Color statusFg;
 
-    if (rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
+    if (rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
       statusText = 'STATUS: REVIEW';
       statusBg = const Color(0xFF85F8C4); // tertiary-fixed
       statusFg = const Color(0xFF069669); // on-tertiary-container
@@ -641,7 +643,7 @@ class _DraughtsmanDrawingsScreenState
       ),
     );
 
-    final isUnderReview = assignment.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderReview = assignment.projectStatus == 'UNDER_ENGINEER_REVIEW' || assignment.projectStatus == 'UNDER_CLIENT_REVIEW';
     final primaryActionBtn = FilledButton.icon(
       onPressed: () {
         if (isUnderReview) {
@@ -2531,7 +2533,7 @@ class _DrawingGridCardState extends State<_DrawingGridCard> {
     final a = widget.assignment;
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
-    final isUnderReview = a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
     final hasCorrection = (a.correctionRound ?? 0) > 0;
 
     String statusText;

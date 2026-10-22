@@ -1,11 +1,21 @@
+﻿import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/message_repository.dart';
 import '../domain/project_message.dart';
 
 /// Provider fetching persisted messages for a specific project.
+/// Includes responsive polling (every 2s) with automatic onDispose lifecycle
+/// cancellation so both parties in an active Collaboration Hub session receive
+/// incoming messages automatically without requiring manual page reload.
 final projectMessagesProvider = FutureProvider.family<List<ProjectMessage>, String>((ref, projectId) async {
   final repository = ref.watch(messageRepositoryProvider);
+
+  final timer = Timer.periodic(const Duration(seconds: 2), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+
   return repository.getProjectMessages(projectId);
 });
 

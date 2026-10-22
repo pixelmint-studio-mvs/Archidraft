@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -30,6 +31,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   @override
+  void didUpdateWidget(LoginScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialRole != oldWidget.initialRole) {
+      _emailController.clear();
+      _passwordController.clear();
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -39,10 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    String email = _emailController.text.trim();
-    if (email == 'mohdanas53@gmail.com' || email == 'mohdanas@gmail.com') {
-      email = 'mohdanas53n@gmail.com';
-    }
+    final email = _emailController.text.trim();
 
     final controller = ref.read(authControllerProvider.notifier);
     final success = await controller.signIn(
@@ -238,10 +245,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: Stack(
         children: [
           // 4 Technical Corner Tick Marks (m-2 / 8px margin, w-4 h-4)
-          const Positioned(top: 8, left: 8, child: _CornerTick(corner: _Corner.topLeft)),
-          const Positioned(top: 8, right: 8, child: _CornerTick(corner: _Corner.topRight)),
-          const Positioned(bottom: 8, left: 8, child: _CornerTick(corner: _Corner.bottomLeft)),
-          const Positioned(bottom: 8, right: 8, child: _CornerTick(corner: _Corner.bottomRight)),
+          const Positioned(
+            top: 8,
+            left: 8,
+            child: _CornerTick(corner: _Corner.topLeft),
+          ),
+          const Positioned(
+            top: 8,
+            right: 8,
+            child: _CornerTick(corner: _Corner.topRight),
+          ),
+          const Positioned(
+            bottom: 8,
+            left: 8,
+            child: _CornerTick(corner: _Corner.bottomLeft),
+          ),
+          const Positioned(
+            bottom: 8,
+            right: 8,
+            child: _CornerTick(corner: _Corner.bottomRight),
+          ),
 
           Padding(
             padding: EdgeInsets.all(cardPadding),
@@ -266,14 +289,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   // Title: "Secure Login"
                   Text(
                     'Secure Login',
-                    style: (isDesktop
-                            ? AppTypography.headlineLg
-                            : AppTypography.headlineLgMobile)
-                        .copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: isDesktop ? -0.32 : -0.24,
-                    ),
+                    style:
+                        (isDesktop
+                                ? AppTypography.headlineLg
+                                : AppTypography.headlineLgMobile)
+                            .copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: isDesktop ? -0.32 : -0.24,
+                            ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 6),
@@ -307,6 +331,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     hint: 'user@example.com',
                     prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.email],
                     validator: Validators.email,
                     enabled: !isLoading,
                   ),
@@ -326,7 +351,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: isLoading ? null : () => context.push('/forgot-password'),
+                        onTap: isLoading
+                            ? null
+                            : () => context.push('/forgot-password'),
                         child: Text(
                           'Forgot Password?',
                           style: AppTypography.labelMonoSm.copyWith(
@@ -346,6 +373,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     prefixIcon: Icons.lock_outline,
                     obscureText: true,
                     textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.password],
                     validator: (v) => Validators.required(v, 'Password'),
                     onFieldSubmitted: (_) => _handleLogin(),
                     enabled: !isLoading,
@@ -362,9 +390,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         backgroundColor: AppColors.primaryContainer,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusDefault,
+                          ),
                         ),
                       ),
                       child: isLoading
@@ -395,7 +428,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     decoration: BoxDecoration(
                       border: Border(
                         top: BorderSide(
-                          color: AppColors.outlineVariant.withValues(alpha: 0.30),
+                          color: AppColors.outlineVariant.withValues(
+                            alpha: 0.30,
+                          ),
                           width: 1.0,
                         ),
                       ),
@@ -415,9 +450,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onTap: isLoading
                               ? null
                               : () => context.push(
-                                    '/register',
-                                    extra: widget.initialRole,
-                                  ),
+                                  '/register',
+                                  extra: widget.initialRole,
+                                ),
                           child: Text(
                             'REGISTER',
                             style: AppTypography.labelMono.copyWith(
@@ -489,10 +524,7 @@ class _CornerTick extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        border: border,
-        borderRadius: borderRadius,
-      ),
+      decoration: BoxDecoration(border: border, borderRadius: borderRadius),
     );
   }
 }

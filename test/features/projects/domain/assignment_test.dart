@@ -96,8 +96,8 @@ void main() {
       expect(count, 2);
     });
 
-    test('underReview counter matches UNDER_CLIENT_REVIEW project status', () {
-      final count = assignments.where((a) => a.projectStatus == 'UNDER_CLIENT_REVIEW').length;
+    test('underReview counter matches review project status', () {
+      final count = assignments.where((a) => a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW').length;
       expect(count, 1);
     });
 
