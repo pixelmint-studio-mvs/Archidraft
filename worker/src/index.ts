@@ -1008,7 +1008,7 @@ app.post('/api/projects/request-correction', async (c) => {
     `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
     db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, 'ENGINEER', `Engineer requested correction (Round ${newRound}).`
+      actionId, projectId, 'CORRECTION_REQUESTED', uid, user.role, `${['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string) ? 'Studio Admin' : 'Engineer'} requested correction (Round ${newRound}).`
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       uuidv4(), project.draughtsman_id, projectId, 'CORRECTION_REQUESTED', 'Correction Requested', `Engineer has requested a correction (Round ${newRound}).`
@@ -1964,6 +1964,7 @@ app.get('/api/projects/:projectId/comments', async (c) => {
       m.sender_name AS author_name,
       m.sender_role AS author_role,
       m.message AS content,
+      m.attachment_file_id,
       f.original_name AS attachment_name,
       CAST(f.size AS TEXT) AS attachment_size,
       f.content_type AS attachment_type,
@@ -1993,23 +1994,34 @@ app.post('/api/projects/:projectId/comments', async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const content = (typeof body.content === 'string' ? body.content : typeof body.message === 'string' ? body.message : '').trim();
-  const attachmentName = body.attachmentName || body.attachment_name || null;
-  const attachmentSize = body.attachmentSize || body.attachment_size || null;
-  const attachmentType = body.attachmentType || body.attachment_type || null;
+  const rawAttachmentFileId = body.attachment_file_id || body.attachmentFileId;
+  let attachmentFileId: string | null = null;
+  let trustedAttachment: any = null;
 
-  if (!content && !attachmentName) {
-    return c.json({ error: 'Comment content or attachment is required' }, 400);
+  if (typeof rawAttachmentFileId === 'string' && rawAttachmentFileId.trim().length > 0) {
+    trustedAttachment = await db.prepare(
+      "SELECT id, original_name, size, content_type FROM files WHERE id = ? AND project_id = ? AND status = 'COMPLETED'"
+    ).bind(rawAttachmentFileId.trim(), projectId).first();
+
+    if (!trustedAttachment) {
+      return c.json({ error: 'Invalid attachment_file_id: file not found or upload not completed', code: 'INVALID_ATTACHMENT' }, 400);
+    }
+    attachmentFileId = trustedAttachment.id;
+  }
+
+  if (!content && !attachmentFileId) {
+    return c.json({ error: 'Comment content or valid attachment is required' }, 400);
   }
 
   const id = crypto.randomUUID();
   const authorName = (user.name as string) || (['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string) ? 'Studio Admin' : user.role === 'CLIENT' || user.role === 'ENGINEER' ? 'Engineer' : 'Draughtsman');
   const authorRole = user.role === 'CLIENT' ? 'CLIENT' : user.role;
 
-  // Insert into authoritative project_messages table
+  // Insert into authoritative project_messages table with validated attachment reference
   await db.prepare(`
-    INSERT INTO project_messages (id, project_id, sender_id, sender_name, sender_role, message)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(id, projectId, uid, authorName, authorRole, content).run();
+    INSERT INTO project_messages (id, project_id, sender_id, sender_name, sender_role, message, attachment_file_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, projectId, uid, authorName, authorRole, content, attachmentFileId).run();
 
   const commentRecord = {
     id,
@@ -2018,9 +2030,10 @@ app.post('/api/projects/:projectId/comments', async (c) => {
     author_name: authorName,
     author_role: authorRole,
     content,
-    attachment_name: attachmentName,
-    attachment_size: attachmentSize ? String(attachmentSize) : null,
-    attachment_type: attachmentType,
+    attachment_file_id: attachmentFileId,
+    attachment_name: trustedAttachment?.original_name || null,
+    attachment_size: trustedAttachment?.size != null ? String(trustedAttachment.size) : null,
+    attachment_type: trustedAttachment?.content_type || null,
     created_at: new Date().toISOString()
   };
 
@@ -3400,6 +3413,83 @@ app.get('/api/admin/assignments', async (c) => {
   `).all();
 
   return c.json(results || []);
+});
+
+// ==========================================
+// ADMIN PROJECT INITIATION ENDPOINT
+// Narrowly scoped, explicitly authorized Admin project creation on behalf of a registered Engineer
+// ==========================================
+
+app.post('/api/admin/projects', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Only administrators can initiate projects via this route', code: 'FORBIDDEN' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const clientId = body.clientId || body.client_id;
+  const projectName = (body.projectName || body.project_name || '').trim();
+  const drawingType = (body.drawingType || body.drawing_type || '').trim();
+  const projectAddress = (body.projectAddress || body.project_address || 'Draughtsman Studio Scope').trim();
+  const drawingName = (body.drawingName || body.drawing_name || `${drawingType} Package`).trim();
+  const projectArea = String(body.projectArea || body.project_area || 1500);
+  const actionId = body.actionId || crypto.randomUUID();
+  const projectId = body.id || body.projectId || ('PRJ-' + crypto.randomUUID().substring(0, 8).toUpperCase());
+
+  if (!clientId) {
+    return c.json({ error: 'Associated Engineer (clientId) is required', code: 'INVALID_CLIENT' }, 400);
+  }
+  if (!projectName) {
+    return c.json({ error: 'Project name is required', code: 'INVALID_PROJECT_NAME' }, 400);
+  }
+  if (!drawingType) {
+    return c.json({ error: 'Drawing type is required', code: 'INVALID_DRAWING_TYPE' }, 400);
+  }
+
+  // Verify associated client exists and is an Engineer/Client
+  const clientUser = await getUser(db, clientId);
+  if (!clientUser || !['ENGINEER', 'CLIENT'].includes(clientUser.role as string)) {
+    return c.json({ error: 'Specified client must be a registered Engineer', code: 'INVALID_ENGINEER' }, 400);
+  }
+
+  if (clientUser.status === 'SUSPENDED') {
+    return c.json({ error: 'Cannot initiate project for a suspended Engineer account', code: 'ACCOUNT_SUSPENDED' }, 403);
+  }
+
+  // Check idempotency if project already exists
+  const existing = await db.prepare('SELECT id, last_action_id, status FROM projects WHERE id = ?').bind(projectId).first();
+  if (existing) {
+    if (existing.last_action_id === actionId) {
+      return c.json({ success: true, id: projectId, idempotent: true });
+    }
+    return c.json({ error: 'Project with this ID already exists', code: 'CONFLICT' }, 409);
+  }
+
+  const batch = [
+    db.prepare(`
+      INSERT INTO projects (
+        id, client_id, project_name, project_address, drawing_name, drawing_type,
+        project_area, status, submitted_at, created_at, last_action_id, correction_round
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'SUBMITTED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, 0)
+    `).bind(projectId, clientId, projectName, projectAddress, drawingName, drawingType, projectArea, actionId),
+    db.prepare(`
+      INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(
+      actionId, projectId, 'PROJECT_CREATED_BY_ADMIN', uid, user.role,
+      `Studio Admin initiated project on behalf of Engineer: ${(clientUser.name as string) || (clientUser.email as string) || clientId}`
+    ),
+    db.prepare(`
+      INSERT INTO notifications (id, user_id, project_id, type, title, message)
+      VALUES (?, ?, ?, 'NEW_PROJECT', 'Project Initiated', 'An architectural drafting project has been initiated on your behalf.')
+    `).bind(crypto.randomUUID(), clientId, projectId)
+  ];
+
+  await db.batch(batch);
+  return c.json({ success: true, id: projectId }, 201);
 });
 
 // ==========================================

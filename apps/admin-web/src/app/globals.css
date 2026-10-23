@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+@theme {
+  --color-midnight: #0d1c32;
+  --color-royal: #0453cd;
+  --color-royal-hover: #0341a1;
+  --color-canvas: #fbf9fb;
+  --color-surface: #ffffff;
+  --color-surface-dim: #f1f5f9;
+  --color-border-subtle: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+}
+
+:root {
+  --background: #fbf9fb;
+  --foreground: #0f172a;
+  --primary-container: #0d1c32;
+  --secondary: #0453cd;
+  --surface: #ffffff;
+  --surface-border: #e2e8f0;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Blueprint Grid Texture */
+.blueprint-bg {
+  background-color: #fbf9fb;
+  background-image: 
+    linear-gradient(to right, rgba(13, 28, 50, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(13, 28, 50, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.blueprint-grid-dark {
+  background-color: #0d1c32;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Architectural Soft Elevation & Glass */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.soft-elevation {
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 1), 
+    0 1px 3px rgba(13, 28, 50, 0.04), 
+    0 8px 24px rgba(13, 28, 50, 0.03);
+}
+
+.glass-elevation {
+  box-shadow: 
+    0 0 0 1px rgba(13, 28, 50, 0.06) inset,
+    0 20px 40px -12px rgba(13, 28, 50, 0.08);
+}
+
+/* Technical Corner Markings */
+.technical-corner-tl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 1.5px solid #cbd5e1;
+  border-left: 1.5px solid #cbd5e1;
+  border-top-left-radius: 4px;
+}
+
+.technical-corner-tr {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-top: 1.5px solid #cbd5e1;
+  border-right: 1.5px solid #cbd5e1;
+  border-top-right-radius: 4px;
+}
+
+.technical-corner-bl {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-bottom: 1.5px solid #cbd5e1;
+  border-left: 1.5px solid #cbd5e1;
+  border-bottom-left-radius: 4px;
+}
+
+.technical-corner-br {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  border-bottom: 1.5px solid #cbd5e1;
+  border-right: 1.5px solid #cbd5e1;
+  border-bottom-right-radius: 4px;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
