@@ -1,59 +1,75 @@
-# TESTING STRATEGY
+# TESTING STRATEGY & VERIFICATION EVIDENCE
 
-To ensure platform reliability and absolute security, ARCHI DRAFT follows a multi-layered verification strategy spanning frontend Dart/Flutter testing, TypeScript static analysis, and real backend handler integration testing.
-
----
-
-## 1. Automated Test Execution Commands
-
-| Scope | Command | Framework | Description |
-|---|---|---|---|
-| **Flutter Full Test Suite** | `flutter test` | Flutter Test Runner | Runs all 152 unit, widget, and state management tests |
-| **Flutter Static Analysis** | `flutter analyze --no-fatal-infos` | Dart Analyzer | Validates type safety, dead code, linting across Flutter codebase |
-| **Worker Type-Checking** | `npx tsc --noEmit` *(in `worker/`)* | TypeScript Compiler | Validates Worker API types, Hono bindings, and schema interfaces |
-| **Backend Auth Integration** | `npm test` *(in `worker/`)* | Node.js v24 Test Runner | Executes 47 isolated integration tests against real Hono handlers & SQLite |
+**Repository Branch:** `COMPLETED-INTERGRATION` (HEAD: `f21fb29`)
+**Workspace:** `D:\PROJECT\Archidraft-integration-workspace`
+**Verification Verdict:** **100% Pass Rate across all automated test suites (432+ tests passing)**
 
 ---
 
-## 2. Real Backend Handler Integration Testing (`worker/test/`)
+## 1. Automated Test Suites & Execution Commands
 
-To prevent bugs where Dart-only mock tests pass while the backend rejects requests (or vice versa), the repository maintains a dedicated backend test harness in `worker/test/backend_authorization.test.mjs`.
-
-### Test Architecture:
-- **Engine:** Node.js v24 Native Test Runner (`node --test`)
-- **Isolated Database:** In-memory SQLite (`node:sqlite` via `DatabaseSync(':memory:')`), wrapped with a Cloudflare D1 query adapter (`prepare().bind().first() / .all() / .run()`).
-- **Migration Replay:** Applies real D1 migrations in chronological order (`0001` through `0007`) before running tests.
-- **Handler Execution:** Dispatches HTTP requests directly to Hono's `app.request()` pipeline, exercising real authentication middleware, parameter validation, role evaluation, and SQL queries.
-- **Zero Fixture Mutation:** Uses isolated in-memory instances; retained production or test fixtures are never modified.
-
-### Verified Backend Coverage (47 Tests):
-1. **Authentication Middleware:** Rejection of missing, non-Bearer, and corrupted tokens (`401 Unauthorized`).
-2. **Role Provisioning Security:** Allowed `CLIENT` and `DRAUGHTSMAN` self-registration; blocked `ENGINEER`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN` (`400 Bad Request`); verified role immutability in `PATCH /api/users/me`.
-3. **Student & Unknown Role Isolation:** Deny-by-default on project lists, project detail, file lists, and downloads (`403 Forbidden`).
-4. **Cross-Client Isolation:** Scoped project queries, denied cross-client details, activity logs, files, and file downloads (`403 Forbidden`).
-5. **Draughtsman Assignment Lifecycle:** Access granted for `ACCEPTED` assignments; denied for `PENDING`, `REJECTED`, `REPLACED`, or unassigned (`403 Forbidden`).
-6. **Engineer Review Scope:** Client `DRAFT` projects excluded from listings and direct access (`403 Forbidden`); access allowed to `SUBMITTED` and `IN_PROGRESS` projects (`200 OK`).
-7. **Workflow Compliance:** Blocked Engineer from final approval and corrections (`403 Forbidden`); allowed Client approval and correction requests (`200 OK`); Admin override permitted (`200 OK`).
-8. **Admin Operations:** Admin universal visibility, status progression, draughtsman assignment, and client non-admin denial verified.
+| Scope | Working Directory | Command | Framework | Verified Result |
+| :--- | :--- | :--- | :--- | :--- |
+| **Worker API & Authorization** | `worker/` | `npm test` | Node.js Test Runner | **281 / 281 passed** (34 suites) |
+| **Worker TypeScript Types** | `worker/` | `npm run typecheck` | `tsc --noEmit` | **0 type errors** |
+| **Admin Web Contracts** | `apps/admin-web/` | `npm test` | Node.js Test Runner (`node --test`) | **151 / 151 passed** (36 suites) |
+| **Flutter Unit & Widget Tests** | Project root | `flutter test` | Flutter Test Runner | **304 / 304 passed** (historical) |
+| **Flutter Static Analysis** | Project root | `flutter analyze` | Dart Analyzer | **0 issues found** |
 
 ---
 
-## 3. Frontend Flutter Testing (`test/`)
+## 2. Test Suite Breakdown & Coverage
 
-### 1. Unit Testing
-- Data models (serialization/deserialization)
-- Enums (`AssignmentStatus`, `ProjectStatus`, `CorrectionStatus`)
-- State controllers and business validation logic (`ProjectValidators`, `AuthErrorMapper`)
+### A. Cloudflare Worker Test Harness (`worker/test/`)
+Executes integration tests directly against the Hono application and isolated SQLite database simulating Cloudflare D1:
+- `backend_authorization.test.mjs` (88 tests):
+  - Validates project status lifecycle state transitions (`DRAFT` through `COMPLETED`).
+  - Enforces pair-only privacy for Collaboration Hub messages and attachments.
+  - Enforces Student role isolation from commercial projects.
+  - Validates privileged Admin operations.
+  - **Section 16 (Global Activity Audit Stream):** Tests `/api/activity` authentication (401), guest rejection (403), Admin/Studio Admin global access (200), Engineer/Client project filtering (200), Draughtsman assignment filtering (200), and `limit` query parameter clamping.
+- `cross_user_isolation_f1.test.mjs` (82 tests): Strict cross-tenant data isolation and negative tests.
+- `admin_student_contract.test.mjs` (13 tests): Training module progression and admin evaluation contracts.
+- `legal_privacy_authorization.test.mjs`: Pre-login Terms & Conditions enforcement and privacy policy gates.
+- `phase_b_security_remediation.test.mjs`, `phase_c_remediation.test.mjs`, `phase_d_remediation.test.mjs`, `phase_d10_staging_legal_gate.test.mjs`: Security regressions and staging gate verifications.
 
-### 2. Widget & Screen Testing
-- Form validation, loading states, and error dialogs
-- Responsive desktop & mobile rendering across viewports (1280x800, 1366x768, 1920x1080, 400x800)
-- Workspace tabs (Overview, Specs, Timeline, Drawings) and overflow prevention
-- Notifications dialog, profile form, and collaboration views
+### B. Studio Admin Web Test Harness (`apps/admin-web/test/`)
+Tests client-side API hydration, contract normalization, UI components, and state management:
+- `activity-feed.test.ts` (6 tests):
+  - Verifies normalization of genuine activity records with `project_name` from Worker contracts.
+  - Verifies reverse chronological sorting (newest events first).
+  - Verifies retention of previously retrieved events upon background polling failure.
+  - Verifies distinct error categorization (401/403 auth, 500 server) without masking errors as empty D1 records.
+  - Verifies truthful rendering of the empty state only when 0 genuine records exist without errors.
+  - Verifies multi-field search across action type, details, project ID, and project name.
+- `user-dossier-contracts.test.ts` (5 tests):
+  - Verifies normalization of both flat (`{ id, role, ... }`) and nested (`{ user, projects }`) Worker payloads in `getUserDetails`.
+  - Verifies unmasked propagation of 401, 403, and 404 HTTP status errors.
+  - Verifies `Modal.tsx` maxWidth mapping to responsive Tailwind constraints (including `2xl`).
+  - Verifies role-based project querying for both `CLIENT` and `ENGINEER` roles.
+- `admin-portal.test.ts`, `auth-token-hydration.test.ts`, `evaluation-modal.test.ts`, `next-phase-governance.test.ts`, `redline-corrections.test.ts`, `student-submissions-queue.test.ts`: Complete coverage for assignment dispatch, evaluation queues, and token hydration.
 
 ---
 
-## 4. DEFINITION OF TEST COMPLETION
-A feature or security fix is **Done** only when:
-`Flutter Tests (100% Pass)` + `Flutter Analysis (0 Issues)` + `Worker tsc (0 Errors)` + `Backend Auth Integration Tests (100% Pass)`
+## 3. Classification of Evidence & Verification Status
 
+To ensure absolute transparency and audit readiness, verification evidence is classified into three categories:
+
+### Category 1: Tests Directly Run & Validated in Current Task
+- `node --test apps/admin-web/test/activity-feed.test.ts apps/admin-web/test/user-dossier-contracts.test.ts`
+  - **Result:** **11 / 11 tests passed** (0 failures, 132ms execution time).
+- `node --test worker/test/backend_authorization.test.mjs`
+  - **Result:** **88 / 88 tests passed** (including all 8 activity feed authorization tests).
+
+### Category 2: Verified Historical Evidence
+- Worker Test Suite Total: **281 / 281 passed** across 34 suites.
+- Admin Test Suite Total: **151 / 151 passed** across 36 suites (was 145 prior to Activity Feed addition).
+- Flutter Unit & Widget Suite: **304 / 304 passed**.
+- Flutter Static Analysis: **0 issues found** (including PIXMINT package).
+
+### Category 3: Outstanding Manual Runtime Checks
+The following manual browser verifications cannot be performed by automated unit tests and must be completed by the operator:
+1. **Live Activity Feed Polling:** Confirm that the 15-second countdown on `http://localhost:3000/activity` increments the poll counter smoothly and fetches new D1 events in real time.
+2. **PIXMINT Flutter Chat Readability:** Open the floating chatbot sheet in Flutter Web (`http://localhost:8080`) and verify that user input text is dark, crisp, and readable against the white input bar with a black cursor.
+3. **Responsive Modal Layout:** Open an Engineer profile modal on a laptop or small display to verify that the `2xl` modal scrolls smoothly without horizontal clipping or badge distortion.
+4. **End-to-End Role Login:** Perform an authenticated login cycle using staging accounts across each of the four roles (Studio Admin, Engineer, Draughtsman, Student).

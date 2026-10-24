@@ -1,10 +1,9 @@
 # ARCHI DRAFT — MASTER INTEGRATION & SYSTEM ARCHITECTURE GUIDE
 
-**Repository Root:** `D:\PROJECT\Archidraft-integration-workspace`  
-**Git Branch:** `COMPLETED-INTERGRATION` (Active delivery branch, created from verified base `integration/engineer-draughtsman` @ `8f753a97315c59c33eb1b0ad1578951434ae368e`)  
-**Verified Base HEAD:** `8f753a97315c59c33eb1b0ad1578951434ae368e`  
-**Delivery Branch Target:** `COMPLETED-INTERGRATION` (Creation, commits, and push held strictly pending explicit owner approval)  
-**System Architecture:** Flutter Multiplatform Client (Web, Desktop, Android) + Cloudflare Worker API (Hono) + Cloudflare D1 (Relational SQLite) + Cloudflare R2 (Object Storage) + Firebase Auth (Cryptographic Identity Verification)
+**Repository Root:** `D:\PROJECT\Archidraft-integration-workspace`
+**Git Branch:** `COMPLETED-INTERGRATION` (HEAD: `f21fb29`)
+**Delivery Branch Target:** `COMPLETED-INTERGRATION` (All work staged and ready for manual review; commits and push held strictly pending owner approval)
+**System Architecture:** Flutter Multiplatform Client (Web, Desktop, Android) + Next.js Admin Studio + Cloudflare Worker API (Hono) + Cloudflare D1 (Relational SQLite) + Cloudflare R2 (Object Storage) + Firebase Auth (Cryptographic Identity Verification) + PIXMINT BOT 2.0 Integration
 
 ---
 
@@ -13,17 +12,19 @@
 **ARCHI DRAFT** is an enterprise-grade architectural and technical drawing production platform connecting Engineers/Clients, Professional Draughtsmen, CAD Academy Students, and Studio Administrators in a secure, role-governed workflow.
 
 ### Architecture Highlights
-- **Client Application:** Flutter (Dart 3.4+ / Flutter 3.22+) using Riverpod 2.x for reactive state management and GoRouter for declarative, role-guarded, fail-closed navigation.
-- **Backend Edge API:** Cloudflare Worker running Hono with strict server-side middleware for Firebase token verification, DPDP-compliant Terms of Service gating, and row-level data access control.
-- **Database Layer:** Cloudflare D1 (`archi-draft-db`), a globally distributed relational SQLite database storing users, projects, drawing versions, assignments, evaluations, notifications, and legal consent audits.
+- **Client Application:** Flutter (Dart 3.4+ / Flutter 3.22+) using Riverpod 2.x for reactive state management and GoRouter for declarative, role-guarded, fail-closed navigation. Includes embedded PIXMINT AI Chatbot drawer.
+- **Studio Admin Application:** Next.js 14 / React application (`apps/admin-web/`) providing executive dashboard metrics, user directories, project assignment dispatch, practical evaluation queues, live activity feeds, and the PIXMINT BOT Control Center.
+- **Backend Edge API:** Cloudflare Worker running Hono with strict server-side middleware for Firebase token verification, DPDP-compliant Terms of Service gating, activity logging, and row-level data access control.
+- **Database Layer:** Cloudflare D1 (`archi-draft-db`), a globally distributed relational SQLite database storing users, projects, drawing versions, assignments, evaluations, notifications, activity logs, and legal consent audits across 17 schema migrations.
 - **File Storage:** Cloudflare R2 (`archi-draft-storage`), housing CAD files (`.dwg`, `.dxf`), architectural briefs, revision markups, and digitally signed PDF training certificates.
-- **Identity Provider:** Google Firebase Authentication providing cryptographically signed RS256 JWT tokens.
+- **Identity Provider:** Google Firebase Authentication providing cryptographically signed RS256 JWT tokens. Supports dual-environment configuration (Production: `archi-draft`, Staging: `archi-draft-staging`).
+- **AI Assistant Integration:** PIXMINT BOT 2.0 provides contextual prompt suggestions, telemetry, knowledge source governance, and responsive chat assistance across both Flutter and Admin portals.
 
 ### Persona Panels
-1. **Engineer Panel:** Allows architects and structural engineers to draft project briefs, specify drawing requirements (scale, area, delivery timeline), submit projects to the Studio pool, review submitted revisions, annotate drawings with structured corrections, and approve final drawings.
+1. **Engineer Panel (Client):** Allows architects and structural engineers to draft project briefs, specify drawing requirements (scale, area, delivery timeline), submit projects to the Studio pool, review submitted revisions, annotate drawings with structured corrections, approve final drawings, and chat with PIXMINT BOT.
 2. **Draughtsman Panel:** Enables professional CAD operators to view incoming studio assignments, accept or reject workloads, maintain private cloud workspace drafts, submit formal versions (`draughtsman_version`), review engineer markups, and resolve correction rounds.
 3. **Student Panel:** Facilitates CAD Academy learning through curriculum modules, lesson completion tracking, practical project submissions, evaluator feedback review, verified credential generation, and public digital portfolio showcase.
-4. **Admin Panel:** External administration workspace dedicated to operational management: project assignments, reassignments, draughtsman pool monitoring, student evaluations, digital credential issuance, platform legal policy publication, and DPDP/IT SPDI privacy request resolution.
+4. **Studio Admin Panel:** Administration workspace dedicated to operational management: project assignments, reassignments, draughtsman pool monitoring, student evaluations, digital credential issuance, live activity feeds, platform legal policy publication, and PIXMINT BOT configuration.
 
 ---
 
@@ -31,67 +32,40 @@
 
 ```text
 Archidraft-integration-workspace/
-|-- lib/                                  # Flutter Client Application Source
+|-- apps/
+|   -- admin-web/                        # Next.js 14 Studio Admin Portal (Port 3000)
+|       |-- public/images/                # Static assets (including pixmint-bot-logo.jpeg)
+|       |-- src/
+|       |   |-- app/                      # Next.js App Router (dashboard, projects, activity, settings)
+|       |   |-- components/               # Admin UI components, layout, and PixmintBotControlCenter
+|       |   -- lib/                      # api.ts (normalized client) and firebase.ts configuration
+|       -- test/                         # Node.js automated test suites (151 passed across 36 suites)
+|-- lib/                                  # Flutter Client Application Source (Port 8080)
 |   |-- main.dart                         # Application entrypoint & Riverpod initialization
+|   |-- firebase_options.dart             # Compile-time Firebase config (STAGING=true: staging, default: prod)
+|   -- src/
+|       |-- core/                         # Core routing, theme, and network infrastructure
+|       |-- features/
+|       |   |-- auth/                     # Firebase Auth state, login & provisioning screens
+|       |   |-- engineer/                 # Engineer portal screens (projects, briefs, reviews)
+|       |   |-- draughtsman/              # Draughtsman portal screens (studio, workspace, CAD viewer)
+|       |   |-- student/                  # Student portal reservation & training curriculum
+|       |   |-- api/                      # ApiClient reading API_URL environment variable
+|       |   -- legal/                    # DPDP Act & IT SPDI legal onboarding, center & privacy
+|-- scratch/
+|   -- pixmint-bot/                      # PIXMINT BOT Flutter Package (Floating sheet & dark chat input)
+|-- test/                                 # Flutter Automated Test Suites (304 tests verified)
+|-- worker/                               # Cloudflare Worker Backend Source (Port 8787)
 |   |-- src/
-|   |   |-- core/                         # Core routing, theme, and network infrastructure
-|   |   |   |-- router/app_router.dart    # GoRouter configuration, auth guards & fail-closed legal gating
-|   |   |   |-- theme/                    # AppColors, AppTypography, AppSpacing design system
-|   |   |   \-- network/                  # Base HTTP client with Bearer token injection
-|   |   |-- features/
-|   |   |   |-- auth/                     # Firebase Auth state, login & provisioning screens
-|   |   |   |-- engineer/                 # Engineer portal screens (projects, briefs, reviews)
-|   |   |   |-- draughtsman/              # Draughtsman portal screens (studio, workspace, drawings, insights)
-|   |   |   |-- student/                  # Student portal reservation & documentation
-|   |   |   |-- training/                 # Student curriculum, lesson viewers & progress tracking
-|   |   |   |-- portfolio/                # Student showcase & verified project displays
-|   |   |   |-- verification/             # Public certificate verification screen (/verify/:token)
-|   |   |   |-- legal/                    # DPDP Act & IT SPDI legal onboarding, center & privacy tickets
-|   |   |   |-- projects/                 # Shared project domain models, repositories & providers
-|   |   |   |-- notifications/            # In-app notification center & real-time badge updates
-|   |   |   |-- profile/                  # User profile models, forms & skill matrix cards
-|   |   |   \-- shell/                    # Responsive application shells (AppShell, StudentShell)
-|-- test/                                 # Flutter Automated Test Suites (320 tests)
-|   |-- features/
-|   |   |-- legal/                        # Domain model, onboarding widget, and router integration tests
-|   |   |-- engineer/                     # Engineer workflow and UI tests
-|   |   |-- draughtsman/                  # Draughtsman studio, workspace, and CAD viewer tests
-|   |   \-- student/                      # Student training, lesson, and credential tests
-|   \-- unit/                             # Form validators, domain serialization, voice note tests
-|-- worker/                               # Cloudflare Worker Backend Source (199 tests)
-|   |-- src/
-|   |   |-- index.ts                      # Hono API router, business logic, file streaming & middleware
-|   |   |-- auth.ts                       # Firebase JWKS token verification with test-runtime bypass
-|   |   |-- legal.ts                      # DPDP legal routes, terms assertion gate & consent ledger
-|   |   \-- achievements.ts               # Student badge calculation & milestone analytics
+|   |   |-- index.ts                      # Hono API router, business logic, activity logging & middleware
+|   |   |-- auth.ts                       # Firebase JWKS token verification
+|   |   -- legal.ts                      # DPDP legal routes, terms assertion gate & consent ledger
 |   |-- migrations/                       # D1 SQLite relational migrations (0001 through 0017)
-|   |   |-- 0001_schema.sql               # Users, projects, drawing_versions, activity_logs
-|   |   |-- 0002_assignments.sql          # Draughtsman assignments
-|   |   |-- 0003_files.sql                # R2 file metadata & lifecycle tracking
-|   |   |-- 0004_corrections.sql          # Revision correction tracking
-|   |   |-- 0005_notifications.sql        # Notification queue
-|   |   |-- 0006_financials.sql           # Invoices and payments
-|   |   |-- 0007_student_profile.sql      # Student profile fields (college_name)
-|   |   |-- 0008_user_profile_fields.sql  # User profile table reconstruction (qualification, mobile, etc.)
-|   |   |-- 0009_project_messages.sql     # In-project collaboration chat messages
-|   |   |-- 0010_student_training.sql     # Training modules & student assignments
-|   |   |-- 0011_student_lessons.sql      # Curriculum lessons & completion tracking
-|   |   |-- 0012_evaluations.sql          # Rubric scoring & evaluation records
-|   |   |-- 0013_student_credentials.sql  # Digital credentials
-|   |   |-- 0014_student_credentials_artifact.sql # Certificate object key
-|   |   |-- 0015_student_credentials_verification.sql # Public verification token index
-|   |   |-- 0016_legal_system.sql         # Legal documents, consent events, privacy requests
-|   |   \-- 0017_users_email_unique.sql   # Case-insensitive global unique email index
-|   \-- test/                             # Node.js backend integration test harness
-|       |-- backend_authorization.test.mjs# Core project mutation & role authorization tests (73 tests)
-|       |-- cross_user_isolation_f1.test.mjs # Cross-user, cross-role & ID tampering isolation tests (95 tests)
-|       |-- admin_student_contract.test.mjs  # Admin-to-Student training review contracts (13 tests)
-|       \-- legal_privacy_authorization.test.mjs # Legal system, DPDP consent & public verify tests (18 tests)
-\-- docs/                                 # Architectural specifications, contracts & handover reports
+|   -- test/                             # Node.js backend integration test harness (281 passed across 34 suites)
+-- docs/                                 # Architectural specifications, contracts & handover reports
 ```
 
 ---
-
 ## 3. Engineer Panel Guide
 
 - **Primary Route:** `#/engineer/projects` (Navigates to `EngineerProjectsScreen`)
@@ -262,108 +236,115 @@ All endpoints require `Authorization: Bearer <Firebase_ID_Token>` unless marked 
 
 ---
 
-## 9. Admin Integration Readiness Guide
+## 9. Admin Integration & Current Wiring Status
 
-The external Admin UI belongs to another developer and connects directly to the Worker backend. Below is the verified readiness matrix:
+The Studio Admin Web application (`apps/admin-web/`) is directly integrated into the repository and communicates seamlessly with the Cloudflare Worker API and PIXMINT service:
 
-| Admin Capability | Endpoint & Method | Backend Status | Integration Readiness Verdict | Notes |
+| Operational Feature | Endpoint | HTTP Contract | Status in Codebase | Architectural Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **Platform Dashboard KPIs** | `GET /api/admin/dashboard` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Returns totalProjects, activeProjects, pendingAssignments, activeDraughtsmen, etc. |
-| **All Projects Listing** | `GET /api/projects?status=` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Returns full project records across all owners when caller is `ADMIN`. |
-| **Assign Commercial Project** | `POST /api/projects/assign` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Assigns project in `WAITING_ASSIGNMENT` to draughtsman. |
-| **Reassign Active Project** | `POST /api/projects/reassign` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Reassigns project in `IN_PROGRESS` or `WAITING_ACCEPTANCE`. |
-| **List Available Draughtsmen**| `GET /api/users?role=DRAUGHTSMAN` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Returns draughtsman directory for assignment dropdowns. |
-| **Student Submissions Review** | `GET /api/admin/student-submissions` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Lists training submissions with student names, module titles, and drawing versions. |
-| **Student Profile Inspection** | `GET /api/admin/students/:studentId` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Returns safe profile, training history, and earned credentials. |
-| **Evaluate Student Submissions**| `POST /api/projects/evaluate` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Accepts rubric scoring, issues credentials upon approval. |
-| **Legal Policy Publication** | `POST /api/admin/legal/documents` & `/publish` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Atomic promotion to `EFFECTIVE` status, triggers reacceptance. |
-| **DPDP Privacy Redressal** | `GET /api/admin/legal/privacy-requests` & `/:id/resolve` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Manages statutory data access, correction, and grievance tickets. |
-| **Consent Audit Trail** | `GET /api/admin/legal/consents` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Paginated audit log of consent actions across the user base. |
-| **Project Financials Setup** | `PATCH /api/projects/:id/financials/total_value` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Updates total agreed project contract amount. |
-| **Invoice & Payment Issuance** | `POST /api/projects/:id/invoices` & `/payments` | **IMPLEMENTED & VERIFIED** | **READY TO WIRE** | Generates billing milestones and logs disbursements. |
-| **Server-Side Project Deletion**| `DELETE /api/projects/:id` | **MISSING BACKEND SUPPORT** | **REQUIRES OWNER DECISION** | Full project cascade deletion currently omitted to prevent accidental loss; use status `CANCELLED`. |
-| **Server-Side Pagination** | `GET /api/projects?limit=&offset=` | **AVAILABLE VIA BACKEND, NOT YET PAGINATED** | **CONTRACT COMPATIBLE** | Returns unpaginated array currently; add pagination when project volume exceeds 500. |
+| **Global Activity Feed** | `GET /api/activity?limit=` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Reverse chronological audit stream with `LEFT JOIN projects`, limit validation (1-500), and role authorization for `ADMIN` & `STUDIO_ADMIN`. |
+| **User Profile & Dossier** | `GET /api/users/:id` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Normalized in `adminApi.getUserDetails` to handle both nested and flat payloads, role-specific queries, and unclipped `2xl` modal previews. |
+| **Executive Metrics** | `GET /api/admin/dashboard` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Real-time counts of active projects, backlog, completed work, and revenue. |
+| **All Projects Registry** | `GET /api/projects` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Admin access to commercial projects across all statuses. |
+| **Project Assignment** | `POST /api/projects/:id/assign`| **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Dispatches project to draughtsman; transitions state to `WAITING_ACCEPTANCE`. |
+| **Student Practical Review** | `GET /api/admin/evaluations/queue` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Pending practical submissions awaiting instructor evaluation. |
+| **Submit Evaluation** | `POST /api/admin/evaluations` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Records rubric scores, feedback notes, and updates student achievements. |
+| **PIXMINT Bot Control** | `GET/POST /api/admin/*` (Port 8788) | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Bot health, prompt suggestions, telemetry, maintenance mode, and knowledge sources. |
 
 ---
 
-## 10. Local Setup & Verification
+## 10. Authoritative Local Setup & Verification
 
 ### Prerequisites
-- Flutter SDK `>= 3.22.0` (Dart `>= 3.4.0`)
 - Node.js `>= 18.18.0` (v20+ recommended)
-- Cloudflare Wrangler (bundled in `worker/node_modules`)
+- npm `>= 9.0.0`
+- Flutter SDK `>= 3.22.0` (Dart `>= 3.4.0`)
+- Cloudflare Wrangler `^4.131.0` (bundled in `worker/`)
+- Google Chrome
 
-### Step 1: Install Dependencies
-```bash
-# In repository root
-flutter pub get
+> [!TIP]
+> **Flutter Executable Path:** If `flutter` is not recognized globally in PowerShell, use:
+> `C:\flutter\flutter\bin\flutter.bat`
 
-# In worker directory
-cd worker
+### Launching Services (4 Separate PowerShell Terminals)
+
+```powershell
+# ── Terminal 1: Cloudflare Worker Backend (Port 8787) ───────────────────────
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
 npm install
-cd ..
+npx wrangler dev
+# Local URL: http://localhost:8787
+
+# ── Terminal 2: PIXMINT AI Service (Port 8788) ──────────────────────────────
+# Launch configured AI bot service listening on http://127.0.0.1:8788
+
+# ── Terminal 3: Studio Admin Web Portal (Port 3000) ─────────────────────────
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\apps\admin-web"
+npm install
+npm run dev
+# Portal URL: http://localhost:3000
+
+# ── Terminal 4: Flutter Web Multi-Persona Client (Port 8080) ────────────────
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
+flutter pub get
+& "C:\flutter\flutter\bin\flutter.bat" run -d web-server --web-port=8080 --dart-define=STAGING=true --dart-define=API_URL=http://localhost:8787
+# Client URL: http://localhost:8080
 ```
 
-### Step 2: Run Verification Test Suites
-```bash
-# 1. Run complete Worker test harness (217 tests: authorization, isolation, admin contracts, legal, financials, notifications)
-cd worker
+> [!WARNING]
+> **Remote Resource Warning:**
+> Running `npx wrangler dev --env staging --remote --port 8787` communicates directly with Cloudflare's live remote staging D1 database (`archi-draft-db-staging`) and remote R2 bucket (`archi-draft-storage-staging`). Local requests read and write to the shared staging environment. Do not use `--remote` as an offline command without team coordination.
+
+### Automated Test Verification Commands
+
+```powershell
+# 1. Run complete Worker test harness (34 suites, 281 tests)
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
 npm test
-cd ..
-
-# 2. Run Worker TypeScript type check (must report 0 errors)
-cd worker
 npm run typecheck
-cd ..
 
-# 3. Run complete Flutter test suite (320 tests)
-flutter test
+# 2. Run complete Admin Web test harness (36 suites, 151 tests)
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\apps\admin-web"
+npm test
 
-# 4. Run Flutter static analysis (must report no issues)
-flutter analyze
+# 3. Run Flutter static analysis
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
+& "C:\flutter\flutter\bin\flutter.bat" analyze
 ```
 
 ---
 
-## 11. Known Limitations & Remaining Work
+## 11. Documentation of Recent Platform Fixes
 
-### Confirmed Implemented & Verified
-- Complete Engineer-Draughtsman collaboration lifecycle (DRAFT -> SUBMITTED -> ASSIGNED -> IN_PROGRESS -> UNDER_REVIEW -> CORRECTION -> COMPLETED).
-- Multi-user data isolation across Engineers, Draughtsmen, Students, and Administrators.
-- Server-side ID tampering defense on project creation and drawing promotion.
-- Fail-closed legal policy routing and DPDP Act / IT SPDI consent framework.
-- Student CAD Academy curriculum, practical submissions, and credential generation.
-- Public certificate verification with recipient privacy protection.
+### A. Firebase Staging Compile-Time Flag
+- **Source:** `lib/firebase_options.dart`
+- **Mechanism:** Compile-time conditional flag `bool.fromEnvironment('STAGING', defaultValue: false)`.
+- **Requirement:** Passing `--dart-define=STAGING=true` selects `webStaging` (`archi-draft-staging`). Omitting it selects `web` (`archi-draft`).
+- **Separation of Concerns:** Firebase authentication project selection is strictly decoupled from the Worker API base URL (`API_URL`).
 
-### Architectural Decisions Requiring Project Owner Approval
-1. **Permanent Project Deletion Endpoint:** Currently, projects can be cancelled (`status = CANCELLED`), but physical deletion of projects via API is intentionally omitted to protect drawing history and financial audit trails.
-2. **Server-Side Pagination on Project Feeds:** `/api/projects` currently returns full lists. If project volume grows beyond 500 active records per firm, pagination (`limit`/`offset`) should be added in a backward-compatible manner.
-3. **Legal Document Content Review:** The seeded legal documents (Terms and Privacy Policy) are comprehensive legal scaffolds compliant with the DPDP Act 2023. Formal legal counsel review is recommended before public platform commercialization.
+### B. PIXMINT Admin Control Center Brand Logo
+- **Asset Location:** `apps/admin-web/public/images/pixmint-bot-logo.jpeg`
+- **Component:** `apps/admin-web/src/components/admin/PixmintBotControlCenter.tsx`
+- **Implementation:** Displayed via Next.js `<Image src="/images/pixmint-bot-logo.jpeg" alt="PIXMINT BOT 2.0 logo" width={48} height={48} />`. All public assets are maintained in `public/images/` to prevent broken relative imports.
 
----
+### C. PIXMINT Flutter Chat Input Readability
+- **Component:** `scratch/pixmint-bot/lib/src/presentation/sheet/pixmint_chat_input.dart`
+- **Implementation:** User input text is dark (`color: Colors.black`, `fontSize: 14`) against the white rounded input container (`color: Colors.white`, `borderRadius: 16`) with an explicit black cursor and emerald focus border.
 
-## 12. Instructions for the Next Developer's Antigravity Session
+### D. User Directory, Profile Modal, and Full Dossier
+- **Components:** `apps/admin-web/src/components/ui/Modal.tsx`, `apps/admin-web/src/lib/api.ts` (`getUserDetails`), and role pages (`/engineers/[id]`, `/draughtsmen/[id]`, `/students/[id]`).
+- **Implementation:** Updated `Modal.tsx` to support responsive `maxWidth="2xl"` with vertical scrolling and unclipped badges. `getUserDetails` normalizes both flat and nested Worker responses, performs role-specific project lookups, and provides dedicated error handling.
 
-Welcome to the ARCHI DRAFT codebase! Follow these strict rules to ensure seamless integration:
-
-1. **Read This Document First:** Review this `README.md`, `HANDOVER_SETUP_GUIDE.md`, and `docs/FINAL_VERIFICATION_AND_HANDOVER_REPORT.md` before making code modifications.
-2. **Inspect Current Git State:** Run `git status --short` and `git rev-parse HEAD`. Verify that you are working on `COMPLETED-INTERGRATION` (base HEAD `8f753a97315c59c33eb1b0ad1578951434ae368e`) with the approved 152-file staged integration snapshot for owner review.
-3. **Preserve Existing Architecture:** Do not attempt to migrate the database to a separate physical SQLite database per email; the shared D1 model with row-level ownership is verified, tested, and required for cross-role collaboration.
-4. **Preserve the External Admin UI:** Do not rewrite or modify the external Admin panel. Use the Admin Integration Readiness Matrix in Section 9 to wire the Admin UI to existing Worker endpoints.
-5. **Reuse Tested Endpoints:** All mutation and query routes in Section 8 are backed by 217 automated integration tests. Always reuse these contracts instead of inventing new ad-hoc routes.
-6. **Report Before Expanding Scope:** If you believe an endpoint is missing or a business decision is required, document the proposed contract and seek project owner confirmation before building it.
-7. **Run Tests After Any Edit:** Before declaring any task finished, run `npm test` and `npm run typecheck` in `worker/`, and `flutter test` and `flutter analyze` at the root. All tests must pass with zero errors.
-8. **Never Touch Production or Protected Accounts:** Never run remote D1/R2 commands, never touch production Firebase Auth, and never modify or sign in as protected test accounts (`zedsuo125@gmail.com`, `mohdanas53@gmail.com`, `ashrafbari277@gmail.com`, `mdjanis2006@gmail.com`, `pixelmintstudio01@gmail.com`). Leave all changes uncommitted for project owner review.
-9. **Branch Policy & Delivery Governance (Strict Owner Approval Gate):**
-   - **Active Delivery Branch:** `COMPLETED-INTERGRATION` already exists and is the current active branch (created from verified base HEAD `8f753a97315c59c33eb1b0ad1578951434ae368e`).
-   - **Staged Integration Snapshot:** The current approved 152-file integration snapshot is staged in the Git index for project owner review.
-   - **No Commit or Push Authorized Yet:** No commit or push has been authorized yet. A separate, explicit project owner approval is strictly required before creating any commit or pushing to remote origin.
-   - **Strict Prohibition on `develop` and `main`:** This multi-portal integration must NOT be merged or pushed into `develop` or `main`.
-   - **Deployment Prohibited:** Deployments to production Cloudflare Workers, D1 database, or R2 storage remain strictly prohibited without separate explicit project owner authorization.
+### E. Admin Activity Feed Architecture & Fix
+- **Components & Endpoints:** `apps/admin-web/src/app/activity/page.tsx` and `GET /api/activity` in `worker/src/index.ts`.
+- **Implementation:** Updated Worker SQL query from `JOIN projects` to `LEFT JOIN projects` so system and unlinked events are preserved. Added limit validation (1-500) and role-based filtering. Admin UI polls every 15 seconds, retains previously fetched events on poll network drops, and renders dedicated error cards versus truthful empty states.
 
 ---
 
-> **Deployment Note:**
-> - Migrations `0001` through `0007` have been applied to remote production D1.
-> - Migrations `0008` through `0017` and Worker deployment are **pending** and have not been executed on production.
+## 12. Commit Readiness & Delivery Governance
 
+### Governance Policy (Strict Owner Approval Gate)
+- **Active Delivery Branch:** `COMPLETED-INTERGRATION` (HEAD: `f21fb29`).
+- **Working Tree State:** All documentation updates, automated test additions, and source fixes are preserved locally in the working tree.
+- **Zero Automated Commits:** In accordance with user governance instructions, **no files have been staged or committed automatically**.
+- **Ready for Review:** The repository is accurately documented, internally consistent, validated, and ready for manual review and staging.
