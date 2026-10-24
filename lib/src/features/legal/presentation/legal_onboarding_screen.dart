@@ -11,6 +11,8 @@ import '../../profile/providers/profile_providers.dart';
 import '../domain/legal_document.dart';
 import '../providers/legal_providers.dart';
 import '../../auth/providers/auth_providers.dart';
+import '../data/authoritative_policy_content.dart';
+import 'widgets/legal_markdown_viewer.dart';
 
 class LegalOnboardingScreen extends ConsumerStatefulWidget {
   final bool isPreLogin;
@@ -90,18 +92,22 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       final repo = ref.read(legalRepositoryProvider);
 
       // 1. Accept mandatory platform terms
-      if (termsDoc != null) {
-        await repo.acceptTerms(
-          documentId: termsDoc.id,
-          version: termsDoc.version,
-        );
-      }
+      final effectiveTerms = (termsDoc != null && termsDoc.content.trim().length > 50)
+          ? termsDoc
+          : kDefaultEffectiveTermsDocument;
+      await repo.acceptTerms(
+        documentId: effectiveTerms.id,
+        version: effectiveTerms.version,
+      );
 
       // 2. Acknowledge privacy notice
-      if (privacyDoc != null) {
+      if (_privacyAcknowledged) {
+        final effectivePriv = (privacyDoc != null && privacyDoc.content.trim().length > 50)
+            ? privacyDoc
+            : kDefaultEffectivePrivacyDocument;
         await repo.acknowledgePrivacy(
-          documentId: privacyDoc.id,
-          version: privacyDoc.version,
+          documentId: effectivePriv.id,
+          version: effectivePriv.version,
         );
       }
 
@@ -145,13 +151,18 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
     if (widget.isPreLogin) {
       bodyContent = termsDocAsync.when(
         loading: () => const AppLoadingIndicator(message: 'Loading Terms of Service...'),
-        error: (err, _) => AppErrorWidget(
-          message: 'Could not load platform terms document.',
-          onRetry: () => ref.refresh(effectiveDocumentProvider('TERMS_AND_CONDITIONS')),
+        error: (err, _) => _buildCard(
+          context: context,
+          termsDoc: kDefaultEffectiveTermsDocument,
+          privacyDocAsync: privacyDocAsync,
+          isReacceptance: false,
+          isPreLogin: true,
         ),
         data: (termsDoc) => _buildCard(
           context: context,
-          termsDoc: termsDoc,
+          termsDoc: (termsDoc != null && termsDoc.content.trim().length > 50)
+              ? termsDoc
+              : kDefaultEffectiveTermsDocument,
           privacyDocAsync: privacyDocAsync,
           isReacceptance: false,
           isPreLogin: true,
@@ -213,6 +224,21 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
     required bool isReacceptance,
     required bool isPreLogin,
   }) {
+    final isTrivialTerms = termsDoc == null ||
+        termsDoc.content.trim().isEmpty ||
+        termsDoc.content.trim() == '# Terms and Conditions' ||
+        termsDoc.content.trim() == '# Terms' ||
+        termsDoc.content.trim() == 'Platform Terms of Service content...';
+    final termsContent = isTrivialTerms
+        ? kAuthoritativeTermsAndConditionsContent
+        : termsDoc.content;
+    final termsVersion = (termsDoc != null && termsDoc.version.isNotEmpty)
+        ? termsDoc.version
+        : kAuthoritativeTermsVersion;
+    final termsTitle = (termsDoc != null && termsDoc.title.isNotEmpty)
+        ? termsDoc.title
+        : kAuthoritativeTermsTitle;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -288,18 +314,20 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
             // SECTION 1: MANDATORY TERMS
             _buildDocumentPreviewCard(
-              title: termsDoc?.title ?? 'Terms and Conditions',
-              version: termsDoc?.version ?? '1.0.0',
+              title: termsTitle,
+              version: termsVersion,
               isMandatory: true,
-              content: termsDoc?.content ?? 'Platform Terms of Service content...',
+              content: termsContent,
               effectiveDate: termsDoc?.effectiveAt,
             ),
             const SizedBox(height: AppSpacing.md),
             CheckboxListTile(
               value: _termsAgreed,
-              onChanged: _isSubmitting ? null : (val) => setState(() => _termsAgreed = val ?? false),
+              onChanged: (_isSubmitting || termsContent.trim().isEmpty)
+                  ? null
+                  : (val) => setState(() => _termsAgreed = val ?? false),
               title: Text(
-                'I have read, understood, and unconditionally agree to the Terms and Conditions (v${termsDoc?.version ?? '1.0.0'}).',
+                'I have read, understood, and unconditionally agree to the Terms and Conditions (v$termsVersion).',
                 style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
               ),
               controlAffinity: ListTileControlAffinity.leading,
@@ -311,30 +339,11 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
             // SECTION 2: PRIVACY NOTICE
             privacyDocAsync.when(
               loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-              data: (privacyDoc) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildDocumentPreviewCard(
-                    title: privacyDoc?.title ?? 'Privacy Policy',
-                    version: privacyDoc?.version ?? '1.0.0',
-                    isMandatory: false,
-                    content: privacyDoc?.content ?? 'Digital Personal Data Protection and Privacy Notice...',
-                    effectiveDate: privacyDoc?.effectiveAt,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  CheckboxListTile(
-                    value: _privacyAcknowledged,
-                    onChanged: _isSubmitting ? null : (val) => setState(() => _privacyAcknowledged = val ?? false),
-                    title: Text(
-                      'I acknowledge receipt of the Privacy Notice explaining data processing under the DPDP Act 2023.',
-                      style: AppTypography.bodyMd,
-                    ),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    activeColor: AppColors.secondary,
-                  ),
-                ],
+              error: (_, _) => _buildPrivacyPreviewSection(
+                privacyDoc: kDefaultEffectivePrivacyDocument,
+              ),
+              data: (privacyDoc) => _buildPrivacyPreviewSection(
+                privacyDoc: privacyDoc ?? kDefaultEffectivePrivacyDocument,
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -468,6 +477,46 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
     );
   }
 
+  Widget _buildPrivacyPreviewSection({required LegalDocument privacyDoc}) {
+    final isTrivialPrivacy = privacyDoc.content.trim().isEmpty ||
+        privacyDoc.content.trim() == 'Digital Personal Data Protection and Privacy Notice...' ||
+        privacyDoc.content.trim() == '# Privacy Policy';
+    final privContent = isTrivialPrivacy
+        ? kAuthoritativePrivacyPolicyContent
+        : privacyDoc.content;
+    final privVersion = privacyDoc.version.isNotEmpty
+        ? privacyDoc.version
+        : kAuthoritativePrivacyVersion;
+    final privTitle = privacyDoc.title.isNotEmpty
+        ? privacyDoc.title
+        : kAuthoritativePrivacyTitle;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildDocumentPreviewCard(
+          title: privTitle,
+          version: privVersion,
+          isMandatory: false,
+          content: privContent,
+          effectiveDate: privacyDoc.effectiveAt,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        CheckboxListTile(
+          value: _privacyAcknowledged,
+          onChanged: _isSubmitting ? null : (val) => setState(() => _privacyAcknowledged = val ?? false),
+          title: Text(
+            'I acknowledge receipt of the Privacy Notice explaining data processing under the DPDP Act 2023.',
+            style: AppTypography.bodyMd,
+          ),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          activeColor: AppColors.secondary,
+        ),
+      ],
+    );
+  }
+
   Widget _buildDocumentPreviewCard({
     required String title,
     required String version,
@@ -520,13 +569,9 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
             height: 180,
             padding: const EdgeInsets.all(AppSpacing.md),
             child: SingleChildScrollView(
-              child: Text(
-                content,
-                style: AppTypography.bodySm.copyWith(
-                  fontFamily: 'monospace',
-                  color: AppColors.onSurfaceVariant,
-                  height: 1.4,
-                ),
+              child: LegalMarkdownViewer(
+                markdown: content,
+                isBold: true,
               ),
             ),
           ),

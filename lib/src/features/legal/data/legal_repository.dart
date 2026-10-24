@@ -2,6 +2,7 @@ import '../../api/data/api_client.dart';
 import '../domain/legal_document.dart';
 import '../domain/privacy_request.dart';
 import '../domain/user_legal_status.dart';
+import 'authoritative_policy_content.dart';
 
 class LegalRepository {
   final ApiClient _apiClient;
@@ -10,12 +11,43 @@ class LegalRepository {
 
   /// Retrieves metadata of all currently EFFECTIVE legal documents
   Future<List<LegalDocument>> getEffectiveDocuments() async {
-    final response = await _apiClient.get('/api/legal/documents/current');
-    if (response is Map<String, dynamic> && response['documents'] is List) {
-      final list = response['documents'] as List;
-      return list.map((item) => LegalDocument.fromJson(item as Map<String, dynamic>)).toList();
-    }
-    return [];
+    try {
+      final response = await _apiClient.get('/api/legal/documents/current');
+      if (response is Map<String, dynamic> && response['documents'] is List) {
+        final list = response['documents'] as List;
+        final docs = list.map((item) => LegalDocument.fromJson(item as Map<String, dynamic>)).toList();
+        if (docs.isNotEmpty) {
+          return docs.map((d) {
+            final isTrivial = d.content.trim().isEmpty ||
+              d.content.trim() == '# Terms and Conditions' ||
+              d.content.trim() == '# Terms';
+          if (!isTrivial) return d;
+            final fallbackContent = d.documentType == 'TERMS_AND_CONDITIONS'
+                ? kAuthoritativeTermsAndConditionsContent
+                : (d.documentType == 'PRIVACY_POLICY' ? kAuthoritativePrivacyPolicyContent : d.content);
+            return LegalDocument(
+              id: d.id,
+              documentType: d.documentType,
+              version: d.version.isNotEmpty ? d.version : '1.0.0',
+              title: d.title.isNotEmpty
+                  ? d.title
+                  : (d.documentType == 'TERMS_AND_CONDITIONS' ? kAuthoritativeTermsTitle : kAuthoritativePrivacyTitle),
+              content: fallbackContent,
+              effectiveAt: d.effectiveAt ?? '2026-10-24T00:00:00Z',
+              publishedAt: d.publishedAt,
+              status: d.status,
+              isMandatory: d.isMandatory,
+              locale: d.locale,
+              changeSummary: d.changeSummary,
+            );
+          }).toList();
+        }
+      }
+    } catch (_) {}
+    return [
+      kDefaultEffectiveTermsDocument,
+      kDefaultEffectivePrivacyDocument,
+    ];
   }
 
   /// Retrieves full document content for a specific type
@@ -26,12 +58,43 @@ class LegalRepository {
         queryParams: {'locale': locale},
       );
       if (response is Map<String, dynamic> && response['document'] is Map<String, dynamic>) {
-        return LegalDocument.fromJson(response['document'] as Map<String, dynamic>);
+        final doc = LegalDocument.fromJson(response['document'] as Map<String, dynamic>);
+        final isTrivial = doc.content.trim().isEmpty ||
+            doc.content.trim() == '# Terms and Conditions' ||
+            doc.content.trim() == '# Terms';
+        if (!isTrivial) {
+          return doc;
+        }
+        final fallbackContent = type == 'TERMS_AND_CONDITIONS'
+            ? kAuthoritativeTermsAndConditionsContent
+            : (type == 'PRIVACY_POLICY' ? kAuthoritativePrivacyPolicyContent : doc.content);
+        return LegalDocument(
+          id: doc.id,
+          documentType: doc.documentType,
+          version: doc.version.isNotEmpty
+              ? doc.version
+              : (type == 'TERMS_AND_CONDITIONS' ? kAuthoritativeTermsVersion : kAuthoritativePrivacyVersion),
+          title: doc.title.isNotEmpty
+              ? doc.title
+              : (type == 'TERMS_AND_CONDITIONS' ? kAuthoritativeTermsTitle : kAuthoritativePrivacyTitle),
+          content: fallbackContent,
+          effectiveAt: doc.effectiveAt ?? '2026-10-24T00:00:00Z',
+          publishedAt: doc.publishedAt,
+          status: doc.status,
+          isMandatory: doc.isMandatory,
+          locale: doc.locale,
+          changeSummary: doc.changeSummary,
+        );
       }
-      return null;
-    } catch (_) {
-      return null;
+    } catch (_) {}
+
+    // Fall back to authoritative bundled document when server is offline, 404, or fails
+    if (type == 'TERMS_AND_CONDITIONS') {
+      return kDefaultEffectiveTermsDocument;
+    } else if (type == 'PRIVACY_POLICY') {
+      return kDefaultEffectivePrivacyDocument;
     }
+    return null;
   }
 
   /// Retrieves authenticated user's current compliance and consent state
