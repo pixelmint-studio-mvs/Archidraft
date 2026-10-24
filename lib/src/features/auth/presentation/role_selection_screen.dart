@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../legal/providers/legal_providers.dart';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -17,14 +19,14 @@ import '../../../shared/widgets/blueprint_background.dart';
 ///   - Two roles matching existing app domain: CLIENT, DRAUGHTSMAN
 ///   - Selected state: secondary-container border ring + onSecondaryFixed fill
 ///   - CTA: primaryContainer "Continue →" — disabled until a role is selected
-class RoleSelectionScreen extends StatefulWidget {
+class RoleSelectionScreen extends ConsumerStatefulWidget {
   const RoleSelectionScreen({super.key});
 
   @override
-  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+  ConsumerState<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
 }
 
-class _RoleSelectionScreenState extends State<RoleSelectionScreen>
+class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen>
     with SingleTickerProviderStateMixin {
   /// null = nothing selected yet
   String? _selectedRole;
@@ -59,9 +61,8 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
 
   void _onContinue() {
     if (_selectedRole == null) return;
-    // Navigate to login, passing the selected role as extra so the
-    // login / register flow can pre-populate it.
-    context.push('/login', extra: _selectedRole);
+    ref.read(preLoginTermsProvider.notifier).selectRole(_selectedRole!);
+    context.push('/terms-and-conditions', extra: _selectedRole);
   }
 
   @override
@@ -195,7 +196,13 @@ class _BackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.pop(),
+      onTap: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/landing');
+        }
+      },
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -64,19 +64,24 @@ Archidraft-integration-workspace/
 |   |   |-- auth.ts                       # Firebase JWKS token verification with test-runtime bypass
 |   |   |-- legal.ts                      # DPDP legal routes, terms assertion gate & consent ledger
 |   |   \-- achievements.ts               # Student badge calculation & milestone analytics
-|   |-- migrations/                       # D1 SQLite relational migrations (0001 through 0016)
+|   |-- migrations/                       # D1 SQLite relational migrations (0001 through 0017)
 |   |   |-- 0001_schema.sql               # Users, projects, drawing_versions, activity_logs
 |   |   |-- 0002_assignments.sql          # Draughtsman assignments
 |   |   |-- 0003_files.sql                # R2 file metadata & lifecycle tracking
 |   |   |-- 0004_corrections.sql          # Revision correction tracking
 |   |   |-- 0005_notifications.sql        # Notification queue
 |   |   |-- 0006_financials.sql           # Invoices and payments
+|   |   |-- 0007_student_profile.sql      # Student profile fields (college_name)
+|   |   |-- 0008_user_profile_fields.sql  # User profile table reconstruction (qualification, mobile, etc.)
 |   |   |-- 0009_project_messages.sql     # In-project collaboration chat messages
 |   |   |-- 0010_student_training.sql     # Training modules & student assignments
 |   |   |-- 0011_student_lessons.sql      # Curriculum lessons & completion tracking
 |   |   |-- 0012_evaluations.sql          # Rubric scoring & evaluation records
-|   |   |-- 0013_student_credentials.sql  # Digital credentials & verification tokens
-|   |   \-- 0016_legal_system.sql         # Legal documents, consent events, privacy requests
+|   |   |-- 0013_student_credentials.sql  # Digital credentials
+|   |   |-- 0014_student_credentials_artifact.sql # Certificate object key
+|   |   |-- 0015_student_credentials_verification.sql # Public verification token index
+|   |   |-- 0016_legal_system.sql         # Legal documents, consent events, privacy requests
+|   |   \-- 0017_users_email_unique.sql   # Case-insensitive global unique email index
 |   \-- test/                             # Node.js backend integration test harness
 |       |-- backend_authorization.test.mjs# Core project mutation & role authorization tests (73 tests)
 |       |-- cross_user_isolation_f1.test.mjs # Cross-user, cross-role & ID tampering isolation tests (95 tests)
@@ -220,6 +225,8 @@ Account isolation is enforced **server-side at the Edge Worker layer through cry
 5. **R2 File Security:** Files in R2 cannot be accessed via direct public URLs. Downloads must route through `GET /api/files/:id/download`, where D1 ownership and assignment records are verified before streaming the object from R2.
 6. **File Deletion Safeguards:** Only the uploader or an Admin can delete a file. Formal submitted drawing versions (`category = draughtsman_version`) cannot be deleted by non-admins.
 7. **Legal Consent Privacy:** Terms acceptance, privacy acknowledgments, and DPDP grievance tickets are strictly keyed to `c.get('uid')`. No user can inspect or alter another user's consent records.
+8. **Global Case-Insensitive Email Uniqueness:** User email addresses are globally unique across all roles (`CLIENT`, `ENGINEER`, `DRAUGHTSMAN`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN`). The registration endpoint enforces a case-insensitive pre-check (`SELECT id FROM users WHERE LOWER(email) = LOWER(?)`) returning `409 Conflict` if duplicate. At the database layer, migration `0017_users_email_unique.sql` establishes `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));`.
+9. **Pre-Login Terms & Conditions Onboarding:** The client application router enforces that all users must affirmatively review and accept mandatory Terms & Conditions immediately after role selection and before reaching the role-specific login screen (`Landing Page -> Role Selection -> Terms & Conditions -> Role Login -> Dashboard`). Declining returns to role selection; logout resets transient acceptance.
 
 ---
 
@@ -229,7 +236,7 @@ All endpoints require `Authorization: Bearer <Firebase_ID_Token>` unless marked 
 
 | Method | Endpoint | Allowed Roles | Description | Response Status |
 | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/api/users` | Any Authenticated | Self-service profile creation/update (Role cannot be escalated). | `200 OK`, `400/403` |
+| `POST` | `/api/users` | Any Authenticated | Self-service profile creation/update (Role cannot be escalated; global case-insensitive email uniqueness enforced). | `200 OK`, `400, 403, 409` |
 | `GET` | `/api/users/profile` | Any Authenticated | Retrieves current user's profile from D1. | `200 OK`, `404` |
 | `GET` | `/api/projects` | Any Authenticated | Lists projects owned by or assigned to caller (Admins receive all). | `200 OK` |
 | `POST` | `/api/projects` | `ENGINEER` | Creates or updates a DRAFT project (Ownership verified). | `200 OK`, `403` |
@@ -353,3 +360,10 @@ Welcome to the ARCHI DRAFT codebase! Follow these strict rules to ensure seamles
    - **No Commit or Push Authorized Yet:** No commit or push has been authorized yet. A separate, explicit project owner approval is strictly required before creating any commit or pushing to remote origin.
    - **Strict Prohibition on `develop` and `main`:** This multi-portal integration must NOT be merged or pushed into `develop` or `main`.
    - **Deployment Prohibited:** Deployments to production Cloudflare Workers, D1 database, or R2 storage remain strictly prohibited without separate explicit project owner authorization.
+
+---
+
+> **Deployment Note:**
+> - Migrations `0001` through `0007` have been applied to remote production D1.
+> - Migrations `0008` through `0017` and Worker deployment are **pending** and have not been executed on production.
+

@@ -54,9 +54,13 @@ The backend provides the API, database operations, and file storage handlers. It
 From the `worker/` directory:
 ```bash
 cd worker
-npx wrangler d1 migrations apply archi-draft-db --local
+npx wrangler d1 migrations apply DB --local
 ```
-*This executes all 15 migrations in sequence (`0001_schema.sql` through `0015_student_credentials_verification.sql`) against your local `.wrangler/state/v3/d1` database.*
+*This executes all 17 migrations in sequence (`0001_schema.sql` through `0017_users_email_unique.sql`) against your local `.wrangler/state/v3/d1` database.*
+
+> **Important — Local vs Production Migration State:**
+> - **Local Development:** The command above applies all 17 migrations to the local test SQLite environment.
+> - **Remote Production D1:** Migrations `0001` through `0007` were previously applied to production. Migrations `0008` through `0017` are **pending and unapplied**. Remote production migration (`npx wrangler d1 migrations apply DB --remote`) and Worker deployment (`npx wrangler deploy`) have **not** been executed yet and require explicit operator authorization.
 
 ### Step 2: Start the Local Worker Server
 ```bash
@@ -76,6 +80,16 @@ In a **new terminal window** at the project root:
 ```bash
 flutter run -d chrome --dart-define=API_URL=http://localhost:8787
 ```
+
+### Pre-Login Terms & Conditions Onboarding Flow
+The client application enforces a strict, pre-login legal onboarding sequence across all roles:
+```
+Landing Page (/) ──► Role Selection (/role-selection) ──► Terms & Conditions (/legal/onboarding?role=...) ──► Role Login (/engineer/login, etc.) ──► Role Dashboard
+```
+- **Pre-Login Gate:** Upon selecting a role, the router redirects the user to `/legal/onboarding?role=<ROLE>`. The user must review mandatory terms and check affirmative acceptance before the role login screen can be reached. Direct URL access to login screens without prior acceptance is intercepted and redirected back to the terms screen.
+- **Decline & Back Navigation:** Tapping "Decline & Exit" or the browser back button clears the pending role selection and safely returns the user to `/role-selection`.
+- **Role Switching:** Acceptance is transient and scoped to the active onboarding session and role (`preLoginTermsAcceptedProvider`). Switching roles requires re-accepting terms in the new role context.
+- **Logout Reset:** Calling `logout()` clears authentication state, calls `resetLegalState()`, clears `preLoginTermsAcceptedProvider`, and routes back to `/`. Future role selection requires re-navigating through Terms & Conditions.
 
 ### Key Web Features & Portals:
 - **Engineer Portal:** `http://localhost:<port>/#/engineer/projects`
@@ -205,3 +219,47 @@ Before deploying this workspace to live Cloudflare production:
   3. **Strict Prohibition on `develop` and `main`:** This multi-portal integration must NOT be merged or pushed into `develop` or `main`.
   4. **Deployment Prohibited:** Deployments to production Cloudflare Workers, D1 database, or R2 storage remain strictly prohibited without separate explicit project owner authorization.
   5. **Branch & History Preservation:** Do not rebase, cherry-pick, or switch branches; maintain the repository at HEAD `8f753a97315c59c33eb1b0ad1578951434ae368e` on `COMPLETED-INTERGRATION`.
+
+---
+
+## 11. Admin Integration Handover Notes
+
+For the teammate developing the administrative portal and management features:
+
+### 11.1 Global Case-Insensitive Email Uniqueness
+- **Rule:** A single email address is globally unique across the entire system regardless of user role (`CLIENT`/`ENGINEER`, `DRAUGHTSMAN`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN`).
+- **Enforcement Layers:**
+  1. *Worker API Pre-Check (`worker/src/index.ts`):* Registration checks `SELECT id FROM users WHERE LOWER(email) = LOWER(?)`. If an account already exists with that email under any role, the API rejects registration with:
+     ```json
+     HTTP 409 Conflict
+     { "error": "An account with this email address already exists. Please sign in or use a different email." }
+     ```
+  2. *Database Index (`worker/migrations/0017_users_email_unique.sql`):* Enforces SQLite unique expression index `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));`.
+- **Impact on Admin Account Management:**
+  - The admin portal **cannot** provision or invite an existing email under a different role.
+  - Multi-role capabilities cannot be achieved by creating duplicate accounts with identical emails. Permissions must be assigned via role attributes on the existing user account.
+
+### 11.2 Legal & Administrative API Contracts
+The backend exposes administrative endpoints under `/api/admin/legal/*` documented in [`docs/08_legal_privacy/EXTERNAL_ADMIN_CONTRACT.md`](./docs/08_legal_privacy/EXTERNAL_ADMIN_CONTRACT.md):
+- `GET /api/admin/legal/documents`: Retrieve all draft and effective documents.
+- `POST /api/admin/legal/documents`: Create a new legal policy draft.
+- `POST /api/admin/legal/documents/:id/publish`: Atomically publish a new effective policy version (triggers mandatory re-acceptance for users on their next session).
+- `GET /api/admin/legal/privacy-requests`: List statutory DPDP privacy and grievance tickets.
+- `POST /api/admin/legal/privacy-requests/:id/resolve`: Acknowledge or resolve user privacy requests.
+- `GET /api/admin/legal/consents`: Query regulatory consent audit logs.
+
+### 11.3 Authorization Boundaries
+- All `/api/admin/*` endpoints strictly require a Firebase ID token with `role IN ('ADMIN', 'STUDIO_ADMIN')`. Non-admin requests receive `403 Forbidden`.
+- The external Admin UI must not attempt direct database mutations; all operations must pass through authenticated Worker API endpoints.
+
+### 11.4 Integration Verification Test Suites
+Refer to existing automated backend suites for contract validation:
+- `worker/test/admin_student_contract.test.mjs`: Admin training module & evaluation contracts.
+- `worker/test/legal_privacy_authorization.test.mjs`: Admin legal publishing, re-acceptance enforcement, and privacy redressal contracts.
+- `worker/test/backend_authorization.test.mjs`: Core authorization, cross-role isolation, and email collision tests.
+
+### 11.5 Pending Production Operations
+- Migrations `0008` through `0017` have **not** been applied to remote production D1.
+- Cloudflare Worker updates have **not** been deployed to production.
+- Production deployment will be executed only after formal operator authorization.
+

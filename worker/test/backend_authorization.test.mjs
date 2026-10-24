@@ -345,6 +345,60 @@ test('2. Role Provisioning Security (POST /api/users & PATCH /api/users/me)', as
     assert.equal(user.name, 'Client 1 Updated');
     assert.equal(user.role, 'CLIENT'); // Role remains strictly CLIENT
   });
+
+  await t.test('BLOCKS cross-role registration with identical email (409 Conflict)', async () => {
+    // Engineer email already exists in seed data ('engineer1@test.com' with id 'engineer-1')
+    // Attempting to register as DRAUGHTSMAN with the same email must be rejected with 409
+    const res = await testRequest(env, '/api/users', {
+      method: 'POST',
+      token: 'new-attacker-uid',
+      body: { email: 'engineer1@test.com', name: 'Imposter Draughtsman', role: 'DRAUGHTSMAN' }
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.match(body.error, /An account with this email address already exists/);
+  });
+
+  await t.test('BLOCKS cross-role registration with case variation of existing email (409 Conflict)', async () => {
+    // Case variation of draughtsman email ('DRAUGHTSMAN1@TEST.COM')
+    const res = await testRequest(env, '/api/users', {
+      method: 'POST',
+      token: 'another-attacker-uid',
+      body: { email: 'DRAUGHTSMAN1@TEST.COM', name: 'Imposter Client', role: 'CLIENT' }
+    });
+    assert.equal(res.status, 409);
+  });
+
+  await t.test('BLOCKS registration as DRAUGHTSMAN using existing STUDENT email (409 Conflict)', async () => {
+    const res = await testRequest(env, '/api/users', {
+      method: 'POST',
+      token: 'attacker-student-to-drg',
+      body: { email: 'student1@test.com', name: 'Imposter Drg', role: 'DRAUGHTSMAN' }
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.match(body.error, /An account with this email address already exists/);
+  });
+
+  await t.test('BLOCKS registration as CLIENT using existing STUDENT email (409 Conflict)', async () => {
+    const res = await testRequest(env, '/api/users', {
+      method: 'POST',
+      token: 'attacker-student-to-client',
+      body: { email: 'student1@test.com', name: 'Imposter Client', role: 'CLIENT' }
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.match(body.error, /An account with this email address already exists/);
+  });
+
+  await t.test('PERMITS registration with unique email for new role (200 OK)', async () => {
+    const res = await testRequest(env, '/api/users', {
+      method: 'POST',
+      token: 'unique-drg-user',
+      body: { email: 'unique_drg_user@test.com', name: 'Unique Drg', role: 'DRAUGHTSMAN' }
+    });
+    assert.equal(res.status, 200);
+  });
 });
 
 test('3. Student and Unknown-Role Project Access Denied (Deny-by-Default)', async (t) => {

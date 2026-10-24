@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,7 +13,14 @@ import '../providers/legal_providers.dart';
 import '../../auth/providers/auth_providers.dart';
 
 class LegalOnboardingScreen extends ConsumerStatefulWidget {
-  const LegalOnboardingScreen({super.key});
+  final bool isPreLogin;
+  final String? preLoginRole;
+
+  const LegalOnboardingScreen({
+    super.key,
+    this.isPreLogin = false,
+    this.preLoginRole,
+  });
 
   @override
   ConsumerState<LegalOnboardingScreen> createState() => _LegalOnboardingScreenState();
@@ -27,6 +34,19 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
   bool _isSubmitting = false;
   String? _submissionError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isPreLogin) {
+      final preLogin = ref.read(preLoginTermsProvider);
+      if (preLogin.accepted) {
+        _termsAgreed = true;
+        _marketingConsent = preLogin.marketingConsent;
+        _portfolioConsent = preLogin.portfolioConsent;
+      }
+    }
+  }
 
   void _navigateToRoleDashboard() {
     final role = ref.read(currentUserRoleProvider);
@@ -47,6 +67,19 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
   Future<void> _handleAcceptance(LegalDocument? termsDoc, LegalDocument? privacyDoc) async {
     if (!_termsAgreed && termsDoc != null) return;
+
+    if (widget.isPreLogin) {
+      final role = widget.preLoginRole ?? ref.read(preLoginTermsProvider).role ?? 'ENGINEER';
+      ref.read(preLoginTermsProvider.notifier).acceptTerms(
+        role: role,
+        marketingConsent: _marketingConsent,
+        portfolioConsent: _portfolioConsent,
+      );
+      if (mounted) {
+        context.push('/login', extra: role);
+      }
+      return;
+    }
 
     setState(() {
       _isSubmitting = true;
@@ -105,9 +138,56 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final legalStatusAsync = ref.watch(userLegalStatusProvider);
     final termsDocAsync = ref.watch(effectiveDocumentProvider('TERMS_AND_CONDITIONS'));
     final privacyDocAsync = ref.watch(effectiveDocumentProvider('PRIVACY_POLICY'));
+
+    Widget bodyContent;
+    if (widget.isPreLogin) {
+      bodyContent = termsDocAsync.when(
+        loading: () => const AppLoadingIndicator(message: 'Loading Terms of Service...'),
+        error: (err, _) => AppErrorWidget(
+          message: 'Could not load platform terms document.',
+          onRetry: () => ref.refresh(effectiveDocumentProvider('TERMS_AND_CONDITIONS')),
+        ),
+        data: (termsDoc) => _buildCard(
+          context: context,
+          termsDoc: termsDoc,
+          privacyDocAsync: privacyDocAsync,
+          isReacceptance: false,
+          isPreLogin: true,
+        ),
+      );
+    } else {
+      final legalStatusAsync = ref.watch(userLegalStatusProvider);
+      bodyContent = legalStatusAsync.when(
+        loading: () => const AppLoadingIndicator(message: 'Checking platform policy status...'),
+        error: (err, _) => AppErrorWidget(
+          message: 'Unable to reach legal policy service. Please check network connection.',
+          onRetry: () => ref.refresh(userLegalStatusProvider),
+        ),
+        data: (legalStatus) {
+          // If mandatory documents are missing in DB, provide graceful recoverable path
+          if (legalStatus.missingMandatoryDocs) {
+            return _buildMaintenanceCard(context);
+          }
+
+          return termsDocAsync.when(
+            loading: () => const AppLoadingIndicator(message: 'Loading Terms of Service...'),
+            error: (err, _) => AppErrorWidget(
+              message: 'Could not load platform terms document.',
+              onRetry: () => ref.refresh(effectiveDocumentProvider('TERMS_AND_CONDITIONS')),
+            ),
+            data: (termsDoc) => _buildCard(
+              context: context,
+              termsDoc: termsDoc,
+              privacyDocAsync: privacyDocAsync,
+              isReacceptance: legalStatus.reacceptanceRequired,
+              isPreLogin: false,
+            ),
+          );
+        },
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -119,243 +199,270 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.xxl,
             ),
-            child: legalStatusAsync.when(
-              loading: () => const AppLoadingIndicator(message: 'Checking platform policy status...'),
-              error: (err, _) => AppErrorWidget(
-                message: 'Unable to reach legal policy service. Please check network connection.',
-                onRetry: () => ref.refresh(userLegalStatusProvider),
+            child: bodyContent,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required BuildContext context,
+    required LegalDocument? termsDoc,
+    required AsyncValue<LegalDocument?> privacyDocAsync,
+    required bool isReacceptance,
+    required bool isPreLogin,
+  }) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      color: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isPreLogin) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/role-selection');
+                    }
+                  },
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text('Back to Role Selection'),
+                ),
               ),
-              data: (legalStatus) {
-                // If mandatory documents are missing in DB, provide graceful recoverable path
-                if (legalStatus.missingMandatoryDocs) {
-                  return _buildMaintenanceCard(context);
-                }
+              const SizedBox(height: AppSpacing.sm),
+            ],
 
-                return termsDocAsync.when(
-                  loading: () => const AppLoadingIndicator(message: 'Loading Terms of Service...'),
-                  error: (err, _) => AppErrorWidget(
-                    message: 'Could not load platform terms document.',
-                    onRetry: () => ref.refresh(effectiveDocumentProvider('TERMS_AND_CONDITIONS')),
+            // Header badge & title
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  data: (termsDoc) {
-                    final isReacceptance = legalStatus.reacceptanceRequired;
-
-                    return Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.6)),
-                      ),
-                      color: AppColors.surface,
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.xxl),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Header badge & title
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.secondary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.gavel_rounded, color: AppColors.secondary, size: 28),
-                                ),
-                                const SizedBox(width: AppSpacing.md),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        isReacceptance
-                                            ? 'Updated Platform Terms & Conditions'
-                                            : 'Welcome to ARCHI DRAFT',
-                                        style: AppTypography.headlineLgMobile.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.onSurface,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        isReacceptance
-                                            ? 'We have updated our terms. Please review and accept the latest version to proceed.'
-                                            : 'Please review and accept our platform policies to activate your workspace.',
-                                        style: AppTypography.bodyMd.copyWith(
-                                          color: AppColors.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Divider(height: 36),
-
-                            // SECTION 1: MANDATORY TERMS
-                            _buildDocumentPreviewCard(
-                              title: termsDoc?.title ?? 'Terms and Conditions',
-                              version: termsDoc?.version ?? '1.0.0',
-                              isMandatory: true,
-                              content: termsDoc?.content ?? 'Platform Terms of Service content...',
-                              effectiveDate: termsDoc?.effectiveAt,
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            CheckboxListTile(
-                              value: _termsAgreed,
-                              onChanged: _isSubmitting ? null : (val) => setState(() => _termsAgreed = val ?? false),
-                              title: Text(
-                                'I have read, understood, and unconditionally agree to the Terms and Conditions (v${termsDoc?.version ?? '1.0.0'}).',
-                                style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              controlAffinity: ListTileControlAffinity.leading,
-                              contentPadding: EdgeInsets.zero,
-                              activeColor: AppColors.secondary,
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // SECTION 2: PRIVACY NOTICE
-                            privacyDocAsync.when(
-                              loading: () => const SizedBox.shrink(),
-                              error: (_, _) => const SizedBox.shrink(),
-                              data: (privacyDoc) => Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _buildDocumentPreviewCard(
-                                    title: privacyDoc?.title ?? 'Privacy Policy',
-                                    version: privacyDoc?.version ?? '1.0.0',
-                                    isMandatory: false,
-                                    content: privacyDoc?.content ?? 'Digital Personal Data Protection and Privacy Notice...',
-                                    effectiveDate: privacyDoc?.effectiveAt,
-                                  ),
-                                  const SizedBox(height: AppSpacing.md),
-                                  CheckboxListTile(
-                                    value: _privacyAcknowledged,
-                                    onChanged: _isSubmitting ? null : (val) => setState(() => _privacyAcknowledged = val ?? false),
-                                    title: Text(
-                                      'I acknowledge receipt of the Privacy Notice explaining data processing under the DPDP Act 2023.',
-                                      style: AppTypography.bodyMd,
-                                    ),
-                                    controlAffinity: ListTileControlAffinity.leading,
-                                    contentPadding: EdgeInsets.zero,
-                                    activeColor: AppColors.secondary,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // SECTION 3: UNBUNDLED OPTIONAL CONSENTS
-                            Material(
-                              color: AppColors.surfaceContainerLowest,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.4)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.tune_rounded, size: 20, color: AppColors.secondary),
-                                        const SizedBox(width: AppSpacing.sm),
-                                        Text(
-                                          'Optional Preferences (Defaults to OFF)',
-                                          style: AppTypography.buttonText.copyWith(fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'These optional items are completely separate from your mandatory platform access.',
-                                      style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
-                                    ),
-                                    const SizedBox(height: AppSpacing.md),
-                                    SwitchListTile(
-                                      value: _marketingConsent,
-                                      onChanged: _isSubmitting ? null : (val) => setState(() => _marketingConsent = val),
-                                      title: const Text('Product Updates & Engineering Insights'),
-                                      subtitle: const Text('Receive occasional email announcements regarding feature releases.'),
-                                      contentPadding: EdgeInsets.zero,
-                                      activeThumbColor: AppColors.secondary,
-                                    ),
-                                    const Divider(),
-                                    SwitchListTile(
-                                      value: _portfolioConsent,
-                                      onChanged: _isSubmitting ? null : (val) => setState(() => _portfolioConsent = val),
-                                      title: const Text('Public Portfolio & Showcase Indexing'),
-                                      subtitle: const Text('Allow verified showcase projects to be highlighted in community galleries.'),
-                                      contentPadding: EdgeInsets.zero,
-                                      activeThumbColor: AppColors.secondary,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            if (_submissionError != null) ...[
-                              const SizedBox(height: AppSpacing.lg),
-                              Container(
-                                padding: const EdgeInsets.all(AppSpacing.md),
-                                decoration: BoxDecoration(
-                                  color: AppColors.errorContainer,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.error_outline, color: AppColors.error),
-                                    const SizedBox(width: AppSpacing.sm),
-                                    Expanded(
-                                      child: Text(
-                                        _submissionError!,
-                                        style: AppTypography.bodyMd.copyWith(color: AppColors.onErrorContainer),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-
-                            const SizedBox(height: AppSpacing.xxl),
-
-                            // Accept button
-                            ElevatedButton(
-                              onPressed: (!_termsAgreed || _isSubmitting)
-                                  ? null
-                                  : () => _handleAcceptance(termsDoc, privacyDocAsync.value),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: AppColors.onPrimary,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                                    )
-                                  : Text(
-                                      isReacceptance ? 'Accept Updated Terms & Continue' : 'Agree & Enter Workspace',
-                                      style: AppTypography.buttonText.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          ],
+                  child: const Icon(Icons.gavel_rounded, color: AppColors.secondary, size: 28),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isReacceptance
+                            ? 'Updated Platform Terms & Conditions'
+                            : 'Welcome to ARCHI DRAFT',
+                        style: AppTypography.headlineLgMobile.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onSurface,
                         ),
                       ),
-                    );
-                  },
-                );
-              },
+                      const SizedBox(height: 4),
+                      Text(
+                        isReacceptance
+                            ? 'We have updated our terms. Please review and accept the latest version to proceed.'
+                            : (isPreLogin
+                                ? 'Please review and accept our platform policies to proceed to login.'
+                                : 'Please review and accept our platform policies to activate your workspace.'),
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
+            const Divider(height: 36),
+
+            // SECTION 1: MANDATORY TERMS
+            _buildDocumentPreviewCard(
+              title: termsDoc?.title ?? 'Terms and Conditions',
+              version: termsDoc?.version ?? '1.0.0',
+              isMandatory: true,
+              content: termsDoc?.content ?? 'Platform Terms of Service content...',
+              effectiveDate: termsDoc?.effectiveAt,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            CheckboxListTile(
+              value: _termsAgreed,
+              onChanged: _isSubmitting ? null : (val) => setState(() => _termsAgreed = val ?? false),
+              title: Text(
+                'I have read, understood, and unconditionally agree to the Terms and Conditions (v${termsDoc?.version ?? '1.0.0'}).',
+                style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.w600),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              activeColor: AppColors.secondary,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+
+            // SECTION 2: PRIVACY NOTICE
+            privacyDocAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
+              data: (privacyDoc) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildDocumentPreviewCard(
+                    title: privacyDoc?.title ?? 'Privacy Policy',
+                    version: privacyDoc?.version ?? '1.0.0',
+                    isMandatory: false,
+                    content: privacyDoc?.content ?? 'Digital Personal Data Protection and Privacy Notice...',
+                    effectiveDate: privacyDoc?.effectiveAt,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  CheckboxListTile(
+                    value: _privacyAcknowledged,
+                    onChanged: _isSubmitting ? null : (val) => setState(() => _privacyAcknowledged = val ?? false),
+                    title: Text(
+                      'I acknowledge receipt of the Privacy Notice explaining data processing under the DPDP Act 2023.',
+                      style: AppTypography.bodyMd,
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.secondary,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+
+            // SECTION 3: UNBUNDLED OPTIONAL CONSENTS
+            Material(
+              color: AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.tune_rounded, size: 20, color: AppColors.secondary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'Optional Preferences (Defaults to OFF)',
+                          style: AppTypography.buttonText.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'These optional items are completely separate from your mandatory platform access.',
+                      style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    SwitchListTile(
+                      value: _marketingConsent,
+                      onChanged: _isSubmitting ? null : (val) => setState(() => _marketingConsent = val),
+                      title: const Text('Product Updates & Engineering Insights'),
+                      subtitle: const Text('Receive occasional email announcements regarding feature releases.'),
+                      contentPadding: EdgeInsets.zero,
+                      activeThumbColor: AppColors.secondary,
+                    ),
+                    const Divider(),
+                    SwitchListTile(
+                      value: _portfolioConsent,
+                      onChanged: _isSubmitting ? null : (val) => setState(() => _portfolioConsent = val),
+                      title: const Text('Public Portfolio & Showcase Indexing'),
+                      subtitle: const Text('Allow verified showcase projects to be highlighted in community galleries.'),
+                      contentPadding: EdgeInsets.zero,
+                      activeThumbColor: AppColors.secondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            if (_submissionError != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: AppColors.error),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        _submissionError!,
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.onErrorContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.xxl),
+
+            // Accept button
+            ElevatedButton(
+              onPressed: (!_termsAgreed || _isSubmitting)
+                  ? null
+                  : () => _handleAcceptance(termsDoc, privacyDocAsync.value),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                    )
+                  : Text(
+                      isPreLogin
+                          ? 'Agree & Continue to Login'
+                          : (isReacceptance ? 'Accept Updated Terms & Continue' : 'Agree & Enter Workspace'),
+                      style: AppTypography.buttonText.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+
+            if (isPreLogin) ...[
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton(
+                onPressed: _isSubmitting
+                    ? null
+                    : () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/role-selection');
+                        }
+                      },
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Decline & Return to Role Selection'),
+              ),
+            ],
+          ],
         ),
       ),
     );

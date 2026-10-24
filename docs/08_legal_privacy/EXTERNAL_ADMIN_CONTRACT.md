@@ -249,3 +249,39 @@ $$\text{DRAFT} \longrightarrow \text{PUBLISHED} \longrightarrow \text{EFFECTIVE}
    - Provide action modal to acknowledge or resolve requests calling `POST /api/admin/legal/privacy-requests/:id/resolve`.
 3. **Add Consent Audit Log Viewer:**
    - Paginated table consuming `GET /api/admin/legal/consents` for compliance evidence exports.
+
+---
+
+## 7. Admin Integration Rules: Global Email Uniqueness & Account Lifecycle
+
+### 7.1 Cross-Role Email Uniqueness Contract
+- **Rule:** User email addresses are strictly unique across the entire platform. No email can be registered or invited under multiple roles (`CLIENT`/`ENGINEER`, `DRAUGHTSMAN`, `STUDENT`, `ADMIN`, `STUDIO_ADMIN`).
+- **Worker Pre-Check:** The registration endpoint checks `SELECT id FROM users WHERE LOWER(email) = LOWER(?)` across the full `users` table. If any matching record exists, the server returns:
+  ```json
+  HTTP 409 Conflict
+  { "error": "An account with this email address already exists. Please sign in or use a different email." }
+  ```
+- **Database Index:** Enforced at the SQLite D1 level by migration `0017_users_email_unique.sql`:
+  ```sql
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
+  ```
+- **Admin Implementation Requirement:** When the Admin UI invites or creates users, it must handle HTTP 409 Conflict gracefully and inform the administrator that the email is already in use on the platform. Multi-role elevation must be modeled by updating permissions or role fields, not by creating duplicate accounts with the same email address.
+
+### 7.2 Pre-Login Terms & Conditions Lifecycle
+- The client application enforces affirmative acceptance of the platform's Terms & Conditions prior to role-specific login:
+  ```
+  Landing Page (/) ──► Role Selection (/role-selection) ──► Terms & Conditions (/legal/onboarding?role=...) ──► Role Login ──► Dashboard
+  ```
+- If an administrator provisions an account or publishes a new `EFFECTIVE` policy version via `POST /api/admin/legal/documents/:id/publish`, existing users are required to review and re-accept terms before accessing their dashboard.
+
+### 7.3 Integration Test & Contract References
+For contract validation and end-to-end integration testing, refer to the following verified test suites:
+- `worker/test/admin_student_contract.test.mjs`: Administrative student training module management and evaluation scoring contracts.
+- `worker/test/legal_privacy_authorization.test.mjs`: Complete administrative legal publishing, mandatory re-acceptance, and privacy redressal contracts.
+- `worker/test/backend_authorization.test.mjs`: Account isolation and cross-role email uniqueness collision tests.
+
+### 7.4 Production Deployment Status
+- Migrations `0008` through `0017` are **pending** and have not yet been applied to remote production D1.
+- Cloudflare Worker updates have not been deployed to production.
+- Production execution requires explicit operator authorization.
+

@@ -1,3 +1,4 @@
+import '../../legal/providers/legal_providers.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -90,6 +91,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
   Future<void> signOut() async {
     state = const AsyncLoading();
     try {
+      ref.read(preLoginTermsProvider.notifier).reset();
       await ref.read(authRepositoryProvider).signOut();
       state = const AsyncData(null);
     } catch (e, st) {

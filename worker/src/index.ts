@@ -170,6 +170,14 @@ app.post('/api/users', async (c) => {
   const existing = await getUser(db, uid);
 
   if (!existing) {
+    if (email) {
+      const emailConflict = await db.prepare(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?'
+      ).bind(email.trim(), uid).first();
+      if (emailConflict) {
+        return c.json({ error: 'An account with this email address already exists.' }, 409);
+      }
+    }
 
     await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null)

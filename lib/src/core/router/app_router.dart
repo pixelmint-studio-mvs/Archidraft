@@ -75,6 +75,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       const publicPaths = [
         '/landing',
         '/role-selection',
+        '/terms-and-conditions',
         '/login',
         '/register',
         '/forgot-password',
@@ -83,9 +84,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Not logged in
       if (!isLoggedIn) {
-        // Already on a public route — stay there
+        // Enforce Terms & Conditions gate for login and register:
+        // User must have selected a role and accepted the terms in this flow
+        if (currentPath == '/login' || currentPath == '/register') {
+          final termsState = ref.read(preLoginTermsProvider);
+          if (!termsState.accepted || termsState.role == null) {
+            return '/role-selection';
+          }
+        }
+
+        // Direct access to /terms-and-conditions without a selected role redirects to /role-selection
+        if (currentPath == '/terms-and-conditions') {
+          final termsState = ref.read(preLoginTermsProvider);
+          final roleFromExtra = state.extra as String?;
+          if (roleFromExtra == null && termsState.role == null) {
+            return '/role-selection';
+          }
+        }
+
+        // Already on a public route -> stay there
         if (isPublicRoute) return null;
-        // Trying to access protected route — redirect to landing
+        // Trying to access protected route -> redirect to landing
         return '/landing';
       }
 
@@ -206,6 +225,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/role-selection',
         builder: (context, state) => const RoleSelectionScreen(),
+      ),
+      GoRoute(
+        path: '/terms-and-conditions',
+        builder: (context, state) {
+          final role = (state.extra as String?) ?? ref.read(preLoginTermsProvider).role;
+          return LegalOnboardingScreen(
+            isPreLogin: true,
+            preLoginRole: role,
+          );
+        },
       ),
       GoRoute(
         path: '/login',
@@ -495,6 +524,9 @@ class _GoRouterAuthNotifier extends ChangeNotifier {
       notifyListeners();
     });
     _ref.listen(userLegalStatusProvider, (_, _) {
+      notifyListeners();
+    });
+    _ref.listen(preLoginTermsProvider, (_, _) {
       notifyListeners();
     });
   }
