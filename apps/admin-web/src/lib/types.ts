@@ -174,6 +174,7 @@ export interface ActivityLog {
   actor_role: string;
   details?: string;
   timestamp: string;
+  project_name?: string;
 }
 
 // ── Admin Stats (GET /api/admin/stats response) ──

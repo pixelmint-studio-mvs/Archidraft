@@ -119,6 +119,9 @@ export default function DraughtsmenPage() {
     setLoadingDetails(true);
     try {
       const details = await adminApi.getUserDetails(draughtsman.id);
+      if (details.user) {
+        setSelectedDraughtsman(details.user);
+      }
       setAssignments(details.projects || []);
     } catch {
       // Fallback: match by draughtsman_id in project list
@@ -361,6 +364,7 @@ export default function DraughtsmenPage() {
           onClose={() => setSelectedDraughtsman(null)}
           title={`Workspace: ${selectedDraughtsman.name || 'Unnamed Draughtsman'}`}
           description={`UID ${selectedDraughtsman.id.substring(0, 12)}… • ${selectedDraughtsman.qualification || 'Certified Draughtsman'}`}
+          maxWidth="2xl"
         >
           <div className="mb-3 flex justify-end">
             <Link

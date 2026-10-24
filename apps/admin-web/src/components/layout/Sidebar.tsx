@@ -13,6 +13,7 @@ import {
   Activity,
   DollarSign,
   Settings,
+  Bot,
   LogOut,
   ShieldCheck,
   ChevronLeft,
@@ -124,6 +125,11 @@ const NAV_SECTIONS: NavSection[] = [
         name: 'System Settings & SLA',
         href: '/settings',
         icon: Settings,
+      },
+      {
+        name: 'PIXMINT AI Control',
+        href: '/settings/pixmint-bot',
+        icon: Bot,
       },
       {
         name: 'Financials (Frozen)',

@@ -165,12 +165,18 @@ export const adminApi = {
     return await fetchApi<AdminDashboardMetrics>('/api/admin/dashboard');
   },
 
+  async getActivityLogs(limit = 100): Promise<ActivityLog[]> {
+    const res = await fetchApi<ActivityLog[]>(`/api/activity?limit=${limit}`);
+    return Array.isArray(res) ? res : [];
+  },
+
   async getStats(): Promise<AdminStats> {
     try {
-      const [metrics, projects, users] = await Promise.all([
+      const [metrics, projects, users, recentActivity] = await Promise.all([
         this.getDashboardMetrics().catch(() => null),
         this.getProjects().catch(() => []),
         this.getUsers().catch(() => []),
+        this.getActivityLogs(10).catch(() => []),
       ]);
       const byStatus: Record<string, number> = {};
       projects.forEach((p) => {
@@ -189,7 +195,7 @@ export const adminApi = {
           total: users.length,
           byRole,
         },
-        recentActivity: [],
+        recentActivity,
       };
     } catch {
       return {
@@ -207,22 +213,67 @@ export const adminApi = {
   },
 
   async getUserDetails(userId: string): Promise<{ user: User; projects: any[] }> {
+    let user: User | null = null;
+    let projects: any[] = [];
+
     try {
-      return await fetchApi<{ user: User; projects: any[] }>(`/api/users/${userId}`);
-    } catch {
+      const res = await fetchApi<any>(`/api/users/${userId}`);
+      if (res) {
+        if (res.user && res.user.id) {
+          user = res.user;
+          projects = Array.isArray(res.projects) ? res.projects : [];
+        } else if (res.id) {
+          user = res;
+          projects = Array.isArray(res.projects) ? res.projects : [];
+        }
+      }
+    } catch (err: any) {
+      if (err?.status === 401 || err?.status === 403) {
+        throw err;
+      }
+      // If 404 or connection failure, attempt directory fallback below
+    }
+
+    if (!user) {
       const allUsers = await this.getUsers();
-      const user = allUsers.find((u) => u.id === userId);
-      if (!user) throw new Error('User not found');
-      
-      const allProjects = await this.getProjects();
-      let projects: any[] = [];
-      if (user.role === 'CLIENT') {
+      const found = allUsers.find((u) => u.id === userId);
+      if (!found) {
+        throw new ApiError(`User profile not found for identifier "${userId}"`, 404);
+      }
+      user = found;
+    }
+
+    // Populate projects / assignments if not returned by the direct lookup
+    if (!projects || projects.length === 0) {
+      if (user.role === 'CLIENT' || (user.role as string) === 'ENGINEER') {
+        const allProjects = await this.getProjects().catch(() => []);
         projects = allProjects.filter((p) => p.client_id === userId);
       } else if (user.role === 'DRAUGHTSMAN') {
-        projects = allProjects.filter((p) => p.draughtsman_id === userId);
+        try {
+          const assignments = await this.getAdminAssignments({ draughtsmanId: userId });
+          if (assignments && assignments.length > 0) {
+            projects = assignments;
+          } else {
+            const allProjects = await this.getProjects().catch(() => []);
+            projects = allProjects.filter((p) => p.draughtsman_id === userId);
+          }
+        } catch {
+          const allProjects = await this.getProjects().catch(() => []);
+          projects = allProjects.filter((p) => p.draughtsman_id === userId);
+        }
+      } else if (user.role === 'STUDENT') {
+        try {
+          const studentData = await fetchApi<any>(`/api/admin/students/${userId}`);
+          if (studentData?.assignments && Array.isArray(studentData.assignments)) {
+            projects = studentData.assignments;
+          }
+        } catch {
+          projects = [];
+        }
       }
-      return { user, projects };
     }
+
+    return { user, projects };
   },
 
   // Projects

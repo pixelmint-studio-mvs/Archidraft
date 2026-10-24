@@ -97,6 +97,33 @@ export default function StudentsPage() {
 
   // Detail Modal State
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [studentAssignments, setStudentAssignments] = useState<any[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+
+  const openStudentDetails = async (student: any) => {
+    setSelectedStudent(student);
+    if (student.isFixture) {
+      setStudentAssignments([]);
+      return;
+    }
+    setLoadingDetails(true);
+    try {
+      const details = await adminApi.getUserDetails(student.id);
+      if (details.user) {
+        setSelectedStudent({
+          ...details.user,
+          ...student,
+          name: details.user.name || student.name,
+          email: details.user.email || student.email,
+        });
+      }
+      setStudentAssignments(details.projects || []);
+    } catch {
+      setStudentAssignments([]);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
 
   const loadData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -372,7 +399,7 @@ export default function StudentsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setSelectedStudent(student)}
+                            onClick={() => openStudentDetails(student)}
                             className="flex items-center gap-1.5 ml-auto"
                           >
                             <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
@@ -423,6 +450,7 @@ export default function StudentsPage() {
           onClose={() => setSelectedStudent(null)}
           title={`Learning Portal: ${selectedStudent.name || 'Student'}`}
           description={`UID ${selectedStudent.id.substring(0, 12)}… • ${selectedStudent.qualification || 'CAD Apprentice'}`}
+          maxWidth="2xl"
         >
           <div className="mb-3 flex justify-end">
             <Link
@@ -435,6 +463,8 @@ export default function StudentsPage() {
           </div>
           <StudentProfileView
             student={selectedStudent}
+            assignments={studentAssignments}
+            loading={loadingDetails}
             onClose={() => setSelectedStudent(null)}
           />
         </Modal>

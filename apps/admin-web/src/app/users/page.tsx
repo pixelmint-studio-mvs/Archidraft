@@ -691,7 +691,7 @@ export default function UsersPage() {
           onClose={() => { setSelectedUser(null); setUserDetails(null); }}
           title={`User Dossier: ${selectedUser.name || 'User'}`}
           description={`UID ${selectedUser.id.substring(0, 12)}… • ROLE: ${selectedUser.role}`}
-          maxWidth="lg"
+          maxWidth="2xl"
         >
           <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
             {/* Profile strip */}

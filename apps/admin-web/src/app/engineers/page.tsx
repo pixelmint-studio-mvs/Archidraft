@@ -81,6 +81,9 @@ export default function EngineersPage() {
     setLoadingDetails(true);
     try {
       const details = await adminApi.getUserDetails(engineer.id);
+      if (details.user) {
+        setSelectedEngineer(details.user);
+      }
       setEngineerProjects(details.projects || []);
     } catch {
       // Fallback to local filter
@@ -304,6 +307,7 @@ export default function EngineersPage() {
           onClose={() => setSelectedEngineer(null)}
           title={`Engineer Dossier: ${selectedEngineer.name || 'Engineer'}`}
           description={`UID ${selectedEngineer.id.substring(0, 12)}… • Complete Project History`}
+          maxWidth="2xl"
         >
           <div className="mb-3 flex justify-end">
             <Link

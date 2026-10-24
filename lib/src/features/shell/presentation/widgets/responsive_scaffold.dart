@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pixmint_bot/pixmint_bot.dart';
+import '../../../auth/providers/auth_providers.dart';
 import '../../../../core/constants/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -12,7 +15,7 @@ import 'app_top_bar.dart';
 /// Responsive scaffold that adapts navigation based on screen width.
 ///
 /// Implements the Stitch blueprint background and responsive layout structure.
-class ResponsiveScaffold extends StatelessWidget {
+class ResponsiveScaffold extends ConsumerWidget {
   final Widget body;
   final int selectedIndex;
   final List<NavDestination> destinations;
@@ -31,7 +34,7 @@ class ResponsiveScaffold extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     bool shouldHide = hideNavigation ?? false;
     if (hideNavigation == null) {
       try {
@@ -41,6 +44,55 @@ class ResponsiveScaffold extends StatelessWidget {
         }
       } catch (_) {}
     }
+
+    
+    // Determine whether to hide PIXMINT BOT launcher (e.g. on CAD canvas / workspace)
+    bool hideBot = false;
+    try {
+      final loc = GoRouterState.of(context).matchedLocation;
+      if (loc.contains('/workspace/')) {
+        hideBot = true;
+      }
+    } catch (_) {}
+
+    // Map UserProfile role to BotUserRole
+    BotUserRole botRole = BotUserRole.engineer;
+    if (profile != null) {
+      final roleStr = profile!.role.toLowerCase();
+      if (roleStr.contains('draughtsman')) {
+        botRole = BotUserRole.draughtsman;
+      } else if (roleStr.contains('student')) {
+        botRole = BotUserRole.student;
+      } else if (roleStr.contains('admin')) {
+        botRole = BotUserRole.admin;
+      } else {
+        botRole = BotUserRole.engineer;
+      }
+    }
+
+    final bool isTestEnv = WidgetsBinding.instance.runtimeType.toString() != 'WidgetsFlutterBinding';
+    Widget botLauncher(bool isMobile) => Positioned(
+      bottom: isMobile ? 80 : 36,
+      right: isMobile ? 16 : 24,
+      child: PixmintBotLauncher(
+        role: botRole,
+        animate: !isTestEnv,
+        onCustomTap: () async {
+          ref.read(pixmintUseRemoteProvider.notifier).state = true;
+          ref.read(pixmintApiBaseUrlProvider.notifier).state = 'http://127.0.0.1:8788';
+          try {
+            final fbUser = ref.read(firebaseAuthProvider).currentUser;
+            if (fbUser != null) {
+              final token = await fbUser.getIdToken();
+              ref.read(pixmintAuthTokenProvider.notifier).state = token;
+            }
+          } catch (_) {}
+          if (context.mounted) {
+            PixmintChatSheet.show(context, role: botRole);
+          }
+        },
+      ),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -78,6 +130,7 @@ class ResponsiveScaffold extends StatelessWidget {
                   bottom: false,
                   child: body,
                 ),
+                if (!hideBot) botLauncher(true),
               ],
             ),
             bottomNavigationBar: AppBottomNav(
@@ -111,6 +164,7 @@ class ResponsiveScaffold extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (!hideBot) botLauncher(false),
               ],
             ),
           );
@@ -187,6 +241,7 @@ class ResponsiveScaffold extends StatelessWidget {
                   ),
                 ),
               ),
+              if (!hideBot) botLauncher(false),
             ],
           ),
         );

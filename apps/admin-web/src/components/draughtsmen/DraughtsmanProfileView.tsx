@@ -85,48 +85,64 @@ export function DraughtsmanProfileView({
   const workloadCapacity = Math.min(100, Math.round((activeCount / 4) * 100));
 
   return (
-    <div className={`space-y-6 ${isStandalone ? 'max-w-5xl mx-auto' : 'max-h-[80vh] overflow-y-auto pr-1'}`}>
+    <div className={`space-y-6 ${isStandalone ? 'max-w-5xl mx-auto' : ''}`}>
       {/* Profile header strip */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border border-slate-200 bg-slate-50 shadow-xs">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0 flex-1">
           <div className="h-14 w-14 rounded-2xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center font-bold text-xl shrink-0 shadow-xs">
             {(draughtsman.name || 'D').charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{draughtsman.name || 'Unnamed Draughtsman'}</h2>
-            <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-slate-900 truncate" title={draughtsman.name || 'Unnamed Draughtsman'}>
+              {draughtsman.name || 'Unnamed Draughtsman'}
+            </h2>
+            <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5" title={draughtsman.email}>
               <Mail className="h-3 w-3 text-slate-400 shrink-0" />
-              {draughtsman.email}
+              <span className="truncate">{draughtsman.email}</span>
             </p>
             {draughtsman.mobile && (
               <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
                 <Phone className="h-3 w-3 text-slate-400 shrink-0" />
-                {draughtsman.mobile}
+                <span>{draughtsman.mobile}</span>
               </p>
             )}
             {draughtsman.college_name && (
-              <p className="text-xs text-slate-600 truncate flex items-center gap-1.5 mt-1 font-medium">
-                <GraduationCap className="h-3.5 w-3.5 text-slate-400 shrink-0" /> {draughtsman.college_name}
+              <p className="text-xs text-slate-600 truncate flex items-center gap-1.5 mt-1 font-medium" title={draughtsman.college_name}>
+                <GraduationCap className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">{draughtsman.college_name}</span>
               </p>
             )}
           </div>
         </div>
 
-        {/* Quick capacity stats */}
-        <div className="flex items-center gap-4 p-3 rounded-xl bg-white border border-slate-200 shadow-2xs self-start sm:self-auto shrink-0">
-          <div className="text-center px-2">
-            <p className="text-xl font-bold text-purple-700 font-mono">{activeCount}</p>
-            <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Active</p>
+        {/* Role badge, UID & Capacity indicators */}
+        <div className="flex flex-wrap sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] whitespace-nowrap">
+              <PenTool className="h-4 w-4 shrink-0" />
+              <span className="text-xs font-mono font-bold uppercase tracking-wider">DRAUGHTSMAN</span>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap" title={`Canonical UID: ${draughtsman.id}`}>
+              UID: {draughtsman.id ? `${draughtsman.id.substring(0, 10)}…` : '—'}
+            </span>
           </div>
-          <div className="w-px h-8 bg-slate-200" />
-          <div className="text-center px-2">
-            <p className="text-xl font-bold text-emerald-700 font-mono">{completedCount}</p>
-            <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Done</p>
-          </div>
-          <div className="w-px h-8 bg-slate-200" />
-          <div className="text-center px-2">
-            <p className="text-xl font-bold text-[#0453cd] font-mono">{workloadCapacity}%</p>
-            <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Load</p>
+
+          {/* Quick capacity stats */}
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0">
+            <div className="text-center px-2">
+              <p className="text-lg font-bold text-purple-700 font-mono">{activeCount}</p>
+              <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Active</p>
+            </div>
+            <div className="w-px h-6 bg-slate-200" />
+            <div className="text-center px-2">
+              <p className="text-lg font-bold text-emerald-700 font-mono">{completedCount}</p>
+              <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Done</p>
+            </div>
+            <div className="w-px h-6 bg-slate-200" />
+            <div className="text-center px-2">
+              <p className="text-lg font-bold text-[#0453cd] font-mono">{workloadCapacity}%</p>
+              <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Load</p>
+            </div>
           </div>
         </div>
       </div>

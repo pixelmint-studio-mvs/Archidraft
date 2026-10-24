@@ -2465,31 +2465,39 @@ app.get('/api/activity', async (c) => {
   const user = await getUser(db, uid);
   if (!user) return c.json({ error: 'User not found' }, 404);
 
+  const limitParam = c.req.query('limit');
+  const limit = Math.min(Math.max(parseInt(limitParam || '100', 10) || 100, 1), 500);
+
   let logs;
-  if (user.role === 'ENGINEER') {
-    // Only activities for projects owned by this Engineer, excluding internal non-client and financial actions
+  if (['ENGINEER', 'CLIENT'].includes(user.role as string)) {
+    // Activities for projects owned by this Engineer/Client, excluding internal reassignments
     logs = await db.prepare(`
       SELECT a.*, p.project_name
       FROM activity_logs a
-      JOIN projects p ON a.project_id = p.id
+      LEFT JOIN projects p ON a.project_id = p.id
       WHERE p.client_id = ? AND a.action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')
       ORDER BY a.timestamp DESC
-    `).bind(uid).all();
+      LIMIT ?
+    `).bind(uid, limit).all();
   } else if (user.role === 'DRAUGHTSMAN') {
+    // Activities for projects assigned to this Draughtsman
     logs = await db.prepare(`
       SELECT a.*, p.project_name
       FROM activity_logs a
-      JOIN projects p ON a.project_id = p.id
+      LEFT JOIN projects p ON a.project_id = p.id
       WHERE p.draughtsman_id = ?
       ORDER BY a.timestamp DESC
-    `).bind(uid).all();
-  } else if (user.role === 'STUDIO_ADMIN') {
+      LIMIT ?
+    `).bind(uid, limit).all();
+  } else if (['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    // Global audit stream for administrators
     logs = await db.prepare(`
       SELECT a.*, p.project_name
       FROM activity_logs a
-      JOIN projects p ON a.project_id = p.id
+      LEFT JOIN projects p ON a.project_id = p.id
       ORDER BY a.timestamp DESC
-    `).all();
+      LIMIT ?
+    `).bind(limit).all();
   } else {
     return c.json({ error: 'Forbidden' }, 403);
   }

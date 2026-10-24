@@ -13,7 +13,6 @@ import {
   TrendingUp,
   Phone,
   Mail,
-  MapPin,
   Calendar,
 } from 'lucide-react';
 
@@ -38,40 +37,43 @@ export function EngineerProfileView({
   const completedProjects = projects.filter((p) => p.status === 'COMPLETED').length;
 
   return (
-    <div className={`space-y-5 ${isStandalone ? 'max-w-5xl mx-auto' : 'max-h-[80vh] overflow-y-auto pr-1'}`}>
+    <div className={`space-y-5 ${isStandalone ? 'max-w-5xl mx-auto' : ''}`}>
       {/* Profile strip */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border border-slate-200 bg-slate-50 shadow-xs">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0 flex-1">
           <div className="h-14 w-14 rounded-2xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center font-bold text-xl shrink-0 shadow-xs">
             {(engineer.name || 'E').charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{engineer.name || 'Unnamed Engineer'}</h2>
-            <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-slate-900 truncate" title={engineer.name || 'Unnamed Engineer'}>
+              {engineer.name || 'Unnamed Engineer'}
+            </h2>
+            <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5" title={engineer.email}>
               <Mail className="h-3 w-3 text-slate-400 shrink-0" />
-              {engineer.email}
+              <span className="truncate">{engineer.email}</span>
             </p>
             {engineer.mobile && (
               <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
                 <Phone className="h-3 w-3 text-slate-400 shrink-0" />
-                {engineer.mobile}
+                <span>{engineer.mobile}</span>
               </p>
             )}
             {engineer.company_name && (
-              <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 font-medium">
-                <Building className="h-3.5 w-3.5 text-slate-400 shrink-0" /> {engineer.company_name}
+              <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5 font-medium truncate" title={engineer.company_name}>
+                <Building className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">{engineer.company_name}</span>
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd]">
+        <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] whitespace-nowrap">
             <ShieldCheck className="h-4 w-4 shrink-0" />
             <span className="text-xs font-mono font-bold uppercase tracking-wider">ENGINEER</span>
           </div>
-          <span className="text-[11px] font-mono text-slate-400">
-            UID: {engineer.id.substring(0, 10)}…
+          <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap" title={`Canonical UID: ${engineer.id}`}>
+            UID: {engineer.id ? `${engineer.id.substring(0, 10)}…` : '—'}
           </span>
         </div>
       </div>
@@ -115,8 +117,9 @@ export function EngineerProfileView({
             <p className="text-xs text-slate-500 font-mono">Loading submission history…</p>
           </div>
         ) : projects.length === 0 ? (
-          <div className="p-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500 font-mono">
-            No submissions recorded for this engineer yet.
+          <div className="p-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500 font-mono space-y-1">
+            <p className="font-semibold text-slate-600">No submissions recorded for this engineer yet.</p>
+            <p className="text-[11px] text-slate-400">When this engineer creates project submissions, their CAD drafting status and revision queues will appear here.</p>
           </div>
         ) : (
           <div className={`space-y-2.5 ${isStandalone ? '' : 'max-h-60 overflow-y-auto pr-0.5'}`}>

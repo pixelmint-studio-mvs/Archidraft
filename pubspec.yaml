@@ -64,6 +64,8 @@ dependencies:
   json_annotation: ^4.12.0
   percent_indicator: ^4.2.5
   url_launcher: ^6.3.3
+  pixmint_bot:
+    path: C:/Users/P MOHAMMED JANIS/.gemini/antigravity-ide/brain/b617ff01-f43b-4808-aa8a-14e025cf9594/scratch/pixmint-bot
 
 dev_dependencies:
   flutter_test:

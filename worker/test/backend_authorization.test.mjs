@@ -864,3 +864,70 @@ test('10. Student Role Isolation & Training Security', async (t) => {
     assert.equal(res.status, 404);
   });
 });
+test('16. Global Activity Audit Stream Authorization & Querying (/api/activity)', async (t) => {
+  const { rawDb, env } = createIsolatedTestDb();
+  seedTestData(rawDb);
+
+  // Insert test activity log referencing an existing project
+  rawDb.prepare(`
+    INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details, timestamp)
+    VALUES ('act-auth-1', 'prj-accepted-c1', 'PROJECT_SUBMITTED', 'client-1', 'CLIENT', 'Client submitted project brief.', '2026-10-25 01:00:00')
+  `).run();
+
+  await t.test('Unauthenticated request to /api/activity is rejected (401)', async () => {
+    const res = await app.request('/api/activity', { method: 'GET' }, env);
+    assert.equal(res.status, 401);
+  });
+
+  await t.test('Guest role is forbidden from /api/activity (403)', async () => {
+    const res = await testRequest(env, '/api/activity', { token: 'guest-1' });
+    assert.equal(res.status, 403);
+  });
+
+  await t.test('STUDIO_ADMIN role can access global activity feed (200)', async () => {
+    const res = await testRequest(env, '/api/activity', { token: 'studio-admin-1' });
+    assert.equal(res.status, 200);
+    const logs = await res.json();
+    assert.ok(Array.isArray(logs));
+    assert.ok(logs.some(l => l.id === 'act-auth-1'));
+    assert.equal(logs.find(l => l.id === 'act-auth-1').project_name, 'Client 1 Active Commercial');
+  });
+
+  await t.test('ADMIN role can access global activity feed (200)', async () => {
+    const res = await testRequest(env, '/api/activity', { token: 'admin-1' });
+    assert.equal(res.status, 200);
+    const logs = await res.json();
+    assert.ok(Array.isArray(logs));
+    assert.ok(logs.some(l => l.id === 'act-auth-1'));
+  });
+
+  await t.test('CLIENT role can access activities for their owned projects (200)', async () => {
+    const res = await testRequest(env, '/api/activity', { token: 'client-1' });
+    assert.equal(res.status, 200);
+    const logs = await res.json();
+    assert.ok(Array.isArray(logs));
+    assert.ok(logs.some(l => l.id === 'act-auth-1'));
+  });
+
+  await t.test('ENGINEER role can access activities for their owned projects (200)', async () => {
+    const res = await testRequest(env, '/api/activity', { token: 'engineer-1' });
+    assert.equal(res.status, 200);
+    const logs = await res.json();
+    assert.ok(Array.isArray(logs));
+  });
+
+  await t.test('DRAUGHTSMAN role can access activities for their assigned projects (200)', async () => {
+    const res = await testRequest(env, '/api/activity', { token: 'draughtsman-1' });
+    assert.equal(res.status, 200);
+    const logs = await res.json();
+    assert.ok(Array.isArray(logs));
+    assert.ok(logs.some(l => l.id === 'act-auth-1'));
+  });
+
+  await t.test('Supports limit query parameter', async () => {
+    const res = await testRequest(env, '/api/activity?limit=1', { token: 'admin-1' });
+    assert.equal(res.status, 200);
+    const logs = await res.json();
+    assert.ok(logs.length <= 1);
+  });
+});
