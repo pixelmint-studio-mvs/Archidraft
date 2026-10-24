@@ -80,6 +80,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
         email: email,
         password: password,
       );
+      ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -93,6 +94,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
     try {
       ref.read(preLoginTermsProvider.notifier).reset();
       await ref.read(authRepositoryProvider).signOut();
+      ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
     } catch (e, st) {
       state = AsyncError(e, st);

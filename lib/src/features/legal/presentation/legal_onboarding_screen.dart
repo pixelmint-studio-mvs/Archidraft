@@ -24,6 +24,28 @@ class LegalOnboardingScreen extends ConsumerStatefulWidget {
     this.preLoginRole,
   });
 
+  /// Distinguishes genuine network connection failures from HTTP or application-level errors.
+  static String mapLegalErrorMessage(Object? error) {
+    final errStr = error?.toString() ?? '';
+    final lower = errStr.toLowerCase();
+    final isNetworkError = lower.contains('socketexception') ||
+        lower.contains('clientexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('connection reset') ||
+        lower.contains('connection refused') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('connection') ||
+        lower.contains('timeout');
+
+    if (isNetworkError) {
+      return 'Unable to reach legal policy service. Please check network connection.';
+    }
+    if (lower.contains('api error')) {
+      return 'Legal policy service error: $errStr. Please try again.';
+    }
+    return 'Unable to reach legal policy service. Please check network connection.';
+  }
+
   @override
   ConsumerState<LegalOnboardingScreen> createState() => _LegalOnboardingScreenState();
 }
@@ -173,7 +195,7 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       bodyContent = legalStatusAsync.when(
         loading: () => const AppLoadingIndicator(message: 'Checking platform policy status...'),
         error: (err, _) => AppErrorWidget(
-          message: 'Unable to reach legal policy service. Please check network connection.',
+          message: LegalOnboardingScreen.mapLegalErrorMessage(err),
           onRetry: () => ref.refresh(userLegalStatusProvider),
         ),
         data: (legalStatus) {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/providers/auth_providers.dart';
 import '../../api/providers/api_providers.dart';
 import '../data/legal_repository.dart';
 import '../domain/legal_document.dart';
@@ -10,6 +11,20 @@ final legalRepositoryProvider = Provider<LegalRepository>((ref) {
 });
 
 final userLegalStatusProvider = FutureProvider<UserLegalStatus>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  final user = authState.value;
+  if (user == null) {
+    return const UserLegalStatus(
+      userId: '',
+      termsAccepted: false,
+      reacceptanceRequired: false,
+      privacyNoticeAcknowledged: false,
+      optionalConsents: {},
+      requiresAction: false,
+      hasEffectiveTerms: true,
+      missingMandatoryDocs: false,
+    );
+  }
   return ref.watch(legalRepositoryProvider).getUserLegalStatus();
 });
 
