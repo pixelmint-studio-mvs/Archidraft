@@ -1,4 +1,5 @@
 import { auth } from './firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import {
   AdminStats,
   Project,
@@ -17,7 +18,7 @@ import {
   EvaluateSubmissionPayload,
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://archi-draft-worker.imserratex.workers.dev';
+const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || 'http://localhost:8787';
 
 export class ApiError extends Error {
   status: number;
@@ -31,13 +32,46 @@ export class ApiError extends Error {
   }
 }
 
-async function getAuthToken(): Promise<string | null> {
-  const user = auth.currentUser;
+async function getAuthToken(forceRefresh = false): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  // 1. Wait for Firebase authStateReady if available and currentUser is not yet set
+  if (!auth.currentUser && typeof (auth as any).authStateReady === 'function') {
+    try {
+      await (auth as any).authStateReady();
+    } catch {}
+  }
+
+  // 2. Fall back to waiting for onAuthStateChanged initial emission
+  let user = auth.currentUser;
+  if (!user) {
+    user = await new Promise<FirebaseUser | null>((resolve) => {
+      if (auth.currentUser) return resolve(auth.currentUser);
+      const unsubscribe = onAuthStateChanged(auth, (u) => {
+        unsubscribe();
+        resolve(u);
+      });
+      setTimeout(() => {
+        unsubscribe();
+        resolve(auth.currentUser);
+      }, 1500);
+    });
+  }
+
   if (!user) return null;
-  return await user.getIdToken();
+
+  try {
+    return await user.getIdToken(forceRefresh);
+  } catch (err) {
+    console.warn('Failed to retrieve Firebase ID token:', err);
+    return null;
+  }
 }
 
-export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function fetchApi<T>(
+  endpoint: string,
+  options: RequestInit & { _isRetry?: boolean } = {}
+): Promise<T> {
   const token = await getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -56,6 +90,21 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   });
 
   if (!res.ok) {
+    // If request failed with 401 Unauthorized and we haven't retried yet, force refresh ID token and retry once
+    if (res.status === 401 && !options._isRetry) {
+      const refreshedToken = await getAuthToken(true);
+      if (refreshedToken && refreshedToken !== token) {
+        return await fetchApi<T>(endpoint, {
+          ...options,
+          _isRetry: true,
+          headers: {
+            ...headers,
+            Authorization: `Bearer ${refreshedToken}`,
+          },
+        });
+      }
+    }
+
     let errBody: any;
     try {
       errBody = await res.json();
@@ -319,21 +368,24 @@ export const adminApi = {
 
   // Users
   async getUsers(role?: UserRole): Promise<User[]> {
-    try {
-      const query = role ? `?role=${encodeURIComponent(role)}` : '';
-      return await fetchApi<User[]>(`/api/users${query}`);
-    } catch {
-      const fbUser = auth.currentUser;
-      return [
-        {
-          id: fbUser?.uid || 'qS2HlE3sw4hdCWjoZwCCfnC8UxT2',
-          email: fbUser?.email || 'contact@draughtsmanstudio.com',
-          name: 'Studio Admin',
-          role: 'ADMIN',
-          created_at: new Date().toISOString(),
-        },
-      ];
+    if (role === 'CLIENT' || (role as string) === 'ENGINEER') {
+      // In staging/prod D1 database, engineers may have role 'ENGINEER' or legacy 'CLIENT'
+      const [clients, engineers] = await Promise.all([
+        fetchApi<User[]>('/api/users?role=CLIENT').catch((err) => {
+          if (err?.status === 401 || err?.status === 403) throw err;
+          return [];
+        }),
+        fetchApi<User[]>('/api/users?role=ENGINEER').catch((err) => {
+          if (err?.status === 401 || err?.status === 403) throw err;
+          return [];
+        }),
+      ]);
+      const map = new Map<string, User>();
+      [...clients, ...engineers].forEach((u) => map.set(u.id, u));
+      return Array.from(map.values());
     }
+    const query = role ? `?role=${encodeURIComponent(role)}` : '';
+    return await fetchApi<User[]>(`/api/users${query}`);
   },
 
   async getMe(): Promise<User> {

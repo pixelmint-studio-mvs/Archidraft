@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { adminApi } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { User, Project } from '@/lib/types';
 import { EngineerProfileView } from '@/components/engineers/EngineerProfileView';
 import {
@@ -35,6 +36,7 @@ import {
 
 
 export default function EngineersPage() {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [engineers, setEngineers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -54,7 +56,7 @@ export default function EngineersPage() {
 
     try {
       const [usersData, projectsData] = await Promise.all([
-        adminApi.getUsers('CLIENT'), // CLIENT is the backend database role for Engineers
+        adminApi.getUsers('CLIENT'), // CLIENT / ENGINEER roles
         adminApi.getProjects(),
       ]);
       setEngineers(usersData || []);
@@ -69,8 +71,10 @@ export default function EngineersPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!authLoading) {
+      loadData();
+    }
+  }, [authLoading]);
 
   const openEngineerDetails = async (engineer: User) => {
     setSelectedEngineer(engineer);
