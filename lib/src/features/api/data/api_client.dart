@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
@@ -6,14 +7,64 @@ import 'api_client_io.dart' if (dart.library.html) 'api_client_web.dart' as plat
 
 class ApiClient {
   final FirebaseAuth _firebaseAuth;
-  // Use http://localhost:8787 for local dev or the deployed worker URL
-  final String baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8787');
+  final String baseUrl;
 
-  ApiClient(this._firebaseAuth);
+  ApiClient(this._firebaseAuth, {String? baseUrl, bool? isRelease})
+      : baseUrl = resolveBaseUrl(overrideUrl: baseUrl, isRelease: isRelease);
+
+  /// Resolves and validates the base API URL.
+  ///
+  /// In release builds:
+  /// - Requires an explicit `--dart-define=API_URL=https://...`
+  /// - Fails closed if missing, not HTTPS, or pointing to localhost/127.0.0.1
+  ///
+  /// In debug/test builds:
+  /// - Permits explicit `--dart-define=API_URL=...`
+  /// - Defaults safely to `http://localhost:8787` for local development
+  static String resolveBaseUrl({
+    String? overrideUrl,
+    bool? isRelease,
+  }) {
+    final releaseMode = isRelease ?? kReleaseMode;
+    final configured = (overrideUrl ?? const String.fromEnvironment('API_URL')).trim();
+
+    if (releaseMode) {
+      if (configured.isEmpty) {
+        throw StateError(
+          'API_URL must be explicitly configured for release builds via --dart-define=API_URL=https://...',
+        );
+      }
+      final uri = Uri.tryParse(configured);
+      if (uri == null || !uri.hasScheme || uri.scheme.toLowerCase() != 'https' || uri.host.isEmpty) {
+        throw StateError(
+          'API_URL in release builds must be a valid HTTPS URL (got: "$configured")',
+        );
+      }
+      final host = uri.host.toLowerCase();
+      if (host == 'localhost' || host == '127.0.0.1' || host == '::1') {
+        throw StateError(
+          'API_URL in release builds cannot point to localhost/127.0.0.1 (got: "$configured")',
+        );
+      }
+      return configured;
+    }
+
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+    return 'http://localhost:8787';
+  }
 
   Future<Map<String, String>> getAuthHeaders() async {
     return _getHeaders();
   }
+
+  static const stagingTestUids = {
+    'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer
+    'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman
+    '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student
+    'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin
+  };
 
   Future<Map<String, String>> _getHeaders() async {
     final user = _firebaseAuth.currentUser;
@@ -21,10 +72,14 @@ class ApiClient {
       throw Exception('User not authenticated');
     }
     final token = await user.getIdToken();
-    return {
+    final headers = <String, String>{
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
+    if (stagingTestUids.contains(user.uid)) {
+      headers['X-Staging-Test-Mode'] = 'workflow-e2e';
+    }
+    return headers;
   }
 
   Future<dynamic> get(String path, {Map<String, String>? queryParams}) async {

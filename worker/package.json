@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/backend_authorization.test.mjs test/cross_user_isolation_f1.test.mjs test/admin_student_contract.test.mjs test/legal_privacy_authorization.test.mjs test/phase_b_security_remediation.test.mjs test/phase_c_remediation.test.mjs",
+    "test": "node --test test/backend_authorization.test.mjs test/cross_user_isolation_f1.test.mjs test/admin_student_contract.test.mjs test/legal_privacy_authorization.test.mjs test/phase_b_security_remediation.test.mjs test/phase_c_remediation.test.mjs test/phase_d_remediation.test.mjs test/phase_d10_staging_legal_gate.test.mjs",
+    "preflight:staging": "node scripts/preflight_guard.mjs --env staging",
+    "preflight:prod": "node scripts/preflight_guard.mjs --env production",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"

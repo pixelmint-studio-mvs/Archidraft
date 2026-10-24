@@ -58,7 +58,7 @@ export function AdminShell({
     );
   }
 
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
     return null; // Route protection in AuthProvider will redirect
   }
 

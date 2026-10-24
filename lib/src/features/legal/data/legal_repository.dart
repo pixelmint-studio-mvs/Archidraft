@@ -1,4 +1,4 @@
-﻿import '../../api/data/api_client.dart';
+import '../../api/data/api_client.dart';
 import '../domain/legal_document.dart';
 import '../domain/privacy_request.dart';
 import '../domain/user_legal_status.dart';
@@ -38,7 +38,31 @@ class LegalRepository {
   Future<UserLegalStatus> getUserLegalStatus() async {
     final response = await _apiClient.get('/api/users/me/legal-status');
     if (response is Map<String, dynamic>) {
-      return UserLegalStatus.fromJson(response);
+      final status = UserLegalStatus.fromJson(response);
+      const isStaging = bool.fromEnvironment('STAGING', defaultValue: false);
+      const stagingTestUids = {
+        'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer
+        'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman
+        '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student
+        'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin
+      };
+      if (isStaging && stagingTestUids.contains(status.userId)) {
+        return UserLegalStatus(
+          userId: status.userId,
+          termsAccepted: true,
+          reacceptanceRequired: false,
+          acceptedTermsVersion: status.acceptedTermsVersion ?? '1.0.0-staging-test',
+          latestTermsVersion: status.latestTermsVersion ?? '1.0.0-staging-test',
+          privacyNoticeAcknowledged: true,
+          acknowledgedPrivacyVersion: status.acknowledgedPrivacyVersion,
+          latestPrivacyVersion: status.latestPrivacyVersion,
+          optionalConsents: status.optionalConsents,
+          requiresAction: false,
+          hasEffectiveTerms: true,
+          missingMandatoryDocs: false,
+        );
+      }
+      return status;
     }
     throw Exception('Failed to parse user legal status');
   }

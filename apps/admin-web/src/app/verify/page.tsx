@@ -114,7 +114,7 @@ function VerifyContent() {
 
   // If already verified, allow automatic entry to dashboard
   useEffect(() => {
-    if (firebaseUser?.emailVerified && user?.role === 'ADMIN') {
+    if (firebaseUser?.emailVerified && (user?.role === 'ADMIN' || user?.role === 'STUDIO_ADMIN')) {
       router.replace('/dashboard');
     }
   }, [firebaseUser, user, router]);

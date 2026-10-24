@@ -15,13 +15,15 @@ import 'package:flutter/foundation.dart'
 /// );
 /// ```
 class DefaultFirebaseOptions {
+  static const bool _isStaging = bool.fromEnvironment('STAGING', defaultValue: false);
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      return _isStaging ? webStaging : web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return android;
+        return _isStaging ? androidStaging : android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for ios - '
@@ -49,6 +51,7 @@ class DefaultFirebaseOptions {
     }
   }
 
+  // Production Configurations (Default)
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyB8K2P3WzbJjqZjU7JCHZO4gWpi_v9PkME',
     appId: '1:471564030203:web:bb8fc985704d4d22e4e05e',
@@ -64,5 +67,23 @@ class DefaultFirebaseOptions {
     messagingSenderId: '471564030203',
     projectId: 'archi-draft',
     storageBucket: 'archi-draft.firebasestorage.app',
+  );
+
+  // Staging Configurations (Enabled via --dart-define=STAGING=true)
+  static const FirebaseOptions webStaging = FirebaseOptions(
+    apiKey: 'AIzaSyC8fbiD_qMyI3g9924nyEV6g8_Rlte36Ak',
+    appId: '1:528293938258:web:bb7dfade95c8426c888b8b',
+    messagingSenderId: '528293938258',
+    projectId: 'archi-draft-staging',
+    authDomain: 'archi-draft-staging.firebaseapp.com',
+    storageBucket: 'archi-draft-staging.firebasestorage.app',
+  );
+
+  static const FirebaseOptions androidStaging = FirebaseOptions(
+    apiKey: 'AIzaSyC8fbiD_qMyI3g9924nyEV6g8_Rlte36Ak',
+    appId: '1:528293938258:android:c780f25ff1a3c1b9888b8b',
+    messagingSenderId: '528293938258',
+    projectId: 'archi-draft-staging',
+    storageBucket: 'archi-draft-staging.firebasestorage.app',
   );
 }

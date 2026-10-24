@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (profile && profile.role !== 'ADMIN') {
+      if (profile && profile.role !== 'ADMIN' && profile.role !== 'STUDIO_ADMIN') {
         if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
           profile.role = 'ADMIN';
         } else {

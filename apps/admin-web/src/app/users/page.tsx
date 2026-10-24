@@ -264,7 +264,15 @@ export default function UsersPage() {
 
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
-      if (selectedRole !== 'ALL' && u.role !== selectedRole) return false;
+      if (selectedRole !== 'ALL') {
+        if (selectedRole === 'CLIENT') {
+          if (u.role !== 'CLIENT' && u.role !== 'ENGINEER') return false;
+        } else if (selectedRole === 'ADMIN') {
+          if (u.role !== 'ADMIN' && u.role !== 'STUDIO_ADMIN') return false;
+        } else if (u.role !== selectedRole) {
+          return false;
+        }
+      }
       const userStatus = u.status || 'ACTIVE';
       if (statusFilter !== 'ALL' && userStatus !== statusFilter) return false;
       if (searchQuery.trim()) {
@@ -286,10 +294,10 @@ export default function UsersPage() {
   const safePage = Math.min(page, totalPages);
   const pageUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const engineerCount = users.filter((u) => u.role === 'CLIENT').length;
+  const engineerCount = users.filter((u) => u.role === 'CLIENT' || u.role === 'ENGINEER').length;
   const draughtsmanCount = users.filter((u) => u.role === 'DRAUGHTSMAN').length;
   const studentCount = users.filter((u) => u.role === 'STUDENT').length;
-  const adminCount = users.filter((u) => u.role === 'ADMIN').length;
+  const adminCount = users.filter((u) => u.role === 'ADMIN' || u.role === 'STUDIO_ADMIN').length;
   const activeCount = users.filter((u) => u.status !== 'SUSPENDED').length;
   const suspendedCount = users.filter((u) => u.status === 'SUSPENDED').length;
 

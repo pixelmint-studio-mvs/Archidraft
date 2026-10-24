@@ -1,0 +1,252 @@
+{
+  "areas": {
+    "Area A": [
+      {
+        "item": "Admin App Startup",
+        "status": "PASS",
+        "details": "Admin Web running on http://localhost:3000/login, clean HTTP 200 rendering"
+      },
+      {
+        "item": "Flutter App Landing Startup",
+        "status": "PASS",
+        "details": "Flutter Web running on http://localhost:8080/#/landing, CanvasKit/HTML render clean"
+      },
+      {
+        "item": "Flutter App Login Route",
+        "status": "PASS",
+        "details": "Flutter Web /login renders correctly with role selection options"
+      },
+      {
+        "item": "Local Worker API Runtime",
+        "status": "PASS",
+        "details": "Worker on http://127.0.0.1:8787 responding with 200 OK"
+      },
+      {
+        "item": "Staging Isolation & Resources",
+        "status": "PASS",
+        "details": "Remote bindings connected to archi-draft-db-staging and archi-draft-storage-staging"
+      },
+      {
+        "item": "Page Refresh Stability",
+        "status": "PASS",
+        "details": "Page reloads cleanly without crash, white screen, or broken state"
+      }
+    ],
+    "Area B": [
+      {
+        "item": "Invalid Password Handling",
+        "status": "PASS",
+        "details": "Rejected with HTTP 400 INVALID_LOGIN_CREDENTIALS"
+      },
+      {
+        "item": "Missing Credentials Handling",
+        "status": "PASS",
+        "details": "Rejected with HTTP 400 Bad Request"
+      },
+      {
+        "item": "Invalid Token Rejection",
+        "status": "PASS",
+        "details": "Worker rejected invalid token with HTTP 401 Unauthorized"
+      },
+      {
+        "item": "STUDIO_ADMIN Authentication & Profile Loading",
+        "status": "PASS",
+        "details": "UID: QBhduHDU1mYUxvtQ89adVnwQYCg1, Role: STUDIO_ADMIN"
+      },
+      {
+        "item": "ENGINEER Authentication & Profile Loading",
+        "status": "PASS",
+        "details": "UID: KXAR90JgoVYLuOKzkbxpKTC8ATa2, Role: ENGINEER"
+      },
+      {
+        "item": "DRAUGHTSMAN Authentication & Profile Loading",
+        "status": "PASS",
+        "details": "UID: TJjtkBm3lgRlpKtcI5u3jpYPH9s1, Role: DRAUGHTSMAN"
+      },
+      {
+        "item": "STUDENT Authentication & Profile Loading",
+        "status": "PASS",
+        "details": "UID: 2iypyxUntQX6djOzwjgPo5xWrGD2, Role: STUDENT"
+      },
+      {
+        "item": "Admin UI Web Authentication",
+        "status": "PASS",
+        "details": "Admin successfully signed in and hydrated auth context"
+      }
+    ],
+    "Area C": [
+      {
+        "item": "Admin Dashboard Rendering & Metrics",
+        "status": "PASS",
+        "details": "Dashboard displays active project metrics and operational statistics"
+      },
+      {
+        "item": "Admin Projects Directory",
+        "status": "PASS",
+        "details": "Projects catalog loads all staged projects with status pills and timestamps"
+      },
+      {
+        "item": "Admin User Management Directory",
+        "status": "PASS",
+        "details": "User directory renders registered users, roles, and status"
+      },
+      {
+        "item": "Admin Assignments Board",
+        "status": "PASS",
+        "details": "Assignments board shows active assignments and draughtsman capacity"
+      },
+      {
+        "item": "Admin Studio Settings",
+        "status": "PASS",
+        "details": "Studio settings page loads platform parameters and max upload ceiling"
+      },
+      {
+        "item": "Financial & Payment Freeze Enforcement",
+        "status": "PASS",
+        "details": "POST /api/projects/:id/invoices returns HTTP 501 FEATURE_FROZEN"
+      }
+    ],
+    "Area D": [
+      {
+        "item": "Engineer Portal Dashboard & Projects",
+        "status": "PASS",
+        "details": "Engineer portal successfully loaded on Flutter Web with live projects catalog"
+      }
+    ],
+    "Area E": [
+      {
+        "item": "Draughtsman Studio & Workspace",
+        "status": "PASS",
+        "details": "Draughtsman portal loaded on Flutter Web with drafting queue and studio workspace"
+      }
+    ],
+    "Area F": [
+      {
+        "item": "Student Portal Dashboard",
+        "status": "PASS",
+        "details": "Student dashboard rendered successfully upon sign-in"
+      },
+      {
+        "item": "Student Admin Route Access Denial",
+        "status": "PASS",
+        "details": "Direct access denied; redirected to http://localhost:8080/#/student/dashboard"
+      },
+      {
+        "item": "Student Training Modules API",
+        "status": "PASS",
+        "details": "GET /api/student/training/modules returned HTTP 200"
+      }
+    ],
+    "Area H": [
+      {
+        "item": "Stage 1: Engineer Creates & Submits Project",
+        "status": "PASS",
+        "details": "Project ID: 08e9407d-d78c-4dae-928d-9db3f92a4cef, Status: SUBMITTED"
+      },
+      {
+        "item": "Stage 2: Admin Approves & Assigns Draughtsman",
+        "status": "PASS",
+        "details": "Assignment ID: ad961f69-1b4f-413e-bed1-76fcbf15f92a, Status: WAITING_ACCEPTANCE"
+      },
+      {
+        "item": "Stage 3: Draughtsman Accepts Assignment",
+        "status": "PASS",
+        "details": "Status: IN_PROGRESS"
+      },
+      {
+        "item": "Stage 4: Draughtsman Submits Version 1 (DWG)",
+        "status": "PASS",
+        "details": "File ID: v1-dwg-1792819951005, Status: UNDER_ENGINEER_REVIEW"
+      },
+      {
+        "item": "Stage 5: Engineer Requests Redline Correction",
+        "status": "PASS",
+        "details": "Round 1 active, status returned to IN_PROGRESS"
+      },
+      {
+        "item": "Stage 6: Draughtsman Submits Version 2 (DWG)",
+        "status": "PASS",
+        "details": "File ID: v2-dwg-1792819958372, Status: UNDER_ENGINEER_REVIEW"
+      },
+      {
+        "item": "Stage 7: Engineer Final Sign-off",
+        "status": "PASS",
+        "details": "Project Status: COMPLETED"
+      }
+    ],
+    "Area G": [
+      {
+        "item": "Native DWG CAD Upload (R2 Storage)",
+        "status": "PASS",
+        "details": "v1 and v2 DWG uploads succeeded into R2 with content-type application/acad"
+      },
+      {
+        "item": "DXF CAD Upload Support",
+        "status": "PASS",
+        "details": "DXF upload verified with content-type application/dxf"
+      },
+      {
+        "item": "Disallowed Extension Rejection (.exe)",
+        "status": "PASS",
+        "details": "Rejected with HTTP 400: Invalid file extension. Allowed: pdf, dwg, dxf, png, jpg, jpeg, zip, webm, m4a, mp3, wav, aac, ogg"
+      },
+      {
+        "item": "Path Traversal Filename Sanitization",
+        "status": "PASS",
+        "details": "Filename sanitized cleanly: passwd.dwg"
+      }
+    ],
+    "Area I": [
+      {
+        "item": "D1 Project State Persistence",
+        "status": "PARTIAL",
+        "details": "Project Status: COMPLETED, Versions: 2, Corrections: 1, Logs: 12"
+      }
+    ],
+    "Area J": [
+      {
+        "item": "Student Calling Admin Endpoint",
+        "status": "PASS",
+        "details": "Strictly rejected with HTTP 403 Forbidden"
+      },
+      {
+        "item": "Role Boundary Enforcement (Engineer on Draughtsman endpoint)",
+        "status": "PASS",
+        "details": "Strictly rejected with HTTP 403 Forbidden"
+      },
+      {
+        "item": "Role Boundary Enforcement (Draughtsman on Engineer endpoint)",
+        "status": "PASS",
+        "details": "Strictly rejected with HTTP 403 Forbidden"
+      },
+      {
+        "item": "Idempotency & Replay Safety (X-Action-Id)",
+        "status": "PASS",
+        "details": "Duplicate upload safely returned completed file without duplication"
+      }
+    ],
+    "Area K": [
+      {
+        "item": "Legal Gate Fail-Closed Enforcement (Without Header)",
+        "status": "PASS",
+        "details": "Strictly rejected with HTTP 503 TERMS_MAINTENANCE_MODE"
+      },
+      {
+        "item": "Arbitrary User Bypass Prevention",
+        "status": "PASS",
+        "details": "STAGING_TEST_UIDS allowlist strictly checks caller UID; unauthorized UIDs fail closed with 503"
+      },
+      {
+        "item": "Production Isolation of Test Seam",
+        "status": "PASS",
+        "details": "options?.environment === \"staging\" ensures test header is 100% ignored in production"
+      }
+    ]
+  },
+  "totalChecks": 44,
+  "passed": 43,
+  "partial": 1,
+  "failed": 0,
+  "blocked": 0,
+  "notImplemented": 0
+}

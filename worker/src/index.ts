@@ -70,6 +70,7 @@ ${380 + streamLength}
 
 import { getStudentAchievements } from './achievements';
 import { registerLegalRoutes, assertTermsAccepted } from './legal';
+export { assertTermsAccepted };
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { verifyFirebaseToken } from './auth';
@@ -77,6 +78,9 @@ import { verifyFirebaseToken } from './auth';
 type Bindings = {
   DB: D1Database;
   STORAGE: R2Bucket;
+  ENVIRONMENT?: string;
+  ALLOWED_ORIGINS?: string;
+  FIREBASE_PROJECT_ID?: string;
 };
 
 type Variables = {
@@ -85,12 +89,52 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-app.use('*', cors({
-  origin: '*',
-  allowHeaders: ['X-File-Name', 'X-Action-Id', 'Content-Type', 'Authorization', 'Content-Length'],
-  allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
-  exposeHeaders: ['Content-Type', 'Content-Disposition', 'Content-Length', 'ETag'],
-}));
+const BASELINE_PRODUCTION_ORIGINS = new Set([
+  'https://admin.draughtsmanstudio.com',
+  'https://archi-draft.vercel.app',
+]);
+
+app.use('*', async (c, next) => {
+  const corsHandler = cors({
+    origin: (origin) => {
+      if (!origin) return null;
+
+      // Check environment-configured origins from wrangler env.vars
+      const envOrigins = c.env?.ALLOWED_ORIGINS
+        ? c.env.ALLOWED_ORIGINS.split(',').map((o: string) => o.trim()).filter(Boolean)
+        : [];
+      const envSet = new Set(envOrigins);
+
+      if (envSet.has(origin)) return origin;
+      if (BASELINE_PRODUCTION_ORIGINS.has(origin)) return origin;
+
+      const isProduction = c.env?.ENVIRONMENT === 'production';
+      if (!isProduction) {
+        try {
+          const parsed = new URL(origin);
+          if (
+            (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+            (parsed.protocol === 'http:' || parsed.protocol === 'https:')
+          ) {
+            return origin;
+          }
+        } catch {
+          // invalid URL
+        }
+      }
+
+      // Reject arbitrary origins (do NOT reflect)
+      return null;
+    },
+    credentials: true,
+    allowHeaders: ['X-File-Name', 'X-Action-Id', 'X-Staging-Test-Mode', 'Content-Type', 'Authorization', 'Content-Length'],
+    allowMethods: ['POST', 'GET', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
+    exposeHeaders: ['Content-Type', 'Content-Disposition', 'Content-Length', 'ETag'],
+    maxAge: 86400,
+  });
+
+  return corsHandler(c, next);
+});
 
 // Auth Middleware
 app.use('*', async (c, next) => {
@@ -158,7 +202,11 @@ app.use('*', async (c, next) => {
     const uid = c.get('uid');
     if (uid) {
       const user = await getUser(c.env.DB, uid);
-      const check = await assertTermsAccepted(c.env.DB, uid, user?.role as string | undefined);
+      const testModeHeader = c.req.header('X-Staging-Test-Mode') || null;
+      const check = await assertTermsAccepted(c.env.DB, uid, user?.role as string | undefined, {
+        environment: c.env?.ENVIRONMENT,
+        testModeHeader,
+      });
       if (!check.ok) {
         return c.json(check.errorResponse, check.errorResponse.status || 403);
       }
@@ -1134,14 +1182,19 @@ app.post('/api/projects/reassign', async (c) => {
   return c.json({ success: true });
 });
 
-app.post('/api/assignments/accept', async (c) => {
+const handleAcceptAssignment = async (c: any) => {
   const uid = c.get('uid');
   const db = c.env.DB;
-  const body = await c.req.json();
-  const { assignmentId, projectId, actionId } = body;
+  const body = await c.req.json().catch(() => ({}));
+  let { assignmentId, projectId, actionId } = body;
 
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) return c.json({ error: 'Only draughtsmen or students can accept assignments' }, 403);
+
+  if (!projectId && assignmentId) {
+    const aRec = await db.prepare('SELECT project_id FROM assignments WHERE id = ? UNION SELECT project_id FROM student_assignments WHERE id = ?').bind(assignmentId, assignmentId).first();
+    if (aRec) projectId = aRec.project_id;
+  }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
@@ -1149,25 +1202,26 @@ app.post('/api/assignments/accept', async (c) => {
 
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
 
+  const effectiveAssignmentId = assignmentId || project.current_assignment_id;
   let assignment: any;
   let updateAssignmentQuery;
 
   if (user.role === 'STUDENT') {
     if (project.is_training_project !== 1) return c.json({ error: 'Forbidden: Students cannot access commercial projects' }, 403);
-    assignment = await db.prepare("SELECT * FROM student_assignments WHERE (id = ? OR project_id = ?) AND student_id = ? AND status != 'REPLACED' ORDER BY created_at DESC").bind(assignmentId, projectId, uid).first();
+    assignment = await db.prepare("SELECT * FROM student_assignments WHERE (id = ? OR project_id = ?) AND student_id = ? AND status != 'REPLACED' ORDER BY created_at DESC").bind(effectiveAssignmentId, projectId, uid).first();
     if (!assignment) return c.json({ error: 'Not assigned to you' }, 403);
     if (assignment.project_id !== projectId) return c.json({ error: 'Assignment does not match project' }, 400);
     if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
     updateAssignmentQuery = db.prepare(`UPDATE student_assignments SET status = 'ACCEPTED' WHERE id = ?`).bind(assignment.id);
   } else {
     if (project.is_training_project === 1) return c.json({ error: 'Commercial draughtsmen cannot accept training projects' }, 403);
-    if (project.current_assignment_id !== assignmentId) return c.json({ error: 'Not the current assignment' }, 400);
+    if (effectiveAssignmentId && project.current_assignment_id !== effectiveAssignmentId) return c.json({ error: 'Not the current assignment' }, 400);
     if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
-    assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+    assignment = await db.prepare('SELECT * FROM assignments WHERE (id = ? OR project_id = ?) AND draughtsman_id = ?').bind(effectiveAssignmentId, projectId, uid).first();
     if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
     if (assignment.draughtsman_id !== uid || assignment.project_id !== projectId) return c.json({ error: 'Not assigned to you' }, 403);
     if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
-    updateAssignmentQuery = db.prepare(`UPDATE assignments SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId);
+    updateAssignmentQuery = db.prepare(`UPDATE assignments SET status = 'ACCEPTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignment.id);
   }
 
   const actualAssignmentId = assignment.id;
@@ -1183,19 +1237,24 @@ app.post('/api/assignments/accept', async (c) => {
   ];
   await db.batch(batch);
   return c.json({ success: true });
-});
+};
 
-app.post('/api/assignments/reject', async (c) => {
+const handleRejectAssignment = async (c: any) => {
   const uid = c.get('uid');
   const db = c.env.DB;
-  const body = await c.req.json();
-  const { assignmentId, actionId } = body;
-  let { projectId } = body;
+  const body = await c.req.json().catch(() => ({}));
+  let { assignmentId, actionId, projectId, reason } = body;
 
   const user = await getUser(db, uid);
   if (!user || user.role !== 'DRAUGHTSMAN') return c.json({ error: 'Only draughtsmen can reject assignments' }, 403);
 
-  const assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+  let assignment: any;
+  if (assignmentId) {
+    assignment = await db.prepare('SELECT * FROM assignments WHERE id = ?').bind(assignmentId).first();
+  } else if (projectId) {
+    assignment = await db.prepare("SELECT * FROM assignments WHERE project_id = ? AND draughtsman_id = ? AND status = 'PENDING'").bind(projectId, uid).first();
+  }
+
   if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
   if (assignment.status !== 'PENDING') return c.json({ error: 'Assignment is not PENDING' }, 400);
 
@@ -1207,22 +1266,28 @@ app.post('/api/assignments/reject', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
   if (project.status === 'WAITING_ASSIGNMENT' && project.last_action_id === actionId) return c.json({ success: true });
 
-  if (project.current_assignment_id !== assignmentId) return c.json({ error: 'Not the current assignment' }, 400);
+  if (project.current_assignment_id && project.current_assignment_id !== assignment.id) return c.json({ error: 'Not the current assignment' }, 400);
   if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
   if (project.status !== 'WAITING_ACCEPTANCE') return c.json({ error: 'Project is not in WAITING_ACCEPTANCE state' }, 400);
 
   const effectiveActionId = actionId || uuidv4();
 
   const batch = [
-    db.prepare(`UPDATE assignments SET status = 'REJECTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignmentId),
+    db.prepare(`UPDATE assignments SET status = 'REJECTED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(assignment.id),
     db.prepare(`UPDATE projects SET status = 'WAITING_ASSIGNMENT', draughtsman_id = NULL, draughtsman_name = NULL, current_assignment_id = NULL, last_action_id = ? WHERE id = ?`).bind(effectiveActionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      effectiveActionId, projectId, 'ASSIGNMENT_REJECTED', uid, 'DRAUGHTSMAN', 'Draughtsman rejected the assignment.'
+      effectiveActionId, projectId, 'ASSIGNMENT_REJECTED', uid, 'DRAUGHTSMAN', reason ? `Draughtsman rejected the assignment: ${reason}` : 'Draughtsman rejected the assignment.'
     )
   ];
   await db.batch(batch);
   return c.json({ success: true });
-});
+};
+
+// Authoritative routes + backward compatibility aliases
+app.post('/api/assignments/accept', handleAcceptAssignment);
+app.post('/api/projects/accept', handleAcceptAssignment);
+app.post('/api/assignments/reject', handleRejectAssignment);
+app.post('/api/projects/reject-assignment', handleRejectAssignment);
 
 app.get('/api/assignments', async (c) => {
   const uid = c.get('uid');
@@ -2064,8 +2129,9 @@ app.post('/api/projects/:projectId/files', async (c) => {
   if (!rawFileName) return c.json({ error: 'X-File-Name header is required' }, 400);
   const fileName = decodeURIComponent(rawFileName);
 
-  // Validate extension server-side
-  const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+  // Validate extension server-side and prevent directory traversal
+  const baseName = fileName.split(/[/\\]/).pop() || fileName;
+  const sanitizedName = baseName.replace(/[^a-zA-Z0-9.-]/g, '_').replace(/^\.+/, '');
   const ext = sanitizedName.split('.').pop()?.toLowerCase();
   const allowedExtensions = ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip', 'webm', 'm4a', 'mp3', 'wav', 'aac', 'ogg'];
 

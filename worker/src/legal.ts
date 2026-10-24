@@ -1,4 +1,4 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 
 type Bindings = {
   DB: D1Database;
@@ -31,10 +31,31 @@ async function getUser(db: D1Database, uid: string) {
 export async function assertTermsAccepted(
   db: D1Database,
   uid: string,
-  userRole?: string
+  userRole?: string,
+  options?: {
+    environment?: string;
+    testModeHeader?: string | null;
+  }
 ): Promise<{ ok: boolean; errorResponse?: any }> {
   // Administrative staff are exempt to ensure recovery and management access
   if (userRole === 'ADMIN' || userRole === 'STUDIO_ADMIN') {
+    return { ok: true };
+  }
+
+  // STAGING-ONLY TEST-ACCEPTANCE SEAM (Phase D.10.3)
+  // Strictly impossible to activate in production:
+  // Must fail closed if environment is missing, ambiguous, or not explicitly 'staging'
+  const isStaging = options?.environment === 'staging';
+  const hasTestHeader = options?.testModeHeader === 'workflow-e2e';
+  const STAGING_TEST_UIDS = new Set([
+    'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer (zedsuo125+engineer@gmail.com)
+    'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman (zedsuo125+draughtsman@gmail.com)
+    '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student (zedsuo125+student@gmail.com)
+    'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin (zedsuo125@gmail.com)
+  ]);
+
+  if (isStaging && hasTestHeader && STAGING_TEST_UIDS.has(uid)) {
+    console.log(`[STAGING_TEST_MODE_ACTIVE] Legal gate test-exemption active for staging test UID: ${uid}`);
     return { ok: true };
   }
 

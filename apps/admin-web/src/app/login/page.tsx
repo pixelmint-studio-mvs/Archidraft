@@ -16,20 +16,23 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && user.role === 'ADMIN') {
+    if (user && (user.role === 'ADMIN' || user.role === 'STUDIO_ADMIN')) {
       router.replace('/dashboard');
     }
   }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[LOGIN SUBMIT] Email:', email, 'Password length:', password.length);
     setLocalError(null);
     setLoading(true);
 
     try {
       await login(email, password);
+      console.log('[LOGIN SUCCESS] Navigating to /dashboard');
       router.replace('/dashboard');
     } catch (err: any) {
+      console.error('[LOGIN ERROR]', err);
       setLocalError(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setLoading(false);

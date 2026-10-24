@@ -33,9 +33,11 @@ export async function verifyFirebaseToken(token: string, env?: any) {
   }
 
   try {
+    const projectId = env?.FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
+    const issuer = `https://securetoken.google.com/${projectId}`;
     const { payload } = await jwtVerify(token, JWKS, {
-      issuer: ISSUER,
-      audience: FIREBASE_PROJECT_ID,
+      issuer,
+      audience: projectId,
     });
     return payload; // Contains uid in payload.sub
   } catch (error) {

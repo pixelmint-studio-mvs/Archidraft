@@ -3,12 +3,58 @@ main = "src/index.ts"
 compatibility_date = "2023-10-30"
 account_id = "06fbb6f8b2e1e65612347252ea10574c"
 
+# Default fallback bindings (local dev emulation)
 [[d1_databases]]
+binding = "DB"
+database_name = "archi-draft-db-local"
+database_id = "local-d1-emulation-id"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "archi-draft-storage-local"
+
+[vars]
+ENVIRONMENT = "development"
+ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:8787"
+
+# ==========================================
+# STAGING ENVIRONMENT (ISOLATED)
+# ==========================================
+[env.staging]
+name = "archi-draft-worker-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+FIREBASE_PROJECT_ID = "archi-draft-staging"
+# Staging permitted web origins (Vercel preview + custom staging domain)
+ALLOWED_ORIGINS = "https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,http://localhost:3000"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "archi-draft-db-staging"
+database_id = "065d76ba-eca5-4cc1-ba39-51281b79d6b4"
+
+[[env.staging.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "archi-draft-storage-staging"
+
+# ==========================================
+# PRODUCTION ENVIRONMENT (LOCKED)
+# ==========================================
+[env.production]
+name = "archi-draft-worker"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+FIREBASE_PROJECT_ID = "archi-draft"
+# Production permitted web origins (Custom production domain + production Vercel deployment)
+ALLOWED_ORIGINS = "https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app"
+
+[[env.production.d1_databases]]
 binding = "DB"
 database_name = "archi-draft-db"
 database_id = "af8d3312-5f6e-46ce-bcc1-dfa91e484cc0"
-# location = "weur" # Location hint for D1 (e.g. wnam, enam, weur, eeur, apac, oc)
 
-[[r2_buckets]]
+[[env.production.r2_buckets]]
 binding = "STORAGE"
 bucket_name = "archi-draft-storage"

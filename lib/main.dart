@@ -4,10 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'src/core/router/app_router.dart';
 import 'src/core/theme/app_theme.dart';
+import 'src/features/api/data/api_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Validate API URL configuration early at startup (fails fast in release builds if unconfigured or insecure)
+  ApiClient.resolveBaseUrl();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

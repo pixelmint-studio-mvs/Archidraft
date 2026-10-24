@@ -1,0 +1,115 @@
+{
+  "projectId": "08e9407d-d78c-4dae-928d-9db3f92a4cef",
+  "project": {
+    "id": "08e9407d-d78c-4dae-928d-9db3f92a4cef",
+    "project_name": "MASTER-E2E-99C3 Cybernetic Medical Center",
+    "status": "COMPLETED",
+    "approved_at": "2026-10-24 05:32:30",
+    "draughtsman_id": "TJjtkBm3lgRlpKtcI5u3jpYPH9s1",
+    "draughtsman_name": "Staging Draughtsman",
+    "current_assignment_id": "ad961f69-1b4f-413e-bed1-76fcbf15f92a",
+    "correction_round": 1
+  },
+  "assignment": {
+    "id": "ad961f69-1b4f-413e-bed1-76fcbf15f92a",
+    "project_id": "08e9407d-d78c-4dae-928d-9db3f92a4cef",
+    "draughtsman_id": "TJjtkBm3lgRlpKtcI5u3jpYPH9s1",
+    "status": "ACCEPTED"
+  },
+  "versions": [
+    {
+      "version_number": 1,
+      "file_id": "v1-dwg-1792819951005",
+      "uploaded_by": "TJjtkBm3lgRlpKtcI5u3jpYPH9s1",
+      "created_at": "2026-10-24 05:32:32"
+    },
+    {
+      "version_number": 2,
+      "file_id": "v2-dwg-1792819958372",
+      "uploaded_by": "TJjtkBm3lgRlpKtcI5u3jpYPH9s1",
+      "created_at": "2026-10-24 05:32:40"
+    }
+  ],
+  "corrections": [
+    {
+      "round_number": 1,
+      "description": "PIN[0.4200,0.5800]: Relocate MRI shielding conduit 500mm east of structural grid C to avoid interference with cryogenic cooling lines.",
+      "status": "RESOLVED",
+      "created_at": "2026-10-24 05:32:38"
+    }
+  ],
+  "auditLogs": [
+    {
+      "action_type": "PROJECT_SUBMITTED",
+      "actor_role": "ENGINEER",
+      "details": "Engineer submitted the project brief.",
+      "timestamp": "2026-10-24 05:32:30"
+    },
+    {
+      "action_type": "PROJECT_APPROVED",
+      "actor_role": "STUDIO_ADMIN",
+      "details": "Studio Admin approved the project.",
+      "timestamp": "2026-10-24 05:32:30"
+    },
+    {
+      "action_type": "DRAUGHTSMAN_ASSIGNED",
+      "actor_role": "STUDIO_ADMIN",
+      "details": "Studio Admin assigned draughtsman: Staging Draughtsman",
+      "timestamp": "2026-10-24 05:32:30"
+    },
+    {
+      "action_type": "ASSIGNMENT_ACCEPTED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "User accepted the assignment.",
+      "timestamp": "2026-10-24 05:32:31"
+    },
+    {
+      "action_type": "FILE_UPLOADED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "Uploaded workspace_draft file: cybernetic_medical_center_v1.dwg",
+      "timestamp": "2026-10-24 05:32:32"
+    },
+    {
+      "action_type": "DRAWING_SUBMITTED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "Draughtsman submitted the drawing for engineer review.",
+      "timestamp": "2026-10-24 05:32:32"
+    },
+    {
+      "action_type": "CORRECTION_REQUESTED",
+      "actor_role": "ENGINEER",
+      "details": "Engineer requested correction (Round 1).",
+      "timestamp": "2026-10-24 05:32:38"
+    },
+    {
+      "action_type": "FILE_UPLOADED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "Uploaded workspace_draft file: cybernetic_medical_center_v2.dwg",
+      "timestamp": "2026-10-24 05:32:39"
+    },
+    {
+      "action_type": "DRAWING_SUBMITTED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "Draughtsman submitted the drawing for engineer review.",
+      "timestamp": "2026-10-24 05:32:40"
+    },
+    {
+      "action_type": "PROJECT_COMPLETED",
+      "actor_role": "ENGINEER",
+      "details": "Engineer approved the final drawing.",
+      "timestamp": "2026-10-24 05:32:40"
+    },
+    {
+      "action_type": "FILE_UPLOADED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "Uploaded workspace_draft file: test_drawing.dxf",
+      "timestamp": "2026-10-24 05:32:41"
+    },
+    {
+      "action_type": "FILE_UPLOADED",
+      "actor_role": "DRAUGHTSMAN",
+      "details": "Uploaded workspace_draft file: passwd.dwg",
+      "timestamp": "2026-10-24 05:32:42"
+    }
+  ]
+}

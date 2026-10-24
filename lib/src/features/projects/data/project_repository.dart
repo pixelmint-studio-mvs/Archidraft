@@ -118,11 +118,13 @@ class ProjectRepository {
   Future<void> acceptAssignment({
     required String projectId,
     required String actionId,
+    String? assignmentId,
   }) async {
     await _apiClient.post(
-      '/api/projects/accept',
+      '/api/assignments/accept',
       body: {
         'projectId': projectId,
+        'assignmentId': assignmentId,
         'actionId': actionId,
       },
     );
@@ -131,12 +133,16 @@ class ProjectRepository {
   Future<void> rejectAssignment({
     required String projectId,
     required String actionId,
+    String? assignmentId,
+    String reason = '',
   }) async {
     await _apiClient.post(
-      '/api/projects/reject-assignment',
+      '/api/assignments/reject',
       body: {
         'projectId': projectId,
+        'assignmentId': assignmentId,
         'actionId': actionId,
+        'reason': reason,
       },
     );
   }
