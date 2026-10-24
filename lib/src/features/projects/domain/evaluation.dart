@@ -3,6 +3,7 @@ import 'dart:convert';
 enum EvaluationResult {
   approved,
   needsCorrection,
+  rejected,
 }
 
 class Evaluation {
@@ -34,6 +35,9 @@ class Evaluation {
         break;
       case 'NEEDS_CORRECTION':
         result = EvaluationResult.needsCorrection;
+        break;
+      case 'REJECTED':
+        result = EvaluationResult.rejected;
         break;
       default:
         throw Exception('Unknown evaluation result: ${map['overall_result']}');

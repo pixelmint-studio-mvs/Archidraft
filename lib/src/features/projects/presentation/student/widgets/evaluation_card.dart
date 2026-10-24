@@ -14,9 +14,16 @@ class EvaluationCard extends StatelessWidget {
     final theme = Theme.of(context);
     
     final isApproved = evaluation.overallResult == EvaluationResult.approved;
-    final color = isApproved ? Colors.green : Colors.red;
-    final icon = isApproved ? Icons.check_circle_outline : Icons.error_outline;
-    final title = isApproved ? 'Evaluation: Approved' : 'Evaluation: Needs Correction';
+    final isRejected = evaluation.overallResult == EvaluationResult.rejected;
+    final color = isApproved
+        ? Colors.green
+        : (isRejected ? Colors.red : Colors.orange);
+    final icon = isApproved
+        ? Icons.check_circle_outline
+        : (isRejected ? Icons.cancel_outlined : Icons.error_outline);
+    final title = isApproved
+        ? 'Evaluation: Approved'
+        : (isRejected ? 'Evaluation: Rejected' : 'Evaluation: Needs Correction');
 
     return Card(
       elevation: 0,

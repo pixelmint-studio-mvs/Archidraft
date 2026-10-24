@@ -14,9 +14,12 @@ import {
   DrawingVersion,
   Correction,
   ProjectComment,
+  StudentSubmission,
+  EvaluateSubmissionPayload,
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://archi-draft-worker.imserratex.workers.dev';
+const isProdWorker = process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_ENV === 'production';
+const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || (isProdWorker ? 'https://archi-draft-worker.imserratex.workers.dev' : 'https://archi-draft-worker-staging.imserratex.workers.dev');
 
 export class ApiError extends Error {
   status: number;
@@ -31,9 +34,45 @@ export class ApiError extends Error {
 }
 
 async function getAuthToken(): Promise<string | null> {
-  const user = auth.currentUser;
-  if (!user) return null;
-  return await user.getIdToken();
+  if (auth.currentUser) {
+    return await auth.currentUser.getIdToken();
+  }
+  // If currentUser is not yet populated (e.g. initial page mount or hard refresh), wait for onAuthStateChanged
+  return new Promise((resolve) => {
+    let resolved = false;
+    const unsub = auth.onAuthStateChanged(
+      async (user) => {
+        if (!resolved) {
+          resolved = true;
+          unsub();
+          if (user) {
+            try {
+              resolve(await user.getIdToken());
+            } catch {
+              resolve(null);
+            }
+          } else {
+            resolve(null);
+          }
+        }
+      },
+      () => {
+        if (!resolved) {
+          resolved = true;
+          unsub();
+          resolve(null);
+        }
+      }
+    );
+    // Timeout fallback after 2.5 seconds
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        unsub();
+        resolve(null);
+      }
+    }, 2500);
+  });
 }
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -263,22 +302,10 @@ export const adminApi = {
 
   // Users
   async getUsers(role?: UserRole): Promise<User[]> {
-    try {
-      const query = role ? `?role=${encodeURIComponent(role)}` : '';
-      return await fetchApi<User[]>(`/api/users${query}`);
-    } catch {
-      const fbUser = auth.currentUser;
-      return [
-        {
-          id: fbUser?.uid || 'qS2HlE3sw4hdCWjoZwCCfnC8UxT2',
-          email: fbUser?.email || 'contact@draughtsmanstudio.com',
-          name: 'Studio Admin',
-          role: 'ADMIN',
-          created_at: new Date().toISOString(),
-        },
-      ];
-    }
+    const query = role ? `?role=${encodeURIComponent(role)}` : '';
+    return await fetchApi<User[]>(`/api/users${query}`);
   },
+
 
   async getMe(): Promise<User> {
     try {
@@ -490,6 +517,26 @@ export const adminApi = {
     return fetchApi<{ success: boolean; message: string }>('/api/admin/settings', {
       method: 'PUT',
       body: JSON.stringify({ settings }),
+    });
+  },
+
+  // Student Submissions Queue & Evaluation
+  async getStudentSubmissions(status?: string): Promise<StudentSubmission[]> {
+    const qs = status && status !== 'ALL' ? `?status=${encodeURIComponent(status)}` : '';
+    return fetchApi<StudentSubmission[]>(`/api/admin/student-submissions${qs}`);
+  },
+
+  async evaluateProject(payload: EvaluateSubmissionPayload): Promise<{ success: boolean; evaluationId?: string }> {
+    const aid = payload.actionId || crypto.randomUUID();
+    return fetchApi<{ success: boolean; evaluationId?: string }>('/api/projects/evaluate', {
+      method: 'POST',
+      headers: {
+        'X-Action-Id': aid,
+      },
+      body: JSON.stringify({
+        ...payload,
+        actionId: aid,
+      }),
     });
   },
 };

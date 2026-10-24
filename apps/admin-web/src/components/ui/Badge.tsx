@@ -30,7 +30,11 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
         style = 'bg-cyan-50 text-cyan-800 border-cyan-200';
         break;
       case 'UNDER_CLIENT_REVIEW':
+      case 'UNDER_ENGINEER_REVIEW':
         style = 'bg-teal-50 text-teal-800 border-teal-200';
+        break;
+      case 'NEEDS_CORRECTION':
+        style = 'bg-amber-50 text-amber-800 border-amber-200';
         break;
       case 'COMPLETED':
         style = 'bg-emerald-50 text-emerald-800 border-emerald-200';
@@ -44,12 +48,14 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
   } else if (role) {
     switch (role) {
       case 'ADMIN':
+      case 'STUDIO_ADMIN':
         style = 'bg-[#0d1c32] text-white border-[#0d1c32] font-semibold';
         break;
       case 'DRAUGHTSMAN':
         style = 'bg-blue-50 text-[#0453cd] border-blue-200 font-semibold';
         break;
       case 'CLIENT':
+      case 'ENGINEER':
         style = 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold';
         break;
       case 'STUDENT':
@@ -96,8 +102,8 @@ function formatRole(role?: string): string {
 }
 
 function formatStatus(status: string): string {
-  if (status === 'UNDER_CLIENT_REVIEW') {
-    return 'Under Engineer Review';
+  if (status === 'UNDER_CLIENT_REVIEW' || status === 'UNDER_ENGINEER_REVIEW') {
+    return 'Under Review';
   }
   return status
     .split('_')

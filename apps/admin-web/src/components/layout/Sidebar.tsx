@@ -19,6 +19,7 @@ import {
   ChevronRight,
   UserCheck,
   Clock,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -70,6 +71,11 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/projects',
         icon: FolderKanban,
         badgeKey: 'projects',
+      },
+      {
+        name: 'Student Submissions',
+        href: '/students/submissions',
+        icon: ClipboardCheck,
       },
       {
         name: 'Assignment Console',

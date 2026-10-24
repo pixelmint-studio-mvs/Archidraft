@@ -49,9 +49,9 @@ class _EvaluationDialogState extends ConsumerState<EvaluationDialog> {
 
   Future<void> _submit() async {
     final feedback = _feedbackController.text.trim();
-    if (_result == EvaluationResult.needsCorrection && feedback.isEmpty) {
+    if ((_result == EvaluationResult.needsCorrection || _result == EvaluationResult.rejected) && feedback.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide feedback for the correction.')),
+        SnackBar(content: Text(_result == EvaluationResult.needsCorrection ? 'Please provide feedback for the correction.' : 'Please provide a reason for the rejection.')),
       );
       return;
     }
@@ -80,7 +80,9 @@ class _EvaluationDialogState extends ConsumerState<EvaluationDialog> {
             projectId: widget.projectId,
             actionId: actionId,
             drawingVersionId: widget.targetVersionId,
-            overallResult: _result == EvaluationResult.approved ? 'APPROVED' : 'NEEDS_CORRECTION',
+            overallResult: _result == EvaluationResult.approved
+                ? 'APPROVED'
+                : (_result == EvaluationResult.rejected ? 'REJECTED' : 'NEEDS_CORRECTION'),
             generalFeedback: feedback.isNotEmpty ? feedback : null,
             criteriaJson: criteria,
             correctionId: _result == EvaluationResult.needsCorrection ? correctionId : null,
@@ -142,6 +144,10 @@ class _EvaluationDialogState extends ConsumerState<EvaluationDialog> {
                     value: EvaluationResult.needsCorrection,
                     label: 'Needs Correction (Requests Correction)',
                   ),
+                  DropdownMenuEntry(
+                    value: EvaluationResult.rejected,
+                    label: 'Rejected (Cancels Project)',
+                  ),
                 ],
                 onSelected: (val) {
                   if (val != null) setState(() => _result = val);
@@ -193,7 +199,9 @@ class _EvaluationDialogState extends ConsumerState<EvaluationDialog> {
         FilledButton(
           onPressed: _isSubmitting ? null : _submit,
           style: FilledButton.styleFrom(
-            backgroundColor: _result == EvaluationResult.approved ? AppColors.success : AppColors.error,
+            backgroundColor: _result == EvaluationResult.approved
+                ? AppColors.success
+                : (_result == EvaluationResult.rejected ? AppColors.error : AppColors.warning),
           ),
           child: _isSubmitting
               ? const SizedBox(

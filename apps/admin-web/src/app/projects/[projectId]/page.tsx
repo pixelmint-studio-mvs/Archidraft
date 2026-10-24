@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { AssignModal } from '@/components/projects/AssignModal';
 import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
+import { EvaluateModal } from '@/components/projects/EvaluateModal';
 import { adminApi } from '@/lib/api';
 import {
   Project,
@@ -289,6 +290,7 @@ export default function ProjectDetailPage({
   const [isReassign, setIsReassign] = useState<boolean>(false);
   const [isRejectOpen, setIsRejectOpen] = useState<boolean>(false);
   const [isCancelOpen, setIsCancelOpen] = useState<boolean>(false);
+  const [isEvaluateOpen, setIsEvaluateOpen] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   const fetchProjectData = async (isManual = false) => {
@@ -534,6 +536,18 @@ export default function ProjectDetailPage({
                     Reassign Draughtsman
                   </Button>
                 )}
+
+                {/* Review States: Interactive Evaluation Modal Trigger */}
+                {(project.status === 'UNDER_ENGINEER_REVIEW' || project.status === 'UNDER_CLIENT_REVIEW') &&
+                  drawingVersions.length > 0 && (
+                    <Button
+                      variant="primary"
+                      onClick={() => setIsEvaluateOpen(true)}
+                      icon={<FileCheck2 className="h-4 w-4" />}
+                    >
+                      Evaluate Submission
+                    </Button>
+                  )}
 
                 {/* Active States: Cancel Project */}
                 {project.status !== 'COMPLETED' &&
@@ -2312,6 +2326,21 @@ export default function ProjectDetailPage({
           onClose={() => setIsCancelOpen(false)}
           projectId={project.id}
           projectName={project.project_name}
+          onSuccess={() => fetchProjectData(true)}
+        />
+      )}
+
+      {project && isEvaluateOpen && drawingVersions.length > 0 && (
+        <EvaluateModal
+          isOpen={isEvaluateOpen}
+          onClose={() => setIsEvaluateOpen(false)}
+          projectId={project.id}
+          projectName={project.project_name}
+          studentName={project.client_name || null}
+          drawingVersionId={drawingVersions[drawingVersions.length - 1].id}
+          versionNumber={drawingVersions[drawingVersions.length - 1].version_number}
+          fileId={drawingVersions[drawingVersions.length - 1].file_id}
+          correctionRound={project.correction_round}
           onSuccess={() => fetchProjectData(true)}
         />
       )}
