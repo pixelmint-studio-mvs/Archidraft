@@ -8,7 +8,8 @@
 
 // ── User ──
 
-export type UserRole = 'CLIENT' | 'DRAUGHTSMAN' | 'ADMIN' | 'STUDENT';
+export type UserRole = 'CLIENT' | 'DRAUGHTSMAN' | 'ADMIN' | 'STUDIO_ADMIN' | 'STUDENT';
+export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 
 /**
  * Helper to get the canonical user-facing role name.
@@ -24,6 +25,7 @@ export function getDisplayRole(role?: string): string {
     case 'STUDENT':
       return 'Student';
     case 'ADMIN':
+    case 'STUDIO_ADMIN':
       return 'Studio Admin';
     default:
       return role;
@@ -35,6 +37,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  status?: UserStatus;
   mobile?: string;
   qualification?: string;
   date_of_birth?: string;
@@ -54,18 +57,23 @@ export type ProjectStatus =
   | 'WAITING_ACCEPTANCE'
   | 'IN_PROGRESS'
   | 'UNDER_CLIENT_REVIEW'
+  | 'UNDER_ENGINEER_REVIEW'
   | 'COMPLETED'
   | 'CANCELLED';
 
 export interface Project {
   id: string;
   client_id: string;
+  client_name?: string;
+  client_email?: string;
   project_name: string;
   project_address: string;
   drawing_name: string;
   drawing_type: string;
   project_area: string;
   status: ProjectStatus;
+  is_training_project?: number;
+  training_module_id?: string;
   last_action_id?: string;
   draughtsman_id?: string;
   draughtsman_name?: string;
@@ -82,7 +90,7 @@ export interface Project {
 
 // ── Assignment ──
 
-export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED';
+export type AssignmentStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'REPLACED' | 'CANCELLED';
 
 export interface Assignment {
   id: string;
@@ -93,6 +101,15 @@ export interface Assignment {
   updated_at: string;
   draughtsman_name?: string;
   draughtsman_email?: string;
+}
+
+export interface GlobalAssignment extends Assignment {
+  project_name?: string;
+  project_status?: ProjectStatus;
+  drawing_type?: string;
+  project_area?: string;
+  client_id?: string;
+  client_name?: string;
 }
 
 // ── File ──
@@ -170,3 +187,76 @@ export interface AdminStats {
   };
   recentActivity: ActivityLog[];
 }
+
+// ── Project Comment / Collaboration Message ──
+
+export interface ProjectComment {
+  id: string;
+  project_id: string;
+  author_id: string;
+  author_name: string;
+  author_role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT';
+  content: string;
+  attachment_name?: string | null;
+  attachment_size?: string | null;
+  attachment_type?: string | null;
+  created_at: string;
+}
+
+// ── Studio Governance Settings (D1 Backed) ──
+
+export interface StudioSettings {
+  multiDiscipline: boolean;
+  turnaround: string;
+  autoRasterizer: boolean;
+  strictLayerCompliance: boolean;
+  maxUploadCeiling: string;
+  notifySubmissions: boolean;
+  notifyAssignments: boolean;
+  notifyCorrections: boolean;
+  notifyDigest: boolean;
+  updated_at?: string;
+  updated_by?: string;
+}
+
+// ── Student Submissions Queue & Evaluation Types ──
+
+export interface StudentSubmission {
+  id: string; // project_id
+  project_name: string;
+  drawing_name: string;
+  drawing_type: string;
+  status: ProjectStatus | string;
+  correction_round: number;
+  created_at: string;
+  submitted_at: string | null;
+  training_module_id: string | null;
+  rejection_reason: string | null;
+  student_id: string;
+  student_name: string | null;
+  student_email: string | null;
+  module_title: string | null;
+  latest_drawing_version_id: string | null;
+  latest_version_number: number | null;
+  latest_file_id: string | null;
+}
+
+export type EvaluationDecision = 'APPROVED' | 'NEEDS_CORRECTION' | 'REJECTED';
+
+export interface EvaluationCriteria {
+  Accuracy: number; // 1 - 5
+  'Technical Standards': number; // 1 - 5
+}
+
+export interface EvaluateSubmissionPayload {
+  projectId: string;
+  drawingVersionId: string;
+  overallResult: EvaluationDecision;
+  generalFeedback: string;
+  criteriaJson: string; // JSON.stringify(EvaluationCriteria)
+  actionId?: string;
+  correctionId?: string;
+}
+
+
+

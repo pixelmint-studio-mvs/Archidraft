@@ -24,6 +24,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+// Authorized development credentials gated strictly to development mode (cannot activate in production)
+const isDevFallbackEnabled = IS_DEV;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -39,11 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         profile = await adminApi.getMe();
       } catch (apiErr: any) {
-        if (fbUser.email === 'contact@draughtsmanstudio.com') {
+        if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
           profile = {
             id: fbUser.uid,
             email: fbUser.email || 'contact@draughtsmanstudio.com',
-            name: 'Studio Admin',
+            name: 'Studio Admin (Dev)',
             role: 'ADMIN',
             created_at: new Date().toISOString(),
           };
@@ -52,8 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (profile && profile.role !== 'ADMIN') {
-        if (fbUser.email === 'contact@draughtsmanstudio.com') {
+      if (profile && profile.role !== 'ADMIN' && profile.role !== 'STUDIO_ADMIN') {
+        if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
           profile.role = 'ADMIN';
         } else {
           await firebaseSignOut(auth);
@@ -66,11 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(profile);
     } catch (err: any) {
       console.error('Failed to fetch user profile:', err);
-      if (fbUser.email === 'contact@draughtsmanstudio.com') {
+      if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
         setUser({
           id: fbUser.uid,
           email: fbUser.email || 'contact@draughtsmanstudio.com',
-          name: 'Studio Admin',
+          name: 'Studio Admin (Dev)',
           role: 'ADMIN',
           created_at: new Date().toISOString(),
         });
@@ -113,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error('Profile fetch error:', e);
           }
         } else {
-          setUser(null);
+          setUser((prev) => (isDevFallbackEnabled && prev?.id === 'dev-admin-uid' ? prev : null));
         }
         if (isMounted) setLoading(false);
       },
@@ -133,14 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Route protection
+  // Route protection — Allow public landing ('/') and auth screens without authentication
   useEffect(() => {
     if (!loading && typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
-      const isLoginPage = currentPath === '/login';
-      if (!user && !isLoginPage) {
+      const isPublicRoute = ['/', '/login', '/forgot-password', '/verify'].includes(currentPath);
+      if (!user && !isPublicRoute) {
         router.replace('/login');
-      } else if (user && isLoginPage) {
+      } else if (user && currentPath === '/login') {
         router.replace('/dashboard');
       }
     }
@@ -153,6 +157,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       await fetchUserProfile(cred.user);
     } catch (err: any) {
+      if (
+        isDevFallbackEnabled &&
+        email.trim().toLowerCase() === 'contact@draughtsmanstudio.com' &&
+        pass.trim() === 'AAAJ@PMS'
+      ) {
+        console.warn('Firebase login failed, falling back to local dev admin session:', err);
+        setUser({
+          id: 'dev-admin-uid',
+          email: 'contact@draughtsmanstudio.com',
+          name: 'Studio Admin (Dev)',
+          role: 'ADMIN',
+          created_at: new Date().toISOString(),
+        });
+        return;
+      }
       let msg = err.message || 'Login failed';
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         msg = 'Invalid email or password.';

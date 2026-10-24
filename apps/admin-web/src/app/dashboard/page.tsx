@@ -6,6 +6,7 @@ import { AdminShell } from '@/components/layout/AdminShell';
 import { Card, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { adminApi } from '@/lib/api';
 import { AdminStats, Project } from '@/lib/types';
 import {
@@ -25,6 +26,8 @@ import {
   PenTool,
   GraduationCap,
   ExternalLink,
+  ChevronRight,
+  Layers,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -85,14 +88,14 @@ export default function DashboardPage() {
   return (
     <AdminShell
       title="Studio Operations Dashboard"
-      subtitle="Executive platform status & actionable workflow queues across all three portals"
+      subtitle="Executive platform telemetry & actionable governance queues across all three studio portals"
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-300 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
-          <span>{error}</span>
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-800 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
+          <span className="font-medium">{error}</span>
           <Button variant="outline" size="sm" onClick={() => loadData(true)} className="ml-auto">
             Retry
           </Button>
@@ -100,320 +103,340 @@ export default function DashboardPage() {
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-24">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-          <p className="text-xs text-slate-400 mt-3 font-medium">Aggregating platform metrics across all portals...</p>
+        <div className="flex flex-col items-center justify-center p-24 bg-white border border-slate-200 rounded-2xl soft-elevation my-6">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
+          <p className="text-xs font-mono font-medium text-slate-500 mt-4 uppercase tracking-wider">
+            Aggregating platform metrics across all portals...
+          </p>
         </div>
       ) : (
         <div className="space-y-8">
           {/* Three Portals Unified Executive Banner */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {/* 1. Engineer Portal Card */}
-            <Card className="p-5 border-indigo-900/40 bg-gradient-to-br from-[#0c132c] via-[#0f172a] to-[#0b1120] relative overflow-hidden group">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 soft-elevation relative overflow-hidden group hover:border-indigo-300 transition-all border-t-4 border-t-indigo-600">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <HardHat className="h-4 w-4" />
+                <span className="text-xs font-mono font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                    <HardHat className="h-4 w-4" />
+                  </div>
                   <span>Engineer Portal</span>
                 </span>
-                <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
               </div>
-              <div className="mt-4 flex items-baseline justify-between">
+              <div className="mt-5 flex items-baseline justify-between">
                 <div>
-                  <span className="text-3xl font-extrabold tracking-tight text-indigo-200">
+                  <span className="text-3xl font-extrabold font-mono tracking-tight text-slate-900">
                     {engineerCount}
                   </span>
-                  <p className="text-xs text-slate-400 mt-0.5">Registered Engineers</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Registered Engineers</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-slate-300">
+                  <span className="text-lg font-bold font-mono text-slate-700">
                     {submittedCount + engineerReviewCount}
                   </span>
-                  <p className="text-[10px] text-slate-500">Active Workflow</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-mono">Active Workflow</p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <Link
                   href="/engineers"
-                  className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+                  className="text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
                 >
                   <span>Manage Engineers</span>
                   <ArrowRight className="h-3 w-3" />
                 </Link>
-                <span className="text-[10px] text-slate-500">Structural & Civil</span>
+                <span className="text-[11px] font-mono text-slate-400">Structural & Civil</span>
               </div>
-            </Card>
+            </div>
 
             {/* 2. Draughtsman Portal Card */}
-            <Card className="p-5 border-cyan-900/40 bg-gradient-to-br from-[#0a1b2e] via-[#0f172a] to-[#0b1120] relative overflow-hidden group">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 soft-elevation relative overflow-hidden group hover:border-blue-300 transition-all border-t-4 border-t-[#0453cd]">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <PenTool className="h-4 w-4" />
+                <span className="text-xs font-mono font-bold text-[#0453cd] uppercase tracking-wider flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-50 text-[#0453cd]">
+                    <PenTool className="h-4 w-4" />
+                  </div>
                   <span>Draughtsman Portal</span>
                 </span>
-                <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                <span className="h-2 w-2 rounded-full bg-[#0453cd] animate-pulse" />
               </div>
-              <div className="mt-4 flex items-baseline justify-between">
+              <div className="mt-5 flex items-baseline justify-between">
                 <div>
-                  <span className="text-3xl font-extrabold tracking-tight text-cyan-200">
+                  <span className="text-3xl font-extrabold font-mono tracking-tight text-slate-900">
                     {draughtsmanCount}
                   </span>
-                  <p className="text-xs text-slate-400 mt-0.5">Certified Draughtsmen</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Certified Draughtsmen</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-slate-300">
+                  <span className="text-lg font-bold font-mono text-slate-700">
                     {inProgressCount + waitingAcceptanceCount}
                   </span>
-                  <p className="text-[10px] text-slate-500">Assigned In Drafting</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-mono">Assigned in Production</p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <Link
                   href="/draughtsmen"
-                  className="text-cyan-400 hover:text-cyan-300 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+                  className="text-[#0453cd] hover:text-blue-800 font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
                 >
                   <span>Manage Draughtsmen</span>
                   <ArrowRight className="h-3 w-3" />
                 </Link>
-                <span className="text-[10px] text-slate-500">CAD & BIM Pool</span>
+                <span className="text-[11px] font-mono text-slate-400">CAD & BIM Pool</span>
               </div>
-            </Card>
+            </div>
 
             {/* 3. Student Portal Card */}
-            <Card className="p-5 border-emerald-900/40 bg-gradient-to-br from-[#091f1a] via-[#0f172a] to-[#0b1120] relative overflow-hidden group">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 soft-elevation relative overflow-hidden group hover:border-emerald-300 transition-all border-t-4 border-t-emerald-600 md:col-span-2 xl:col-span-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="h-4 w-4" />
+                <span className="text-xs font-mono font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                    <GraduationCap className="h-4 w-4" />
+                  </div>
                   <span>Student Portal</span>
                 </span>
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <div className="mt-4 flex items-baseline justify-between">
+              <div className="mt-5 flex items-baseline justify-between">
                 <div>
-                  <span className="text-3xl font-extrabold tracking-tight text-emerald-200">
+                  <span className="text-3xl font-extrabold font-mono tracking-tight text-slate-900">
                     {studentCount}
                   </span>
-                  <p className="text-xs text-slate-400 mt-0.5">Enrolled Students</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Enrolled Apprentices</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    Active Curriculum
+                  <span className="text-xs font-mono font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Active Track
                   </span>
-                  <p className="text-[10px] text-slate-500 mt-0.5">CAD Training Track</p>
+                  <p className="text-[10px] text-slate-400 mt-1 uppercase font-mono">Curriculum</p>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <Link
                   href="/students"
-                  className="text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+                  className="text-emerald-700 hover:text-emerald-900 font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
                 >
                   <span>Manage Students</span>
                   <ArrowRight className="h-3 w-3" />
                 </Link>
-                <span className="text-[10px] text-slate-500">Apprentice Program</span>
+                <span className="text-[11px] font-mono text-slate-400">Apprentice Program</span>
               </div>
-            </Card>
+            </div>
           </div>
 
           {/* Project Workflow Operations Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
             {/* Total Projects */}
-            <Card className="relative overflow-hidden border-blue-900/30">
+            <div className="bg-white border border-slate-200 rounded-xl p-5 soft-elevation relative">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-wider">
                   Total Projects
                 </span>
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <div className="p-2 rounded-lg bg-slate-50 text-slate-700 border border-slate-200">
                   <FolderKanban className="h-4 w-4" />
                 </div>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight text-slate-100">
+                <span className="text-3xl font-extrabold font-mono tracking-tight text-slate-900">
                   {stats?.projects?.total ?? 0}
                 </span>
-                <span className="text-xs text-slate-400 font-medium">registered in D1</span>
+                <span className="text-xs text-slate-500 font-medium font-mono">in D1 database</span>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono text-slate-500">
                 <span>{completedCount} completed</span>
                 <span>{cancelledCount} cancelled</span>
               </div>
-            </Card>
+            </div>
 
             {/* Requires Review */}
-            <Card className="relative overflow-hidden border-amber-900/40 bg-gradient-to-b from-[#17140e] to-[#0f172a]">
+            <div className="bg-white border border-amber-200 rounded-xl p-5 soft-elevation relative bg-gradient-to-b from-amber-50/30 to-white">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                <span className="text-xs font-mono font-bold text-amber-800 uppercase tracking-wider">
                   Requires Review
                 </span>
-                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <div className="p-2 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
                   <Clock className="h-4 w-4" />
                 </div>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight text-amber-300">
+                <span className="text-3xl font-extrabold font-mono tracking-tight text-amber-700">
                   {submittedCount}
                 </span>
-                <span className="text-xs text-amber-400/80 font-medium">submitted by engineers</span>
+                <span className="text-xs text-amber-800 font-medium">pending admin review</span>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="mt-4 pt-3 border-t border-amber-100 flex items-center justify-between text-xs">
                 <Link
                   href="/projects?status=SUBMITTED"
-                  className="text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1 group"
+                  className="text-amber-800 hover:text-amber-900 font-semibold flex items-center gap-1 group"
                 >
                   <span>Review Submissions</span>
                   <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
               </div>
-            </Card>
+            </div>
 
-            {/* Waiting Draughtsman Assignment */}
-            <Card className="relative overflow-hidden border-blue-800/30">
+            {/* Needs Draughtsman Assignment */}
+            <div className="bg-white border border-blue-200 rounded-xl p-5 soft-elevation relative bg-gradient-to-b from-blue-50/30 to-white">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
+                <span className="text-xs font-mono font-bold text-[#0453cd] uppercase tracking-wider">
                   Needs Draughtsman
                 </span>
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <div className="p-2 rounded-lg bg-blue-50 text-[#0453cd] border border-blue-200">
                   <UserPlus className="h-4 w-4" />
                 </div>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight text-blue-300">
+                <span className="text-3xl font-extrabold font-mono tracking-tight text-[#0453cd]">
                   {waitingAssignmentCount}
                 </span>
-                <span className="text-xs text-blue-400/80 font-medium">approved, unassigned</span>
+                <span className="text-xs text-blue-700 font-medium">ready for allocation</span>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="mt-4 pt-3 border-t border-blue-100 flex items-center justify-between text-xs">
                 <Link
                   href="/projects?status=WAITING_ASSIGNMENT"
-                  className="text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 group"
+                  className="text-[#0453cd] hover:text-blue-800 font-semibold flex items-center gap-1 group"
                 >
                   <span>Assign Draughtsman</span>
                   <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
               </div>
-            </Card>
+            </div>
 
-            {/* Active Drafting Work */}
-            <Card className="relative overflow-hidden border-cyan-900/30">
+            {/* Active in Drafting */}
+            <div className="bg-white border border-cyan-200 rounded-xl p-5 soft-elevation relative bg-gradient-to-b from-cyan-50/30 to-white">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+                <span className="text-xs font-mono font-bold text-cyan-800 uppercase tracking-wider">
                   Active in Drafting
                 </span>
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <div className="p-2 rounded-lg bg-cyan-50 text-cyan-700 border border-cyan-200">
                   <PlayCircle className="h-4 w-4" />
                 </div>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight text-cyan-300">
+                <span className="text-3xl font-extrabold font-mono tracking-tight text-cyan-800">
                   {inProgressCount + waitingAcceptanceCount}
                 </span>
-                <span className="text-xs text-cyan-400/80 font-medium">in production</span>
+                <span className="text-xs text-cyan-700 font-medium">in drawing phase</span>
               </div>
-              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                <span>{waitingAcceptanceCount} pending acceptance</span>
+              <div className="mt-4 pt-3 border-t border-cyan-100 flex items-center justify-between text-xs font-mono text-slate-500">
+                <span>{waitingAcceptanceCount} awaiting accept</span>
                 <span>{engineerReviewCount} in review</span>
               </div>
-            </Card>
+            </div>
           </div>
 
-          {/* Platform Status Distribution & Quick Actions */}
+          {/* Platform State Machine Distribution & Queue */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Status Breakdown */}
-            <Card className="lg:col-span-2">
-              <CardHeader
-                title="Ecosystem State Machine Distribution"
-                subtitle="Live status distribution across all projects in the Cloudflare D1 database"
-              />
+            {/* Status Breakdown & Priority Queue */}
+            <div className="lg:col-span-2 space-y-6">
+              <Card technicalCorners>
+                <CardHeader
+                  title="Ecosystem State Machine Distribution"
+                  subtitle="Live status distribution across all projects in the Cloudflare D1 database"
+                />
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase">1. Drafts</p>
-                  <p className="text-xl font-bold text-slate-200 mt-1">{byStatus['DRAFT'] || 0}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                  <p className="text-[11px] font-semibold text-amber-400 uppercase">2. Submitted</p>
-                  <p className="text-xl font-bold text-amber-300 mt-1">{submittedCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                  <p className="text-[11px] font-semibold text-blue-400 uppercase">3. Awaiting Assign</p>
-                  <p className="text-xl font-bold text-blue-300 mt-1">{waitingAssignmentCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                  <p className="text-[11px] font-semibold text-purple-400 uppercase">4. Awaiting Accept</p>
-                  <p className="text-xl font-bold text-purple-300 mt-1">{waitingAcceptanceCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/20">
-                  <p className="text-[11px] font-semibold text-cyan-400 uppercase">5. In Progress</p>
-                  <p className="text-xl font-bold text-cyan-300 mt-1">{inProgressCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-teal-500/5 border border-teal-500/20">
-                  <p className="text-[11px] font-semibold text-teal-400 uppercase">6. Engineer Review</p>
-                  <p className="text-xl font-bold text-teal-300 mt-1">{engineerReviewCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                  <p className="text-[11px] font-semibold text-emerald-400 uppercase">7. Completed</p>
-                  <p className="text-xl font-bold text-emerald-300 mt-1">{completedCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/20">
-                  <p className="text-[11px] font-semibold text-rose-400 uppercase">8. Cancelled</p>
-                  <p className="text-xl font-bold text-rose-300 mt-1">{cancelledCount}</p>
-                </div>
-              </div>
-
-              {/* Action Required Queue */}
-              <div className="mt-6 pt-5 border-t border-slate-800">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    High Priority Admin Queue
-                  </h4>
-                  <Link href="/projects" className="text-xs text-blue-400 hover:text-blue-300 font-medium">
-                    View all projects &rarr;
-                  </Link>
-                </div>
-
-                {pendingProjects.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800/80">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-400 mx-auto mb-1.5" />
-                    All submissions and assignments are up to date.
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <p className="text-[11px] font-mono font-semibold text-slate-500 uppercase">1. Drafts</p>
+                    <p className="text-2xl font-bold font-mono text-slate-900 mt-1">{byStatus['DRAFT'] || 0}</p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingProjects.map((p) => (
-                      <div
-                        key={p.id}
-                        className="p-3 rounded-xl bg-slate-900 border border-slate-800/80 flex items-center justify-between gap-4 hover:border-slate-700 transition-colors"
-                      >
-                        <div className="overflow-hidden">
-                          <Link
-                            href={`/projects/${p.id}`}
-                            className="font-semibold text-slate-200 text-sm hover:text-blue-400 transition-colors truncate block"
-                          >
-                            {p.project_name}
-                          </Link>
-                          <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
-                            <span>{p.drawing_name || p.drawing_type}</span>
-                            <span>&bull;</span>
-                            <span>{p.project_area || 'Standard'} sq.ft</span>
+                  <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
+                    <p className="text-[11px] font-mono font-semibold text-amber-800 uppercase">2. Submitted</p>
+                    <p className="text-2xl font-bold font-mono text-amber-800 mt-1">{submittedCount}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200">
+                    <p className="text-[11px] font-mono font-semibold text-[#0453cd] uppercase">3. Awaiting Assign</p>
+                    <p className="text-2xl font-bold font-mono text-[#0453cd] mt-1">{waitingAssignmentCount}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200">
+                    <p className="text-[11px] font-mono font-semibold text-purple-800 uppercase">4. Awaiting Accept</p>
+                    <p className="text-2xl font-bold font-mono text-purple-800 mt-1">{waitingAcceptanceCount}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-cyan-50/70 border border-cyan-200">
+                    <p className="text-[11px] font-mono font-semibold text-cyan-800 uppercase">5. In Progress</p>
+                    <p className="text-2xl font-bold font-mono text-cyan-800 mt-1">{inProgressCount}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200">
+                    <p className="text-[11px] font-mono font-semibold text-teal-800 uppercase">6. Engineer Review</p>
+                    <p className="text-2xl font-bold font-mono text-teal-800 mt-1">{engineerReviewCount}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                    <p className="text-[11px] font-mono font-semibold text-emerald-800 uppercase">7. Completed</p>
+                    <p className="text-2xl font-bold font-mono text-emerald-800 mt-1">{completedCount}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200">
+                    <p className="text-[11px] font-mono font-semibold text-rose-800 uppercase">8. Cancelled</p>
+                    <p className="text-2xl font-bold font-mono text-rose-800 mt-1">{cancelledCount}</p>
+                  </div>
+                </div>
+
+                {/* Action Required Queue */}
+                <div className="mt-8 pt-6 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
+                        High Priority Admin Queue
+                      </h4>
+                    </div>
+                    <Link href="/projects" className="text-xs font-semibold text-[#0453cd] hover:underline flex items-center gap-1">
+                      <span>View all projects</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+
+                  {pendingProjects.length === 0 ? (
+                    <EmptyState
+                      compact
+                      title="Admin Action Queue Clear"
+                      description="All submitted drawings and draughtsman assignments are fully up to date."
+                      primaryAction={{
+                        label: "Open Project Catalog",
+                        href: "/projects",
+                      }}
+                    />
+                  ) : (
+                    <div className="space-y-2.5">
+                      {pendingProjects.map((p) => (
+                        <div
+                          key={p.id}
+                          className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-colors"
+                        >
+                          <div className="overflow-hidden">
+                            <Link
+                              href={`/projects/${p.id}`}
+                              className="font-bold text-slate-900 text-sm hover:text-[#0453cd] transition-colors truncate block"
+                            >
+                              {p.project_name}
+                            </Link>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 font-mono mt-1">
+                              <span>{p.drawing_name || p.drawing_type}</span>
+                              <span>&bull;</span>
+                              <span>{p.project_area || 'Standard'} sq.ft</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <Badge status={p.status} />
+                            <Link
+                              href={`/projects/${p.id}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-xs"
+                            >
+                              <span>Review</span>
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge status={p.status} />
-                          <Link
-                            href={`/projects/${p.id}`}
-                            className="p-1.5 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-slate-800 transition-colors"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
 
             {/* Studio Talent & Users Column */}
             <div className="space-y-6">
-              <Card>
+              <Card technicalCorners>
                 <CardHeader
                   title="Studio Ecosystem Roster"
                   subtitle="Active roles across the Archi Draft platform"
@@ -422,130 +445,131 @@ export default function DashboardPage() {
                   {/* Engineers */}
                   <Link
                     href="/engineers"
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 transition-colors group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors group"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-xs border border-indigo-500/20">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-mono font-bold text-xs border border-indigo-200">
                         EN
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-slate-200 group-hover:text-indigo-300 transition-colors">
+                        <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-800 transition-colors">
                           Engineers
                         </p>
-                        <p className="text-[10px] text-slate-400">Structural, Civil & Architectural</p>
+                        <p className="text-[11px] text-slate-500">Structural, Civil & MEP</p>
                       </div>
                     </div>
-                    <span className="text-base font-bold text-indigo-400">{engineerCount}</span>
+                    <span className="text-base font-extrabold font-mono text-indigo-700">{engineerCount}</span>
                   </Link>
 
                   {/* Draughtsmen */}
                   <Link
                     href="/draughtsmen"
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/40 transition-colors group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 transition-colors group"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-xs border border-cyan-500/20">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-blue-50 text-[#0453cd] flex items-center justify-center font-mono font-bold text-xs border border-blue-200">
                         DM
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-slate-200 group-hover:text-cyan-300 transition-colors">
+                        <p className="text-xs font-bold text-slate-900 group-hover:text-[#0453cd] transition-colors">
                           Draughtsmen
                         </p>
-                        <p className="text-[10px] text-slate-400">Certified CAD & BIM specialists</p>
+                        <p className="text-[11px] text-slate-500">Certified CAD & BIM Pool</p>
                       </div>
                     </div>
-                    <span className="text-base font-bold text-cyan-400">{draughtsmanCount}</span>
+                    <span className="text-base font-extrabold font-mono text-[#0453cd]">{draughtsmanCount}</span>
                   </Link>
 
                   {/* Students */}
                   <Link
                     href="/students"
-                    className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-colors group"
+                    className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors group"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs border border-emerald-500/20">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-mono font-bold text-xs border border-emerald-200">
                         ST
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors">
+                        <p className="text-xs font-bold text-slate-900 group-hover:text-emerald-800 transition-colors">
                           Students
                         </p>
-                        <p className="text-[10px] text-slate-400">Apprentice trainees & learners</p>
+                        <p className="text-[11px] text-slate-500">Apprentice Program</p>
                       </div>
                     </div>
-                    <span className="text-base font-bold text-emerald-400">{studentCount}</span>
+                    <span className="text-base font-extrabold font-mono text-emerald-700">{studentCount}</span>
                   </Link>
 
                   {/* Studio Admins */}
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-xs border border-rose-500/20">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-[#0d1c32] text-white flex items-center justify-center font-mono font-bold text-xs">
                         AD
                       </div>
                       <div>
-                        <p className="text-xs font-semibold text-slate-200">Studio Admins</p>
-                        <p className="text-[10px] text-slate-400">Privileged platform operators</p>
+                        <p className="text-xs font-bold text-slate-900">Studio Admins</p>
+                        <p className="text-[11px] text-slate-500">Privileged Console Operators</p>
                       </div>
                     </div>
-                    <span className="text-base font-bold text-rose-400">{adminCount}</span>
+                    <span className="text-base font-extrabold font-mono text-slate-900">{adminCount}</span>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Total Registered Identities</span>
-                  <span className="font-bold text-slate-100">{stats?.users?.total || 0}</span>
+                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono text-slate-500">
+                  <span>Total Registered Identities</span>
+                  <span className="font-bold text-slate-900">{stats?.users?.total || 0}</span>
                 </div>
               </Card>
 
               {/* Security & Architecture Reminder */}
-              <Card className="border-blue-900/40 bg-gradient-to-br from-[#0b1426] to-[#0f172a]">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-400 mb-2">
+              <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-5 soft-elevation">
+                <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-[#0453cd] mb-2">
                   <ShieldCheck className="h-4 w-4" />
                   <span>Immutable Governance</span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-600 leading-relaxed font-sans">
                   All administrative actions (approvals, rejections, assignments, and cancellations)
-                  are cryptographically verified via Firebase ID tokens and logged into the immutable D1
-                  audit trail with unique action IDs.
+                  are verified via Firebase ID tokens and logged into the immutable D1
+                  audit trail with unique idempotency action IDs.
                 </p>
-              </Card>
+              </div>
             </div>
           </div>
 
           {/* Live Recent Activity Feed */}
-          <Card>
+          <Card technicalCorners>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <ActivityIcon className="h-4 w-4 text-blue-400" />
-                <h3 className="text-base font-semibold text-slate-100">Live Activity Feed</h3>
+                <ActivityIcon className="h-4 w-4 text-[#0453cd]" />
+                <h3 className="text-base font-bold text-slate-900">Live Activity Feed</h3>
               </div>
-              <Link href="/activity" className="text-xs text-blue-400 hover:text-blue-300">
-                View all logs &rarr;
+              <Link href="/activity" className="text-xs font-semibold text-[#0453cd] hover:underline flex items-center gap-1">
+                <span>View full audit stream</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
             {(!stats?.recentActivity || stats.recentActivity.length === 0) ? (
-              <p className="text-xs text-slate-400 py-6 text-center">No recent activity recorded yet.</p>
+              <p className="text-xs font-mono text-slate-400 py-8 text-center">No recent activity recorded yet.</p>
             ) : (
-              <div className="divide-y divide-slate-800/80">
-                {stats.recentActivity.slice(0, 8).map((log) => (
+              <div className="divide-y divide-slate-100">
+                {stats.recentActivity.slice(0, 6).map((log) => (
                   <div key={log.id} className="py-3 flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold font-mono text-blue-400">
+                        <span className="text-xs font-bold font-mono text-[#0453cd]">
                           {log.action_type}
                         </span>
                         <Badge role={log.actor_role} size="sm" />
                       </div>
-                      <p className="text-xs text-slate-300">{log.details}</p>
+                      <p className="text-xs text-slate-600">{log.details}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[10px] text-slate-500 font-mono">
-                        {new Date(log.timestamp).toLocaleString()}
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {new Date(log.timestamp).toLocaleTimeString()}
                       </p>
                       <Link
                         href={`/projects/${log.project_id}`}
-                        className="text-[10px] text-slate-400 hover:text-slate-200 font-mono mt-0.5 block"
+                        className="text-[10px] text-[#0453cd] hover:underline font-mono mt-0.5 block"
                       >
                         Project #{log.project_id.substring(0, 8)}
                       </Link>

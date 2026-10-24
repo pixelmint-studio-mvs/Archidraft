@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import { Button } from '@/components/ui/Button';
-import { Compass, ShieldCheck, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('contact@draughtsmanstudio.com');
-  const [password, setPassword] = useState('AAAJ@PMS');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && user.role === 'ADMIN') {
+    if (user && (user.role === 'ADMIN' || user.role === 'STUDIO_ADMIN')) {
       router.replace('/dashboard');
     }
   }, [user, router]);
@@ -30,7 +30,7 @@ export default function LoginPage() {
       await login(email, password);
       router.replace('/dashboard');
     } catch (err: any) {
-      setLocalError(err.message || 'Authentication failed');
+      setLocalError(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setLoading(false);
     }
@@ -39,104 +39,149 @@ export default function LoginPage() {
   const displayError = localError || authError;
 
   return (
-    <div className="min-h-screen bg-[#090d16] flex flex-col justify-center items-center p-6 relative overflow-hidden">
-      {/* Subtle blueprint grid background effect */}
-      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-25" />
-
-      {/* Decorative gradient glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <img
-            src="/draughtsman_logo.jpeg"
-            alt="Draughtsman Studio Logo"
-            className="h-16 w-16 rounded-2xl object-cover bg-slate-900 border border-slate-700/60 shadow-xl shadow-blue-600/20 mb-4 inline-block"
-          />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-100 uppercase tracking-wider">
-            Archi Draft
-          </h1>
-          <p className="text-sm text-slate-400 mt-1 font-medium">
-            Draughtsman Studio &bull; Admin Console
-          </p>
-        </div>
-
-        {/* Login Card */}
-        <div className="bg-[#0f172a]/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-2 mb-6 pb-4 border-b border-slate-800 text-xs font-semibold uppercase tracking-wider text-blue-400">
-            <ShieldCheck className="h-4 w-4" />
-            <span>Studio Administrator Access Only</span>
-          </div>
-
-          {displayError && (
-            <div className="mb-5 flex items-start gap-2.5 p-3.5 text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-xl">
-              <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-              <span>{displayError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Admin Email
-              </label>
-              <div className="relative">
-                <Mail className="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@archidraft.com"
-                  required
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  required
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={loading}
-              className="w-full mt-2 font-semibold"
-              icon={<ArrowRight className="h-4 w-4" />}
-            >
-              Sign In to Studio Console
-            </Button>
-          </form>
-
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
-            <p className="text-xs text-slate-500">
-              Admin identities are provisioned by Draughtsman Studio.
-              <br />
-              Engineer, Draughtsman, and Student accounts cannot log into this portal.
-            </p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-[11px] text-slate-600 mt-8 tracking-wider">
-          ARCHI DRAFT &bull; DRAUGHTSMAN STUDIO &bull; DEVELOPED BY PIXELMINT STUDIO MVS
-        </p>
+    <div className="blueprint-bg min-h-screen text-slate-900 selection:bg-[#0453cd] selection:text-white flex flex-col justify-between relative overflow-x-hidden p-6 md:p-12">
+      {/* Top Left Technical Tag */}
+      <div className="absolute top-6 left-6 md:top-10 md:left-12 text-slate-400 font-mono text-xs hidden sm:flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+        <span>SYS.ADMIN.AUTH.v2.4 // PROTOCOL_SECURE</span>
       </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex items-center justify-center py-10 relative z-10">
+        <div className="w-full max-w-[440px]">
+          {/* Logo Area with Architectural Framing */}
+          <div className="flex justify-center mb-8 relative">
+            <div className="relative inline-block">
+              <div className="absolute -inset-3 border border-slate-300/40 rounded-2xl pointer-events-none" />
+              <div className="absolute -inset-6 border border-slate-300/20 rounded-3xl border-dashed pointer-events-none" />
+              <img
+                alt="Draughtsman Studio Logo"
+                className="w-20 h-20 rounded-2xl object-cover bg-slate-900 border border-slate-700/60 shadow-lg relative z-10"
+                src="/draughtsman_logo.jpeg"
+              />
+            </div>
+          </div>
+
+          {/* Login Card (Stitch Architectural Precision System) */}
+          <div className="bg-white rounded-2xl glass-elevation p-8 md:p-10 relative border border-slate-200">
+            {/* Corner Technical Marks */}
+            <div className="technical-corner-tl" />
+            <div className="technical-corner-tr" />
+            <div className="technical-corner-bl" />
+            <div className="technical-corner-br" />
+
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[#0453cd] border border-blue-200 text-[11px] font-mono font-semibold mb-3">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>STUDIO ADMIN CONSOLE</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Studio Access
+              </h1>
+              <p className="text-xs text-slate-500 mt-1 font-sans">
+                Enter your credentials to access the administrative workspace.
+              </p>
+            </div>
+
+            {/* Error Message */}
+            {displayError && (
+              <div className="mb-5 flex items-start gap-2.5 p-3.5 text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-xl">
+                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="font-medium">{displayError}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block font-mono text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                  Admin Email
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                    <Mail className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="admin-email-input"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="contact@draughtsmanstudio.com"
+                    required
+                    className="w-full bg-[#fbf9fb] pl-10 pr-4 py-2.5 border border-slate-300/80 rounded-lg text-slate-900 text-sm font-sans focus:ring-4 focus:ring-blue-500/10 focus:border-[#0453cd] transition-all outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label htmlFor="admin-password-input" className="block font-mono text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Access Key / Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="font-mono text-[11px] text-[#0453cd] hover:underline transition-colors"
+                  >
+                    Restore Access?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <input
+                    id="admin-password-input"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    required
+                    className="w-full bg-[#fbf9fb] pl-10 pr-4 py-2.5 border border-slate-300/80 rounded-lg text-slate-900 text-sm font-sans focus:ring-4 focus:ring-blue-500/10 focus:border-[#0453cd] transition-all outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                id="admin-login-submit"
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#0d1c32] hover:bg-[#15294a] text-white py-3 px-6 rounded-lg font-mono text-xs font-semibold tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer active:scale-[0.98]"
+              >
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>AUTHENTICATING...</span>
+                  </span>
+                ) : (
+                  <>
+                    <span>SECURE SIGN IN</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-blue-300" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Security Notice */}
+            <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+              <p className="font-mono text-[11px] text-slate-500">
+                Protected Studio Administrative Environment
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Accounts are managed by Draughtsman Studio.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer Credit */}
+      <footer className="w-full text-center py-4 relative z-10">
+        <p className="font-mono text-[11px] text-slate-400 uppercase tracking-widest">
+          UI/UX Design &amp; Product Experience crafted by PixelMint Studio MVS &bull; Draughtsman Studio
+        </p>
+      </footer>
     </div>
   );
 }

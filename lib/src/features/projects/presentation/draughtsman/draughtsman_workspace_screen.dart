@@ -159,8 +159,21 @@ class DraughtsmanWorkspaceScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(activeCorrection.description, style: AppTypography.bodyMd.copyWith(color: isOpen ? AppColors.onErrorContainer : AppColors.onSurface)),
+                        if (activeCorrection.hasPin) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_rounded, size: 14, color: isOpen ? AppColors.error : AppColors.primary),
+                              const SizedBox(width: AppSpacing.xs),
+                              Text(
+                                'Pin Location: ${(activeCorrection.pinX! * 100).toStringAsFixed(1)}% X, ${(activeCorrection.pinY! * 100).toStringAsFixed(1)}% Y',
+                                style: AppTypography.labelMono.copyWith(fontSize: 11, color: isOpen ? AppColors.onErrorContainer : AppColors.primary, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(activeCorrection.cleanDescription, style: AppTypography.bodyMd.copyWith(color: isOpen ? AppColors.onErrorContainer : AppColors.onSurface)),
                         if (isOpen) ...[
                           const SizedBox(height: AppSpacing.md),
                           FilledButton(

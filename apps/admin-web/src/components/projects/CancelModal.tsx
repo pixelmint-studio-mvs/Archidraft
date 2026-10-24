@@ -55,15 +55,15 @@ export function CancelModal({
           </div>
         )}
 
-        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-start gap-2.5">
-          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2.5">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
             Cancelling will terminate any active assignments and record an immutable cancellation log entry. Completed projects cannot be cancelled.
           </span>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          <label className="block text-xs font-mono font-semibold text-slate-700 uppercase tracking-wider mb-2">
             Cancellation Note
           </label>
           <textarea
@@ -71,11 +71,11 @@ export function CancelModal({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Administrative note or cancellation rationale..."
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
           <Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={loading}>
             Dismiss
           </Button>

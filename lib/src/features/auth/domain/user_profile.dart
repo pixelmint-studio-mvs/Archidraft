@@ -53,6 +53,12 @@ class UserProfile {
   /// Timestamp when the profile was last updated.
   final DateTime? updatedAt;
 
+  /// Account status: 'ACTIVE' or 'SUSPENDED'.
+  final String? status;
+
+  /// Whether this user account has been administratively suspended.
+  bool get isSuspended => status?.toUpperCase() == 'SUSPENDED';
+
   const UserProfile({
     required this.id,
     required this.name,
@@ -67,6 +73,7 @@ class UserProfile {
     this.collegeName,
     this.proofDocument,
     this.updatedAt,
+    this.status,
   });
 
   /// Creates a [UserProfile] from a Map (API response).
@@ -85,6 +92,7 @@ class UserProfile {
       collegeName: data['college_name'] as String?,
       proofDocument: data['proof_document'] as String?,
       updatedAt: data['updated_at'] != null ? DateTime.tryParse(data['updated_at']) : null,
+      status: data['status'] as String? ?? 'ACTIVE',
     );
   }
 
@@ -96,6 +104,7 @@ class UserProfile {
       'email': email,
       'mobile': mobile,
       'role': role,
+      'status': status ?? 'ACTIVE',
     };
   }
 
@@ -123,6 +132,7 @@ class UserProfile {
     String? companyName,
     String? collegeName,
     String? proofDocument,
+    String? status,
   }) {
     return UserProfile(
       id: id,
@@ -138,6 +148,7 @@ class UserProfile {
       collegeName: collegeName ?? this.collegeName,
       proofDocument: proofDocument ?? this.proofDocument,
       updatedAt: updatedAt,
+      status: status ?? this.status,
     );
   }
 }

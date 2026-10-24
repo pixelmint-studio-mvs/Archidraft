@@ -142,7 +142,39 @@ class ApiClient {
       }
       return null;
     } else {
+      if (response.statusCode == 403) {
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map &&
+              (decoded['code'] == 'ACCOUNT_SUSPENDED' ||
+                  (decoded['error'] is String &&
+                      (decoded['error'] as String)
+                          .toLowerCase()
+                          .contains('account suspended')))) {
+            throw AccountSuspendedException(
+              decoded['error'] as String? ??
+                  'Account suspended: Administrative access restriction in effect',
+            );
+          }
+        } catch (e) {
+          if (e is AccountSuspendedException) rethrow;
+        }
+      }
       throw Exception('API Error: ${response.statusCode} - ${response.body}');
     }
   }
+}
+
+/// Explicit exception thrown when the shared Worker rejects an operation due to account suspension.
+class AccountSuspendedException implements Exception {
+  final String message;
+  final String code;
+
+  const AccountSuspendedException([
+    this.message = 'Account suspended: Administrative access restriction in effect',
+    this.code = 'ACCOUNT_SUSPENDED',
+  ]);
+
+  @override
+  String toString() => message;
 }

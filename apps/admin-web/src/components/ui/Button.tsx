@@ -18,32 +18,32 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#090d16] disabled:opacity-50 disabled:cursor-not-allowed select-none';
+    'inline-flex items-center justify-center font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.99]';
 
   let variantStyle = '';
   switch (variant) {
     case 'primary':
       variantStyle =
-        'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 focus:ring-blue-500 active:bg-blue-700';
+        'bg-[#0d1c32] hover:bg-[#15294a] text-white shadow-sm hover:shadow focus:ring-[#0453cd] active:bg-[#081220]';
       break;
     case 'secondary':
       variantStyle =
-        'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 focus:ring-slate-500 active:bg-slate-850';
+        'bg-[#0453cd] hover:bg-[#0341a1] text-white shadow-sm hover:shadow focus:ring-[#0453cd] active:bg-[#033682]';
       break;
     case 'danger':
       variantStyle =
-        'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 focus:ring-rose-500 active:bg-rose-700';
+        'bg-rose-600 hover:bg-rose-700 text-white shadow-sm focus:ring-rose-500 active:bg-rose-800';
       break;
     case 'success':
       variantStyle =
-        'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 focus:ring-emerald-500 active:bg-emerald-700';
+        'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm focus:ring-emerald-500 active:bg-emerald-800';
       break;
     case 'outline':
       variantStyle =
-        'border border-slate-700 hover:border-slate-600 bg-transparent text-slate-300 hover:bg-slate-800/50 focus:ring-slate-500';
+        'border border-slate-200 hover:border-slate-300 bg-white text-slate-800 hover:bg-slate-50 shadow-sm focus:ring-slate-300 active:bg-slate-100';
       break;
     case 'ghost':
-      variantStyle = 'bg-transparent hover:bg-slate-800/60 text-slate-300 hover:text-white focus:ring-slate-500';
+      variantStyle = 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 focus:ring-slate-300';
       break;
   }
 

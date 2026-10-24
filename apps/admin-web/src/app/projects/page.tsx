@@ -1,20 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { AssignModal } from '@/components/projects/AssignModal';
 import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
+import { NewProjectModal } from '@/components/projects/NewProjectModal';
 import { adminApi } from '@/lib/api';
 import { Project, ProjectStatus } from '@/lib/types';
 import {
   Search,
-  Filter,
   CheckCircle,
   XCircle,
   UserPlus,
@@ -24,6 +25,10 @@ import {
   Ban,
   Building2,
   Calendar,
+  PlusCircle,
+  FolderKanban,
+  FileText,
+  User,
 } from 'lucide-react';
 
 const STATUS_FILTERS: { label: string; value: string }[] = [
@@ -53,6 +58,7 @@ function ProjectsContent() {
   const [assignTarget, setAssignTarget] = useState<{ project: Project; isReassign: boolean } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Project | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Project | null>(null);
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const loadProjects = async (isManual = false) => {
@@ -112,14 +118,14 @@ function ProjectsContent() {
   return (
     <AdminShell
       title="Project Governance & Pipeline"
-      subtitle="Complete project catalog with lifecycle approval & assignment actions"
+      subtitle="Complete project catalog with lifecycle approval, assignment actions & CAD repository"
       onRefresh={() => loadProjects(true)}
       isRefreshing={refreshing}
     >
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-300 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
-          <span>{error}</span>
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-800 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
+          <span className="font-medium">{error}</span>
           <Button variant="outline" size="sm" onClick={() => loadProjects(true)} className="ml-auto">
             Retry
           </Button>
@@ -127,31 +133,40 @@ function ProjectsContent() {
       )}
 
       {/* Control Toolbar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+        {/* Search Input */}
+        <div className="relative w-full md:max-w-md flex-1">
+          <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by project name, address, drawing type, or ID..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            placeholder="Search project name, address, drawing type, or ID..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-slate-300/80 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#0453cd] transition-all shadow-xs"
           />
         </div>
 
-        {/* Status Count Summary */}
-        <div className="text-xs text-slate-400 flex items-center gap-2">
-          <span>Showing</span>
-          <span className="font-bold text-slate-200">{filteredProjects.length}</span>
-          <span>of</span>
-          <span className="font-bold text-slate-200">{projects.length}</span>
-          <span>total projects</span>
+        {/* Action Button & Metric */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          <button
+            onClick={() => setIsNewProjectModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98]"
+          >
+            <PlusCircle className="h-4 w-4 text-emerald-400" />
+            <span>INITIATE PROJECT</span>
+          </button>
+
+          <div className="text-xs font-mono text-slate-500 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-xs whitespace-nowrap">
+            <span>SHOWING: </span>
+            <span className="font-bold text-slate-900">{filteredProjects.length}</span>
+            <span className="text-slate-400"> / </span>
+            <span className="font-bold text-slate-900">{projects.length}</span>
+          </div>
         </div>
       </div>
 
       {/* Status Filter Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-6 scrollbar-none border-b border-slate-800">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-6 scrollbar-none border-b border-slate-200 w-full max-w-full">
         {STATUS_FILTERS.map((tab) => {
           const isSelected = selectedStatus === tab.value;
           const count =
@@ -163,16 +178,16 @@ function ProjectsContent() {
             <button
               key={tab.value}
               onClick={() => setSelectedStatus(tab.value)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800'
+                  ? 'bg-[#0d1c32] text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200'
               }`}
             >
               <span>{tab.label}</span>
               <span
                 className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                  isSelected ? 'bg-blue-800/80 text-blue-100' : 'bg-slate-800 text-slate-400'
+                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
                 }`}
               >
                 {count}
@@ -184,179 +199,184 @@ function ProjectsContent() {
 
       {/* Projects Table */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-24">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-          <p className="text-xs text-slate-400 mt-3 font-medium">Loading project catalog...</p>
+        <div className="flex flex-col items-center justify-center p-24 bg-white border border-slate-200 rounded-2xl soft-elevation my-6">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
+          <p className="text-xs font-mono font-medium text-slate-500 mt-3 uppercase tracking-wider">
+            Loading project catalog from Cloudflare D1...
+          </p>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <Card className="text-center py-16">
-          <Building2 className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-sm font-semibold text-slate-300">No projects found</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-            {searchQuery
-              ? `No projects matched "${searchQuery}". Try adjusting your search query.`
-              : `No projects in "${selectedStatus}" status.`}
-          </p>
-          {(searchQuery || selectedStatus !== 'ALL') && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedStatus('ALL');
-              }}
-              className="mt-4"
-            >
-              Clear filters
-            </Button>
-          )}
-        </Card>
+        <EmptyState
+          title={searchQuery ? 'No Projects Matched Search' : `No Projects in "${selectedStatus}" State`}
+          description={
+            searchQuery
+              ? `No projects matching "${searchQuery}" found in the repository.`
+              : 'Initialize your first architectural package or clear filters to view active projects.'
+          }
+          primaryAction={{
+            label: 'Initiate Project Brief',
+            onClick: () => setIsNewProjectModalOpen(true),
+          }}
+          secondaryAction={
+            searchQuery || selectedStatus !== 'ALL'
+              ? {
+                  label: 'Clear Filters',
+                  onClick: () => {
+                    setSearchQuery('');
+                    setSelectedStatus('ALL');
+                  },
+                }
+              : undefined
+          }
+        />
       ) : (
-        <div className="bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#0b1120] border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden soft-elevation shadow-xs">
+          <div className="overflow-x-auto w-full max-w-full">
+            <table className="w-full text-left text-xs min-w-[780px]">
+              <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-mono font-semibold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-5 py-3.5">Project Details</th>
-                  <th className="px-5 py-3.5">Type & Area</th>
+                  <th className="px-5 py-3.5">Discipline & Area</th>
                   <th className="px-5 py-3.5">Lifecycle State</th>
                   <th className="px-5 py-3.5">Draughtsman</th>
-                  <th className="px-5 py-3.5">Timeline</th>
-                  <th className="px-5 py-3.5 text-right">Administrative Actions</th>
+                  <th className="px-5 py-3.5">Registered</th>
+                  <th className="px-5 py-3.5 text-right whitespace-nowrap">Administrative Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80">
+              <tbody className="divide-y divide-slate-100">
                 {filteredProjects.map((p) => {
                   const isActionLoading = actionLoadingId === p.id;
 
                   return (
                     <tr
                       key={p.id}
-                      className="hover:bg-slate-800/30 transition-colors group"
+                      className="hover:bg-slate-50/60 transition-colors group"
                     >
                       {/* Project Details */}
                       <td className="px-5 py-4">
                         <Link
                           href={`/projects/${p.id}`}
-                          className="font-semibold text-slate-100 hover:text-blue-400 transition-colors flex items-center gap-1.5"
+                          className="font-bold text-slate-900 hover:text-[#0453cd] transition-colors flex items-center gap-1.5"
                         >
                           <span>{p.project_name || 'Untitled Project'}</span>
-                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
                         </Link>
-                        <p className="text-slate-400 mt-0.5 truncate max-w-xs">{p.project_address}</p>
-                        <p className="text-[10px] font-mono text-slate-500 mt-0.5">ID: {p.id.substring(0, 8)}</p>
+                        <p className="text-slate-500 mt-0.5 truncate max-w-xs">{p.project_address}</p>
+                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">ID: {p.id.substring(0, 8)}</p>
                       </td>
 
                       {/* Type & Area */}
                       <td className="px-5 py-4">
-                        <p className="text-slate-200 font-medium">{p.drawing_type || 'Architectural'}</p>
-                        <p className="text-slate-400 mt-0.5">{p.project_area ? `${p.project_area} sq.ft` : 'N/A'}</p>
+                        <span className="font-semibold text-slate-800 font-mono block">
+                          {p.drawing_type || 'Architectural'}
+                        </span>
+                        <span className="text-slate-500 font-mono text-[11px]">
+                          {p.project_area ? `${p.project_area.toLocaleString()} sq.ft` : 'Standard Scope'}
+                        </span>
                       </td>
 
-                      {/* Lifecycle Status */}
+                      {/* Lifecycle State */}
                       <td className="px-5 py-4">
                         <Badge status={p.status} />
-                        {p.correction_round > 0 && (
-                          <span className="block text-[10px] text-teal-400 mt-1 font-medium">
-                            Round {p.correction_round}/3
-                          </span>
-                        )}
                       </td>
 
                       {/* Draughtsman */}
                       <td className="px-5 py-4">
-                        {p.draughtsman_name ? (
-                          <div>
-                            <p className="text-slate-200 font-medium">{p.draughtsman_name}</p>
-                            <span className="text-[10px] text-slate-400 font-mono">Assigned</span>
+                        {p.draughtsman_id ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-lg bg-blue-50 border border-blue-200 text-[#0453cd] font-mono font-bold flex items-center justify-center text-xs">
+                              {(p.draughtsman_name || 'D').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-800 text-xs block">
+                                {p.draughtsman_name || 'Assigned Draughtsman'}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400">ID: {p.draughtsman_id.substring(0, 6)}</span>
+                            </div>
                           </div>
                         ) : (
-                          <span className="text-slate-500 italic text-[11px]">Unassigned</span>
+                          <span className="text-slate-400 font-mono text-xs italic">Unassigned</span>
                         )}
                       </td>
 
-                      {/* Timeline */}
-                      <td className="px-5 py-4 text-slate-400">
-                        <div className="flex items-center gap-1 text-[11px]">
-                          <Calendar className="h-3 w-3 text-slate-500" />
-                          <span>{new Date(p.created_at).toLocaleDateString()}</span>
-                        </div>
-                        {p.submitted_at && (
-                          <span className="text-[10px] text-slate-500 block mt-0.5">
-                            Sub: {new Date(p.submitted_at).toLocaleDateString()}
-                          </span>
-                        )}
+                      {/* Registered Date */}
+                      <td className="px-5 py-4 font-mono text-slate-500">
+                        {p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A'}
                       </td>
 
-                      {/* Actions */}
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* SUBMITTED State: Approve or Reject */}
+                      {/* Administrative Actions */}
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* 1. Quick Approve button (for SUBMITTED) */}
                           {p.status === 'SUBMITTED' && (
-                            <>
-                              <Button
-                                variant="success"
-                                size="sm"
-                                loading={isActionLoading}
-                                onClick={() => handleQuickApprove(p.id)}
-                                title="Approve Submission"
-                                icon={<CheckCircle className="h-3.5 w-3.5" />}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() => setRejectTarget(p)}
-                                title="Reject Submission"
-                                icon={<XCircle className="h-3.5 w-3.5" />}
-                              >
-                                Reject
-                              </Button>
-                            </>
+                            <button
+                              onClick={() => handleQuickApprove(p.id)}
+                              disabled={isActionLoading}
+                              title="Approve submission & move to assignment queue"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-mono font-semibold transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              {isActionLoading ? (
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3" />
+                              )}
+                              <span>Approve</span>
+                            </button>
                           )}
 
-                          {/* WAITING_ASSIGNMENT State: Assign Draughtsman */}
+                          {/* 2. Assign Draughtsman button (for WAITING_ASSIGNMENT) */}
                           {p.status === 'WAITING_ASSIGNMENT' && (
-                            <Button
-                              variant="primary"
-                              size="sm"
+                            <button
                               onClick={() => setAssignTarget({ project: p, isReassign: false })}
-                              icon={<UserPlus className="h-3.5 w-3.5" />}
+                              title="Assign draughtsman to this project"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#0d1c32] text-white hover:bg-[#15294a] text-xs font-mono font-semibold transition-all shadow-xs cursor-pointer"
                             >
-                              Assign
-                            </Button>
+                              <UserPlus className="h-3 w-3 text-blue-300" />
+                              <span>Assign</span>
+                            </button>
                           )}
 
-                          {/* IN_PROGRESS or WAITING_ACCEPTANCE: Reassign */}
+                          {/* 3. Reassign Draughtsman (for WAITING_ACCEPTANCE / IN_PROGRESS) */}
                           {(p.status === 'WAITING_ACCEPTANCE' || p.status === 'IN_PROGRESS') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            <button
                               onClick={() => setAssignTarget({ project: p, isReassign: true })}
+                              title="Reassign to a different draughtsman"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 text-xs font-mono transition-all cursor-pointer"
                             >
-                              Reassign
-                            </Button>
+                              <UserPlus className="h-3 w-3 text-slate-500" />
+                              <span>Reassign</span>
+                            </button>
                           )}
 
-                          {/* Active projects can be cancelled */}
-                          {p.status !== 'COMPLETED' && p.status !== 'CANCELLED' && p.status !== 'DRAFT' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                          {/* 4. Reject button (only for SUBMITTED) */}
+                          {p.status === 'SUBMITTED' && (
+                            <button
+                              onClick={() => setRejectTarget(p)}
+                              title="Reject submission"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
+                          )}
+
+                          {/* 5. Cancel button (for non-completed, non-cancelled) */}
+                          {p.status !== 'COMPLETED' && p.status !== 'CANCELLED' && (
+                            <button
                               onClick={() => setCancelTarget(p)}
-                              title="Cancel Project"
-                              className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                              title="Cancel project"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
                             >
-                              <Ban className="h-3.5 w-3.5" />
-                            </Button>
+                              <Ban className="h-4 w-4" />
+                            </button>
                           )}
 
-                          {/* View details */}
-                          <Link href={`/projects/${p.id}`}>
-                            <Button variant="outline" size="sm">
-                              Details
-                            </Button>
+                          {/* 6. View Details link */}
+                          <Link
+                            href={`/projects/${p.id}`}
+                            className="p-1.5 text-slate-400 hover:text-[#0453cd] hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Open project details workspace"
+                          >
+                            <ExternalLink className="h-4 w-4" />
                           </Link>
                         </div>
                       </td>
@@ -375,7 +395,7 @@ function ProjectsContent() {
           isOpen={true}
           onClose={() => setAssignTarget(null)}
           projectId={assignTarget.project.id}
-          projectName={assignTarget.project.project_name}
+          projectName={assignTarget.project.project_name || 'Project'}
           isReassign={assignTarget.isReassign}
           onSuccess={() => loadProjects(true)}
         />
@@ -386,7 +406,7 @@ function ProjectsContent() {
           isOpen={true}
           onClose={() => setRejectTarget(null)}
           projectId={rejectTarget.id}
-          projectName={rejectTarget.project_name}
+          projectName={rejectTarget.project_name || 'Project'}
           onSuccess={() => loadProjects(true)}
         />
       )}
@@ -396,27 +416,28 @@ function ProjectsContent() {
           isOpen={true}
           onClose={() => setCancelTarget(null)}
           projectId={cancelTarget.id}
-          projectName={cancelTarget.project_name}
+          projectName={cancelTarget.project_name || 'Project'}
           onSuccess={() => loadProjects(true)}
         />
       )}
+
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
+        onClose={() => setIsNewProjectModalOpen(false)}
+        onSuccess={() => loadProjects(true)}
+      />
     </AdminShell>
   );
 }
 
 export default function ProjectsPage() {
   return (
-    <React.Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#090d16]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-            <p className="text-xs text-slate-400 font-medium">Loading project catalog...</p>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-24">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
+      </div>
+    }>
       <ProjectsContent />
-    </React.Suspense>
+    </Suspense>
   );
 }

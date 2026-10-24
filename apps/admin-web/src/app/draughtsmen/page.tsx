@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { adminApi } from '@/lib/api';
 import { User, Project } from '@/lib/types';
+import { DraughtsmanProfileView } from '@/components/draughtsmen/DraughtsmanProfileView';
 import {
   Search,
   PenTool,
@@ -24,7 +25,56 @@ import {
   CheckCircle2,
   Briefcase,
   Activity,
+  Upload,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  PlayCircle,
+  BarChart3,
 } from 'lucide-react';
+
+// Maps project status to a compact workspace-style badge
+function WorkspaceBadge({ status }: { status?: string }) {
+  if (!status) return null;
+  let bg = 'bg-slate-100';
+  let border = 'border-slate-200';
+  let color = 'text-slate-600';
+  let label = status;
+
+  if (status === 'IN_PROGRESS') {
+    bg = 'bg-blue-50';
+    border = 'border-blue-200';
+    color = 'text-blue-700';
+    label = 'In Progress';
+  } else if (status === 'UNDER_CLIENT_REVIEW') {
+    bg = 'bg-amber-50';
+    border = 'border-amber-200';
+    color = 'text-amber-700';
+    label = 'Under Review';
+  } else if (status === 'COMPLETED') {
+    bg = 'bg-emerald-50';
+    border = 'border-emerald-200';
+    color = 'text-emerald-700';
+    label = 'Completed';
+  } else if (status === 'WAITING_ACCEPTANCE') {
+    bg = 'bg-purple-50';
+    border = 'border-purple-200';
+    color = 'text-purple-700';
+    label = 'Pending Acceptance';
+  } else if (status === 'WAITING_ASSIGNMENT') {
+    bg = 'bg-indigo-50';
+    border = 'border-indigo-200';
+    color = 'text-indigo-700';
+    label = 'Awaiting Assignment';
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold border ${bg} ${border} ${color}`}>
+      {label}
+    </span>
+  );
+}
 
 export default function DraughtsmenPage() {
   const [draughtsmen, setDraughtsmen] = useState<User[]>([]);
@@ -138,73 +188,73 @@ export default function DraughtsmenPage() {
       )}
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="p-4 border-cyan-900/30">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 mb-6">
+        <Card technicalCorners className="p-4 sm:p-5 bg-white border-slate-200 soft-elevation">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase text-cyan-400">Total Draughtsmen</p>
-            <PenTool className="h-4 w-4 text-cyan-400" />
+            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Total Draughtsmen</p>
+            <PenTool className="h-4 w-4 text-[#0453cd]" />
           </div>
-          <p className="text-2xl font-bold text-cyan-300 mt-2">{totalDraughtsmen}</p>
-          <p className="text-[11px] text-slate-500 mt-1">Certified CAD / BIM specialists</p>
+          <p className="text-2xl font-bold font-mono text-slate-900 mt-2">{totalDraughtsmen}</p>
+          <p className="text-[11px] text-slate-500 mt-1 font-mono">Certified CAD / BIM specialists</p>
         </Card>
 
-        <Card className="p-4 border-purple-900/30">
+        <Card technicalCorners className="p-4 sm:p-5 bg-white border-slate-200 soft-elevation">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase text-purple-400">Currently Assigned</p>
-            <Briefcase className="h-4 w-4 text-purple-400" />
+            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Currently Assigned</p>
+            <Briefcase className="h-4 w-4 text-[#0453cd]" />
           </div>
-          <p className="text-2xl font-bold text-purple-300 mt-2">{currentlyAssignedCount}</p>
-          <p className="text-[11px] text-slate-500 mt-1">Executing live drawing drafting</p>
+          <p className="text-2xl font-bold font-mono text-slate-900 mt-2">{currentlyAssignedCount}</p>
+          <p className="text-[11px] text-slate-500 mt-1 font-mono">Executing live drawing drafting</p>
         </Card>
 
-        <Card className="p-4 border-emerald-900/30">
+        <Card technicalCorners className="p-4 sm:p-5 bg-white border-slate-200 soft-elevation sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase text-emerald-400">Available For Workload</p>
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Available For Workload</p>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           </div>
-          <p className="text-2xl font-bold text-emerald-300 mt-2">{availableCount}</p>
-          <p className="text-[11px] text-slate-500 mt-1">Ready for assignment to approved projects</p>
+          <p className="text-2xl font-bold font-mono text-slate-900 mt-2">{availableCount}</p>
+          <p className="text-[11px] text-slate-500 mt-1 font-mono">Ready for assignment to approved projects</p>
         </Card>
       </div>
 
       {/* Search Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="relative w-full sm:max-w-md flex-1">
+          <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, qualification, college, or email..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0453cd] focus:border-[#0453cd] shadow-xs transition-all"
           />
         </div>
-        <p className="text-xs text-slate-400 font-mono">
-          Showing <span className="text-slate-200 font-bold">{filteredDraughtsmen.length}</span> of {totalDraughtsmen} Draughtsmen
+        <p className="text-xs text-slate-500 font-mono whitespace-nowrap">
+          Showing <span className="text-slate-900 font-bold">{filteredDraughtsmen.length}</span> of {totalDraughtsmen} Draughtsmen
         </p>
       </div>
 
       {/* Directory Table */}
-      <Card>
+      <Card technicalCorners className="bg-white border-slate-200 soft-elevation">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20">
-            <div className="h-7 w-7 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
-            <p className="text-xs text-slate-400 mt-3 font-medium">Loading Draughtsman directory...</p>
+            <div className="h-7 w-7 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
+            <p className="text-xs text-slate-500 mt-3 font-mono">Loading Draughtsman directory...</p>
           </div>
         ) : filteredDraughtsmen.length === 0 ? (
           <div className="p-16 text-center">
-            <PenTool className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-slate-300">No Draughtsmen Found</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            <PenTool className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-slate-700">No Draughtsmen Found</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-mono">
               {searchQuery
                 ? `No draughtsmen match "${searchQuery}". Try a different search term.`
                 : 'No draughtsmen are registered in the talent pool.'}
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900/90 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800 text-[10px]">
+          <div className="overflow-x-auto w-full max-w-full">
+            <table className="w-full text-left text-xs min-w-[740px]">
+              <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                 <tr>
                   <th className="px-5 py-3.5">Draughtsman</th>
                   <th className="px-5 py-3.5">Qualification & Institution</th>
@@ -214,21 +264,21 @@ export default function DraughtsmenPage() {
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80">
+              <tbody className="divide-y divide-slate-100">
                 {filteredDraughtsmen.map((dm) => {
                   const stat = statsByDraughtsman[dm.id] || { active: 0, completed: 0 };
                   const isBusy = stat.active > 0;
                   return (
-                    <tr key={dm.id} className="hover:bg-slate-800/30 transition-colors">
+                    <tr key={dm.id} className="hover:bg-slate-50/80 transition-colors">
                       {/* Name & ID */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center font-bold text-xs shrink-0">
                             {dm.name ? dm.name.charAt(0).toUpperCase() : 'D'}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-200 text-sm">{dm.name || 'Unnamed Draughtsman'}</p>
-                            <p className="text-[10px] font-mono text-slate-500 mt-0.5">
+                            <p className="font-semibold text-slate-900 text-sm">{dm.name || 'Unnamed Draughtsman'}</p>
+                            <p className="text-[10px] font-mono text-slate-400 mt-0.5">
                               UID: {dm.id.substring(0, 8)}...
                             </p>
                           </div>
@@ -237,10 +287,10 @@ export default function DraughtsmenPage() {
 
                       {/* Qualification & College */}
                       <td className="px-5 py-4 space-y-1">
-                        <p className="text-slate-200 font-medium">{dm.qualification || 'Civil Draughtsman'}</p>
+                        <p className="text-slate-900 font-medium">{dm.qualification || 'Civil Draughtsman'}</p>
                         {dm.college_name && (
-                          <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-                            <GraduationCap className="h-3 w-3 text-slate-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
+                            <GraduationCap className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                             <span className="truncate max-w-[200px]">{dm.college_name}</span>
                           </div>
                         )}
@@ -248,22 +298,22 @@ export default function DraughtsmenPage() {
 
                       {/* Contact */}
                       <td className="px-5 py-4 space-y-1">
-                        <div className="flex items-center gap-1.5 text-slate-300">
-                          <Mail className="h-3 w-3 text-slate-500 shrink-0" />
-                          <span className="truncate max-w-[180px]">{dm.email}</span>
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <Mail className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span className="truncate max-w-[180px] font-mono text-[11px]">{dm.email}</span>
                         </div>
                         {dm.mobile && (
-                          <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
-                            <Phone className="h-3 w-3 text-slate-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-slate-500 font-mono text-[11px]">
+                            <Phone className="h-3 w-3 text-slate-400 shrink-0" />
                             <span>{dm.mobile}</span>
                           </div>
                         )}
                       </td>
 
                       {/* Registration Date */}
-                      <td className="px-5 py-4 text-slate-400">
+                      <td className="px-5 py-4 text-slate-600 font-mono text-[11px]">
                         <div className="flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                          <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                           <span>{dm.created_at ? new Date(dm.created_at).toLocaleDateString() : '—'}</span>
                         </div>
                       </td>
@@ -271,13 +321,13 @@ export default function DraughtsmenPage() {
                       {/* Workload Status */}
                       <td className="px-5 py-4">
                         {isBusy ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                            <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
                             <span>{stat.active} Active Assignment{stat.active > 1 ? 's' : ''}</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                             <span>Available ({stat.completed} completed)</span>
                           </span>
                         )}
@@ -291,7 +341,7 @@ export default function DraughtsmenPage() {
                           onClick={() => openDraughtsmanDetails(dm)}
                           className="flex items-center gap-1.5 ml-auto"
                         >
-                          <Eye className="h-3.5 w-3.5 text-cyan-400" />
+                          <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
                           <span>Workload & History</span>
                         </Button>
                       </td>
@@ -304,106 +354,29 @@ export default function DraughtsmenPage() {
         )}
       </Card>
 
-      {/* Draughtsman Details Modal */}
+      {/* ─── Draughtsman Workspace Preview Modal ─────────────────────────── */}
       {selectedDraughtsman && (
         <Modal
           isOpen={!!selectedDraughtsman}
           onClose={() => setSelectedDraughtsman(null)}
-          title={`Draughtsman Profile: ${selectedDraughtsman.name || 'Unnamed'}`}
-          description={`Firebase UID: ${selectedDraughtsman.id} • Professional Talent Dossier`}
+          title={`Workspace: ${selectedDraughtsman.name || 'Unnamed Draughtsman'}`}
+          description={`UID ${selectedDraughtsman.id.substring(0, 12)}… • ${selectedDraughtsman.qualification || 'Certified Draughtsman'}`}
         >
-          <div className="space-y-6">
-            {/* Profile Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Full Name</span>
-                <span className="font-semibold text-slate-200 text-sm mt-0.5 block">{selectedDraughtsman.name || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Email Address</span>
-                <span className="font-mono text-slate-300 mt-0.5 block">{selectedDraughtsman.email}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Qualification</span>
-                <span className="text-slate-200 font-medium mt-0.5 block">{selectedDraughtsman.qualification || 'Certified Draughtsman'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">College / Institution</span>
-                <span className="text-slate-300 mt-0.5 block">{selectedDraughtsman.college_name || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Mobile Phone</span>
-                <span className="font-mono text-slate-300 mt-0.5 block">{selectedDraughtsman.mobile || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Portal Authorization</span>
-                <Badge role="DRAUGHTSMAN" />
-              </div>
-            </div>
-
-            {/* Assignments & Drawing Workflow */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-cyan-400" />
-                  <span>Assigned Projects & Workflow History ({assignments.length})</span>
-                </h4>
-              </div>
-
-              {loadingDetails ? (
-                <div className="p-8 text-center text-xs text-slate-400">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent mx-auto mb-2" />
-                  Loading assignment workflow history...
-                </div>
-              ) : assignments.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800">
-                  No project assignments have been dispatched to this draughtsman yet.
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {assignments.map((item: any) => {
-                    const projectId = item.project_id || item.id;
-                    const projectName = item.project_name || 'Drawing Project';
-                    const status = item.project_status || item.status;
-                    return (
-                      <div
-                        key={item.id || projectId}
-                        className="p-3 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors flex items-center justify-between gap-3 text-xs"
-                      >
-                        <div className="overflow-hidden">
-                          <Link
-                            href={`/projects/${projectId}`}
-                            className="font-semibold text-slate-200 hover:text-cyan-400 transition-colors block truncate"
-                          >
-                            {projectName}
-                          </Link>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            Drawing: {item.drawing_type || 'Architectural CAD'} &bull; Area: {item.project_area || 'Standard'} sq.ft
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge status={status} />
-                          <Link
-                            href={`/projects/${projectId}`}
-                            className="p-1.5 text-slate-400 hover:text-cyan-400 rounded-lg hover:bg-slate-800 transition-colors"
-                            title="Open Project Workspace"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-4 border-t border-slate-800 flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setSelectedDraughtsman(null)}>
-                Close
-              </Button>
-            </div>
+          <div className="mb-3 flex justify-end">
+            <Link
+              href={`/draughtsmen/${selectedDraughtsman.id}`}
+              className="text-xs font-mono text-[#0453cd] hover:underline flex items-center gap-1 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md"
+            >
+              <span>Open Full Page Workspace</span>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
+          <DraughtsmanProfileView
+            draughtsman={selectedDraughtsman}
+            assignments={assignments}
+            loading={loadingDetails}
+            onClose={() => setSelectedDraughtsman(null)}
+          />
         </Modal>
       )}
     </AdminShell>

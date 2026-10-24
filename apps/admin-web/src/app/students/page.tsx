@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { adminApi } from '@/lib/api';
 import { User } from '@/lib/types';
+import { StudentProfileView } from '@/components/students/StudentProfileView';
 import {
   Search,
   GraduationCap,
@@ -16,6 +18,7 @@ import {
   Calendar,
   AlertCircle,
   Eye,
+  ExternalLink,
   BookOpen,
   School,
   Award,
@@ -23,7 +26,19 @@ import {
   ToggleLeft,
   ToggleRight,
   ShieldAlert,
+  Trophy,
+  Star,
+  PlayCircle,
+  Lock,
+  CheckCircle2,
+  ChevronRight,
+  TrendingUp,
+  Layers,
+  Video,
+  FileText,
+  Zap,
 } from 'lucide-react';
+
 
 // Explicitly marked demo fixture for development preview only (never passed off as real data)
 const DEMO_STUDENT_FIXTURES: (User & { course?: string; modulesCompleted?: number; isFixture?: boolean })[] = [
@@ -142,8 +157,8 @@ export default function StudentsPage() {
       isRefreshing={refreshing}
     >
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-300 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-800 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
           <span>{error}</span>
           <Button variant="outline" size="sm" onClick={() => loadData(true)} className="ml-auto">
             Retry
@@ -152,42 +167,48 @@ export default function StudentsPage() {
       )}
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="p-4 border-emerald-900/30">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 mb-6">
+        <Card className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase text-emerald-400">Total Enrolled Students</p>
-            <GraduationCap className="h-4 w-4 text-emerald-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Enrolled Students</p>
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center">
+              <GraduationCap className="h-4 w-4" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-300 mt-2">{realStudents.length}</p>
-          <p className="text-[11px] text-slate-500 mt-1">Live registered accounts in Cloudflare D1</p>
+          <p className="text-3xl font-extrabold text-slate-900 mt-3 font-mono">{realStudents.length}</p>
+          <p className="text-xs text-slate-500 mt-1">Live registered accounts in Cloudflare D1</p>
         </Card>
 
-        <Card className="p-4 border-blue-900/30">
+        <Card className="p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase text-blue-400">Student Portal Status</p>
-            <BookOpen className="h-4 w-4 text-blue-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Student Portal Status</p>
+            <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center">
+              <BookOpen className="h-4 w-4" />
+            </div>
           </div>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            <span className="text-lg font-bold text-slate-100">Portal Operational</span>
+          <div className="flex items-center gap-2 mt-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xl font-bold text-slate-900">Portal Operational</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Accepting apprentice registrations</p>
+          <p className="text-xs text-slate-500 mt-1">Accepting apprentice registrations</p>
         </Card>
 
-        <Card className="p-4 border-purple-900/30">
+        <Card className="p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase text-purple-400">Learning Curriculums</p>
-            <Award className="h-4 w-4 text-purple-400" />
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Learning Curriculums</p>
+            <div className="h-8 w-8 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center">
+              <Award className="h-4 w-4" />
+            </div>
           </div>
-          <p className="text-2xl font-bold text-purple-300 mt-2">CAD & BIM Track</p>
-          <p className="text-[11px] text-slate-500 mt-1">Integrated training modules & drawing tests</p>
+          <p className="text-2xl font-bold text-slate-900 mt-3">CAD & BIM Track</p>
+          <p className="text-xs text-slate-500 mt-1">Integrated training modules & drawing tests</p>
         </Card>
       </div>
 
       {/* Control Toolbar & Demo Fixture Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="h-4 w-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div className="relative w-full sm:max-w-md flex-1">
+          <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
@@ -196,12 +217,12 @@ export default function StudentsPage() {
               setCurrentPage(1);
             }}
             placeholder="Search by student name, college, email..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0453cd] focus:border-[#0453cd] transition-all shadow-sm"
           />
         </div>
 
         {/* Demo Data Toggle (Explicitly labeled for verification) */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={() => {
               setShowDemoFixtures(!showDemoFixtures);
@@ -209,14 +230,14 @@ export default function StudentsPage() {
             }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
               showDemoFixtures
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-sm'
+                : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'
             }`}
           >
             {showDemoFixtures ? (
-              <ToggleRight className="h-4 w-4 text-amber-400" />
+              <ToggleRight className="h-4 w-4 text-amber-600" />
             ) : (
-              <ToggleLeft className="h-4 w-4 text-slate-500" />
+              <ToggleLeft className="h-4 w-4 text-slate-400" />
             )}
             <span>Preview Demo Fixtures</span>
           </button>
@@ -225,8 +246,8 @@ export default function StudentsPage() {
 
       {/* Demo Banner Notice */}
       {showDemoFixtures && (
-        <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0" />
+        <div className="mb-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
           <span>
             <strong>Development Fixture Mode:</strong> Displaying sample student apprentice records for UI and workflow verification. Live production database has {realStudents.length} registered students.
           </span>
@@ -237,16 +258,16 @@ export default function StudentsPage() {
       <Card>
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20">
-            <div className="h-7 w-7 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-            <p className="text-xs text-slate-400 mt-3 font-medium">Connecting to Student records in D1...</p>
+            <div className="h-7 w-7 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
+            <p className="text-xs text-slate-500 mt-3 font-medium">Connecting to Student records in D1...</p>
           </div>
         ) : filteredStudents.length === 0 ? (
           <div className="p-16 text-center">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-3 shadow-lg shadow-emerald-500/5">
+            <div className="h-12 w-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 mx-auto mb-3 shadow-sm">
               <GraduationCap className="h-6 w-6" />
             </div>
-            <p className="text-base font-semibold text-slate-200">No Registered Students in Database</p>
-            <p className="text-xs text-slate-400 mt-1.5 max-w-md mx-auto leading-relaxed">
+            <p className="text-base font-semibold text-slate-900">No Registered Students in Database</p>
+            <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
               There are currently no apprentice or student records registered in Cloudflare D1. Student profiles and submission activity will automatically populate here as trainees register through the Student Portal.
             </p>
             <div className="mt-5">
@@ -254,18 +275,18 @@ export default function StudentsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowDemoFixtures(true)}
-                className="inline-flex items-center gap-1.5 text-xs text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
+                className="inline-flex items-center gap-1.5 text-xs text-amber-800 border-amber-300 hover:bg-amber-50"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5 text-amber-600" />
                 <span>Preview Demo Student Fixtures</span>
               </Button>
             </div>
           </div>
         ) : (
           <div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/90 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800 text-[10px]">
+            <div className="overflow-x-auto w-full max-w-full">
+              <table className="w-full text-left text-xs min-w-[720px]">
+                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                   <tr>
                     <th className="px-5 py-3.5">Student / Apprentice</th>
                     <th className="px-5 py-3.5">Institution & Program</th>
@@ -275,24 +296,24 @@ export default function StudentsPage() {
                     <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/80">
+                <tbody className="divide-y divide-slate-200">
                   {paginatedStudents.map((student) => {
                     const isFixture = !!(student as any).isFixture;
                     return (
-                      <tr key={student.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
                         {/* Student Name */}
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center font-bold text-xs shrink-0">
                               {student.name ? student.name.charAt(0).toUpperCase() : 'S'}
                             </div>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <p className="font-semibold text-slate-200 text-sm">
+                                <p className="font-semibold text-slate-900 text-sm">
                                   {student.name || 'Unnamed Student'}
                                 </p>
                                 {isFixture && (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-50 text-amber-800 border border-amber-200">
                                     DEMO
                                   </span>
                                 )}
@@ -306,12 +327,12 @@ export default function StudentsPage() {
 
                         {/* College & Program */}
                         <td className="px-5 py-4 space-y-1">
-                          <p className="text-slate-200 font-medium">
+                          <p className="text-slate-900 font-medium">
                             {student.college_name || 'Architectural / CAD Student'}
                           </p>
                           {student.qualification && (
-                            <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-                              <School className="h-3 w-3 text-slate-500 shrink-0" />
+                            <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                              <School className="h-3 w-3 text-slate-400 shrink-0" />
                               <span className="truncate max-w-[200px]">{student.qualification}</span>
                             </div>
                           )}
@@ -319,22 +340,22 @@ export default function StudentsPage() {
 
                         {/* Contact */}
                         <td className="px-5 py-4 space-y-1">
-                          <div className="flex items-center gap-1.5 text-slate-300">
-                            <Mail className="h-3 w-3 text-slate-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-slate-700">
+                            <Mail className="h-3 w-3 text-slate-400 shrink-0" />
                             <span className="truncate max-w-[180px]">{student.email}</span>
                           </div>
                           {student.mobile && (
-                            <div className="flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
-                              <Phone className="h-3 w-3 text-slate-500 shrink-0" />
+                            <div className="flex items-center gap-1.5 text-slate-500 font-mono text-[11px]">
+                              <Phone className="h-3 w-3 text-slate-400 shrink-0" />
                               <span>{student.mobile}</span>
                             </div>
                           )}
                         </td>
 
                         {/* Enrolled */}
-                        <td className="px-5 py-4 text-slate-400">
+                        <td className="px-5 py-4 text-slate-600">
                           <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                            <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                             <span>
                               {student.created_at ? new Date(student.created_at).toLocaleDateString() : '—'}
                             </span>
@@ -352,9 +373,9 @@ export default function StudentsPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => setSelectedStudent(student)}
-                            className="flex items-center gap-1.5 ml-auto text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                            className="flex items-center gap-1.5 ml-auto"
                           >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
                             <span>View Dossier</span>
                           </Button>
                         </td>
@@ -367,7 +388,7 @@ export default function StudentsPage() {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                 <span>
                   Page {currentPage} of {totalPages} ({filteredStudents.length} students)
                 </span>
@@ -395,74 +416,27 @@ export default function StudentsPage() {
         )}
       </Card>
 
-      {/* Student Details Modal */}
+      {/* ─── Student Learning Portal Preview Modal ─────────────────────── */}
       {selectedStudent && (
         <Modal
           isOpen={!!selectedStudent}
           onClose={() => setSelectedStudent(null)}
-          title={`Student Apprentice: ${selectedStudent.name}`}
-          description={`Firebase UID: ${selectedStudent.id} • Registered Student Profile`}
+          title={`Learning Portal: ${selectedStudent.name || 'Student'}`}
+          description={`UID ${selectedStudent.id.substring(0, 12)}… • ${selectedStudent.qualification || 'CAD Apprentice'}`}
         >
-          <div className="space-y-6">
-            {/* Profile Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Student Name</span>
-                <span className="font-semibold text-slate-200 text-sm mt-0.5 block">{selectedStudent.name || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Email Address</span>
-                <span className="font-mono text-slate-300 mt-0.5 block">{selectedStudent.email}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">College / University</span>
-                <span className="text-slate-200 font-medium mt-0.5 block">{selectedStudent.college_name || 'Enrolled Student'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Program / Qualification</span>
-                <span className="text-slate-300 mt-0.5 block">{selectedStudent.qualification || 'CAD Apprentice'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Mobile Phone</span>
-                <span className="font-mono text-slate-300 mt-0.5 block">{selectedStudent.mobile || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Enrollment Date</span>
-                <span className="text-slate-300 mt-0.5 block">
-                  {selectedStudent.created_at ? new Date(selectedStudent.created_at).toLocaleDateString() : '—'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase block">Portal Authorization</span>
-                <Badge role="STUDENT" />
-              </div>
-              {selectedStudent.isFixture && (
-                <div>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase block">Record Source</span>
-                  <span className="font-mono text-amber-400 text-[11px] mt-0.5 block">DEVELOPMENT FIXTURE</span>
-                </div>
-              )}
-            </div>
-
-            {/* Learning Curriculum & Submissions */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-emerald-400" />
-                <span>Student Portal Activity & Learning Progress</span>
-              </h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {selectedStudent.isFixture
-                  ? `Active in curriculum: "${selectedStudent.course || 'CAD Fundamentals'}". Completed ${selectedStudent.modulesCompleted || 0} drawing exercises.`
-                  : 'Student submissions and practice drawing evaluations are processed through the Student Portal learning environment.'}
-              </p>
-            </div>
-
-            <div className="pt-4 border-t border-slate-800 flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setSelectedStudent(null)}>
-                Close
-              </Button>
-            </div>
+          <div className="mb-3 flex justify-end">
+            <Link
+              href={`/students/${selectedStudent.id}`}
+              className="text-xs font-mono text-[#0453cd] hover:underline flex items-center gap-1 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md"
+            >
+              <span>Open Full Page Portal</span>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
+          <StudentProfileView
+            student={selectedStudent}
+            onClose={() => setSelectedStudent(null)}
+          />
         </Modal>
       )}
     </AdminShell>

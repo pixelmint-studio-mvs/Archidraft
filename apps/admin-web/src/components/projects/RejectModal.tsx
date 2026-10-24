@@ -61,7 +61,7 @@ export function RejectModal({
         )}
 
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          <label className="block text-xs font-mono font-semibold text-slate-700 uppercase tracking-wider mb-2">
             Rejection Reason (Sent to Engineer)
           </label>
           <textarea
@@ -69,12 +69,12 @@ export function RejectModal({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Specify why this project cannot be accepted (e.g., incomplete requirements, missing site survey, unsupported scale)..."
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
             required
           />
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
           <Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </Button>

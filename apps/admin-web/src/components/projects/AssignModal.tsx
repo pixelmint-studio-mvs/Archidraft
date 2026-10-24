@@ -88,16 +88,16 @@ export function AssignModal({
         )}
 
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          <label className="block text-xs font-mono font-semibold text-slate-700 uppercase tracking-wider mb-2">
             Select Draughtsman
           </label>
 
           {fetchingList ? (
-            <div className="flex items-center justify-center p-8 bg-slate-900 border border-slate-800 rounded-xl">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <div className="flex items-center justify-center p-8 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#0453cd] border-t-transparent" />
             </div>
           ) : draughtsmen.length === 0 ? (
-            <div className="p-4 text-center text-sm text-slate-400 bg-slate-900 border border-slate-800 rounded-xl">
+            <div className="p-4 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl font-mono">
               No registered draughtsmen found in the studio database.
             </div>
           ) : (
@@ -107,8 +107,8 @@ export function AssignModal({
                   key={d.id}
                   className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
                     selectedId === d.id
-                      ? 'bg-blue-600/10 border-blue-500 text-blue-200'
-                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                      ? 'bg-blue-50/80 border-[#0453cd] text-[#0453cd]'
+                      : 'bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-700'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -118,15 +118,15 @@ export function AssignModal({
                       value={d.id}
                       checked={selectedId === d.id}
                       onChange={(e) => setSelectedId(e.target.value)}
-                      className="text-blue-600 focus:ring-blue-500 bg-slate-800 border-slate-700"
+                      className="text-[#0453cd] focus:ring-[#0453cd] border-slate-300"
                     />
                     <div>
-                      <p className="text-sm font-semibold text-slate-100">{d.name}</p>
-                      <p className="text-xs text-slate-400">{d.email}</p>
+                      <p className="text-sm font-semibold text-slate-900">{d.name}</p>
+                      <p className="text-xs text-slate-500 font-mono">{d.email}</p>
                     </div>
                   </div>
                   {d.college_name && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-slate-600 border border-slate-200">
                       {d.college_name}
                     </span>
                   )}
@@ -136,7 +136,7 @@ export function AssignModal({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
           <Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </Button>

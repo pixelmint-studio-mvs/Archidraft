@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAuth } from '@/lib/auth';
@@ -21,35 +21,71 @@ export function AdminShell({
   isRefreshing,
 }: AdminShellProps) {
   const { user, loading } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Auto-collapse sidebar on narrow screens (< 1024px) or load saved user preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('archidraft_sidebar_collapsed');
+      if (saved !== null) {
+        setIsSidebarCollapsed(saved === 'true');
+      } else if (window.innerWidth < 1024) {
+        setIsSidebarCollapsed(true);
+      } else {
+        setIsSidebarCollapsed(false);
+      }
+    }
+  }, []);
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('archidraft_sidebar_collapsed', String(next));
+      }
+      return next;
+    });
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#090d16]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-          <p className="text-sm font-medium text-slate-400">Verifying Admin Privileges...</p>
+      <div className="h-screen w-full flex items-center justify-center bg-[#fbf9fb] blueprint-bg">
+        <div className="flex flex-col items-center gap-3 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
+          <p className="text-xs font-mono font-medium text-slate-600 uppercase tracking-wider">Verifying Admin Privileges...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
     return null; // Route protection in AuthProvider will redirect
   }
 
   return (
-    <div className="min-h-screen flex bg-[#090d16] text-slate-100">
-      <React.Suspense fallback={<aside className="w-64 bg-[#0b1120] border-r border-slate-800 shrink-0 h-screen sticky top-0" />}>
-        <Sidebar />
+    <div className="h-screen w-full flex bg-[#fbf9fb] text-slate-900 overflow-hidden select-none">
+      <React.Suspense
+        fallback={
+          <aside className="w-20 lg:w-72 bg-[#0d1c32] border-r border-[#1e293b] shrink-0 h-full" />
+        }
+      >
+        <Sidebar isCollapsed={isSidebarCollapsed} onToggle={handleToggleSidebar} />
       </React.Suspense>
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         <Header
           title={title}
           subtitle={subtitle}
           onRefresh={onRefresh}
           isRefreshing={isRefreshing}
+          onToggleSidebar={handleToggleSidebar}
+          isSidebarCollapsed={isSidebarCollapsed}
         />
-        <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+        <main
+          id="admin-main-content"
+          className="flex-1 min-h-0 p-3.5 sm:p-5 md:p-8 overflow-y-auto overflow-x-hidden min-w-0 max-w-full blueprint-bg"
+        >
+          {children}
+        </main>
       </div>
     </div>
   );

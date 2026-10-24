@@ -10,78 +10,82 @@ interface BadgeProps {
 }
 
 export function Badge({ children, variant, status, role, size = 'sm' }: BadgeProps) {
-  let style = 'bg-slate-800 text-slate-300 border-slate-700';
+  let style = 'bg-slate-100 text-slate-700 border-slate-200';
 
   if (status) {
     switch (status) {
       case 'DRAFT':
-        style = 'bg-slate-800/80 text-slate-400 border-slate-700/60';
+        style = 'bg-slate-100 text-slate-600 border-slate-200';
         break;
       case 'SUBMITTED':
-        style = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        style = 'bg-amber-50 text-amber-800 border-amber-200';
         break;
       case 'WAITING_ASSIGNMENT':
-        style = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        style = 'bg-blue-50 text-blue-800 border-blue-200';
         break;
       case 'WAITING_ACCEPTANCE':
-        style = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        style = 'bg-purple-50 text-purple-800 border-purple-200';
         break;
       case 'IN_PROGRESS':
-        style = 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+        style = 'bg-cyan-50 text-cyan-800 border-cyan-200';
         break;
       case 'UNDER_CLIENT_REVIEW':
-        style = 'bg-teal-500/10 text-teal-400 border-teal-500/30';
+      case 'UNDER_ENGINEER_REVIEW':
+        style = 'bg-teal-50 text-teal-800 border-teal-200';
+        break;
+      case 'NEEDS_CORRECTION':
+        style = 'bg-amber-50 text-amber-800 border-amber-200';
         break;
       case 'COMPLETED':
-        style = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        style = 'bg-emerald-50 text-emerald-800 border-emerald-200';
         break;
       case 'CANCELLED':
-        style = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+        style = 'bg-rose-50 text-rose-800 border-rose-200';
         break;
       default:
-        style = 'bg-slate-800 text-slate-300 border-slate-700';
+        style = 'bg-slate-100 text-slate-700 border-slate-200';
     }
   } else if (role) {
     switch (role) {
       case 'ADMIN':
-        style = 'bg-rose-500/10 text-rose-400 border-rose-500/30 font-semibold';
+        style = 'bg-[#0d1c32] text-white border-[#0d1c32] font-semibold';
         break;
       case 'DRAUGHTSMAN':
-        style = 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+        style = 'bg-blue-50 text-[#0453cd] border-blue-200 font-semibold';
         break;
       case 'CLIENT':
-        style = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+        style = 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold';
         break;
       case 'STUDENT':
-        style = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        style = 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold';
         break;
     }
   } else if (variant) {
     switch (variant) {
       case 'success':
-        style = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        style = 'bg-emerald-50 text-emerald-800 border-emerald-200';
         break;
       case 'warning':
-        style = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        style = 'bg-amber-50 text-amber-800 border-amber-200';
         break;
       case 'danger':
-        style = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+        style = 'bg-rose-50 text-rose-800 border-rose-200';
         break;
       case 'info':
-        style = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        style = 'bg-blue-50 text-blue-800 border-blue-200';
         break;
       case 'purple':
-        style = 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        style = 'bg-purple-50 text-purple-800 border-purple-200';
         break;
     }
   }
 
-  const sizeClass = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-sm';
+  const sizeClass = size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs';
   const label = children || (status ? formatStatus(status) : formatRole(role));
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium rounded-full border transition-colors ${sizeClass} ${style}`}
+      className={`inline-flex items-center gap-1.5 font-mono font-medium rounded-full border transition-colors shadow-xs ${sizeClass} ${style}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {label}
@@ -96,7 +100,7 @@ function formatRole(role?: string): string {
 }
 
 function formatStatus(status: string): string {
-  if (status === 'UNDER_CLIENT_REVIEW') {
+  if (status === 'UNDER_CLIENT_REVIEW' || status === 'UNDER_ENGINEER_REVIEW') {
     return 'Under Engineer Review';
   }
   return status

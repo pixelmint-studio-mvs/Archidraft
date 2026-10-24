@@ -1,6 +1,7 @@
 import '../domain/project.dart';
 import '../domain/correction.dart';
 import '../domain/drawing_version.dart';
+import '../domain/project_comment.dart';
 import '../../api/data/api_client.dart';
 
 /// Repository for project CRUD operations.
@@ -186,5 +187,34 @@ class ProjectRepository {
       '/api/projects/cancel',
       body: {'projectId': projectId, 'actionId': actionId},
     );
+  }
+
+  Future<List<ProjectComment>> getProjectComments(String projectId) async {
+    final response = await _apiClient.get('/api/projects/$projectId/comments');
+    if (response is List) {
+      return response.map((json) => ProjectComment.fromJson(json as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<ProjectComment?> postProjectComment({
+    required String projectId,
+    required String content,
+    String? attachmentName,
+    String? attachmentSize,
+    String? attachmentType,
+  }) async {
+    final body = <String, dynamic>{'content': content};
+    if (attachmentName != null) body['attachmentName'] = attachmentName;
+    if (attachmentSize != null) body['attachmentSize'] = attachmentSize;
+    if (attachmentType != null) body['attachmentType'] = attachmentType;
+    final response = await _apiClient.post(
+      '/api/projects/$projectId/comments',
+      body: body,
+    );
+    if (response is Map<String, dynamic> && response['comment'] != null) {
+      return ProjectComment.fromJson(response['comment'] as Map<String, dynamic>);
+    }
+    return null;
   }
 }

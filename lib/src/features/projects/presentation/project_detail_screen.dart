@@ -300,7 +300,9 @@ class ProjectDetailScreen extends ConsumerWidget {
                       return Column(
                         children: corrections.map((c) => ListTile(
                           title: Text('Round ${c.roundNumber} - ${c.status.label}', style: AppTypography.bodyMd.copyWith(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${c.description}\nRequested: ${DateFormat('MMM d, yyyy').format(c.createdAt)}'),
+                          subtitle: Text(
+                            '${c.cleanDescription}${c.hasPin ? ' [📍 Pin: ${(c.pinX! * 100).toStringAsFixed(0)}%, ${(c.pinY! * 100).toStringAsFixed(0)}%]' : ''}\nRequested: ${DateFormat('MMM d, yyyy').format(c.createdAt)}',
+                          ),
                           isThreeLine: true,
                         )).toList(),
                       );

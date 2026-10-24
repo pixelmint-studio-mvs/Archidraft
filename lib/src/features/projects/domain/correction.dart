@@ -53,4 +53,27 @@ class Correction {
       resolvedAt: json['resolved_at'] != null ? DateTime.parse(json['resolved_at'] as String) : null,
     );
   }
+
+  static final RegExp _pinRegex = RegExp(r'^\[PIN:([\d.]+),([\d.]+)\]\s*([\s\S]*)$');
+
+  /// Whether this correction has an embedded redline pin coordinate
+  bool get hasPin => _pinRegex.hasMatch(description);
+
+  /// Normalized X coordinate (0.0 to 1.0) on the drawing viewport
+  double? get pinX {
+    final match = _pinRegex.firstMatch(description);
+    return match != null ? double.tryParse(match.group(1)!) : null;
+  }
+
+  /// Normalized Y coordinate (0.0 to 1.0) on the drawing viewport
+  double? get pinY {
+    final match = _pinRegex.firstMatch(description);
+    return match != null ? double.tryParse(match.group(2)!) : null;
+  }
+
+  /// Annotation note text with the [PIN:x,y] prefix stripped
+  String get cleanDescription {
+    final match = _pinRegex.firstMatch(description);
+    return match != null ? (match.group(3) ?? '').trim() : description;
+  }
 }
