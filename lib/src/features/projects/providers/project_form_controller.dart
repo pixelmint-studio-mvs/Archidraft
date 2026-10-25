@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../auth/providers/auth_providers.dart';
+import '../domain/drawing_type.dart';
 import '../domain/project.dart';
 import '../domain/project_validators.dart';
 import 'project_providers.dart';
@@ -161,8 +162,10 @@ class ProjectFormController extends Notifier<ProjectFormState> {
   void updateDrawingName(String value) =>
       state = state.copyWith(drawingName: value, clearError: true);
 
-  void updateDrawingType(String value) =>
-      state = state.copyWith(drawingType: value, clearError: true);
+  void updateDrawingType(String value) {
+    final normalized = DrawingType.fromString(value)?.toFirestoreString() ?? value;
+    state = state.copyWith(drawingType: normalized, clearError: true);
+  }
 
   void updateProjectArea(String value) =>
       state = state.copyWith(projectArea: value, clearError: true);
@@ -273,12 +276,15 @@ class ProjectFormController extends Notifier<ProjectFormState> {
 
   /// Loads an existing draft into the form for editing.
   void loadDraft(Project project) {
+    final normalizedDrawingType =
+        DrawingType.fromString(project.drawingType)?.toFirestoreString() ??
+            project.drawingType;
     state = ProjectFormState(
       projectId: project.projectId,
       projectName: project.projectName,
       projectAddress: project.projectAddress,
       drawingName: project.drawingName,
-      drawingType: project.drawingType,
+      drawingType: normalizedDrawingType,
       projectArea: project.projectArea?.toString() ?? '',
       estimatedAmount: project.estimatedAmount?.toString() ?? '',
     );

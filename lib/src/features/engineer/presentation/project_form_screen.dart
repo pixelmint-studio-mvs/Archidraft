@@ -210,7 +210,7 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
 
                   _StitchDropdownField(
                     label: 'TECHNICAL_CATEGORY',
-                    value: formState.drawingType.isEmpty ? null : formState.drawingType,
+                    value: DrawingType.fromString(formState.drawingType)?.toFirestoreString(),
                     items: DrawingType.values.map((type) {
                       return DropdownMenuItem(
                         value: type.toFirestoreString(),
@@ -765,7 +765,10 @@ class _StitchDropdownFieldState extends State<_StitchDropdownField> {
                 Focus(
                   onFocusChange: (focused) => setState(() => _isFocused = focused),
                   child: DropdownButtonFormField<String>(
-                    initialValue: widget.value,
+                    key: ValueKey(widget.items.any((item) => item.value == widget.value) ? widget.value : null),
+                    initialValue: widget.items.any((item) => item.value == widget.value)
+                        ? widget.value
+                        : null,
                     items: widget.items,
                     onChanged: widget.onChanged,
                     validator: widget.validator,

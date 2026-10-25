@@ -27,6 +27,17 @@ void main() {
       expect(ProjectValidators.estimatedAmount('5000'), null);
     });
 
+    test('drawingType validation handles Architectural and canonical types correctly', () {
+      expect(ProjectValidators.drawingType('ARCHITECTURAL'), null);
+      expect(ProjectValidators.drawingType('Architectural'), null);
+      expect(ProjectValidators.drawingType('architectural'), null);
+      expect(ProjectValidators.drawingType('FLOOR_PLAN'), null);
+      expect(ProjectValidators.drawingType('Floor Plan'), null);
+      expect(ProjectValidators.drawingType(''), 'Drawing type is required');
+      expect(ProjectValidators.drawingType(null), 'Drawing type is required');
+      expect(ProjectValidators.drawingType('UNKNOWN_CATEGORY'), 'Invalid drawing type selected');
+    });
+
     test('isReadyForSubmission checks all required fields', () {
       // Incomplete
       expect(
