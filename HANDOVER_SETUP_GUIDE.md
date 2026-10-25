@@ -194,6 +194,50 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 - **Authoritative Dossier Routing:** `users/page.tsx` links user rows to `/engineers/${id}`, `/draughtsmen/${id}`, and `/students/${id}`. Project detail overview links directly to the Ordering Engineer and Assigned Draughtsman dossiers.
 - **Backend Joins:** `worker/src/index.ts` joins `users u ON p.client_id = u.id` for `client_name` and `client_email`, and returns `current_assignment_id`.
 
+### F. Engineer Technical Category Dropdown Crash Fix & Normalization
+- **Observed Assertion:** Opening `/engineer/projects/new` previously caused a red Flutter error screen:
+  `Assertion failed: .../dropdown.dart: "There should be exactly one item with DropdownButton's value: Architectural. Either zero or 2 or more DropdownMenuItems were detected with the same value."`
+- **Confirmed Root Cause:**
+  1. The Flutter client enum `DrawingType` in `lib/src/features/projects/domain/drawing_type.dart` lacked an explicit `architectural` value, while draft payloads, forms, and backend records frequently used `'Architectural'` or `'ARCHITECTURAL'`.
+  2. The dropdown items were constructed from `type.toFirestoreString()`, which produced uppercase tokens, while `formState.drawingType` contained unnormalized mixed-case strings (`'Architectural'`), resulting in 0 matching items.
+  3. Flutter's `DropdownButtonFormField` enforces an invariant that if a non-null `value` is supplied, it must match exactly one item in `items`. Unrecognized or corrupted legacy values caused an unhandled assertion crash.
+- **Implemented Fix:**
+  1. Added `DrawingType.architectural` to `DrawingType` enum.
+  2. Implemented case-insensitive parsing and alias normalization in `DrawingType.fromString()`: maps `'ARCHITECTURAL'`, `'Architectural'`, `'architectural'`, `'ARCHITECTURAL_DRAFTING'`, `'Architectural Drafting'`, and `'Architectural Plan'` to `DrawingType.architectural`.
+  3. Standardized `toFirestoreString()` to return `'ARCHITECTURAL'` and `displayName` to return `'Architectural'`.
+  4. Normalized drawing types in `ProjectFormController.loadDraft()` and `updateDrawingType()` while gracefully preserving legacy values if unmappable.
+  5. Implemented defensive dropdown value resolution in `_StitchDropdownField`:
+     ```dart
+     final safeValue = widget.items.any((item) => item.value == widget.value) ? widget.value : null;
+     ```
+     Bound via `key: ValueKey(safeValue)` and `initialValue: safeValue`, guaranteeing that invalid or missing legacy values fall back gracefully to `null` without throwing Flutter assertion errors.
+- **Automated Verification:** 34 tests passing across unit enum tests, validator tests, form controller tests, and widget regression tests.
+
+### G. Engineer Reference-File Upload Workflow (50 MiB Limit)
+- **Component:** `lib/src/features/engineer/presentation/widgets/reference_files_upload_section.dart` rendered inside `ProjectFormScreen`.
+- **Workflow & Draft Pre-Save:**
+  - Engineers upload project reference files directly during project creation before initiating drafting.
+  - If a project draft has not yet been saved (`formState.projectId == null`), selecting files automatically saves a draft (`await controller.saveDraft()`) to obtain a valid `projectId` before streaming files to Cloudflare R2.
+  - An inline "Save Draft Now" button allows explicit pre-saving if preferred.
+- **Maximum File Size (Exact 50 MiB):**
+  - Configured at `kMaxReferenceFileSizeBytes = 52428800` (50 * 1024 * 1024 bytes).
+  - Client-side validation blocks oversized files immediately before transfer.
+  - Server-side validation in `worker/src/index.ts` enforces `Content-Length` checks and streaming byte counters against `52,428,800` bytes, returning `HTTP 413 Payload Too Large` if exceeded.
+- **Allowlisted Formats (27 Extensions):**
+  - **CAD & BIM:** `.dwg`, `.dxf`, `.dwf`, `.dwfx`, `.dgn`, `.ifc`, `.step`, `.stp`, `.iges`, `.igs`, `.rvt`, `.rfa`, `.skp`
+  - **Documents:** `.pdf`, `.doc`, `.docx`, `.txt`, `.rtf`, `.odt`
+  - **Images:** `.png`, `.jpg`, `.jpeg`, `.webp`, `.tif`, `.tiff`
+  - **Data & Tables:** `.xls`, `.xlsx`, `.csv`
+  - **Archives:** `.zip`
+- **In-App Previews vs. Download-Only:**
+  - In-app preview is provided for `.dwg` (pure-Dart raster preview header extraction), `.dxf` (2D vector geometry rendering), `.pdf` (document view), and image formats (`.png`, `.jpg`, `.webp`).
+  - Download-only metadata cards are displayed for complex 3D BIM/CAD models (`.ifc`, `.rvt`, `.skp`, `.step`, etc.), Office documents (`.docx`, `.xlsx`), and archives (`.zip`).
+- **Access Control & Authorization:**
+  - Category `client_upload` is strictly restricted to the Ordering Engineer (`project.client_id == user.id`) and Studio Admins (`HTTP 403 Forbidden` for other actors).
+  - Assigned Draughtsmen can inspect and download all client reference files from the Draughtsman Workspace.
+- **Submission Protection:**
+  - The "Initiate Drafting" submit button is disabled while background uploads are active (`_isUploadingFiles`), preventing incomplete project submissions.
+
 ---
 
 ## 5. Verification & Test Execution Commands
@@ -219,17 +263,26 @@ npm run build
 ```powershell
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
 
-# Run complete backend test suite (34 suites, 283 tests)
+# Run complete backend test suite (35 suites, 296 tests)
 npm test
 ```
-- **Verified Metrics:** **283 / 283 tests passed** (covering authorization, cross-user isolation, legal gates, dashboard KPIs, and normalized assignment lookup).
+- **Verified Metrics:** **296 / 296 tests passed** (includes 50 MiB reference upload enforcement, cross-user isolation, authorization, and D1 relational integrity).
 
 ### 3. Flutter Client Verification
 ```powershell
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 
-# Run static analysis (must report no issues)
-& "C:\flutter\flutter\bin\flutter.bat" analyze lib
+# Run static analysis on changed modules (must report no issues)
+& "C:\flutter\flutter\bin\flutter.bat" analyze lib/src/features/projects/ lib/src/features/engineer/
+
+# Run Technical Category Dropdown regression tests & Draft Restoration
+& "C:\flutter\flutter\bin\flutter.bat" test test/features/projects/presentation/widgets/technical_category_dropdown_regression_test.dart
+
+# Run Reference Files Upload Section widget tests
+& "C:\flutter\flutter\bin\flutter.bat" test test/features/projects/presentation/widgets/reference_files_upload_section_test.dart
+
+# Run Project Enums, Validators & Controller suites
+& "C:\flutter\flutter\bin\flutter.bat" test test/features/projects/domain/project_enums_test.dart test/features/projects/domain/project_validators_test.dart test/features/projects/providers/project_form_controller_test.dart
 
 # Run API Client URL & emulator resolution tests
 & "C:\flutter\flutter\bin\flutter.bat" test test/features/api/data/api_client_test.dart
@@ -237,7 +290,7 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 # Run Terms & Conditions pre-login navigation flow suite
 & "C:\flutter\flutter\bin\flutter.bat" test test/features/legal/presentation/terms_navigation_flow_test.dart
 ```
-- **Verified Metrics:** **0 issues found** in analyzer, **11 / 11 tests passed** in API client suite, **14 / 14 tests passed** in Terms navigation suite.
+- **Verified Metrics:** **0 issues found** in analyzer, **34 / 34 tests passed** in Engineer project & upload suites, **11 / 11 tests passed** in API client suite, **14 / 14 tests passed** in Terms navigation suite.
 
 ---
 
