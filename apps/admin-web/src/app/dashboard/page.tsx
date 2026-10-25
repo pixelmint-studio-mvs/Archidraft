@@ -80,10 +80,13 @@ export default function DashboardPage() {
   const cancelledCount = byStatus['CANCELLED'] || 0;
 
   const usersByRole = stats?.users?.byRole || {};
-  const draughtsmanCount = usersByRole['DRAUGHTSMAN'] || 0;
-  const engineerCount = usersByRole['CLIENT'] || 0;
+  const draughtsmanCount = stats?.metrics?.activeDraughtsmen ?? (usersByRole['DRAUGHTSMAN'] || 0);
+  const engineerCount =
+    stats?.users?.registeredEngineers ??
+    stats?.metrics?.registeredEngineers ??
+    ((usersByRole['ENGINEER'] || 0) + (usersByRole['CLIENT'] || 0));
   const studentCount = usersByRole['STUDENT'] || 0;
-  const adminCount = usersByRole['ADMIN'] || 0;
+  const adminCount = (usersByRole['ADMIN'] || 0) + (usersByRole['STUDIO_ADMIN'] || 0);
 
   return (
     <AdminShell

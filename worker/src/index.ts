@@ -728,7 +728,16 @@ app.get('/api/projects/:id', async (c) => {
 
   if (!user) return c.json({ error: 'User not found' }, 404);
 
-  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  const project = await db.prepare(`
+    SELECT
+      p.*,
+      u.name as client_name,
+      u.email as client_email,
+      (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1) as current_assignment_id
+    FROM projects p
+    LEFT JOIN users u ON p.client_id = u.id
+    WHERE p.id = ?
+  `).bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   const hasAccess = await canUserAccessProject(db, project, user, uid);
@@ -745,7 +754,16 @@ app.get('/api/projects/:projectId', async (c) => {
 
   if (!user) return c.json({ error: 'User not found' }, 404);
 
-  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  const project = await db.prepare(`
+    SELECT
+      p.*,
+      u.name as client_name,
+      u.email as client_email,
+      (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1) as current_assignment_id
+    FROM projects p
+    LEFT JOIN users u ON p.client_id = u.id
+    WHERE p.id = ?
+  `).bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   const hasAccess = await canUserAccessProject(db, project, user, uid);
@@ -1332,8 +1350,10 @@ app.get('/api/assignments/:id', async (c) => {
       p.submitted_at, p.approved_at, p.assigned_at, p.rejected_at, p.cancelled_at
     FROM assignments a
     LEFT JOIN projects p ON a.project_id = p.id
-    WHERE a.id = ?
-  `).bind(assignmentId).first();
+    WHERE a.id = ? OR a.project_id = ?
+    ORDER BY (CASE WHEN a.id = ? THEN 1 ELSE 2 END), a.created_at DESC
+    LIMIT 1
+  `).bind(assignmentId, assignmentId, assignmentId).first();
 
   if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
 
@@ -1412,7 +1432,8 @@ app.get('/api/admin/dashboard', async (c) => {
     db.prepare("SELECT COUNT(*) as c FROM projects WHERE status IN ('UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')"),
     db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'COMPLETED'"),
     db.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'DRAUGHTSMAN'"),
-    db.prepare("SELECT COUNT(*) as c FROM assignments WHERE status = 'PENDING'")
+    db.prepare("SELECT COUNT(*) as c FROM assignments WHERE status = 'PENDING'"),
+    db.prepare("SELECT COUNT(DISTINCT id) as c FROM users WHERE role IN ('ENGINEER', 'CLIENT')")
   ];
 
   const results = await db.batch(batch);
@@ -1425,6 +1446,8 @@ app.get('/api/admin/dashboard', async (c) => {
     completedProjects: (results[4].results?.[0] as any)?.c || 0,
     activeDraughtsmen: (results[5].results?.[0] as any)?.c || 0,
     pendingAssignments: (results[6].results?.[0] as any)?.c || 0,
+    registeredEngineers: (results[7].results?.[0] as any)?.c || 0,
+    activeEngineers: (results[7].results?.[0] as any)?.c || 0,
   });
 });
 

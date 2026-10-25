@@ -18,6 +18,9 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - apps/**
+    - worker/**
+    - "**/node_modules/**"
 
 linter:
   # The lint rules applied to this project can be customized in the

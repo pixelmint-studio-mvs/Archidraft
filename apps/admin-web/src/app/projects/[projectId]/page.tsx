@@ -99,7 +99,7 @@ function parsePinFromDescription(
 interface CollabMessage {
   id: string;
   author: string;
-  role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT';
+  role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' | string;
   content: string;
   timestamp: Date;
   attachment?: {
@@ -152,10 +152,28 @@ function toCollabMessage(c: ProjectComment): CollabMessage {
     ? adminApi.getFileDownloadUrl(c.attachment_file_id)
     : undefined;
 
+  const rawRole = (c.author_role || '').toUpperCase();
+  let normalizedRole: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' = 'CLIENT';
+  let defaultAuthor = 'Participant';
+
+  if (rawRole === 'ADMIN' || rawRole === 'STUDIO_ADMIN') {
+    normalizedRole = 'ADMIN';
+    defaultAuthor = 'Studio Admin';
+  } else if (rawRole === 'DRAUGHTSMAN') {
+    normalizedRole = 'DRAUGHTSMAN';
+    defaultAuthor = 'Draughtsman';
+  } else if (rawRole === 'ENGINEER' || rawRole === 'CLIENT') {
+    normalizedRole = 'CLIENT';
+    defaultAuthor = 'Engineer';
+  } else if (rawRole === 'STUDENT') {
+    normalizedRole = 'STUDENT';
+    defaultAuthor = 'Student';
+  }
+
   return {
     id: c.id,
-    author: c.author_name || (c.author_role === 'ADMIN' ? 'Studio Admin' : c.author_role === 'CLIENT' ? 'Engineer' : 'Draughtsman'),
-    role: c.author_role,
+    author: c.author_name || defaultAuthor,
+    role: normalizedRole,
     content: c.content,
     timestamp: new Date(c.created_at),
     attachment: c.attachment_name ? {
@@ -477,8 +495,32 @@ export default function ProjectDetailPage({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span>Engineer ID: <code className="font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">{project.client_id.substring(0, 8)}</code></span>
+                    <span>
+                      Engineer:{' '}
+                      <Link
+                        href={`/engineers/${encodeURIComponent(project.client_id)}`}
+                        className="font-medium text-[#0453cd] hover:underline"
+                        title="View Engineer Dossier"
+                      >
+                        {project.client_name ? `${project.client_name} (${project.client_id.substring(0, 8)})` : `ID: ${project.client_id.substring(0, 8)}`}
+                      </Link>
+                    </span>
                   </div>
+                  {project.draughtsman_id && (
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span>
+                        Draughtsman:{' '}
+                        <Link
+                          href={`/draughtsmen/${encodeURIComponent(project.draughtsman_id)}`}
+                          className="font-medium text-[#0453cd] hover:underline"
+                          title="View Draughtsman Dossier"
+                        >
+                          {project.draughtsman_name || `ID: ${project.draughtsman_id.substring(0, 8)}`}
+                        </Link>
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span>Created: <span className="text-slate-800 font-medium">{new Date(project.created_at).toLocaleDateString()}</span></span>
@@ -1554,11 +1596,21 @@ export default function ProjectDetailPage({
 
           {/* ─── Tab: Collaboration Hub ──────────────────────────────────────── */}
           {activeTab === 'collab' && (() => {
-            const getRoleColor = (role: CollabMessage['role']) => {
-              switch (role) {
-                case 'ADMIN': return { bg: 'rgba(139,92,246,0.15)', text: '#c4b5fd', border: 'rgba(139,92,246,0.3)', label: 'ADMIN' };
-                case 'DRAUGHTSMAN': return { bg: 'rgba(6,182,212,0.15)', text: '#67e8f9', border: 'rgba(6,182,212,0.3)', label: 'DRAUGHTSMAN' };
-                case 'CLIENT': return { bg: 'rgba(59,130,246,0.15)', text: '#93c5fd', border: 'rgba(59,130,246,0.3)', label: 'ENGINEER' };
+            const getRoleColor = (role?: string) => {
+              const r = (role || '').toUpperCase();
+              switch (r) {
+                case 'ADMIN':
+                case 'STUDIO_ADMIN':
+                  return { bg: 'rgba(139,92,246,0.15)', text: '#c4b5fd', border: 'rgba(139,92,246,0.3)', label: 'ADMIN' };
+                case 'DRAUGHTSMAN':
+                  return { bg: 'rgba(6,182,212,0.15)', text: '#67e8f9', border: 'rgba(6,182,212,0.3)', label: 'DRAUGHTSMAN' };
+                case 'CLIENT':
+                case 'ENGINEER':
+                  return { bg: 'rgba(59,130,246,0.15)', text: '#93c5fd', border: 'rgba(59,130,246,0.3)', label: 'ENGINEER' };
+                case 'STUDENT':
+                  return { bg: 'rgba(16,185,129,0.15)', text: '#6ee7b7', border: 'rgba(16,185,129,0.3)', label: 'STUDENT' };
+                default:
+                  return { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8', border: 'rgba(148,163,184,0.3)', label: r || 'USER' };
               }
             };
 
@@ -1858,11 +1910,25 @@ export default function ProjectDetailPage({
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 soft-elevation">
                     <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-4">PARTICIPANTS</p>
                     <div className="space-y-3">
-                      {[
-                        { label: 'Studio Admin', role: 'ADMIN' as const, status: 'online', note: 'You' },
-                        { label: project.draughtsman_name || 'Draughtsman', role: 'DRAUGHTSMAN' as const, status: project.draughtsman_name ? 'online' : 'unassigned' },
-                        { label: 'Engineer', role: 'CLIENT' as const, status: 'online' },
-                      ].map((p) => {
+                      {(
+                        [
+                          { label: 'Studio Admin', role: 'ADMIN', status: 'online', note: 'You', href: undefined },
+                          {
+                            label: project.draughtsman_name || 'Draughtsman',
+                            role: 'DRAUGHTSMAN',
+                            status: project.draughtsman_name ? 'online' : 'unassigned',
+                            note: undefined,
+                            href: project.draughtsman_id ? `/draughtsmen/${encodeURIComponent(project.draughtsman_id)}` : undefined,
+                          },
+                          {
+                            label: project.client_name || 'Engineer',
+                            role: 'CLIENT',
+                            status: 'online',
+                            note: undefined,
+                            href: project.client_id ? `/engineers/${encodeURIComponent(project.client_id)}` : undefined,
+                          },
+                        ] as Array<{ label: string; role: any; status: string; note?: string; href?: string }>
+                      ).map((p) => {
                         const rc = getRoleColor(p.role);
                         return (
                           <div key={p.label} className="flex items-center gap-3">
@@ -1877,10 +1943,21 @@ export default function ProjectDetailPage({
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 truncate">
-                                {p.label}
-                                {p.note && <span className="ml-1 text-[9px] text-slate-500 font-normal">({p.note})</span>}
-                              </p>
+                              {p.href ? (
+                                <Link
+                                  href={p.href}
+                                  className="text-xs font-semibold text-slate-900 truncate hover:text-[#0453cd] hover:underline block"
+                                  title={`View ${p.label} profile`}
+                                >
+                                  {p.label}
+                                  {p.note && <span className="ml-1 text-[9px] text-slate-500 font-normal">({p.note})</span>}
+                                </Link>
+                              ) : (
+                                <p className="text-xs font-semibold text-slate-900 truncate">
+                                  {p.label}
+                                  {p.note && <span className="ml-1 text-[9px] text-slate-500 font-normal">({p.note})</span>}
+                                </p>
+                              )}
                               <p className="text-[9px] font-mono font-semibold" style={{ color: rc.text }}>{rc.label}</p>
                             </div>
                             <span className={`text-[9px] font-mono font-semibold ${p.status === 'online' ? 'text-emerald-600' : 'text-slate-400'}`}>
@@ -1964,6 +2041,15 @@ export default function ProjectDetailPage({
                     <span className="text-slate-500 font-mono">Project ID</span>
                     <span className="font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">{project.id}</span>
                   </div>
+                  <div className="pt-2 flex justify-between items-center">
+                    <span className="text-slate-500 font-mono">Ordering Engineer</span>
+                    <Link
+                      href={`/engineers/${encodeURIComponent(project.client_id)}`}
+                      className="font-semibold text-[#0453cd] hover:underline"
+                    >
+                      {project.client_name ? `${project.client_name} (${project.client_id.substring(0, 8)})` : project.client_id}
+                    </Link>
+                  </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Project Name</span>
                     <span className="font-semibold text-slate-900">{project.project_name || 'N/A'}</span>
@@ -1990,17 +2076,33 @@ export default function ProjectDetailPage({
               <Card className="bg-white border-slate-200 soft-elevation">
                 <CardHeader title="Operational Lifecycle & Timestamps" />
                 <div className="space-y-3 text-xs divide-y divide-slate-100">
-                  <div className="pt-2 flex justify-between">
+                  <div className="pt-2 flex justify-between items-center">
                     <span className="text-slate-500 font-mono">Assigned Draughtsman</span>
-                    <span className="font-semibold text-slate-900">
-                      {project.draughtsman_name || 'None Assigned'}
-                    </span>
+                    {project.draughtsman_id ? (
+                      <Link
+                        href={`/draughtsmen/${encodeURIComponent(project.draughtsman_id)}`}
+                        className="font-semibold text-[#0453cd] hover:underline"
+                      >
+                        {project.draughtsman_name || project.draughtsman_id}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold text-slate-400 italic">None Assigned</span>
+                    )}
                   </div>
                   <div className="pt-2 flex justify-between items-center">
                     <span className="text-slate-500 font-mono">Draughtsman ID</span>
-                    <span className="font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
-                      {project.draughtsman_id || 'N/A'}
-                    </span>
+                    {project.draughtsman_id ? (
+                      <Link
+                        href={`/draughtsmen/${encodeURIComponent(project.draughtsman_id)}`}
+                        className="font-mono bg-blue-50 text-[#0453cd] px-1.5 py-0.5 rounded border border-blue-200 hover:underline"
+                      >
+                        {project.draughtsman_id}
+                      </Link>
+                    ) : (
+                      <span className="font-mono bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded border border-slate-200">
+                        N/A
+                      </span>
+                    )}
                   </div>
                   <div className="pt-2 flex justify-between items-center">
                     <span className="text-slate-500 font-mono">Current Assignment ID</span>
@@ -2221,9 +2323,13 @@ export default function ProjectDetailPage({
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-semibold text-slate-900">
+                          <Link
+                            href={`/draughtsmen/${encodeURIComponent(a.draughtsman_id)}`}
+                            className="text-xs font-semibold text-slate-900 hover:text-[#0453cd] hover:underline"
+                            title="View Draughtsman Profile"
+                          >
                             {a.draughtsman_name || `Draughtsman ID: ${a.draughtsman_id.substring(0, 8)}`}
-                          </p>
+                          </Link>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold border ${
                               a.status === 'ACCEPTED'

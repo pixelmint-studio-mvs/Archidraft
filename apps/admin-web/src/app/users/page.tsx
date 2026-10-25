@@ -402,10 +402,13 @@ export default function UsersPage() {
                   {pageUsers.map((u) => {
                     const initials = (u.name || 'U').charAt(0).toUpperCase();
                     const profileHref =
-                      u.role === 'CLIENT' ? `/engineers`
-                      : u.role === 'DRAUGHTSMAN' ? `/draughtsmen`
-                      : u.role === 'STUDENT' ? `/students`
-                      : `/users`;
+                      u.role === 'CLIENT' || (u.role as string) === 'ENGINEER'
+                        ? `/engineers/${encodeURIComponent(u.id)}`
+                        : u.role === 'DRAUGHTSMAN'
+                        ? `/draughtsmen/${encodeURIComponent(u.id)}`
+                        : u.role === 'STUDENT'
+                        ? `/students/${encodeURIComponent(u.id)}`
+                        : `/users`;
                     return (
                       <div key={u.id}
                         className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 hover:bg-slate-50/80 transition-colors"

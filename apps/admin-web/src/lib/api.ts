@@ -186,7 +186,17 @@ export const adminApi = {
       users.forEach((u) => {
         byRole[u.role] = (byRole[u.role] || 0) + 1;
       });
+
+      // Authoritative registered engineer count:
+      // Uses authoritative metrics from backend when available, or accurately aggregates 'CLIENT' and 'ENGINEER'
+      // records without double-counting to support the role compatibility contract.
+      const registeredEngineers =
+        typeof metrics?.registeredEngineers === 'number'
+          ? metrics.registeredEngineers
+          : users.filter((u) => u.role === 'CLIENT' || (u.role as string) === 'ENGINEER').length;
+
       return {
+        metrics,
         projects: {
           total: metrics ? metrics.totalProjects : projects.length,
           byStatus,
@@ -194,21 +204,13 @@ export const adminApi = {
         users: {
           total: users.length,
           byRole,
+          registeredEngineers,
         },
         recentActivity,
       };
-    } catch {
-      return {
-        projects: {
-          total: 0,
-          byStatus: {},
-        },
-        users: {
-          total: 1,
-          byRole: { ADMIN: 1 },
-        },
-        recentActivity: [],
-      };
+    } catch (err: any) {
+      console.error('Error fetching admin statistics:', err);
+      throw err;
     }
   },
 
@@ -288,7 +290,14 @@ export const adminApi = {
   },
 
   async getProject(projectId: string): Promise<Project> {
-    return await fetchApi<Project>(`/api/projects/${projectId}`);
+    const raw = await fetchApi<any>(`/api/projects/${projectId}`);
+    return {
+      ...raw,
+      client_name: raw.client_name || raw.client?.name || raw.engineer?.name,
+      client_email: raw.client_email || raw.client?.email || raw.engineer?.email,
+      draughtsman_name: raw.draughtsman_name || raw.draughtsman?.name,
+      draughtsman_id: raw.draughtsman_id || raw.draughtsman?.id,
+    };
   },
 
   async getProjectActivity(projectId: string): Promise<ActivityLog[]> {

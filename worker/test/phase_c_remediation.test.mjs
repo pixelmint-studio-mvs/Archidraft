@@ -394,5 +394,52 @@ test('PHASE C: Admin Project Creation, Redline Corrections, and Collaboration Hu
     assert.equal(typeof data.completedProjects, 'number');
     assert.equal(typeof data.activeDraughtsmen, 'number');
     assert.equal(typeof data.pendingAssignments, 'number');
+    assert.equal(typeof data.registeredEngineers, 'number');
+    assert.ok(data.registeredEngineers >= 1, 'Should reflect registered engineers in test database');
+  });
+
+  await t.test('9. GET /api/projects/:id - Normalizes project detail with client_name and current_assignment_id', async () => {
+    rawDb.prepare(`
+      INSERT OR REPLACE INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, submitted_at, created_at, correction_round)
+      VALUES ('prj-review-001', 'eng-1', 'Review Project', '123 Main St', 'Drawing 1', 'FLOOR_PLAN', '2500 sq ft', 'IN_PROGRESS', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+    `).run();
+    rawDb.prepare(`
+      INSERT OR REPLACE INTO assignments (id, project_id, draughtsman_id, status, created_at)
+      VALUES ('asg-001', 'prj-review-001', 'drg-1', 'ACCEPTED', CURRENT_TIMESTAMP)
+    `).run();
+
+    const res = await testRequest(env, '/api/projects/prj-review-001', {
+      method: 'GET',
+      token: 'admin-1',
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.id, 'prj-review-001');
+    assert.equal(data.client_id, 'eng-1');
+    assert.ok(data.client_name, 'Should populate client_name via users join');
+    assert.ok(data.client_email, 'Should populate client_email via users join');
+    assert.equal(data.current_assignment_id, 'asg-001');
+  });
+
+  await t.test('10. GET /api/assignments/:id - Resolves assignment by either assignmentId or projectId', async () => {
+    // 10a. Lookup by direct assignmentId
+    const resById = await testRequest(env, '/api/assignments/asg-001', {
+      method: 'GET',
+      token: 'admin-1',
+    });
+    assert.equal(resById.status, 200);
+    const dataById = await resById.json();
+    assert.equal(dataById.id, 'asg-001');
+    assert.equal(dataById.project_id, 'prj-review-001');
+
+    // 10b. Lookup by projectId (cross-portal navigation compatibility)
+    const resByPrj = await testRequest(env, '/api/assignments/prj-review-001', {
+      method: 'GET',
+      token: 'admin-1',
+    });
+    assert.equal(resByPrj.status, 200);
+    const dataByPrj = await resByPrj.json();
+    assert.equal(dataByPrj.id, 'asg-001');
+    assert.equal(dataByPrj.project_id, 'prj-review-001');
   });
 });
