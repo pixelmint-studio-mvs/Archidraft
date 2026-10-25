@@ -1,8 +1,8 @@
 # ARCHI DRAFT — HANDOVER & PRACTICAL SETUP GUIDE
-**For Partner / Developer Local Setup & Integration Verification**
-**Repository Branch:** `COMPLETED-INTERGRATION` (HEAD: `f21fb29`)
-**Workspace:** `D:\PROJECT\Archidraft-integration-workspace`
-**Application Architecture:** Flutter (Web/Android/Desktop) + Next.js Admin Studio + Cloudflare Worker (Hono) + Cloudflare D1 + Cloudflare R2 + Firebase Auth + PIXMINT BOT 2.0 Integration
+**For Partner / Developer Local Setup & Integration Verification**  
+**Repository Branch:** `COMPLETED-INTERGRATION` (HEAD: `4e3b8710dccd122db2090524987c7b103de078bd`)  
+**Workspace:** `D:\PROJECT\Archidraft-integration-workspace`  
+**Application Architecture:** Flutter (Web/Android/Desktop) + Next.js Admin Studio + Cloudflare Worker (Hono) + Cloudflare D1 + Cloudflare R2 + Firebase Auth
 
 ---
 
@@ -29,25 +29,25 @@ Verify that the following development tools are installed on your machine:
 
 The platform is integrated into a single monorepo on branch `COMPLETED-INTERGRATION`:
 
-```
+```text
 Archidraft-integration-workspace/
 ├── apps/
-│   └── admin-web/              # Next.js 14 Studio Admin Portal & PIXMINT Bot Control Center (Port 3000)
+│   └── admin-web/              # Next.js 14 Studio Admin Portal (Port 3000)
+├── assets/                     # 3D models and image assets for Flutter
 ├── docs/                       # Architectural specifications, security, workflows, QA reports
+│   └── FINAL_VERIFICATION_AND_HANDOVER_REPORT.md  # Authoritative handover & verification report
 ├── lib/                        # Flutter multi-persona client application (Port 8080)
 │   ├── firebase_options.dart   # Compile-time Firebase configuration (Default: Prod, STAGING=true: Staging)
 │   └── src/features/           # Feature modules: engineer, draughtsman, student, legal, api
-├── scratch/
-│   └── pixmint-bot/            # PIXMINT BOT Flutter integration package (UI sheets, theme, input)
-├── team/                       # Team handover guides and credentials instructions
+├── team/                       # Team handover guides and confidential testing credentials
 └── worker/                     # Cloudflare Worker API (Hono) + D1 migrations + Test suites (Port 8787)
 ```
 
 ---
 
-## 3. Authoritative Local Startup Guide (4 Separate PowerShell Terminals)
+## 3. Authoritative Local Startup Guide (3 Separate PowerShell Terminals)
 
-To run the complete platform locally with all interconnected features, open **four separate PowerShell terminals**.
+To run the complete platform locally with all interconnected features, open **three separate PowerShell terminals**.
 
 ### Terminal 1: Archi Draft Cloudflare Worker (Backend API)
 The Worker provides the core REST API, relational D1 database operations, R2 storage handlers, and activity logging.
@@ -82,30 +82,8 @@ npx wrangler dev
 
 ---
 
-### Terminal 2: PIXMINT Service (AI Chatbot Backend)
-The PIXMINT service handles AI suggestions, telemetry, bot configuration, knowledge base indexing, and unanswered query triage.
-
-```powershell
-# Launch your configured local PIXMINT service or mock service
-# Ensure the service listens on port 8788
-```
-
-- **Expected Port:** `8788`
-- **Expected URL:** `http://127.0.0.1:8788`
-- **Endpoints Provided:**
-  - Health & Telemetry: `GET /api/admin/health`
-  - Analytics: `GET /api/admin/analytics`
-  - Suggestions: `GET /api/chat/suggestions?role=...`
-  - Config: `GET /api/admin/config`, `POST /api/admin/config`
-  - Audit Logs: `GET /api/admin/audit-logs`
-  - Knowledge Sources: `GET /api/admin/knowledge/sources`
-- **Boundary Clarification:** PIXMINT does **NOT** manage Firebase authentication or commercial project state machines.
-- **Safe Shutdown:** Press `Ctrl+C` in this terminal.
-
----
-
-### Terminal 3: Studio Admin Web Portal (Next.js)
-The Admin Studio provides administrative oversight, user directories, project assignment dispatch, evaluation queues, live activity feeds, and the PIXMINT Bot Control Center.
+### Terminal 2: Studio Admin Web Portal (Next.js)
+The Admin Studio provides administrative oversight, user directories, project assignment dispatch, evaluation queues, and live activity feeds.
 
 ```powershell
 # Navigate to admin-web directory
@@ -128,33 +106,43 @@ npm run dev
   - Draughtsman Directory: `http://localhost:3000/draughtsmen`
   - Student Directory: `http://localhost:3000/students`
   - Live Activity Feed: `http://localhost:3000/activity`
-  - PIXMINT Bot Control Center: `http://localhost:3000/settings/pixmint-bot`
 - **Environment Configuration:**
   - Worker API URL: `NEXT_PUBLIC_WORKER_API_URL` (Defaults to `http://localhost:8787`)
-  - PIXMINT API URL: `NEXT_PUBLIC_PIXMINT_API_URL` (Defaults to `http://127.0.0.1:8788`)
   - Firebase Configuration: Defaults to `archi-draft-staging` in `apps/admin-web/src/lib/firebase.ts`
 - **Safe Shutdown:** Press `Ctrl+C` in this terminal.
 
 ---
 
-### Terminal 4: Flutter Web Multi-Persona Portal (Client)
+### Terminal 3: Flutter Multi-Persona Portal (Client)
 The Flutter application provides the dedicated portals for Engineers, Draughtsmen, and Students.
 
+#### Option A: Running in Google Chrome (Flutter Web)
 ```powershell
 # Navigate to repository root
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 
 # Fetch Flutter dependencies
-flutter pub get
+& "C:\flutter\flutter\bin\flutter.bat" pub get
 
 # Launch Flutter Web server with staging Firebase configuration
-& "C:\flutter\flutter\bin\flutter.bat" run -d web-server --web-port=8080 --dart-define=STAGING=true --dart-define=API_URL=http://localhost:8787
+& "C:\flutter\flutter\bin\flutter.bat" run -d chrome --web-port=8080 --dart-define=STAGING=true --dart-define=API_URL=http://localhost:8787
 ```
 
-- **Working Directory:** `D:\PROJECT\Archidraft-integration-workspace`
 - **Expected Port:** `8080`
 - **Expected URL:** `http://localhost:8080`
 - **Safe Shutdown:** Press `q` or `Ctrl+C` in this terminal.
+
+#### Option B: Running on Android Emulator
+```powershell
+# Navigate to repository root
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
+
+# Launch on running Android emulator
+& "C:\flutter\flutter\bin\flutter.bat" run -d android --dart-define=STAGING=true
+```
+
+- **Automatic Host Loopback:** The `ApiClient` detects the Android emulator environment and automatically resolves `http://localhost:8787` to the host machine loopback `http://10.0.2.2:8787`.
+- **Cleartext HTTP:** Configured via `android:usesCleartextTraffic="true"` in `android/app/src/main/AndroidManifest.xml` for debug testing with local Worker.
 
 #### Understanding Compile-Time Configuration Flags:
 1. **`--dart-define=STAGING=true`**:
@@ -164,110 +152,92 @@ flutter pub get
      ```
    - When `STAGING=true` is supplied, Flutter Web selects the staging Firebase project (`archi-draft-staging`, App ID: `1:528293938258:web:bb7dfade95c8426c888b8b`).
    - When omitted, it defaults to `false` and selects the production Firebase project (`archi-draft`).
-   - **Important:** Supplying `STAGING=true` does **not** launch the Worker backend, does **not** ensure user accounts are registered, and does **not** configure the API base URL.
 2. **`--dart-define=API_URL=http://localhost:8787`**:
-   - Read by `lib/src/features/api/data/api_client.dart`:
-     ```dart
-     final configured = (overrideUrl ?? const String.fromEnvironment('API_URL')).trim();
-     ```
    - Points the Flutter HTTP client to your local Cloudflare Worker.
-   - In debug/test mode, `API_URL` safely defaults to `http://localhost:8787`. In release mode, it must be explicitly specified as an HTTPS URL.
-   - **Do not confuse `API_URL` with `API_BASE_URL`.**
+   - In debug/test mode, `API_URL` safely defaults to `http://localhost:8787` (or `10.0.2.2:8787` on Android emulator).
+   - In release mode, it must be explicitly specified as an HTTPS URL.
 
 ---
 
 ## 4. Documentation of Recent Platform Fixes
 
-### A. Firebase Staging Compile-Time Flag
-- **Source:** `lib/firebase_options.dart`
-- **Mechanism:** Compile-time conditional flag `bool.fromEnvironment('STAGING', defaultValue: false)`.
-- **Behavior:** Passing `--dart-define=STAGING=true` selects `webStaging` (`archi-draft-staging`). Omitting it selects `web` (`archi-draft`).
-- **Separation of Concerns:** Firebase authentication project selection is strictly decoupled from the Worker API endpoint (`API_URL`).
+### A. Complete PIXMINT BOT Removal & Cleanup (Task 1)
+- **Scope:** Completely removed PIXMINT BOT versions 1.0 and 2.0 across all four portals.
+- **Changes:**
+  - Removed bot floating mascot and chat sheet triggers from Flutter `ResponsiveScaffold` and `StudentStudioScreen`.
+  - Removed `PixmintBotControlCenter`, `PixmintChatInput`, and `/settings/pixmint-bot` route in Next.js Admin Studio.
+  - Removed unused bot routes and companion service scripts.
+  - Preserved friend's original `packages/pixmint_bot` package structure.
 
-### B. PIXMINT Admin Control Center Brand Logo
-- **Asset Location:** `apps/admin-web/public/images/pixmint-bot-logo.jpeg`
-- **Component:** `apps/admin-web/src/components/admin/PixmintBotControlCenter.tsx`
-- **Implementation:** Referenced via Next.js `<Image src="/images/pixmint-bot-logo.jpeg" alt="PIXMINT BOT 2.0 logo" width={48} height={48} />`.
-- **Convention:** All public static media are served from `apps/admin-web/public/` to prevent broken relative asset links.
-
-### C. PIXMINT Flutter Chat Input Readability
-- **Component:** `scratch/pixmint-bot/lib/src/presentation/sheet/pixmint_chat_input.dart`
-- **Implementation:**
-  - Container: White background (`color: Colors.white`), rounded corners (`borderRadius: 16`), and focused emerald border (`width: 1.2`).
-  - Text: Explicitly styled with `color: Colors.black`, `fontSize: 14`, and `cursorColor: Colors.black`.
-  - Placeholder: Readable slate grey (`color: Color(0xFF64748B)`).
-- **Verification:** User-entered text and cursor are crisp and legible against the light input container; message submission and thinking indicator behaviors remain intact.
-
-### D. User Directory, Profile Modal, and Full Dossier
+### B. Shared 3D Architectural Monogram Integration
 - **Components:**
-  - `apps/admin-web/src/components/ui/Modal.tsx`
-  - `apps/admin-web/src/lib/api.ts` (`getUserDetails`)
-  - `apps/admin-web/src/app/engineers/[id]/page.tsx`
-  - `apps/admin-web/src/app/draughtsmen/[id]/page.tsx`
-  - `apps/admin-web/src/app/students/[id]/page.tsx`
-- **Root Cause & Fix:**
-  - Quick-view modals suffered from constrained sizing and clipped badges. Updated `Modal.tsx` to support `maxWidth="2xl"` with responsive padding, vertical scrolling (`max-h-[92vh]`), and unclipped status badges.
-  - `getUserDetails(userId)` was fragile when Worker returned flat vs. nested payloads. Normalized to seamlessly accept both `{ user, projects }` and flat `{ id, ... }` payloads.
-  - Role-specific queries: Populates projects for Engineers (`client_id`), Draughtsmen (`draughtsmanId` assignments falling back to project filter), and Students (`/api/admin/students/[id]` training assignments).
-  - Robust Error States: Distinguishes 401/403 authorization failures, 404 not-found profiles, network connection drops, and empty project rosters without masking errors.
+  - Admin Web: `apps/admin-web/src/components/ui/Monogram3DViewer.tsx` (Three.js with OrbitControls, continuous vertical rotation, orthographic framing).
+  - Flutter: `lib/src/shared/widgets/hexagonal_monogram_3d_viewer.dart` with platform-specific conditional imports (`monogram_viewer_web.dart` and `monogram_viewer_stub.dart`).
+- **Safety:** Built-in error boundary and null check against `WebViewPlatform.instance` ensures that if WebGL or native WebView is unavailable, it renders the static 2D monogram cleanly without throwing exceptions.
 
-### E. Admin Activity Feed Architecture & Fix
-- **Components & Endpoints:**
-  - Route: `/activity` (`apps/admin-web/src/app/activity/page.tsx`)
-  - Endpoint: `GET /api/activity?limit=100` (`worker/src/index.ts`)
-  - Table: `activity_logs`
-- **Root Cause & Fix:**
-  - Earlier worker SQL query used `JOIN projects p ON a.project_id = p.id`, which dropped all activity logs that had a null or unlinked `project_id`.
-  - Changed to `LEFT JOIN projects p ON a.project_id = p.id`, preserving all platform audit events.
-  - Added query validation: `limit` parameter clamped between 1 and 500 (default 100).
-  - Role authorization: Permits `ADMIN` and `STUDIO_ADMIN` to inspect global events, and permits `CLIENT` / `ENGINEER` and `DRAUGHTSMAN` to inspect their relevant project events.
-  - Background Polling Retention: Activity page polls every 15 seconds. If a background sync fails, previously retrieved records are retained while displaying an ambient warning banner.
-  - Dedicated Error Cards: Distinguishes authentication errors (401/403), service outages (500), and truthful empty D1 states (no events recorded yet).
+### C. DWG/CAD Preview & API Repair (Task 2)
+- **Component:** `lib/src/features/projects/presentation/widgets/cad_drawing_viewer.dart`
+- **Capabilities:**
+  - Pure-Dart binary header extraction of embedded DIB/BMP raster preview images from AutoCAD DWG files (AC1012 through AC1032).
+  - 2D vector geometry rendering for DXF files (`DxfLine`, `DxfPolyline`, `DxfCircle`, `DxfArc`, `DxfTextEntity`).
+  - Seamless fallback to metadata details and safe file download triggers.
+
+### D. Android Crash Fix & Legal Status Stability (Task 3)
+- **Root Cause 1 (WebView Assertion):** `model_viewer_plus` on native mobile wraps `webview_flutter`. Under non-web platforms without initialized platform view, it asserted `WebViewPlatform.instance != null`. Fixed with safe null guard and fallback image.
+- **Root Cause 2 (Cleartext HTTP):** Android 9+ default network policy blocks cleartext HTTP to port 8787. Fixed by setting `android:usesCleartextTraffic="true"` in `android/app/src/main/AndroidManifest.xml`.
+- **Root Cause 3 (Emulator Loopback):** `localhost:8787` refers to the Android device itself. Fixed by auto-mapping `localhost` to `10.0.2.2` in `ApiClient.resolveBaseUrl()`.
+- **Root Cause 4 (Router Desync Loop):** Unawaited `ref.invalidate(userLegalStatusProvider)` in `_handleAcceptance` caused GoRouter to redirect back to `/legal/onboarding`. Fixed by awaiting `ref.refresh(userLegalStatusProvider.future)` before pushing role dashboards.
+
+### E. Admin Dashboard Metrics & Collaboration Navigation Fixes
+- **Dashboard Metrics:** `apps/admin-web/src/app/dashboard/page.tsx` now derives Registered Engineers authoritatively from backend metrics or combines `ENGINEER` + `CLIENT` roles without double-counting.
+- **Role Crash Prevention:** `getRoleColor` in `apps/admin-web/src/app/projects/[projectId]/page.tsx` now safely supports `STUDIO_ADMIN`, `ENGINEER`, and `STUDENT` with an infallible fallback object.
+- **Authoritative Dossier Routing:** `users/page.tsx` links user rows to `/engineers/${id}`, `/draughtsmen/${id}`, and `/students/${id}`. Project detail overview links directly to the Ordering Engineer and Assigned Draughtsman dossiers.
+- **Backend Joins:** `worker/src/index.ts` joins `users u ON p.client_id = u.id` for `client_name` and `client_email`, and returns `current_assignment_id`.
 
 ---
 
 ## 5. Verification & Test Execution Commands
 
-Run non-service-starting automated test suites to verify system integrity:
+Run automated test suites to verify system integrity:
 
-### 1. Cloudflare Worker Test Harness
-From the `worker/` directory:
-
-```powershell
-Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
-
-# Run complete backend test suite (34 suites, 281 tests)
-npm test
-
-# Run TypeScript typecheck (must report 0 errors)
-npm run typecheck
-```
-
-- **Verified Metric:** **281 / 281 tests passed** (covering authorization, cross-user isolation, legal gates, and `/api/activity`).
-
-### 2. Studio Admin Web Test Harness
-From the `apps/admin-web/` directory:
-
+### 1. Studio Admin Web Test Harness
 ```powershell
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\apps\admin-web"
 
-# Run complete admin test suite (36 suites, 151 tests)
+# Run complete admin test suite (39 suites, 161 tests)
+npm test
+
+# Run TypeScript type check (must report 0 errors)
+npx tsc --noEmit
+
+# Run production build check (must prerender all 23 routes)
+npm run build
+```
+- **Verified Metrics:** **161 / 161 tests passed**, **0 type errors**, **23/23 routes compiled**.
+
+### 2. Cloudflare Worker Test Harness
+```powershell
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
+
+# Run complete backend test suite (34 suites, 283 tests)
 npm test
 ```
-
-- **Verified Metric:** **151 / 151 tests passed** (including 6 new tests in `test/activity-feed.test.ts` and 5 in `test/user-dossier-contracts.test.ts`).
+- **Verified Metrics:** **283 / 283 tests passed** (covering authorization, cross-user isolation, legal gates, dashboard KPIs, and normalized assignment lookup).
 
 ### 3. Flutter Client Verification
-From the repository root:
-
 ```powershell
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 
-# Run static analysis
-& "C:\flutter\flutter\bin\flutter.bat" analyze
-```
+# Run static analysis (must report no issues)
+& "C:\flutter\flutter\bin\flutter.bat" analyze lib
 
-- **Verified Metric:** **0 issues found** across the codebase and PIXMINT package.
+# Run API Client URL & emulator resolution tests
+& "C:\flutter\flutter\bin\flutter.bat" test test/features/api/data/api_client_test.dart
+
+# Run Terms & Conditions pre-login navigation flow suite
+& "C:\flutter\flutter\bin\flutter.bat" test test/features/legal/presentation/terms_navigation_flow_test.dart
+```
+- **Verified Metrics:** **0 issues found** in analyzer, **11 / 11 tests passed** in API client suite, **14 / 14 tests passed** in Terms navigation suite.
 
 ---
 
@@ -277,15 +247,16 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 - **Cause:** Cloudflare Worker is not running or running on an unexpected port.
 - **Fix:** Ensure Terminal 1 is running `npx wrangler dev` on port `8787`. Ensure Flutter Web was launched with `--dart-define=API_URL=http://localhost:8787`.
 
-### Q2: Admin Web displays "Administrative Access Required" or "Unable to Connect" on `/activity`
+### Q2: Android emulator cannot connect to local Worker (`SocketException` or timeout)
+- **Cause:** `localhost` from inside an Android emulator refers to the emulator itself, not the host machine.
+- **Fix:** The updated `ApiClient` automatically maps `localhost` to `10.0.2.2`. Verify that Terminal 1 Worker is running on port 8787 and `android:usesCleartextTraffic="true"` is set.
+
+### Q3: Admin Web displays "Administrative Access Required" or "Unable to Connect"
 - **Cause:** Session token missing or signed in with an unauthorized role.
 - **Fix:** Sign out and log in with an authorized Studio Admin staging account. Verify that the Worker is running on `http://localhost:8787`.
 
-### Q3: How do I obtain staging test account credentials?
-- **Policy:** Credentials are intentionally excluded from version control to prevent credential leakage. Request the staging credentials file from the project owner.
-
-### Q4: Can I run Flutter Web against the remote staging Worker while keeping the database untouched?
-- **Policy:** The remote staging Worker connects to the real shared staging D1 database and R2 bucket. Any state mutation in the UI is live. Use local Worker emulation (`npx wrangler dev`) for isolated testing.
+### Q4: How do I obtain staging test account credentials?
+- **Policy:** Credentials are confidential and excluded from version control. Request the local testing credentials document from the project owner. See `team/TEAM_TESTING_CREDENTIALS.md` locally (keep untracked).
 
 ---
 
@@ -295,3 +266,4 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 2. **Zero Unauthorized Git Actions:** Do not stage files, commit, push, switch branches, reset, or stash.
 3. **Preserve Protected Work:** Untracked test suites, image assets, and `team/` documents must remain untouched for manual staging and review.
 4. **Deployments Prohibited:** Deployments to production Cloudflare Workers or production Firebase are strictly locked pending owner approval.
+5. **Authoritative Handover Report:** Detailed technical evidence and verification logs are maintained in [docs/FINAL_VERIFICATION_AND_HANDOVER_REPORT.md](docs/FINAL_VERIFICATION_AND_HANDOVER_REPORT.md).

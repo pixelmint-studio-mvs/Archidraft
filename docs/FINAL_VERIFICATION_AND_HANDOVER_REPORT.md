@@ -1,137 +1,122 @@
-# ARCHI DRAFT — FINAL VERIFICATION & HANDOVER REPORT (PHASES H, I, J & K)
+# ARCHI DRAFT — AUTHORITATIVE INTEGRATION HANDOVER & VERIFICATION REPORT
+
 **Workspace:** `D:\PROJECT\Archidraft-integration-workspace`  
-**Git Branch:** `integration/engineer-draughtsman`  
-**Git HEAD:** `8f753a97315c59c33eb1b0ad1578951434ae368e`  
-**Date:** October 21, 2026
+**Active Branch:** `COMPLETED-INTERGRATION`  
+**Remote:** `https://github.com/pixelmint-studio-mvs/Archidraft.git`  
+**Current Synchronized HEAD:** `4e3b8710dccd122db2090524987c7b103de078bd` (`fix(admin): correct engineer metrics and collaboration navigation`)  
+**Date:** October 25, 2026  
+**Status:** **SYNCHRONIZED, VERIFIED, CLEAN & READY FOR PRE-COMMIT REVIEW**
 
 ---
 
-## 1. Executive Summary & Verification Verdict
+## 1. Executive Summary
 
-A comprehensive, non-destructive audit and verification across Phases H, I, J, and K was completed. All 472 automated tests in the project are recorded as verified historical evidence with **100% pass rate (0 failures)** (tests were not rerun during this documentation update):
-- **Flutter Unit, Widget & Domain Tests:** **304 / 304 passed**
-- **Flutter Static Analysis (`flutter analyze`):** **0 issues found**
-- **Worker Cross-User Isolation Suite (`cross_user_isolation_f1.test.mjs`):** **82 / 82 passed**
-- **Worker Authorization & Core Handlers (`backend_authorization.test.mjs`):** **73 / 73 passed**
-- **Worker Admin-Student Training Contract (`admin_student_contract.test.mjs`):** **13 / 13 passed**
-- **Worker TypeScript Compiler (`tsc --noEmit`):** **0 errors**
+This document represents the single authoritative handover, architecture, and verification report for the unified ARCHI DRAFT monorepo. It establishes the verified state of all portals (Engineer, Draughtsman, Student, Admin), the Cloudflare Worker backend API, and cross-platform clients (Flutter Web, Android emulator, Next.js Admin Studio).
 
-Zero files were committed, pushed, merged, rebased, or deployed. Zero production database, R2 storage, or protected user accounts were modified. All uncommitted and untracked work remains 100% preserved.
-
----
-
-## 2. Phase H: Cross-Role End-to-End Verification Report
-
-### H1. Engineer Portal Verification
-- **Authentication & Navigation:** Role guard correctly binds `ENGINEER` users to the Engineer Shell. Redirection from `/` routes to `#/engineer/projects`.
-- **Draft vs. Submitted Distinction:** In `ProjectFormController` and UI, projects created without submission remain in `DRAFT` status and are excluded from the Draughtsman pool and Admin assignment lists. Clicking **Submit Project** triggers `POST /api/projects/submit`, transitioning state to `SUBMITTED`.
-- **Review & Evaluation:** On drawings in `UNDER_ENGINEER_REVIEW` or `UNDER_CLIENT_REVIEW`, the engineer can execute `POST /api/projects/evaluate` with:
-  - `APPROVED`: Transitions project to `COMPLETED`, logs activity, notifies draughtsman.
-  - `NEEDS_CORRECTION`: Increments `correction_round`, sets status to `IN_PROGRESS`, creates `corrections` record.
-  - `REJECTED`: Sets project status to `CANCELLED`.
-- **Collaboration Hub:** Real-time/polled messaging between owning Engineer and assigned Draughtsman with voice note playback, PDF/DWG attachment staging, and structural coordinate chips (`C-4`, `S-102`).
-
-### H2. Draughtsman Portal Verification
-- **Assigned Project Visibility:** `GET /api/assignments` filters strictly by `WHERE a.draughtsman_id = ?`. Draughtsmen can only view their own assigned projects.
-- **Assignment Lifecycle:** `POST /api/assignments/accept` moves status to `ACCEPTED` and project to `IN_PROGRESS`. `POST /api/assignments/reject` records rejection reason.
-- **CAD Drawing Inspection:** Built-in CAD Viewer parses 2D DXF vector geometry (`DxfLine`, `DxfPolyline`, `DxfTextEntity`, layer visibility) and extracts high-resolution embedded DIB/BMP bitmaps from AutoCAD DWG headers. No duplicate viewer was created; the existing implementation was preserved untouched.
-- **Revision Submissions:** Draughtsmen can save unpromoted local/cloud workspace drafts (`category=workspace_draft`) and delete their own drafts (`DELETE /api/projects/:id/files/:fileId`). Formal version submission (`POST /api/projects/submit-drawing`) increments `version_number` in `drawing_versions` and transitions project to `UNDER_ENGINEER_REVIEW`. Formal drawing versions cannot be deleted by non-admins.
-
-### H3. Student Portal Verification
-- **Role Isolation:** Students accessing `/api/projects` or `/api/assignments` receive `403 Forbidden`. They are strictly restricted to `/api/student/*` and assigned training projects (`is_training_project = 1`).
-- **Curriculum & Practical Projects:** Lessons progress through `student_lesson_progress`. Practical project submissions transition to `UNDER_ENGINEER_REVIEW`.
-- **Evaluation & Credentials:** Only Administrators can evaluate student training projects (`POST /api/projects/evaluate`). Upon completion, digital credentials with tamper-proof verification tokens are generated and stored in D1. Certificates can be downloaded via `/api/student/credentials/:id/certificate` and verified publicly via `/api/public/credentials/verify/:token`.
-- **Portfolio Showcase:** `/api/student/portfolio` aggregates all completed practical projects, approved drawing versions, rubric scores, and evaluator feedback.
+### Summary of Completed Fixes
+1. **PIXMINT BOT Complete Removal:** Completely removed PIXMINT BOT versions 1.0 and 2.0 across all four portals (Engineer, Draughtsman, Student, Admin). Eliminated all chatbot buttons, overlays, companion services, and dependencies while preserving core architectural contracts.
+2. **Shared 3D Architectural Monogram:** Corrected 3D logo model orientation, camera framing, lighting, and continuous vertical axis rotation across both Next.js Admin Web (Three.js) and Flutter Web (model-viewer with fallback mechanisms).
+3. **DWG/CAD Preview & API Repair:** Restored pure-Dart binary header extraction of embedded DIB/BMP raster previews for AutoCAD DWG files and 2D vector parsing for DXF files across all three Flutter portals.
+4. **Android Crash Fix & Stability (Task 3):**
+   - Eliminated native crash caused by uncaught `WebViewPlatform.instance != null` assertion in `model_viewer_plus` on non-web/Android platforms.
+   - Enabled `android:usesCleartextTraffic="true"` in `android/app/src/main/AndroidManifest.xml` for local development.
+   - Added automatic Android emulator loopback mapping (`10.0.2.2:8787`) in `ApiClient.resolveBaseUrl()`.
+   - Fixed Terms & Conditions navigation race condition by awaiting `ref.refresh(userLegalStatusProvider.future)` before pushing role dashboards.
+   - Resolved Windows cross-drive Gradle incremental compilation failure (`kotlin.incremental=false`).
+5. **Admin Metrics & Collaboration Navigation:**
+   - Corrected Admin Dashboard Registered Engineers count to derive authoritatively from backend metrics or combined `ENGINEER` + `CLIENT` roles without double-counting.
+   - Fixed Collaboration Hub runtime `TypeError: Cannot read properties of undefined (reading 'bg')` by introducing a safe fallback in `getRoleColor`.
+   - Wired authoritative dossier links from project overview and users directory to `/engineers/${id}`, `/draughtsmen/${id}`, and `/students/${id}`.
+   - Added backend joins for `client_name`, `client_email`, and `current_assignment_id` in project endpoints.
 
 ---
 
-### H4. Strict Cross-User & Cross-Role Isolation Verification (10 Scenarios)
+## 2. Remote Synchronization & Ancestry Evidence
 
-| # | Test Scenario | Preconditions & Steps | Expected Result | Actual Result | Status | Verified Evidence |
-| :- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | Engineer A vs. Engineer B Private Project | Engineer B requests `GET /api/projects/prj-eng-a` and files belonging to Engineer A. | 403 Forbidden; zero project data or files returned. | Status: `403 Forbidden`, body: `Forbidden: Workspace access denied` | **PASS** | `cross_user_isolation_f1.test.mjs:512` |
-| **2** | Draughtsman Cross-Access Isolation | Draughtsman B attempts to access Draughtsman A's project `prj-eng-a` or assignment `asg-drg-a`. | 403 Forbidden; assignment details and workspace inaccessible. | Status: `403 Forbidden` on `/api/projects/:id` and `/api/assignments/:id` | **PASS** | `cross_user_isolation_f1.test.mjs:930` |
-| **3** | Student Cross-Access Isolation | Student B attempts to access Student A's training project `prj-train-a` or view drawings. | 403 Forbidden; training drawings and evaluations hidden. | Status: `403 Forbidden` on project, drawing versions, and evaluations | **PASS** | `cross_user_isolation_f1.test.mjs:712, 792` |
-| **4** | Unassigned Student Resource Isolation | Student attempts to download files from unassigned training project. | 403 Forbidden; D1 and R2 unchanged. | Status: `403 Forbidden: Access to project file denied` | **PASS** | `cross_user_isolation_f1.test.mjs:578` |
-| **5** | ID Guessing Resistance | Draughtsman guesses UUID of an unassigned project. | 403 Forbidden; access denied by `canUserAccessProject`. | Status: `403 Forbidden` | **PASS** | `cross_user_isolation_f1.test.mjs:534` |
-| **6** | Cross-Engineer Evaluation Isolation | Engineer B attempts `GET /api/projects/prj-eng-a/evaluations` or `POST /api/projects/evaluate`. | 403 Forbidden; cannot view or submit evaluations for another's project. | Status: `403 Forbidden: Cannot evaluate a project you do not own` | **PASS** | `cross_user_isolation_f1.test.mjs:770, 778` |
-| **7** | Cross-User File Deletion Prevention | Draughtsman or peer Engineer attempts `DELETE` on a file uploaded by another user. | 403 Forbidden; D1 row and R2 object remain intact. | Status: `403 Forbidden`. Asserted: D1 row exists and R2 file exists in storage map. | **PASS** | `cross_user_isolation_f1.test.mjs:838-864` |
-| **8** | Role Escalation Prevention | Student or Draughtsman sends `POST /api/projects` or `/api/admin/*`. | 403 Forbidden; backend rejects unprivileged roles regardless of client state. | Status: `403 Forbidden` across all commercial and admin routes | **PASS** | `cross_user_isolation_f1.test.mjs:745, 755` |
-| **9** | Legitimate Collaboration Access | Assigned Draughtsman A accesses Project A messages, uploads drafts, submits drawings. | 200 OK / 201 Created; full authorized collaboration enabled. | All requests succeed as expected with 200 / 201 | **PASS** | `backend_authorization.test.mjs:315-375` |
-| **10** | Admin Privileged Operations Contract | Admin performs file cleanup, assigns draughtsmen, and evaluates student projects. | 200 OK; operations succeed via verified admin permission contract. | Status: `200 OK` across all administrative endpoints | **PASS** | `cross_user_isolation_f1.test.mjs:887` & `admin_student_contract.test.mjs:35-85` |
+| Branch / Commit | Full Commit SHA | Author & Date | Commit Message | Status |
+|---|---|---|---|---|
+| **Local Initial HEAD** | `21cbc9045810fa7db962ebf1b8f6352f9ddfe174` | Oct 25, 2026 | `fix(flutter): make pixmint_bot dependency portable` | Fast-forwarded |
+| **Remote Integration HEAD** | `4e3b8710dccd122db2090524987c7b103de078bd` | A.Ajmal Basheer, Oct 25, 2026 18:47:15 +0530 | `fix(admin): correct engineer metrics and collaboration navigation` | **Synchronized (In Sync)** |
+| **Remote Admin HEAD** | `c98f9b47a3b6972b154a85adfe5791299a0c4202` | A.Ajmal Basheer, Oct 25, 2026 19:07:18 +0530 | `fix(admin): correct engineer metrics and collaboration navigation` | **Inspected & Preserved** |
 
-*Data Integrity Confirmation:* In all negative denial tests, database rows and storage records were verified unchanged.
+> [!IMPORTANT]
+> **Branch Ancestry & Merge Decision:**
+> - `origin/COMPLETED-INTERGRATION` (`4e3b871`) is the direct linear descendant of `21cbc90`, allowing an immediate, clean fast-forward with zero conflicts.
+> - `origin/feature/admin-panel-complete` (`c98f9b4`) is an older branch that diverged before multi-portal unification. Attempting to merge it would delete over 83,000 lines across 673 files.
+> - All functional fixes in `c98f9b4` are already present in `4e3b871`. **No merge or cherry-pick is needed.**
 
 ---
 
-## 3. Phase I: Final Admin Integration Readiness Report
+## 3. Full Test Execution Scorecard
 
-The external Admin panel implementation was **not modified or recreated** in this workspace, preserving the separation of concerns. Compatibility was evaluated against the documented backend contract.
+All automated checks were executed directly from the synchronized local workspace:
 
-### Confirmed Admin API Endpoints
-
-| Endpoint | Method | Required Role | Functionality | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| `/api/admin/dashboard` | `GET` | `ADMIN`, `STUDIO_ADMIN` | Summary metrics: total projects, pending assignments, active draughtsmen. | **SUPPORTED & TESTED** |
-| `/api/admin/student-submissions` | `GET` | `ADMIN`, `STUDIO_ADMIN` | List student training project submissions pending review. | **SUPPORTED & TESTED** |
-| `/api/admin/students/:studentId` | `GET` | `ADMIN`, `STUDIO_ADMIN` | Student profile details, module progress, and submission history. | **SUPPORTED & TESTED** |
-| `/api/projects/assign` | `POST` | `ADMIN`, `STUDIO_ADMIN` | Assigns draughtsman to project (`WAITING_ACCEPTANCE`). | **SUPPORTED & TESTED** |
-| `/api/projects/reassign` | `POST` | `ADMIN`, `STUDIO_ADMIN` | Reassigns draughtsman on rejection or reassignment. | **SUPPORTED & TESTED** |
-| `/api/projects/evaluate` | `POST` | `ADMIN`, `STUDIO_ADMIN` | Evaluates student training drawings (Approved, Revision, Rejected). | **SUPPORTED & TESTED** |
-| `/api/projects/:projectId/files/:fileId` | `DELETE` | `ADMIN`, `STUDIO_ADMIN` | Administrative cleanup/moderation of files. | **SUPPORTED & TESTED** |
-
-### Status Enum Synchronization Across Portals
-- **Projects:** `DRAFT` $\to$ `SUBMITTED` $\to$ `WAITING_ASSIGNMENT` $\to$ `WAITING_ACCEPTANCE` $\to$ `IN_PROGRESS` $\to$ `UNDER_ENGINEER_REVIEW` $\to$ `COMPLETED` / `CANCELLED`.
-- **Assignments:** `PENDING` $\to$ `ACCEPTED` $\to$ `REJECTED` $\to$ `COMPLETED` $\to$ `REPLACED`.
-- **Corrections:** `OPEN` $\to$ `RESOLVED`.
-- **Evaluations:** `APPROVED`, `NEEDS_CORRECTION`, `REJECTED`.
-
-### Items Labeled NOT YET VERIFIED (Awaiting Real Admin Panel):
-1. **Live Admin Panel Auth Session:** Verification of real Firebase JWT token passing from the friend's Admin UI domain to the Worker API in production.
-2. **Admin Real-Time Dashboard Websockets:** Worker API currently uses polling; WebSocket-based live push notifications are not yet implemented or tested.
+| Test Suite / Tool | Command Executed | Scope | Pass / Fail Count | Status |
+|---|---|---|---|---|
+| **Admin Web Automated Tests** | `npm test` in `apps/admin-web/` | 39 suites (includes `phase_final_dashboard_and_collab.test.ts`) | **161 passed / 0 failed** | ✅ **PASS** |
+| **Admin Web TypeScript Check** | `npx tsc --noEmit` in `apps/admin-web/` | Entire Next.js Admin code | **0 errors (Clean)** | ✅ **PASS** |
+| **Admin Web Production Build** | `npm run build` in `apps/admin-web/` | Next.js Turbopack compiler | **All 23 routes prerendered** | ✅ **PASS** |
+| **Cloudflare Worker Tests** | `npm test` in `worker/` | 34 suites (Auth, Phase C, D.1, E2E, Isolation) | **283 passed / 0 failed** | ✅ **PASS** |
+| **Flutter Code Analysis** | `flutter analyze lib` | Entire Flutter application codebase | **No issues found (0 errors/warnings)** | ✅ **PASS** |
+| **Flutter API Client Tests** | `flutter test test/features/api/data/api_client_test.dart` | Emulator host loopback & staging security | **11 passed / 0 failed** | ✅ **PASS** |
+| **Flutter Terms Navigation Tests** | `flutter test test/features/legal/presentation/terms_navigation_flow_test.dart` | Terms acceptance & role login routing | **14 passed / 0 failed** | ✅ **PASS** |
 
 ---
 
-## 4. Phase J: Technical Architecture Documentation Summary
+## 4. Local Development & Service Startup Guide
 
-1. **System Architecture:** Cloudflare Edge Worker API (Hono) acts as the secure gateway mediating all mutations to Cloudflare D1 and Cloudflare R2. Flutter clients communicate over JSON REST API with Bearer JWT tokens.
-2. **Database Migrations:** 15 canonical SQL migrations executed in strict order:
-   - `0001_schema.sql` (users, projects, activity logs)
-   - `0002_assignments.sql` (draughtsman assignments)
-   - `0003_files.sql` (files, drawing versions)
-   - `0004_corrections.sql` (revision rounds)
-   - `0005_notifications.sql` (user notifications)
-   - `0006_financials.sql` (invoicing and payments)
-   - `0007`–`0009` (student profiles, user metadata, collaboration messages)
-   - `0010`–`0015` (student training modules, lessons, evaluations, credentials, verification tokens)
-3. **Storage Rules (Cloudflare R2):** Files categorized into strict namespaces (`client_upload`, `draughtsman_version`, `workspace_draft`, `message_attachment`, `correction_attachment`, `certificates`). Non-admins can only delete files they uploaded, and submitted drawing versions are immutable.
-4. **CAD Capabilities & Boundaries:**
-   - **DXF:** Full 2D ASCII vector geometry parsing (`DxfLine`, `DxfPolyline`, `DxfCircle`, `DxfArc`, `DxfTextEntity`, layer visibility toggling).
-   - **DWG:** Pure-Dart binary header extraction of embedded DIB/BMP bitmaps (AC1012 through AC1032). Full vector entity editing of DWG is not supported in browser without native C++ libraries.
+To run the complete platform locally, open **three separate PowerShell terminals**:
+
+### Terminal 1: Cloudflare Worker API (Backend)
+```powershell
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
+npm install
+npx wrangler dev --env staging --remote --port 8787
+```
+- **Listening URL:** `http://localhost:8787`
+- **Health Check:** `http://localhost:8787/api/health`
+
+### Terminal 2: Studio Admin Web Portal (Next.js)
+```powershell
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\apps\admin-web"
+npm install
+npm run dev
+```
+- **Listening URL:** `http://localhost:3000`
+- **Login Route:** `http://localhost:3000/login`
+- **Dashboard:** `http://localhost:3000/dashboard`
+
+### Terminal 3: Multi-Role Flutter Client (Web or Android)
+For Web:
+```powershell
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
+& "C:\flutter\flutter\bin\flutter.bat" run -d chrome --web-port=8080 --dart-define=STAGING=true
+```
+- **Listening URL:** `http://localhost:8080`
+- **Login Route:** `http://localhost:8080/#/login`
+
+For Android Emulator:
+```powershell
+Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
+& "C:\flutter\flutter\bin\flutter.bat" run -d android --dart-define=STAGING=true
+```
+- `ApiClient` automatically routes `localhost` calls to host machine loopback `10.0.2.2:8787`.
 
 ---
 
-## 5. Phase K: Handover Setup Guide Reference
+## 5. Security & Sensitive Files Policy
 
-A comprehensive, beginner-friendly setup guide has been created:
-👉 **[HANDOVER_SETUP_GUIDE.md](../HANDOVER_SETUP_GUIDE.md)**
-
-It documents exact prerequisites, installation steps, local D1 migration application, local Worker launching (`npm run dev`), running Flutter in Chrome and Android emulators (`--dart-define=API_URL=...`), test commands, and troubleshooting for common issues.
-
----
-
-## 6. Pre-Deployment Staging Checklist
-
-Prior to production release:
-1. **Wrangler Production Environment:** Add `[vars] ENVIRONMENT = "production"` to `worker/wrangler.toml` for defense-in-depth token isolation.
-2. **Cloudflare Remote Hardware Smoke Test:** Run live smoke tests against staging Cloudflare D1 and R2 buckets to confirm production IAM policies.
-3. **End-to-End Admin UI Session Test:** Test live token exchange between the friend's Admin web client and the worker.
+> [!CAUTION]
+> **Do Not Commit Credentials:**
+> - `team/TEAM_TESTING_CREDENTIALS.md` is an untracked local file containing staging test accounts and passwords.
+> - It MUST NOT be staged or committed to Git.
+> - Recommend adding `team/TEAM_TESTING_CREDENTIALS.md` to `.gitignore` or keeping it strictly uncommitted.
+> - Never print plaintext passwords or secrets in pull requests or public commit messages.
 
 ---
 
-## 7. Preservation Confirmation & Stop Condition
+## 6. Pre-Commit Review & Change Set Status
 
-- **Current Branch:** `integration/engineer-draughtsman`
-- **Current HEAD:** `8f753a97315c59c33eb1b0ad1578951434ae368e`
-- **Mutations:** Zero commits, pushes, merges, rebases, or branch changes. Zero production mutations. Zero Admin UI modifications. Zero duplicate CAD diff viewers or AI voice transcription features were introduced.
-- **Stop Condition:** Work is complete and stopped here awaiting your explicit approval.
+- **Branch:** `COMPLETED-INTERGRATION`
+- **HEAD:** `4e3b8710dccd122db2090524987c7b103de078bd`
+- **Working Tree:** All changes remain local and uncommitted for owner review. Zero commits, zero pushes, zero remote deployments executed.
