@@ -800,8 +800,8 @@ packages:
   pixmint_bot:
     dependency: "direct main"
     description:
-      path: "C:/Users/P MOHAMMED JANIS/.gemini/antigravity-ide/brain/b617ff01-f43b-4808-aa8a-14e025cf9594/scratch/pixmint-bot"
-      relative: false
+      path: "packages/pixmint_bot"
+      relative: true
     source: path
     version: "1.0.0"
   platform:
