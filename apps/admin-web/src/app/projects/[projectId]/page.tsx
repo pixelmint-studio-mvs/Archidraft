@@ -99,26 +99,91 @@ function parsePinFromDescription(
 interface CollabMessage {
   id: string;
   author: string;
-  role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT';
+  role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' | string;
   content: string;
   timestamp: Date;
-  attachment?: { name: string; size: string; type: 'pdf' | 'dwg' | 'image' };
+  attachment?: {
+    name: string;
+    size: string;
+    type: 'pdf' | 'dwg' | 'image' | 'audio' | 'zip' | 'file';
+    fileId?: string;
+    downloadUrl?: string;
+  };
   isVoice?: boolean;
   replyCount?: number;
 }
 
 function toCollabMessage(c: ProjectComment): CollabMessage {
+  const name = c.attachment_name || '';
+  const mime = c.attachment_type || '';
+  const isAudio =
+    mime.startsWith('audio/') ||
+    /\.(webm|m4a|mp3|wav|aac|ogg)$/i.test(name);
+  const isImage =
+    mime.startsWith('image/') ||
+    /\.(png|jpg|jpeg|webp|svg)$/i.test(name);
+  const isDwg =
+    mime.includes('acad') ||
+    mime.includes('dxf') ||
+    /\.(dwg|dxf)$/i.test(name);
+  const isPdf =
+    mime.includes('pdf') ||
+    /\.pdf$/i.test(name);
+  const isZip =
+    mime.includes('zip') ||
+    /\.zip$/i.test(name);
+
+  let type: 'pdf' | 'dwg' | 'image' | 'audio' | 'zip' | 'file' = 'file';
+  if (isAudio) type = 'audio';
+  else if (isImage) type = 'image';
+  else if (isDwg) type = 'dwg';
+  else if (isPdf) type = 'pdf';
+  else if (isZip) type = 'zip';
+
+  let formattedSize = c.attachment_size || 'Attached file';
+  if (c.attachment_size && !isNaN(Number(c.attachment_size))) {
+    const bytes = Number(c.attachment_size);
+    formattedSize = bytes > 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+      : `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  const downloadUrl = c.attachment_file_id
+    ? adminApi.getFileDownloadUrl(c.attachment_file_id)
+    : undefined;
+
+  const rawRole = (c.author_role || '').toUpperCase();
+  let normalizedRole: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' = 'CLIENT';
+  let defaultAuthor = 'Participant';
+
+  if (rawRole === 'ADMIN' || rawRole === 'STUDIO_ADMIN') {
+    normalizedRole = 'ADMIN';
+    defaultAuthor = 'Studio Admin';
+  } else if (rawRole === 'DRAUGHTSMAN') {
+    normalizedRole = 'DRAUGHTSMAN';
+    defaultAuthor = 'Draughtsman';
+  } else if (rawRole === 'ENGINEER' || rawRole === 'CLIENT') {
+    normalizedRole = 'CLIENT';
+    defaultAuthor = 'Engineer';
+  } else if (rawRole === 'STUDENT') {
+    normalizedRole = 'STUDENT';
+    defaultAuthor = 'Student';
+  }
+
   return {
     id: c.id,
-    author: c.author_name || (c.author_role === 'ADMIN' ? 'Studio Admin' : c.author_role === 'CLIENT' ? 'Engineer' : 'Draughtsman'),
-    role: c.author_role,
+    author: c.author_name || defaultAuthor,
+    role: normalizedRole,
     content: c.content,
     timestamp: new Date(c.created_at),
     attachment: c.attachment_name ? {
       name: c.attachment_name,
-      size: c.attachment_size || 'Attached file',
-      type: (c.attachment_type === 'pdf' || c.attachment_type === 'dwg' || c.attachment_type === 'image') ? c.attachment_type : 'pdf',
+      size: formattedSize,
+      type,
+      fileId: c.attachment_file_id || undefined,
+      downloadUrl,
     } : undefined,
+    isVoice: isAudio,
   };
 }
 
@@ -430,8 +495,32 @@ export default function ProjectDetailPage({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span>Engineer ID: <code className="font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">{project.client_id.substring(0, 8)}</code></span>
+                    <span>
+                      Engineer:{' '}
+                      <Link
+                        href={`/engineers/${encodeURIComponent(project.client_id)}`}
+                        className="font-medium text-[#0453cd] hover:underline"
+                        title="View Engineer Dossier"
+                      >
+                        {project.client_name ? `${project.client_name} (${project.client_id.substring(0, 8)})` : `ID: ${project.client_id.substring(0, 8)}`}
+                      </Link>
+                    </span>
                   </div>
+                  {project.draughtsman_id && (
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <span>
+                        Draughtsman:{' '}
+                        <Link
+                          href={`/draughtsmen/${encodeURIComponent(project.draughtsman_id)}`}
+                          className="font-medium text-[#0453cd] hover:underline"
+                          title="View Draughtsman Dossier"
+                        >
+                          {project.draughtsman_name || `ID: ${project.draughtsman_id.substring(0, 8)}`}
+                        </Link>
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span>Created: <span className="text-slate-800 font-medium">{new Date(project.created_at).toLocaleDateString()}</span></span>
@@ -1507,11 +1596,21 @@ export default function ProjectDetailPage({
 
           {/* ─── Tab: Collaboration Hub ──────────────────────────────────────── */}
           {activeTab === 'collab' && (() => {
-            const getRoleColor = (role: CollabMessage['role']) => {
-              switch (role) {
-                case 'ADMIN': return { bg: 'rgba(139,92,246,0.15)', text: '#c4b5fd', border: 'rgba(139,92,246,0.3)', label: 'ADMIN' };
-                case 'DRAUGHTSMAN': return { bg: 'rgba(6,182,212,0.15)', text: '#67e8f9', border: 'rgba(6,182,212,0.3)', label: 'DRAUGHTSMAN' };
-                case 'CLIENT': return { bg: 'rgba(59,130,246,0.15)', text: '#93c5fd', border: 'rgba(59,130,246,0.3)', label: 'ENGINEER' };
+            const getRoleColor = (role?: string) => {
+              const r = (role || '').toUpperCase();
+              switch (r) {
+                case 'ADMIN':
+                case 'STUDIO_ADMIN':
+                  return { bg: 'rgba(139,92,246,0.15)', text: '#c4b5fd', border: 'rgba(139,92,246,0.3)', label: 'ADMIN' };
+                case 'DRAUGHTSMAN':
+                  return { bg: 'rgba(6,182,212,0.15)', text: '#67e8f9', border: 'rgba(6,182,212,0.3)', label: 'DRAUGHTSMAN' };
+                case 'CLIENT':
+                case 'ENGINEER':
+                  return { bg: 'rgba(59,130,246,0.15)', text: '#93c5fd', border: 'rgba(59,130,246,0.3)', label: 'ENGINEER' };
+                case 'STUDENT':
+                  return { bg: 'rgba(16,185,129,0.15)', text: '#6ee7b7', border: 'rgba(16,185,129,0.3)', label: 'STUDENT' };
+                default:
+                  return { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8', border: 'rgba(148,163,184,0.3)', label: r || 'USER' };
               }
             };
 
@@ -1522,27 +1621,17 @@ export default function ProjectDetailPage({
               setCollabSending(true);
               setCollabError(null);
               try {
-                let attachmentName: string | undefined;
-                let attachmentSize: string | undefined;
-                let attachmentType: string | undefined;
+                let attachmentFileId: string | undefined;
 
                 if (collabAttachment) {
-                  // Upload reference document to Cloudflare R2 via shared file service
-                  await adminApi.uploadProjectFile(projectId, collabAttachment, 'correction_attachment');
-                  attachmentName = collabAttachment.name;
-                  const sizeInKb = (collabAttachment.size / 1024).toFixed(1);
-                  attachmentSize = collabAttachment.size > 1024 * 1024
-                    ? `${(collabAttachment.size / (1024 * 1024)).toFixed(2)} MB`
-                    : `${sizeInKb} KB`;
-                  const ext = collabAttachment.name.split('.').pop()?.toLowerCase();
-                  attachmentType = (ext === 'pdf' || ext === 'dwg') ? ext : ['png', 'jpg', 'jpeg'].includes(ext || '') ? 'image' : 'pdf';
+                  // Upload reference document or voice attachment to Cloudflare R2 via shared file service
+                  const uploaded = await adminApi.uploadProjectFile(projectId, collabAttachment, 'chat_attachment');
+                  attachmentFileId = uploaded.id;
                 }
 
                 const res = await adminApi.createProjectComment(projectId, {
                   content: collabInput.trim() || (collabAttachment ? `[Attachment] ${collabAttachment.name}` : ''),
-                  attachmentName,
-                  attachmentSize,
-                  attachmentType,
+                  attachmentFileId,
                 });
                 setCollabMessages(prev => [...prev, toCollabMessage(res.comment)]);
                 setCollabInput('');
@@ -1655,27 +1744,38 @@ export default function ProjectDetailPage({
                                     )
                                   )}
 
-                                  {/* Voice note */}
+                                  {/* Voice note / audio playback */}
                                   {msg.isVoice && (
-                                    <div className="mt-3 flex items-center gap-3 p-2 rounded-full w-56 bg-slate-100 border border-slate-200">
-                                      <button className="w-7 h-7 rounded-full bg-[#0d1c32] flex items-center justify-center shrink-0 hover:bg-[#1a2d4b] transition-colors">
-                                        <Volume2 className="h-3 w-3 text-white" />
-                                      </button>
-                                      {/* Fake waveform bars */}
-                                      <div className="flex-1 flex items-end gap-0.5 h-4">
-                                        {[2, 4, 2, 6, 3, 5, 2, 4, 3, 6, 2, 4, 3, 5, 2, 3, 4, 2].map((h, i) => (
-                                          <div key={i} className="w-1 rounded-t bg-blue-500/70"
-                                            style={{ height: `${h * 2.5}px` }}
-                                          />
-                                        ))}
+                                    <div className="mt-3 flex flex-col gap-1.5 p-2.5 rounded-xl max-w-xs bg-slate-100 border border-slate-200">
+                                      <div className="flex items-center gap-2">
+                                        <Volume2 className="h-4 w-4 text-[#0453cd] shrink-0" />
+                                        <span className="text-[10px] font-mono font-semibold text-slate-700">Audio Note</span>
+                                        {msg.attachment?.size && (
+                                          <span className="text-[9px] font-mono text-slate-400 ml-auto">{msg.attachment.size}</span>
+                                        )}
                                       </div>
-                                      <span className="text-[10px] font-mono text-slate-500 pr-1">0:12</span>
+                                      {msg.attachment?.downloadUrl ? (
+                                        <audio
+                                          controls
+                                          preload="metadata"
+                                          src={msg.attachment.downloadUrl}
+                                          className="w-full h-8 mt-1"
+                                        />
+                                      ) : (
+                                        <p className="text-[9px] font-mono text-slate-500 italic">Audio recording unavailable</p>
+                                      )}
                                     </div>
                                   )}
 
                                   {/* File attachment */}
-                                  {msg.attachment && (
-                                    <div className="mt-3 flex items-center gap-3 p-2 rounded-lg w-fit pr-4 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
+                                  {msg.attachment && !msg.isVoice && (
+                                    <a
+                                      href={msg.attachment.downloadUrl || '#'}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      download={msg.attachment.name}
+                                      className="mt-3 flex items-center gap-3 p-2.5 rounded-lg w-fit pr-4 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors text-inherit no-underline group/att"
+                                    >
                                       <div className="p-1.5 rounded-md"
                                         style={{
                                           background: msg.attachment.type === 'pdf' ? '#fee2e2' : '#dbeafe',
@@ -1685,11 +1785,14 @@ export default function ProjectDetailPage({
                                           style={{ color: msg.attachment.type === 'pdf' ? '#dc2626' : '#1d4ed8' }}
                                         />
                                       </div>
-                                      <div>
-                                        <p className="text-[10px] font-mono text-slate-900 font-semibold">{msg.attachment.name}</p>
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-mono text-slate-900 font-semibold group-hover/att:text-[#0453cd] transition-colors truncate max-w-[200px]">
+                                          {msg.attachment.name}
+                                        </p>
                                         <p className="text-[9px] font-mono text-slate-500">{msg.attachment.size}</p>
                                       </div>
-                                    </div>
+                                      <Download className="h-3.5 w-3.5 text-slate-400 group-hover/att:text-slate-700 transition-colors ml-2 shrink-0" />
+                                    </a>
                                   )}
                                 </div>
 
@@ -1750,7 +1853,7 @@ export default function ProjectDetailPage({
                         type="file"
                         ref={collabFileInputRef}
                         className="hidden"
-                        accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.zip"
+                        accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.zip,.webm,.m4a,.mp3,.wav,.aac,.ogg"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
@@ -1807,11 +1910,25 @@ export default function ProjectDetailPage({
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 soft-elevation">
                     <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-4">PARTICIPANTS</p>
                     <div className="space-y-3">
-                      {[
-                        { label: 'Studio Admin', role: 'ADMIN' as const, status: 'online', note: 'You' },
-                        { label: project.draughtsman_name || 'Draughtsman', role: 'DRAUGHTSMAN' as const, status: project.draughtsman_name ? 'online' : 'unassigned' },
-                        { label: 'Engineer', role: 'CLIENT' as const, status: 'online' },
-                      ].map((p) => {
+                      {(
+                        [
+                          { label: 'Studio Admin', role: 'ADMIN', status: 'online', note: 'You', href: undefined },
+                          {
+                            label: project.draughtsman_name || 'Draughtsman',
+                            role: 'DRAUGHTSMAN',
+                            status: project.draughtsman_name ? 'online' : 'unassigned',
+                            note: undefined,
+                            href: project.draughtsman_id ? `/draughtsmen/${encodeURIComponent(project.draughtsman_id)}` : undefined,
+                          },
+                          {
+                            label: project.client_name || 'Engineer',
+                            role: 'CLIENT',
+                            status: 'online',
+                            note: undefined,
+                            href: project.client_id ? `/engineers/${encodeURIComponent(project.client_id)}` : undefined,
+                          },
+                        ] as Array<{ label: string; role: any; status: string; note?: string; href?: string }>
+                      ).map((p) => {
                         const rc = getRoleColor(p.role);
                         return (
                           <div key={p.label} className="flex items-center gap-3">
@@ -1826,10 +1943,21 @@ export default function ProjectDetailPage({
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 truncate">
-                                {p.label}
-                                {p.note && <span className="ml-1 text-[9px] text-slate-500 font-normal">({p.note})</span>}
-                              </p>
+                              {p.href ? (
+                                <Link
+                                  href={p.href}
+                                  className="text-xs font-semibold text-slate-900 truncate hover:text-[#0453cd] hover:underline block"
+                                  title={`View ${p.label} profile`}
+                                >
+                                  {p.label}
+                                  {p.note && <span className="ml-1 text-[9px] text-slate-500 font-normal">({p.note})</span>}
+                                </Link>
+                              ) : (
+                                <p className="text-xs font-semibold text-slate-900 truncate">
+                                  {p.label}
+                                  {p.note && <span className="ml-1 text-[9px] text-slate-500 font-normal">({p.note})</span>}
+                                </p>
+                              )}
                               <p className="text-[9px] font-mono font-semibold" style={{ color: rc.text }}>{rc.label}</p>
                             </div>
                             <span className={`text-[9px] font-mono font-semibold ${p.status === 'online' ? 'text-emerald-600' : 'text-slate-400'}`}>
@@ -1913,6 +2041,15 @@ export default function ProjectDetailPage({
                     <span className="text-slate-500 font-mono">Project ID</span>
                     <span className="font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">{project.id}</span>
                   </div>
+                  <div className="pt-2 flex justify-between items-center">
+                    <span className="text-slate-500 font-mono">Ordering Engineer</span>
+                    <Link
+                      href={`/engineers/${encodeURIComponent(project.client_id)}`}
+                      className="font-semibold text-[#0453cd] hover:underline"
+                    >
+                      {project.client_name ? `${project.client_name} (${project.client_id.substring(0, 8)})` : project.client_id}
+                    </Link>
+                  </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Project Name</span>
                     <span className="font-semibold text-slate-900">{project.project_name || 'N/A'}</span>
@@ -1939,17 +2076,33 @@ export default function ProjectDetailPage({
               <Card className="bg-white border-slate-200 soft-elevation">
                 <CardHeader title="Operational Lifecycle & Timestamps" />
                 <div className="space-y-3 text-xs divide-y divide-slate-100">
-                  <div className="pt-2 flex justify-between">
+                  <div className="pt-2 flex justify-between items-center">
                     <span className="text-slate-500 font-mono">Assigned Draughtsman</span>
-                    <span className="font-semibold text-slate-900">
-                      {project.draughtsman_name || 'None Assigned'}
-                    </span>
+                    {project.draughtsman_id ? (
+                      <Link
+                        href={`/draughtsmen/${encodeURIComponent(project.draughtsman_id)}`}
+                        className="font-semibold text-[#0453cd] hover:underline"
+                      >
+                        {project.draughtsman_name || project.draughtsman_id}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold text-slate-400 italic">None Assigned</span>
+                    )}
                   </div>
                   <div className="pt-2 flex justify-between items-center">
                     <span className="text-slate-500 font-mono">Draughtsman ID</span>
-                    <span className="font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
-                      {project.draughtsman_id || 'N/A'}
-                    </span>
+                    {project.draughtsman_id ? (
+                      <Link
+                        href={`/draughtsmen/${encodeURIComponent(project.draughtsman_id)}`}
+                        className="font-mono bg-blue-50 text-[#0453cd] px-1.5 py-0.5 rounded border border-blue-200 hover:underline"
+                      >
+                        {project.draughtsman_id}
+                      </Link>
+                    ) : (
+                      <span className="font-mono bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded border border-slate-200">
+                        N/A
+                      </span>
+                    )}
                   </div>
                   <div className="pt-2 flex justify-between items-center">
                     <span className="text-slate-500 font-mono">Current Assignment ID</span>
@@ -2170,9 +2323,13 @@ export default function ProjectDetailPage({
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-semibold text-slate-900">
+                          <Link
+                            href={`/draughtsmen/${encodeURIComponent(a.draughtsman_id)}`}
+                            className="text-xs font-semibold text-slate-900 hover:text-[#0453cd] hover:underline"
+                            title="View Draughtsman Profile"
+                          >
                             {a.draughtsman_name || `Draughtsman ID: ${a.draughtsman_id.substring(0, 8)}`}
-                          </p>
+                          </Link>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold border ${
                               a.status === 'ACCEPTED'

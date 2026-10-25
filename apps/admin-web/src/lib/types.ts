@@ -177,6 +177,7 @@ export interface ActivityLog {
 // ── Admin Stats (GET /api/admin/stats response) ──
 
 export interface AdminStats {
+  metrics?: AdminDashboardMetrics | null;
   projects: {
     total: number;
     byStatus: Record<string, number>;
@@ -184,8 +185,21 @@ export interface AdminStats {
   users: {
     total: number;
     byRole: Record<string, number>;
+    registeredEngineers?: number;
   };
   recentActivity: ActivityLog[];
+}
+
+export interface AdminDashboardMetrics {
+  totalProjects: number;
+  submittedProjects: number;
+  activeProjects: number;
+  inReviewProjects: number;
+  completedProjects: number;
+  activeDraughtsmen: number;
+  pendingAssignments: number;
+  registeredEngineers?: number;
+  activeEngineers?: number;
 }
 
 // ── Project Comment / Collaboration Message ──
@@ -195,8 +209,9 @@ export interface ProjectComment {
   project_id: string;
   author_id: string;
   author_name: string;
-  author_role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT';
+  author_role: 'ADMIN' | 'STUDIO_ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'ENGINEER' | 'STUDENT' | string;
   content: string;
+  attachment_file_id?: string | null;
   attachment_name?: string | null;
   attachment_size?: string | null;
   attachment_type?: string | null;

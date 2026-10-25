@@ -81,7 +81,12 @@ export default function DashboardPage() {
 
   const usersByRole = stats?.users?.byRole || {};
   const draughtsmanCount = usersByRole['DRAUGHTSMAN'] || 0;
-  const engineerCount = usersByRole['CLIENT'] || 0;
+  // Issue 2 Fix: Authoritative registered engineer count prioritizing backend metric
+  // and accurately combining ENGINEER and legacy CLIENT roles without double counting.
+  const engineerCount =
+    typeof stats?.users?.registeredEngineers === 'number'
+      ? stats.users.registeredEngineers
+      : (usersByRole['ENGINEER'] || 0) + (usersByRole['CLIENT'] || 0);
   const studentCount = usersByRole['STUDENT'] || 0;
   const adminCount = usersByRole['ADMIN'] || 0;
 

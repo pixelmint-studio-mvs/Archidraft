@@ -254,6 +254,7 @@ app.get('/api/admin/stats', async (c) => {
     users: {
       total: totalUsers,
       byRole,
+      registeredEngineers: (byRole['ENGINEER'] || 0) + (byRole['CLIENT'] || 0),
     },
     recentActivity: recentActivity || [],
   });
@@ -1001,6 +1002,36 @@ app.get('/api/assignments', async (c) => {
   return c.json(results);
 });
 
+// GET /api/assignments/:id — Resolves assignment by either assignmentId or projectId
+app.get('/api/assignments/:id', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const assignmentId = c.req.param('id');
+  const user = await getUser(db, uid);
+
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const assignment = await db.prepare(`
+    SELECT
+      a.*,
+      p.project_name, p.drawing_type, p.drawing_name, p.project_address, p.project_area,
+      p.submitted_at, p.approved_at, p.assigned_at, p.rejected_at, p.cancelled_at
+    FROM assignments a
+    LEFT JOIN projects p ON a.project_id = p.id
+    WHERE a.id = ? OR a.project_id = ?
+    ORDER BY (CASE WHEN a.id = ? THEN 1 ELSE 2 END), a.created_at DESC
+    LIMIT 1
+  `).bind(assignmentId, assignmentId, assignmentId).first();
+
+  if (!assignment) return c.json({ error: 'Assignment not found' }, 404);
+
+  if (user.role === 'DRAUGHTSMAN' && assignment.draughtsman_id !== uid) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  return c.json(assignment);
+});
+
 // Admin: Global cross-project assignment history (Authoritative Stitch Screen 07 ledger)
 app.get('/api/admin/assignments', async (c) => {
   const uid = c.get('uid');
@@ -1361,12 +1392,49 @@ app.get('/api/admin/stats', async (c) => {
     users: {
       total: totalUsers?.count ?? 0,
       byRole: roleCounts,
+      registeredEngineers: (roleCounts['ENGINEER'] || 0) + (roleCounts['CLIENT'] || 0),
     },
     recentActivity: recentActivity.results || [],
   });
 });
 
-// GET /api/projects/:projectId — Single project fetch (role-scoped)
+// GET /api/admin/dashboard — Authoritative executive platform metrics across portals
+app.get('/api/admin/dashboard', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const batch = [
+    db.prepare('SELECT COUNT(*) as c FROM projects'),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'SUBMITTED'"),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'IN_PROGRESS'"),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status IN ('UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')"),
+    db.prepare("SELECT COUNT(*) as c FROM projects WHERE status = 'COMPLETED'"),
+    db.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'DRAUGHTSMAN'"),
+    db.prepare("SELECT COUNT(*) as c FROM assignments WHERE status = 'PENDING'"),
+    db.prepare("SELECT COUNT(DISTINCT id) as c FROM users WHERE role IN ('ENGINEER', 'CLIENT')")
+  ];
+
+  const results = await db.batch(batch);
+
+  return c.json({
+    totalProjects: (results[0].results?.[0] as any)?.c || 0,
+    submittedProjects: (results[1].results?.[0] as any)?.c || 0,
+    activeProjects: (results[2].results?.[0] as any)?.c || 0,
+    inReviewProjects: (results[3].results?.[0] as any)?.c || 0,
+    completedProjects: (results[4].results?.[0] as any)?.c || 0,
+    activeDraughtsmen: (results[5].results?.[0] as any)?.c || 0,
+    pendingAssignments: (results[6].results?.[0] as any)?.c || 0,
+    registeredEngineers: (results[7].results?.[0] as any)?.c || 0,
+    activeEngineers: (results[7].results?.[0] as any)?.c || 0,
+  });
+});
+
+// GET /api/projects/:projectId — Single project fetch (role-scoped, normalized with client and assignment)
 app.get('/api/projects/:projectId', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
@@ -1374,7 +1442,16 @@ app.get('/api/projects/:projectId', async (c) => {
   const user = await getUser(db, uid);
   if (!user) return c.json({ error: 'User not found' }, 404);
 
-  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  const project = await db.prepare(`
+    SELECT
+      p.*,
+      u.name as client_name,
+      u.email as client_email,
+      (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1) as current_assignment_id
+    FROM projects p
+    LEFT JOIN users u ON p.client_id = u.id
+    WHERE p.id = ?
+  `).bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
 
   // Role-scoped access control
@@ -1385,6 +1462,47 @@ app.get('/api/projects/:projectId', async (c) => {
     return c.json({ error: 'Forbidden' }, 403);
   }
   // ADMIN can view any project
+
+  const { hours: slaHours, label: slaLabel } = await getEffectiveTurnaroundHours(db);
+  const baseTimestamp = (project as any).assigned_at || (project as any).submitted_at || (project as any).created_at;
+  const estimatedDeadline = baseTimestamp
+    ? new Date(new Date(baseTimestamp).getTime() + slaHours * 3600 * 1000).toISOString()
+    : null;
+
+  return c.json({
+    ...project,
+    turnaround_sla: slaLabel,
+    turnaround_hours: slaHours,
+    estimated_deadline: estimatedDeadline,
+  });
+});
+
+// Alias for /api/projects/:id
+app.get('/api/projects/:id', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const projectId = c.req.param('id');
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare(`
+    SELECT
+      p.*,
+      u.name as client_name,
+      u.email as client_email,
+      (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1) as current_assignment_id
+    FROM projects p
+    LEFT JOIN users u ON p.client_id = u.id
+    WHERE p.id = ?
+  `).bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (user.role === 'CLIENT' && project.client_id !== uid) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+  if (user.role === 'DRAUGHTSMAN' && project.draughtsman_id !== uid) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
 
   const { hours: slaHours, label: slaLabel } = await getEffectiveTurnaroundHours(db);
   const baseTimestamp = (project as any).assigned_at || (project as any).submitted_at || (project as any).created_at;

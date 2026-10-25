@@ -2,6 +2,7 @@ import { auth } from './firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import {
   AdminStats,
+  AdminDashboardMetrics,
   Project,
   ProjectStatus,
   User,
@@ -190,48 +191,57 @@ export const adminApi = {
       throw err;
     }
   },
+  async getDashboardMetrics(): Promise<AdminDashboardMetrics> {
+    return await fetchApi<AdminDashboardMetrics>('/api/admin/dashboard');
+  },
+
+  async getActivityLogs(limit = 100): Promise<ActivityLog[]> {
+    const res = await fetchApi<ActivityLog[]>(`/api/activity?limit=${limit}`);
+    return Array.isArray(res) ? res : [];
+  },
+
   // Stats
   async getStats(): Promise<AdminStats> {
     try {
-      return await fetchApi<AdminStats>('/api/admin/stats');
-    } catch {
-      try {
-        const [projects, users] = await Promise.all([
-          this.getProjects(),
-          this.getUsers(),
-        ]);
-        const byStatus: Record<string, number> = {};
-        projects.forEach((p) => {
-          byStatus[p.status] = (byStatus[p.status] || 0) + 1;
-        });
-        const byRole: Record<string, number> = {};
-        users.forEach((u) => {
-          byRole[u.role] = (byRole[u.role] || 0) + 1;
-        });
-        return {
-          projects: {
-            total: projects.length,
-            byStatus,
-          },
-          users: {
-            total: users.length,
-            byRole,
-          },
-          recentActivity: [],
-        };
-      } catch {
-        return {
-          projects: {
-            total: 0,
-            byStatus: {},
-          },
-          users: {
-            total: 1,
-            byRole: { ADMIN: 1 },
-          },
-          recentActivity: [],
-        };
-      }
+      const [metrics, projects, users, recentActivity] = await Promise.all([
+        this.getDashboardMetrics().catch(() => null),
+        this.getProjects().catch(() => []),
+        this.getUsers().catch(() => []),
+        this.getActivityLogs(10).catch(() => []),
+      ]);
+      const byStatus: Record<string, number> = {};
+      projects.forEach((p: Project) => {
+        byStatus[p.status] = (byStatus[p.status] || 0) + 1;
+      });
+      const byRole: Record<string, number> = {};
+      users.forEach((u: User) => {
+        byRole[u.role] = (byRole[u.role] || 0) + 1;
+      });
+
+      // Authoritative registered engineer count:
+      // Uses authoritative metrics from backend when available, or accurately aggregates 'CLIENT' and 'ENGINEER'
+      // records without double-counting to support the role compatibility contract.
+      const registeredEngineers =
+        typeof metrics?.registeredEngineers === 'number'
+          ? metrics.registeredEngineers
+          : users.filter((u: User) => u.role === 'CLIENT' || (u.role as string) === 'ENGINEER').length;
+
+      return {
+        metrics,
+        projects: {
+          total: metrics ? metrics.totalProjects : projects.length,
+          byStatus,
+        },
+        users: {
+          total: users.length,
+          byRole,
+          registeredEngineers,
+        },
+        recentActivity,
+      };
+    } catch (err: any) {
+      console.error('Error fetching admin statistics:', err);
+      throw err;
     }
   },
 
@@ -284,7 +294,14 @@ export const adminApi = {
 
   async getProject(projectId: string): Promise<Project> {
     try {
-      return await fetchApi<Project>(`/api/projects/${projectId}`);
+      const raw = await fetchApi<any>(`/api/projects/${projectId}`);
+      return {
+        ...raw,
+        client_name: raw.client_name || raw.client?.name || raw.engineer?.name,
+        client_email: raw.client_email || raw.client?.email || raw.engineer?.email,
+        draughtsman_name: raw.draughtsman_name || raw.draughtsman?.name,
+        draughtsman_id: raw.draughtsman_id || raw.draughtsman?.id,
+      };
     } catch (err) {
       if (typeof window !== 'undefined') {
         try {
@@ -350,6 +367,7 @@ export const adminApi = {
     projectId: string,
     payload: {
       content: string;
+      attachmentFileId?: string;
       attachmentName?: string;
       attachmentSize?: string;
       attachmentType?: string;
@@ -514,7 +532,7 @@ export const adminApi = {
   async uploadProjectFile(
     projectId: string,
     file: File,
-    category: 'client_upload' | 'correction_attachment' = 'client_upload',
+    category: 'client_upload' | 'correction_attachment' | 'chat_attachment' | 'message_attachment' = 'client_upload',
     actionId?: string
   ): Promise<ProjectFile> {
     const aid = actionId || crypto.randomUUID();
