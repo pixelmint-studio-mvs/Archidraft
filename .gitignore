@@ -62,5 +62,6 @@ build_old/
 backend/
 functions/
 scratch/
+/team/
 linux/flutter/ephemeral_locked_*/
 windows/flutter/ephemeral_old/
