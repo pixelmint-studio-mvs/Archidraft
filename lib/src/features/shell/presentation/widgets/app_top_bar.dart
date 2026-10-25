@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/user_profile.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../../notifications/providers/notification_providers.dart';
+import 'package:archi_draft/src/shared/widgets/hexagonal_monogram_3d_viewer.dart';
 
 /// Top App Bar using the Stitch glass effect.
 ///
@@ -48,11 +49,7 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
             // Brand
             Row(
               children: [
-                const Icon(
-                  Icons.architecture_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
+                const HexagonalMonogram3DViewer(width: 28, height: 28, autoRotate: true, rotationSpeed: '36deg'),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
                   profile?.role.toUpperCase() ?? 'ARCHI DRAFT',

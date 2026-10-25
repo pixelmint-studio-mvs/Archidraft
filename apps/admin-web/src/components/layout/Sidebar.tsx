@@ -13,7 +13,6 @@ import {
   Activity,
   DollarSign,
   Settings,
-  Bot,
   LogOut,
   ShieldCheck,
   ChevronLeft,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
+import { Monogram3DViewer } from '@/components/ui/Monogram3DViewer';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -127,11 +127,6 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Settings,
       },
       {
-        name: 'PIXMINT AI Control',
-        href: '/settings/pixmint-bot',
-        icon: Bot,
-      },
-      {
         name: 'Financials (Frozen)',
         href: '/financials',
         icon: DollarSign,
@@ -214,11 +209,9 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
         }`}
       >
         <div className="flex items-center gap-3 overflow-hidden min-w-0">
-          <img
-            src="/draughtsman_logo.jpeg"
-            alt="Draughtsman Studio Logo"
-            className="h-9 w-9 rounded-xl object-cover bg-slate-900 border border-slate-700/60 shadow-md shrink-0"
-          />
+          <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-900 border border-slate-700/60 shadow-md shrink-0 flex items-center justify-center p-0.5">
+            <Monogram3DViewer className="w-full h-full" autoRotate={true} rotationSpeed={0.02} />
+          </div>
           {!isCollapsed && (
             <div className="overflow-hidden min-w-0">
               <h1 className="text-sm font-bold tracking-wider text-white uppercase truncate font-mono">

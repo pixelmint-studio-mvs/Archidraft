@@ -16,6 +16,27 @@
   -->
   <base href="$FLUTTER_BASE_HREF">
 
+  <!-- CustomElementRegistry Idempotency Guard -->
+  <script>
+    (function() {
+      try {
+        if (typeof window !== 'undefined') {
+          var patch = function(proto) {
+            if (!proto || !proto.define) return;
+            var orig = proto.define;
+            proto.define = function(name, constructor, options) {
+              try {
+                if (this.get(name)) return;
+                orig.call(this, name, constructor, options);
+              } catch(e) {}
+            };
+          };
+          if (window.customElements) patch(Object.getPrototypeOf(window.customElements));
+          if (window.CustomElementRegistry) patch(window.CustomElementRegistry.prototype);
+        }
+      } catch(e) {}
+    })();
+  </script>
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -29,9 +50,6 @@
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>archi_draft</title>
-  <link rel="manifest" href="manifest.json">
 </head>
 <body>
   <!--

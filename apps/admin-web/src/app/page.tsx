@@ -13,17 +13,18 @@ import {
   Compass,
 } from 'lucide-react';
 
+import { Monogram3DViewer } from '@/components/ui/Monogram3DViewer';
+import { DraughtsmanBrandSignature } from '@/components/ui/DraughtsmanBrandSignature';
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#fbf9fb] text-slate-900 blueprint-bg flex flex-col justify-between selection:bg-[#0453cd] selection:text-white relative overflow-x-hidden">
       {/* Top Technical Metadata Bar */}
       <header className="w-full border-b border-slate-200/80 bg-white/70 backdrop-blur-md sticky top-0 z-30 px-6 lg:px-16 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img
-            src="/draughtsman_logo.jpeg"
-            alt="Draughtsman Studio Logo"
-            className="h-8 w-8 rounded-lg object-cover bg-slate-900 border border-slate-700/60 shadow-xs shrink-0"
-          />
+          <div className="h-8 w-8 shrink-0 flex items-center justify-center">
+            <Monogram3DViewer className="w-full h-full" autoRotate={true} revolutionDuration={10} />
+          </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold text-slate-900 tracking-wider uppercase">
               Archi Draft
@@ -51,16 +52,12 @@ export default function LandingPage() {
 
       {/* Main Showcase Section */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 md:py-20 flex flex-col items-center">
-        {/* Brand Emblem Card */}
-        <div className="mb-8 p-3 rounded-2xl bg-white border border-slate-200/90 soft-elevation relative group">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-xl overflow-hidden flex items-center justify-center bg-slate-900 p-2">
-            <img
-              src="/draughtsman_logo.jpeg"
-              alt="Draughtsman Studio Emblem"
-              className="w-full h-full object-contain rounded-lg"
-            />
+        {/* Main Brand Presentation: Floating 3D Monogram & Architectural Brand Signature */}
+        <div className="flex flex-col items-center justify-center mb-10">
+          <div className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 flex items-center justify-center relative">
+            <Monogram3DViewer className="w-full h-full" autoRotate={true} revolutionDuration={10} />
           </div>
-          <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-400 ring-4 ring-white" />
+          <DraughtsmanBrandSignature className="mt-4" />
         </div>
 
         {/* Hero Headlines */}

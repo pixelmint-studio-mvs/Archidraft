@@ -5,6 +5,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/blueprint_background.dart';
+import '../../../shared/widgets/draughtsman_brand_signature.dart';
+import '../../../shared/widgets/hexagonal_monogram_3d_viewer.dart';
 
 /// Landing / Welcome screen.
 ///
@@ -165,45 +167,29 @@ class _LandingScreenState extends State<LandingScreen>
 }
 
 /// Logo glass panel matching code.html:
-/// w-full max-w-[280px] aspect-square rounded-2xl glass-panel soft-elevation p-4
+/// Main brand hero: 3D Monogram with architectural Draughtsman Studio brand signature
 class _LogoPanel extends StatelessWidget {
   const _LogoPanel();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 260,
-        height: 260,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white,
-            width: 1.0,
-          ),
-          boxShadow: [
-            // Ambient elevation matching code.html .soft-elevation
-            BoxShadow(
-              color: const Color(0xFF0D1C32).withValues(alpha: 0.05),
-              offset: const Offset(0, 1),
-              blurRadius: 2,
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 220,
+            height: 220,
+            child: HexagonalMonogram3DViewer(
+              width: 220,
+              height: 220,
+              autoRotate: true,
+              rotationSpeed: '36deg',
             ),
-            BoxShadow(
-              color: const Color(0xFF0D1C32).withValues(alpha: 0.03),
-              offset: const Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.asset(
-            'assets/images/draughtsman_logo.jpeg',
-            fit: BoxFit.contain,
           ),
-        ),
+          SizedBox(height: 16),
+          DraughtsmanBrandSignature(),
+        ],
       ),
     );
   }

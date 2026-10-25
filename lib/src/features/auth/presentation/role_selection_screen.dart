@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/blueprint_background.dart';
+import '../../../shared/widgets/hexagonal_monogram_3d_viewer.dart';
 
 /// Role Selection screen — pre-login role chooser.
 ///
@@ -246,10 +247,7 @@ class _SmallLogoMark extends StatelessWidget {
                 ),
               ],
             ),
-            child: Image.asset(
-              'assets/images/draughtsman_logo.jpeg',
-              fit: BoxFit.contain,
-            ),
+            child: const HexagonalMonogram3DViewer(width: 80, height: 80, autoRotate: true, rotationSpeed: '36deg'),
           ),
         ),
       ),

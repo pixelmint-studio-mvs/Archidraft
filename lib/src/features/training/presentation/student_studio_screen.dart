@@ -17,6 +17,7 @@ import '../../portfolio/providers/portfolio_providers.dart';
 import '../../profile/providers/credentials_providers.dart';
 import '../../profile/providers/achievements_providers.dart';
 import '../../profile/providers/metrics_providers.dart';
+import 'package:archi_draft/src/shared/widgets/hexagonal_monogram_3d_viewer.dart';
 
 // ─────────────────────────────────────────────
 // LOCAL PROVIDERS
@@ -271,11 +272,7 @@ class _WelcomeHeader extends StatelessWidget {
                   color: AppColors.secondary,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                 ),
-                child: const Icon(
-                  Icons.architecture,
-                  color: AppColors.onSecondary,
-                  size: 24,
-                ),
+                child: const HexagonalMonogram3DViewer(width: 48, height: 48, autoRotate: true, rotationSpeed: '36deg'),
               ),
               const SizedBox(width: AppSpacing.lg),
               Expanded(

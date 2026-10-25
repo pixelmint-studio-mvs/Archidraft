@@ -10,6 +10,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/auth_error_mapper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/blueprint_background.dart';
+import '../../../shared/widgets/hexagonal_monogram_3d_viewer.dart';
 import '../providers/auth_providers.dart';
 import 'widgets/auth_form_field.dart';
 
@@ -180,15 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
             // Logo Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/images/draughtsman_logo.jpeg',
-                width: 76,
-                height: 76,
-                fit: BoxFit.contain,
-              ),
-            ),
+            const HexagonalMonogram3DViewer(width: 76, height: 76, autoRotate: true, rotationSpeed: '36deg'),
           ],
         ),
       ),

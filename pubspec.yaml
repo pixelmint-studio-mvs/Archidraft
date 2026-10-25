@@ -64,8 +64,9 @@ dependencies:
   json_annotation: ^4.12.0
   percent_indicator: ^4.2.5
   url_launcher: ^6.3.3
-  pixmint_bot:
-    path: packages/pixmint_bot
+  model_viewer_plus: ^1.10.0
+  webview_flutter_platform_interface: ^2.15.1
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -90,6 +91,7 @@ flutter:
 
   assets:
     - assets/images/draughtsman_logo.jpeg
+    - assets/models/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

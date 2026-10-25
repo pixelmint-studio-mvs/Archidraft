@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { ShieldCheck, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { Monogram3DViewer } from '@/components/ui/Monogram3DViewer';
+import { DraughtsmanBrandSignature } from '@/components/ui/DraughtsmanBrandSignature';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('contact@draughtsmanstudio.com');
@@ -52,17 +54,12 @@ export default function LoginPage() {
       {/* Main Content Area */}
       <main className="flex-1 flex items-center justify-center py-10 relative z-10">
         <div className="w-full max-w-[440px]">
-          {/* Logo Area with Architectural Framing */}
-          <div className="flex justify-center mb-8 relative">
-            <div className="relative inline-block">
-              <div className="absolute -inset-3 border border-slate-300/40 rounded-2xl pointer-events-none" />
-              <div className="absolute -inset-6 border border-slate-300/20 rounded-3xl border-dashed pointer-events-none" />
-              <img
-                alt="Draughtsman Studio Logo"
-                className="w-20 h-20 rounded-2xl object-cover bg-slate-900 border border-slate-700/60 shadow-lg relative z-10"
-                src="/draughtsman_logo.jpeg"
-              />
+          {/* Main Brand Presentation: Floating 3D Monogram & Architectural Brand Signature */}
+          <div className="flex flex-col items-center justify-center mb-6 relative">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 relative flex items-center justify-center">
+              <Monogram3DViewer className="w-full h-full" autoRotate={true} revolutionDuration={10} />
             </div>
+            <DraughtsmanBrandSignature compact className="mt-2" />
           </div>
 
           {/* Login Card (Stitch Architectural Precision System) */}
