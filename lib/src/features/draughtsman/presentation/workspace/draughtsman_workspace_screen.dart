@@ -21,6 +21,7 @@ import 'package:archi_draft/src/features/projects/providers/assignment_providers
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/file_upload_button.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/cad_drawing_viewer.dart';
 import '../collaboration/collaboration_hub_view.dart';
 
 // ─────────────────────────────────────────────────────────
@@ -440,6 +441,7 @@ class _WorkspaceCanvasTab extends ConsumerStatefulWidget {
 
 class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
   bool _isOverlayMode = false;
+  bool _isCadMode = false;
   double _zoomScale = 1.0;
   final TransformationController _transformationController = TransformationController();
 
@@ -765,20 +767,36 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                     width: 0.5,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ToolbarSegment(
-                      label: 'Split View',
-                      isSelected: !_isOverlayMode,
-                      onTap: () => setState(() => _isOverlayMode = false),
-                    ),
-                    _ToolbarSegment(
-                      label: 'Overlay',
-                      isSelected: _isOverlayMode,
-                      onTap: () => setState(() => _isOverlayMode = true),
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ToolbarSegment(
+                        label: 'Split View',
+                        isSelected: !_isOverlayMode && !_isCadMode,
+                        onTap: () => setState(() {
+                          _isOverlayMode = false;
+                          _isCadMode = false;
+                        }),
+                      ),
+                      _ToolbarSegment(
+                        label: 'Overlay',
+                        isSelected: _isOverlayMode && !_isCadMode,
+                        onTap: () => setState(() {
+                          _isOverlayMode = true;
+                          _isCadMode = false;
+                        }),
+                      ),
+                      _ToolbarSegment(
+                        label: 'CAD View',
+                        isSelected: _isCadMode,
+                        onTap: () => setState(() {
+                          _isCadMode = true;
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -849,24 +867,36 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-              child: InteractiveViewer(
-                transformationController: _transformationController,
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: versionsAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Error loading drawing: $e')),
-                  data: (versions) {
-                    final current = versions.isNotEmpty ? versions.first : null;
-                    final previous = versions.length > 1 ? versions[1] : null;
+              child: versionsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error loading drawing: $e')),
+                data: (versions) {
+                  final current = versions.isNotEmpty ? versions.first : null;
+                  final previous = versions.length > 1 ? versions[1] : null;
 
-                    if (_isOverlayMode) {
-                      return _buildOverlayViewer(current, previous);
+                  if (_isCadMode) {
+                    if (current != null && current.fileId.isNotEmpty) {
+                      return CadDrawingViewer(
+                        fileId: current.fileId,
+                        fileName: current.originalName ?? current.sanitizedName ?? 'drawing_v${current.versionNumber}.dwg',
+                        fileSize: current.size,
+                        versionNumber: current.versionNumber,
+                        height: 480,
+                      );
                     } else {
-                      return _buildSplitViewer(current, previous);
+                      return const Center(child: Text('No CAD drawing file uploaded yet.'));
                     }
-                  },
-                ),
+                  }
+
+                  return InteractiveViewer(
+                    transformationController: _transformationController,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: _isOverlayMode
+                        ? _buildOverlayViewer(current, previous)
+                        : _buildSplitViewer(current, previous),
+                  );
+                },
               ),
             ),
           ),
@@ -1661,30 +1691,102 @@ class _VersionLogItem extends ConsumerWidget {
             ),
           ),
           if (version.fileId.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.download_rounded, size: 18),
-              color: AppColors.secondary,
-              tooltip: 'Download Revision File',
-              onPressed: () async {
-                final fileName = version.originalName ?? version.sanitizedName ?? 'drawing_v${version.versionNumber}.dwg';
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Downloading $fileName...')),
-                );
-                try {
-                  await ref.read(fileRepositoryProvider).downloadFile(version.fileId, fileName);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Download failed: $e'), backgroundColor: AppColors.error),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  color: AppColors.primary,
+                  tooltip: 'Preview Revision Drawing',
+                  onPressed: () {
+                    final fileName = version.originalName ?? version.sanitizedName ?? 'drawing_v${version.versionNumber}.dwg';
+                    _showCadDrawingPreviewDialog(
+                      context,
+                      fileId: version.fileId,
+                      fileName: fileName,
+                      versionNumber: version.versionNumber,
                     );
-                  }
-                }
-              },
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  color: AppColors.secondary,
+                  tooltip: 'Download Revision File',
+                  onPressed: () async {
+                    final fileName = version.originalName ?? version.sanitizedName ?? 'drawing_v${version.versionNumber}.dwg';
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Downloading $fileName...')),
+                    );
+                    try {
+                      await ref.read(fileRepositoryProvider).downloadFile(version.fileId, fileName);
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Download failed: $e'), backgroundColor: AppColors.error),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
         ],
       ),
     );
   }
+}
+
+void _showCadDrawingPreviewDialog(
+  BuildContext context, {
+  required String fileId,
+  required String fileName,
+  required int versionNumber,
+}) {
+  showDialog(
+    context: context,
+    builder: (ctx) => Dialog(
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMd)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              child: Row(
+                children: [
+                  const Icon(Icons.architecture, color: AppColors.primary, size: 20),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Preview: $fileName',
+                      style: AppTypography.headlineSmMobile.copyWith(color: AppColors.onSurface),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    key: const ValueKey('close_cad_preview_dialog'),
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: CadDrawingViewer(
+                fileId: fileId,
+                fileName: fileName,
+                versionNumber: versionNumber,
+                height: 480,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────

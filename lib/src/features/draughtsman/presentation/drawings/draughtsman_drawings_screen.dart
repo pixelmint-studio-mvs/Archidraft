@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +14,7 @@ import 'package:archi_draft/src/features/projects/data/file_repository.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment_status.dart';
 import 'package:archi_draft/src/features/projects/domain/drawing_version.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/cad_drawing_viewer.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 
@@ -63,6 +64,70 @@ class _DraughtsmanDrawingsScreenState
 
   // File download state
   bool _isDownloading = false;
+
+  void _showDrawingPreviewDialog(
+    BuildContext context,
+    String fileId,
+    String fileName,
+    int versionNumber,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.architecture,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Preview: $fileName',
+                        style: AppTypography.headlineSmMobile.copyWith(
+                          color: AppColors.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('close_cad_preview_dialog'),
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: CadDrawingViewer(
+                  fileId: fileId,
+                  fileName: fileName,
+                  versionNumber: versionNumber,
+                  height: 480,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -1531,6 +1596,37 @@ class _DraughtsmanDrawingsScreenState
 
           const SizedBox(height: AppSpacing.lg),
 
+          // Preview CAD Drawing Action
+          if (currentVersion.fileId.isNotEmpty) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _showDrawingPreviewDialog(
+                  context,
+                  currentVersion.fileId,
+                  currentVersion.originalName ??
+                      'drawing_v${currentVersion.versionNumber}.dwg',
+                  currentVersion.versionNumber,
+                ),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: Text(
+                  'Preview CAD Drawing (v${currentVersion.versionNumber})',
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusDefault),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+
           // Direct Download Action
           SizedBox(
             width: double.infinity,
@@ -2047,6 +2143,21 @@ class _DraughtsmanDrawingsScreenState
                                 ),
                               ),
                             ),
+                            if (v.fileId.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.visibility_outlined, size: 18),
+                                color: AppColors.primary,
+                                tooltip: 'Preview this version',
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _showDrawingPreviewDialog(
+                                    context,
+                                    v.fileId,
+                                    v.originalName ?? 'drawing_v${v.versionNumber}.dwg',
+                                    v.versionNumber,
+                                  );
+                                },
+                              ),
                             IconButton(
                               icon: const Icon(Icons.download_rounded, size: 18),
                               tooltip: 'Download this version',

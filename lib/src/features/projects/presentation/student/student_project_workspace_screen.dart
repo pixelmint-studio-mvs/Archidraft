@@ -557,6 +557,8 @@ class _StudentProjectWorkspaceScreenState
                     for (int i = 0; i < versions.length; i++) ...[
                       _DrawingVersionTile(
                         version: versions[i],
+                        onPreview: (fileId, fileName, versionNumber) =>
+                            _showDrawingPreviewDialog(context, fileId, fileName, versionNumber),
                         statusTag: i == 0
                             ? (isCompleted
                                 ? 'Approved'
@@ -1337,11 +1339,13 @@ class _DrawingVersionTile extends ConsumerStatefulWidget {
   final DrawingVersion version;
   final String? statusTag;
   final Color? tagColor;
+  final void Function(String fileId, String fileName, int versionNumber)? onPreview;
 
   const _DrawingVersionTile({
     required this.version,
     this.statusTag,
     this.tagColor,
+    this.onPreview,
   });
 
   @override
@@ -1467,17 +1471,33 @@ class _DrawingVersionTileState extends ConsumerState<_DrawingVersionTile> {
           ],
         ),
         isThreeLine: fileName != null && fileName.isNotEmpty,
-        trailing: _isDownloading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : IconButton(
-                icon: const Icon(Icons.download_rounded),
-                tooltip: 'Download Version',
-                onPressed: _download,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.version.fileId.isNotEmpty && widget.onPreview != null)
+              IconButton(
+                icon: const Icon(Icons.visibility_outlined, size: 20),
+                tooltip: 'Preview CAD Drawing',
+                onPressed: () {
+                  final name = widget.version.sanitizedName ??
+                      widget.version.originalName ??
+                      'drawing_v${widget.version.versionNumber}.dwg';
+                  widget.onPreview!(widget.version.fileId, name, widget.version.versionNumber);
+                },
               ),
+            _isDownloading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.download_rounded),
+                    tooltip: 'Download Version',
+                    onPressed: _download,
+                  ),
+          ],
+        ),
       ),
     );
   }
