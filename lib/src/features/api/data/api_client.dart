@@ -24,6 +24,7 @@ class ApiClient {
   static String resolveBaseUrl({
     String? overrideUrl,
     bool? isRelease,
+    bool? isAndroidEmulator,
   }) {
     final releaseMode = isRelease ?? kReleaseMode;
     final configured = (overrideUrl ?? const String.fromEnvironment('API_URL')).trim();
@@ -49,9 +50,25 @@ class ApiClient {
       return configured;
     }
 
+    final isEmulatorHost = isAndroidEmulator ??
+        (!kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            !platform_io.isUnderFlutterTest());
+
     if (configured.isNotEmpty) {
+      if (isEmulatorHost) {
+        final uri = Uri.tryParse(configured);
+        if (uri != null && (uri.host == 'localhost' || uri.host == '127.0.0.1')) {
+          return uri.replace(host: '10.0.2.2').toString();
+        }
+      }
       return configured;
     }
+
+    if (isEmulatorHost) {
+      return 'http://10.0.2.2:8787';
+    }
+
     return 'http://localhost:8787';
   }
 
@@ -162,15 +179,10 @@ class ApiClient {
   Future<List<int>> downloadBinary(String path) async {
     // Deprecated for large files: Use downloadFileStream instead for Mobile
     final uri = Uri.parse('$baseUrl$path');
-    final user = _firebaseAuth.currentUser;
-    if (user == null) {
-      throw Exception('User not authenticated');
-    }
-    final token = await user.getIdToken();
+    final headers = await _getHeaders();
+    headers.remove('Content-Type');
     
-    final response = await http.get(uri, headers: {
-      'Authorization': 'Bearer $token',
-    });
+    final response = await http.get(uri, headers: headers);
     
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response.bodyBytes;
@@ -181,14 +193,11 @@ class ApiClient {
 
   Future<void> downloadFileStream(String path, String savePath, {bool openInBrowser = false}) async {
     final uri = Uri.parse('$baseUrl$path');
-    final user = _firebaseAuth.currentUser;
-    if (user == null) {
-      throw Exception('User not authenticated');
-    }
-    final token = await user.getIdToken();
+    final headers = await _getHeaders();
+    headers.remove('Content-Type');
 
     final request = http.Request('GET', uri)
-      ..headers['Authorization'] = 'Bearer $token';
+      ..headers.addAll(headers);
 
     final client = http.Client();
     try {

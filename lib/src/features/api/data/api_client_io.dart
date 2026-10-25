@@ -13,3 +13,7 @@ Future<void> saveFileStream(
   await sink.flush();
   await sink.close();
 }
+
+bool isUnderFlutterTest() {
+  return Platform.environment.containsKey('FLUTTER_TEST');
+}

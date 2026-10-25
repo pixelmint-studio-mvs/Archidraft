@@ -66,3 +66,7 @@ Future<void> saveFileStream(
     });
   }
 }
+
+bool isUnderFlutterTest() {
+  return false;
+}

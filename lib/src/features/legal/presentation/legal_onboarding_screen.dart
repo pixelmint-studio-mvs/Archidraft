@@ -90,6 +90,7 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
   }
 
   Future<void> _handleAcceptance(LegalDocument? termsDoc, LegalDocument? privacyDoc) async {
+    if (_isSubmitting) return;
     if (!_termsAgreed && termsDoc != null) return;
 
     if (widget.isPreLogin) {
@@ -148,10 +149,13 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
         version: privacyDoc?.version,
       );
 
-      // Invalidate legal status so router immediately allows navigation
-      ref.invalidate(userLegalStatusProvider);
+      // Refresh and await legal status so router immediately allows navigation with valid compliant state
+      final _ = await ref.refresh(userLegalStatusProvider.future);
 
       if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
         _navigateToRoleDashboard();
       }
     } catch (e) {

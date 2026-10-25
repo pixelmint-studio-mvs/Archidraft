@@ -19,6 +19,33 @@ void main() {
       expect(url, equals('http://192.168.1.50:8787'));
     });
 
+    test('resolves to 10.0.2.2:8787 in Android emulator mode when unconfigured', () {
+      final url = ApiClient.resolveBaseUrl(
+        overrideUrl: '',
+        isRelease: false,
+        isAndroidEmulator: true,
+      );
+      expect(url, equals('http://10.0.2.2:8787'));
+    });
+
+    test('maps localhost to 10.0.2.2 in Android emulator mode', () {
+      final url = ApiClient.resolveBaseUrl(
+        overrideUrl: 'http://localhost:8787',
+        isRelease: false,
+        isAndroidEmulator: true,
+      );
+      expect(url, equals('http://10.0.2.2:8787'));
+    });
+
+    test('preserves explicit custom non-localhost IP in Android emulator mode', () {
+      final url = ApiClient.resolveBaseUrl(
+        overrideUrl: 'http://192.168.1.100:8787',
+        isRelease: false,
+        isAndroidEmulator: true,
+      );
+      expect(url, equals('http://192.168.1.100:8787'));
+    });
+
     test('throws StateError in release mode when API_URL is empty', () {
       expect(
         () => ApiClient.resolveBaseUrl(overrideUrl: '', isRelease: true),
