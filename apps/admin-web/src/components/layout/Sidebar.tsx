@@ -179,7 +179,9 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
         if (!mounted) return;
         setCounts({
           projects: stats.projects?.total ?? 0,
-          engineers: stats.users?.byRole?.['CLIENT'] ?? 0,
+          engineers:
+            stats.users?.registeredEngineers ??
+            ((stats.users?.byRole?.['CLIENT'] ?? 0) + (stats.users?.byRole?.['ENGINEER'] ?? 0)),
           draughtsmen: stats.users?.byRole?.['DRAUGHTSMAN'] ?? 0,
           students: stats.users?.byRole?.['STUDENT'] ?? 0,
         });

@@ -15,31 +15,32 @@ export function parseUtcDate(dateInput: string | Date | null | undefined): Date 
   if (dateInput instanceof Date) {
     return isNaN(dateInput.getTime()) ? null : dateInput;
   }
-  if (typeof dateInput !== 'string' || !dateInput.trim()) return null;
+  if (typeof dateInput !== 'string') return null;
   const trimmed = dateInput.trim();
+  if (!trimmed) return null;
 
-  // If already an ISO string with UTC indicator ('Z') or offset (+/-HH:MM)
+  // 1. If already an ISO string with UTC indicator ('Z') or explicit timezone offset (+/-HH:MM)
   if (trimmed.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(trimmed)) {
     const d = new Date(trimmed);
     return isNaN(d.getTime()) ? null : d;
   }
 
-  // Handle standard SQLite format 'YYYY-MM-DD HH:MM:SS'
-  let normalized = trimmed;
-  if (!normalized.includes('T') && normalized.length >= 19) {
-    normalized = normalized.replace(' ', 'T');
+  // 2. Handle standard SQLite format 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DDTHH:MM:SS' (with optional ms)
+  const sqliteMatch = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)$/.exec(trimmed);
+  if (sqliteMatch) {
+    const normalized = `${sqliteMatch[1]}T${sqliteMatch[2]}Z`;
+    const d = new Date(normalized);
+    if (!isNaN(d.getTime())) return d;
   }
 
-  // Append 'Z' to treat as authoritative UTC
-  if (!normalized.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
-    normalized = `${normalized}Z`;
+  // 3. Date-only format 'YYYY-MM-DD'
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const d = new Date(`${trimmed}T00:00:00Z`);
+    if (!isNaN(d.getTime())) return d;
   }
 
-  const d = new Date(normalized);
-  if (!isNaN(d.getTime())) return d;
-
-  // Fallback to standard parse if custom normalization is not applicable
-  const fallback = new Date(dateInput);
+  // 4. Safe fallback for other standard date formats (without blind 'Z' suffixing on non-dates)
+  const fallback = new Date(trimmed);
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
