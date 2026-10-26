@@ -121,6 +121,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null; // Wait for profile to load
       }
 
+      // If user profile is missing in the database, direct them to provision their profile
+      if (profileAsync.value == null) {
+        if (currentPath == '/provision-profile') return null;
+        return '/provision-profile';
+      }
+
       final role = ref.read(currentUserRoleProvider);
       final isProfileComplete = ref.read(isProfileCompleteProvider);
 

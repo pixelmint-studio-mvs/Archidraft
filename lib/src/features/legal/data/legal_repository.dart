@@ -107,33 +107,50 @@ class LegalRepository {
 
   /// Retrieves authenticated user's current compliance and consent state
   Future<UserLegalStatus> getUserLegalStatus() async {
-    final response = await _apiClient.get('/api/users/me/legal-status');
-    if (response is Map<String, dynamic>) {
-      final status = UserLegalStatus.fromJson(response);
-      const isStaging = bool.fromEnvironment('STAGING', defaultValue: false);
-      const stagingTestUids = {
-        'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer
-        'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman
-        '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student
-        'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin
-      };
-      if (isStaging && stagingTestUids.contains(status.userId)) {
-        return UserLegalStatus(
-          userId: status.userId,
-          termsAccepted: true,
+    try {
+      final response = await _apiClient.get('/api/users/me/legal-status');
+      if (response is Map<String, dynamic>) {
+        final status = UserLegalStatus.fromJson(response);
+        const isStaging = bool.fromEnvironment('STAGING', defaultValue: false);
+        const stagingTestUids = {
+          'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer
+          'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman
+          '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student
+          'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin
+        };
+        if (isStaging && stagingTestUids.contains(status.userId)) {
+          return UserLegalStatus(
+            userId: status.userId,
+            termsAccepted: true,
+            reacceptanceRequired: false,
+            acceptedTermsVersion: status.acceptedTermsVersion ?? '1.0.0-staging-test',
+            latestTermsVersion: status.latestTermsVersion ?? '1.0.0-staging-test',
+            privacyNoticeAcknowledged: true,
+            acknowledgedPrivacyVersion: status.acknowledgedPrivacyVersion,
+            latestPrivacyVersion: status.latestPrivacyVersion,
+            optionalConsents: status.optionalConsents,
+            requiresAction: false,
+            hasEffectiveTerms: true,
+            missingMandatoryDocs: false,
+          );
+        }
+        return status;
+      }
+    } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('404') || errStr.contains('user not found')) {
+        return const UserLegalStatus(
+          userId: '',
+          termsAccepted: false,
           reacceptanceRequired: false,
-          acceptedTermsVersion: status.acceptedTermsVersion ?? '1.0.0-staging-test',
-          latestTermsVersion: status.latestTermsVersion ?? '1.0.0-staging-test',
-          privacyNoticeAcknowledged: true,
-          acknowledgedPrivacyVersion: status.acknowledgedPrivacyVersion,
-          latestPrivacyVersion: status.latestPrivacyVersion,
-          optionalConsents: status.optionalConsents,
-          requiresAction: false,
+          privacyNoticeAcknowledged: false,
+          optionalConsents: {},
+          requiresAction: true,
           hasEffectiveTerms: true,
           missingMandatoryDocs: false,
         );
       }
-      return status;
+      rethrow;
     }
     throw Exception('Failed to parse user legal status');
   }
