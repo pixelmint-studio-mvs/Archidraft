@@ -102,7 +102,7 @@ export async function assertTermsAccepted(
  */
 export async function ensureDefaultLegalDocuments(db: D1Database): Promise<void> {
   const termsCount = await db.prepare(
-    "SELECT COUNT(*) as count FROM legal_documents WHERE document_type = 'TERMS_AND_CONDITIONS'"
+    "SELECT COUNT(*) as count FROM legal_documents WHERE document_type = 'TERMS_AND_CONDITIONS' AND status = 'EFFECTIVE'"
   ).first<{ count: number }>();
   if (!termsCount || termsCount.count === 0) {
     await db.prepare(`
@@ -117,7 +117,7 @@ export async function ensureDefaultLegalDocuments(db: D1Database): Promise<void>
   }
 
   const privacyCount = await db.prepare(
-    "SELECT COUNT(*) as count FROM legal_documents WHERE document_type = 'PRIVACY_POLICY'"
+    "SELECT COUNT(*) as count FROM legal_documents WHERE document_type = 'PRIVACY_POLICY' AND status = 'EFFECTIVE'"
   ).first<{ count: number }>();
   if (!privacyCount || privacyCount.count === 0) {
     await db.prepare(`

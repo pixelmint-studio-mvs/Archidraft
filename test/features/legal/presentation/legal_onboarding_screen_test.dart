@@ -107,6 +107,52 @@ void main() {
       expect(elevatedButton.onPressed, isNotNull);
     });
 
+    testWidgets('Unchecking Privacy Notice disables Agree & Enter Workspace button', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            userLegalStatusProvider.overrideWith((ref) => Future.value(mockPendingLegalStatus)),
+            effectiveDocumentProvider('TERMS_AND_CONDITIONS').overrideWith((ref) => Future.value(mockTermsDoc)),
+            effectiveDocumentProvider('PRIVACY_POLICY').overrideWith((ref) => Future.value(mockPrivacyDoc)),
+          ],
+          child: const MaterialApp(
+            home: LegalOnboardingScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Tap Terms checkbox to satisfy terms
+      final termsCheckbox = find.byType(CheckboxListTile).first;
+      await tester.tap(termsCheckbox);
+      await tester.pumpAndSettle();
+
+      // Button should be active
+      var button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNotNull);
+
+      // Now uncheck Privacy Notice checkbox
+      final privacyCheckbox = find.byType(CheckboxListTile).at(1);
+      await tester.tap(privacyCheckbox);
+      await tester.pumpAndSettle();
+
+      // Button must now be disabled because Privacy Notice cannot be bypassed
+      button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNull);
+
+      // Re-check Privacy Notice checkbox
+      await tester.tap(privacyCheckbox);
+      await tester.pumpAndSettle();
+
+      button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNotNull);
+    });
+
     testWidgets('Gracefully renders maintenance card when mandatory terms are missing', (WidgetTester tester) async {
       const mockMissingDocsStatus = UserLegalStatus(
         userId: 'test-user-01',

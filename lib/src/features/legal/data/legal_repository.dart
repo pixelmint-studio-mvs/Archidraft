@@ -19,9 +19,13 @@ class LegalRepository {
         if (docs.isNotEmpty) {
           return docs.map((d) {
             final isTrivial = d.content.trim().isEmpty ||
-              d.content.trim() == '# Terms and Conditions' ||
-              d.content.trim() == '# Terms';
-          if (!isTrivial) return d;
+                d.content.trim().length < 200 ||
+                d.content.trim() == '# Terms and Conditions' ||
+                d.content.trim() == '# Terms' ||
+                d.content.trim() == '# Privacy Policy' ||
+                d.content.trim().startsWith('# Platform Terms and Conditions') ||
+                d.content.trim().startsWith('# Privacy Policy\n\nThis Privacy Policy governs');
+            if (!isTrivial) return d;
             final fallbackContent = d.documentType == 'TERMS_AND_CONDITIONS'
                 ? kAuthoritativeTermsAndConditionsContent
                 : (d.documentType == 'PRIVACY_POLICY' ? kAuthoritativePrivacyPolicyContent : d.content);
@@ -60,8 +64,12 @@ class LegalRepository {
       if (response is Map<String, dynamic> && response['document'] is Map<String, dynamic>) {
         final doc = LegalDocument.fromJson(response['document'] as Map<String, dynamic>);
         final isTrivial = doc.content.trim().isEmpty ||
+            doc.content.trim().length < 200 ||
             doc.content.trim() == '# Terms and Conditions' ||
-            doc.content.trim() == '# Terms';
+            doc.content.trim() == '# Terms' ||
+            doc.content.trim() == '# Privacy Policy' ||
+            doc.content.trim().startsWith('# Platform Terms and Conditions') ||
+            doc.content.trim().startsWith('# Privacy Policy\n\nThis Privacy Policy governs');
         if (!isTrivial) {
           return doc;
         }
