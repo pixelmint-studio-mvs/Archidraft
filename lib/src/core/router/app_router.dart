@@ -79,6 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/login',
         '/register',
         '/forgot-password',
+        '/verify-email',
       ];
       final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/');
 

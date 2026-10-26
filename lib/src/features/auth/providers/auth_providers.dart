@@ -62,6 +62,8 @@ class AuthController extends Notifier<AsyncValue<void>> {
         mobile: mobile,
         role: role,
       );
+      ref.invalidate(userProfileProvider);
+      ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -80,6 +82,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
         email: email,
         password: password,
       );
+      ref.invalidate(userProfileProvider);
       ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
       return true;
@@ -94,6 +97,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
     try {
       ref.read(preLoginTermsProvider.notifier).reset();
       await ref.read(authRepositoryProvider).signOut();
+      ref.invalidate(userProfileProvider);
       ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
     } catch (e, st) {

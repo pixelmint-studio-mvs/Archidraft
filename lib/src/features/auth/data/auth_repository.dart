@@ -59,7 +59,15 @@ class AuthRepository {
       });
       
     } catch (e) {
-      await user.delete();
+      try {
+        await user.delete();
+      } catch (_) {}
+      if (e.toString().contains('409') || e.toString().contains('already exists')) {
+        throw FirebaseAuthException(
+          code: 'email-already-in-use',
+          message: 'An account with this email address already exists. Please log in or use a different email.',
+        );
+      }
       rethrow;
     }
 
