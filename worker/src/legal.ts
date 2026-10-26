@@ -60,7 +60,6 @@ export async function assertTermsAccepted(
   }
 
   // 1. Fetch currently EFFECTIVE mandatory Terms document from trusted database
-  await ensureDefaultLegalDocuments(db);
   const termsDoc = await db.prepare(
     "SELECT id, version, is_mandatory FROM legal_documents WHERE document_type = 'TERMS_AND_CONDITIONS' AND status = 'EFFECTIVE' AND is_mandatory = 1"
   ).first();
