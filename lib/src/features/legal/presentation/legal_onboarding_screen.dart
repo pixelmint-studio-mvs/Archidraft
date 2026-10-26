@@ -124,10 +124,11 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       );
 
       // 2. Acknowledge privacy notice
+      final effectivePriv = (privacyDoc != null && privacyDoc.content.trim().length > 50)
+          ? privacyDoc
+          : kDefaultEffectivePrivacyDocument;
+
       if (_privacyAcknowledged) {
-        final effectivePriv = (privacyDoc != null && privacyDoc.content.trim().length > 50)
-            ? privacyDoc
-            : kDefaultEffectivePrivacyDocument;
         await repo.acknowledgePrivacy(
           documentId: effectivePriv.id,
           version: effectivePriv.version,
@@ -138,15 +139,15 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       await repo.updateConsent(
         purpose: 'MARKETING_COMMUNICATIONS',
         granted: _marketingConsent,
-        documentId: privacyDoc?.id,
-        version: privacyDoc?.version,
+        documentId: effectivePriv.id,
+        version: effectivePriv.version,
       );
 
       await repo.updateConsent(
         purpose: 'PORTFOLIO_SHOWCASE',
         granted: _portfolioConsent,
-        documentId: privacyDoc?.id,
-        version: privacyDoc?.version,
+        documentId: effectivePriv.id,
+        version: effectivePriv.version,
       );
 
       // Refresh and await legal status so router immediately allows navigation with valid compliant state
@@ -162,7 +163,7 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _submissionError = 'Failed to record legal acceptance. Please verify your connection and try again.';
+          _submissionError = LegalOnboardingScreen.mapLegalErrorMessage(e);
         });
       }
     }

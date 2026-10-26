@@ -60,6 +60,7 @@ export async function assertTermsAccepted(
   }
 
   // 1. Fetch currently EFFECTIVE mandatory Terms document from trusted database
+  await ensureDefaultLegalDocuments(db);
   const termsDoc = await db.prepare(
     "SELECT id, version, is_mandatory FROM legal_documents WHERE document_type = 'TERMS_AND_CONDITIONS' AND status = 'EFFECTIVE' AND is_mandatory = 1"
   ).first();
@@ -97,6 +98,41 @@ export async function assertTermsAccepted(
   return { ok: true };
 }
 
+/**
+ * Ensures baseline effective legal documents exist in D1 if the table has not yet been seeded.
+ */
+export async function ensureDefaultLegalDocuments(db: D1Database): Promise<void> {
+  const termsCount = await db.prepare(
+    "SELECT COUNT(*) as count FROM legal_documents WHERE document_type = 'TERMS_AND_CONDITIONS'"
+  ).first<{ count: number }>();
+  if (!termsCount || termsCount.count === 0) {
+    await db.prepare(`
+      INSERT OR IGNORE INTO legal_documents (
+        id, document_type, version, title, content, effective_at, status, is_mandatory, locale
+      ) VALUES (
+        'doc-terms-v1', 'TERMS_AND_CONDITIONS', '1.0.0', 'Platform Terms and Conditions',
+        '# Platform Terms and Conditions\n\nBy accessing and using Archi Draft, you agree to these Terms and Conditions.',
+        '2026-10-24 00:00:00', 'EFFECTIVE', 1, 'en-IN'
+      )
+    `).run();
+  }
+
+  const privacyCount = await db.prepare(
+    "SELECT COUNT(*) as count FROM legal_documents WHERE document_type = 'PRIVACY_POLICY'"
+  ).first<{ count: number }>();
+  if (!privacyCount || privacyCount.count === 0) {
+    await db.prepare(`
+      INSERT OR IGNORE INTO legal_documents (
+        id, document_type, version, title, content, effective_at, status, is_mandatory, locale
+      ) VALUES (
+        'doc-priv-v1', 'PRIVACY_POLICY', '1.0.0', 'Privacy Policy',
+        '# Privacy Policy\n\nThis Privacy Policy governs the processing of personal data on the Archi Draft platform under the Digital Personal Data Protection Act, 2023.',
+        '2026-10-24 00:00:00', 'EFFECTIVE', 0, 'en-IN'
+      )
+    `).run();
+  }
+}
+
 export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: Variables }>) {
 
   // =========================================================================
@@ -107,6 +143,7 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
   // Returns summary metadata of all active EFFECTIVE documents (Drafts/superseded excluded)
   app.get('/api/legal/documents/current', async (c) => {
     const db = c.env.DB;
+    await ensureDefaultLegalDocuments(db);
     const { results } = await db.prepare(`
       SELECT id, document_type, version, title, effective_at, published_at, status, is_mandatory, locale, change_summary 
       FROM legal_documents 
@@ -123,6 +160,7 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
     const type = c.req.param('type');
     const locale = c.req.query('locale') || 'en-IN';
     const db = c.env.DB;
+    await ensureDefaultLegalDocuments(db);
 
     const doc = await db.prepare(`
       SELECT id, document_type, version, title, content, effective_at, published_at, status, is_mandatory, locale, change_summary 
@@ -171,6 +209,8 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
     if (!user) {
       return c.json({ error: 'User not found' }, 404);
     }
+
+    await ensureDefaultLegalDocuments(db);
 
     // 1. Fetch currently EFFECTIVE documents
     const { results: effectiveDocs } = await db.prepare(`
@@ -237,6 +277,8 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
     const user = await getUser(db, uid);
     if (!user) return c.json({ error: 'User not found' }, 404);
 
+    await ensureDefaultLegalDocuments(db);
+
     // Validate target document
     let doc: any = null;
     if (body.documentId) {
@@ -245,13 +287,15 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
         FROM legal_documents 
         WHERE id = ?
       `).bind(body.documentId).first();
-    } else if (body.version) {
+    }
+    if (!doc && body.version) {
       doc = await db.prepare(`
         SELECT id, document_type, version, status, is_mandatory 
         FROM legal_documents 
         WHERE document_type = 'TERMS_AND_CONDITIONS' AND version = ? AND status = 'EFFECTIVE'
       `).bind(body.version).first();
-    } else {
+    }
+    if (!doc) {
       doc = await db.prepare(`
         SELECT id, document_type, version, status, is_mandatory 
         FROM legal_documents 
@@ -339,6 +383,8 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
     const user = await getUser(db, uid);
     if (!user) return c.json({ error: 'User not found' }, 404);
 
+    await ensureDefaultLegalDocuments(db);
+
     // Validate target privacy notice
     let doc: any = null;
     if (body.documentId) {
@@ -347,7 +393,15 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
         FROM legal_documents 
         WHERE id = ?
       `).bind(body.documentId).first();
-    } else {
+    }
+    if (!doc && body.version) {
+      doc = await db.prepare(`
+        SELECT id, document_type, version, status
+        FROM legal_documents
+        WHERE document_type = 'PRIVACY_POLICY' AND version = ? AND status = 'EFFECTIVE'
+      `).bind(body.version).first();
+    }
+    if (!doc) {
       doc = await db.prepare(`
         SELECT id, document_type, version, status 
         FROM legal_documents 
@@ -434,18 +488,27 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
       return c.json({ error: 'Missing or invalid purpose or granted flag' }, 400);
     }
 
+    await ensureDefaultLegalDocuments(db);
+
     // Lookup effective privacy document reference
     let doc: any = null;
     if (body.documentId) {
       doc = await db.prepare('SELECT id, version FROM legal_documents WHERE id = ?').bind(body.documentId).first();
-    } else {
+    }
+    if (!doc && body.version) {
+      doc = await db.prepare(`
+        SELECT id, version FROM legal_documents
+        WHERE document_type = 'PRIVACY_POLICY' AND version = ? AND status = 'EFFECTIVE'
+      `).bind(body.version).first();
+    }
+    if (!doc) {
       doc = await db.prepare(`
         SELECT id, version FROM legal_documents 
         WHERE document_type = 'PRIVACY_POLICY' AND status = 'EFFECTIVE'
       `).first();
     }
 
-    const docId = doc?.id || 'doc-privacy-default';
+    const docId = doc?.id || 'doc-priv-v1';
     const docVer = doc?.version || '1.0.0';
 
     const actionType = granted ? 'OPTIONAL_CONSENT_GRANTED' : 'OPTIONAL_CONSENT_WITHDRAWN';
