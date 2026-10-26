@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { adminApi } from '@/lib/api';
+import { formatDate, formatTime } from '@/lib/dateUtils';
 import { Project, User, GlobalAssignment } from '@/lib/types';
 import {
   FolderKanban,
@@ -356,7 +357,7 @@ export default function AssignmentsPage() {
                         <div className="shrink-0 text-right flex flex-col items-end justify-between self-stretch">
                           <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            {proj.created_at ? new Date(proj.created_at).toLocaleDateString() : 'Recent'}
+                            {proj.created_at ? formatDate(proj.created_at) : 'Recent'}
                           </span>
                           <Link
                             href={`/projects/${proj.id}`}
@@ -375,7 +376,7 @@ export default function AssignmentsPage() {
                           {isSelected ? '● Target Project Selected' : '○ Click to select for dispatch'}
                         </span>
                         <span className="text-slate-400">
-                          Waiting since {proj.submitted_at ? new Date(proj.submitted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'submission'}
+                          Waiting since {proj.submitted_at ? formatTime(proj.submitted_at) : 'submission'}
                         </span>
                       </div>
                     </div>

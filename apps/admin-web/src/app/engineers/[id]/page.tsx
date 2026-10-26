@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { EngineerProfileView } from '@/components/engineers/EngineerProfileView';
 import { adminApi } from '@/lib/api';
-import { User, Project } from '@/lib/types';
+import { User, Project, getDisplayRole } from '@/lib/types';
 import { ArrowLeft, AlertCircle, RefreshCw, ShieldAlert, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -79,7 +79,7 @@ export default function EngineerDetailPage({
         </Link>
         {engineer && (
           <span className="text-[11px] font-mono text-slate-400">
-            Role: <strong className="text-slate-600">{engineer.role === 'CLIENT' ? 'CLIENT (Engineer)' : engineer.role}</strong>
+            Role: <strong className="text-slate-600">{getDisplayRole(engineer.role)}</strong>
           </span>
         )}
       </div>
