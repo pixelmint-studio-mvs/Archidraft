@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Sparkles,
   Layers,
+  Loader2,
 } from 'lucide-react';
 
 interface EvaluateModalProps {
@@ -69,6 +70,7 @@ export function EvaluateModal({
   const [technicalStandards, setTechnicalStandards] = useState<number | null>(null);
   const [generalFeedback, setGeneralFeedback] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [downloading, setDownloading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -163,15 +165,28 @@ export function EvaluateModal({
             </div>
 
             {fileId && (
-              <a
-                href={adminApi.getFileDownloadUrl(fileId)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-[#0453cd] hover:border-[#0453cd] font-medium text-[11px] shadow-2xs transition-all"
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setDownloading(true);
+                    await adminApi.downloadAndSaveFile(fileId, `deliverable_v${versionNumber || 1}.dwg`);
+                  } catch (err: any) {
+                    setError(err.message || 'Failed to download deliverable');
+                  } finally {
+                    setDownloading(false);
+                  }
+                }}
+                disabled={downloading}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-[#0453cd] hover:border-[#0453cd] disabled:opacity-50 font-medium text-[11px] shadow-2xs transition-all cursor-pointer"
               >
-                <FileDown className="h-3.5 w-3.5" />
-                <span>Inspect Drawing Deliverable</span>
-              </a>
+                {downloading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileDown className="h-3.5 w-3.5" />
+                )}
+                <span>{downloading ? 'Downloading...' : 'Inspect Drawing Deliverable'}</span>
+              </button>
             )}
           </div>
 

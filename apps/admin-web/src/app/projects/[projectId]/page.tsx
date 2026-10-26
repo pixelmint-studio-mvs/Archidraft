@@ -64,6 +64,8 @@ import {
   MapPin,
   Target,
   X,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 type TabKey = 'overview' | 'timeline' | 'cad' | 'collab' | 'files' | 'drawings' | 'corrections' | 'assignments' | 'activity';
@@ -311,6 +313,23 @@ export default function ProjectDetailPage({
   const [isCancelOpen, setIsCancelOpen] = useState<boolean>(false);
   const [isEvaluateOpen, setIsEvaluateOpen] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  // Authenticated file download state
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownloadFile = async (fileId: string, fallbackFileName?: string) => {
+    try {
+      setDownloadingFileId(fileId);
+      setDownloadError(null);
+      await adminApi.downloadAndSaveFile(fileId, fallbackFileName);
+    } catch (err: any) {
+      console.error('File download error:', err);
+      setDownloadError(err.message || 'Failed to download file. Please verify permissions.');
+    } finally {
+      setDownloadingFileId(null);
+    }
+  };
 
   const fetchProjectData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -1589,14 +1608,23 @@ export default function ProjectDetailPage({
 
                   {/* Download CTA */}
                   {vB?.file_id && (
-                    <a
-                      href={adminApi.getFileDownloadUrl(vB.file_id)}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-xs font-semibold font-mono text-white transition-all bg-[#0d1c32] hover:bg-[#1a2d4b] shadow-xs"
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadFile(vB.file_id!, vB.original_name || vB.sanitized_name || `drawing_v${vB.version_number}.dwg`)}
+                      disabled={downloadingFileId === vB.file_id}
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-xs font-semibold font-mono text-white transition-all bg-[#0d1c32] hover:bg-[#1a2d4b] disabled:opacity-50 shadow-xs cursor-pointer"
                     >
-                      <Download className="h-4 w-4" />
-                      Download Current Version (v{vB.version_number})
-                    </a>
+                      {downloadingFileId === vB.file_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      <span>
+                        {downloadingFileId === vB.file_id
+                          ? 'Downloading...'
+                          : `Download Current Version (v${vB.version_number})`}
+                      </span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -1778,12 +1806,15 @@ export default function ProjectDetailPage({
 
                                   {/* File attachment */}
                                   {msg.attachment && !msg.isVoice && (
-                                    <a
-                                      href={msg.attachment.downloadUrl || '#'}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      download={msg.attachment.name}
-                                      className="mt-3 flex items-center gap-3 p-2.5 rounded-lg w-fit pr-4 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors text-inherit no-underline group/att"
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (msg.attachment?.fileId) {
+                                          handleDownloadFile(msg.attachment.fileId, msg.attachment.name);
+                                        }
+                                      }}
+                                      disabled={msg.attachment?.fileId ? downloadingFileId === msg.attachment.fileId : false}
+                                      className="mt-3 flex items-center gap-3 p-2.5 rounded-lg w-fit pr-4 bg-slate-50 border border-slate-200 hover:bg-slate-100 disabled:opacity-50 transition-colors text-inherit no-underline group/att cursor-pointer text-left"
                                     >
                                       <div className="p-1.5 rounded-md"
                                         style={{
@@ -1800,8 +1831,12 @@ export default function ProjectDetailPage({
                                         </p>
                                         <p className="text-[9px] font-mono text-slate-500">{msg.attachment.size}</p>
                                       </div>
-                                      <Download className="h-3.5 w-3.5 text-slate-400 group-hover/att:text-slate-700 transition-colors ml-2 shrink-0" />
-                                    </a>
+                                      {msg.attachment?.fileId && downloadingFileId === msg.attachment.fileId ? (
+                                        <Loader2 className="h-3.5 w-3.5 text-[#0453cd] animate-spin ml-2 shrink-0" />
+                                      ) : (
+                                        <Download className="h-3.5 w-3.5 text-slate-400 group-hover/att:text-slate-700 transition-colors ml-2 shrink-0" />
+                                      )}
+                                    </button>
                                   )}
                                 </div>
 
@@ -2152,6 +2187,16 @@ export default function ProjectDetailPage({
                 subtitle="Documents, sketches, and reference files stored securely in Cloudflare R2"
               />
 
+              {downloadError && (
+                <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center justify-between font-mono">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                    <span>{downloadError}</span>
+                  </div>
+                  <button onClick={() => setDownloadError(null)} className="text-red-500 hover:text-red-700 font-bold ml-2">×</button>
+                </div>
+              )}
+
               {files.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400 font-mono">
                   No reference files uploaded by engineer yet.
@@ -2182,15 +2227,19 @@ export default function ProjectDetailPage({
                         <span className="text-[10px] text-slate-400 font-mono">
                           {formatDate(file.created_at)}
                         </span>
-                        <a
-                          href={adminApi.getFileDownloadUrl(file.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadFile(file.id, file.original_name || file.sanitized_name)}
+                          disabled={downloadingFileId === file.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 border border-blue-200 rounded-lg transition-colors cursor-pointer"
                         >
-                          <Download className="h-3 w-3" />
-                          <span>Download</span>
-                        </a>
+                          {downloadingFileId === file.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Download className="h-3 w-3" />
+                          )}
+                          <span>{downloadingFileId === file.id ? 'Downloading...' : 'Download'}</span>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2238,15 +2287,19 @@ export default function ProjectDetailPage({
                           {formatDateTime(dv.created_at)}
                         </span>
                         {dv.file_id && (
-                          <a
-                            href={adminApi.getFileDownloadUrl(dv.file_id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadFile(dv.file_id!, dv.original_name || dv.sanitized_name || `drawing_v${dv.version_number}.dwg`)}
+                            disabled={downloadingFileId === dv.file_id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 border border-blue-200 rounded-lg transition-colors cursor-pointer"
                           >
-                            <Download className="h-3 w-3" />
-                            <span>Download v{dv.version_number}</span>
-                          </a>
+                            {downloadingFileId === dv.file_id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                            <span>{downloadingFileId === dv.file_id ? 'Downloading...' : `Download v${dv.version_number}`}</span>
+                          </button>
                         )}
                       </div>
                     </div>

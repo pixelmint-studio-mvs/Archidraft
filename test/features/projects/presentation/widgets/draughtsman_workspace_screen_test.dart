@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment.dart';
 import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/drawing_version.dart';
+import 'package:archi_draft/src/features/projects/domain/project_file.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
@@ -274,6 +275,65 @@ void main() {
 
     expect(find.text('ACTIVITY AUDIT'), findsOneWidget);
     expect(find.text('No Activity Yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Reference Files tab renders original engineer files, CAD preview container, and download actions', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    final testRefFile = ProjectFile(
+      id: 'ref-file-01',
+      projectId: 'test-proj-ws-01',
+      uploadedBy: 'c-01',
+      originalName: 'architectural_reference_brief.dwg',
+      sanitizedName: 'architectural_reference_brief.dwg',
+      objectKey: 'projects/test-proj-ws-01/ref-file-01.dwg',
+      contentType: 'application/acad',
+      size: 188992,
+      category: 'client_upload',
+      status: 'AVAILABLE',
+      createdAt: DateTime.now().subtract(const Duration(days: 4)),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assignmentProvider('test-assign-ws-01').overrideWith(
+            (ref) => Future.value(testAssignment),
+          ),
+          projectProvider('test-proj-ws-01').overrideWith(
+            (ref) => Future.value(testProject),
+          ),
+          projectDrawingVersionsProvider('test-proj-ws-01').overrideWith(
+            (ref) => Future.value(testVersions),
+          ),
+          projectActivityLogsProvider('test-proj-ws-01').overrideWith(
+            (ref) => Future.value([]),
+          ),
+          projectCorrectionsProvider('test-proj-ws-01').overrideWith(
+            (ref) => Future.value([]),
+          ),
+          projectFilesProvider('test-proj-ws-01').overrideWith(
+            (ref) => Future.value([testRefFile]),
+          ),
+        ],
+        child: const MaterialApp(
+          home: DraughtsmanWorkspaceScreen(
+            assignmentId: 'test-assign-ws-01',
+            initialTab: 'reference',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ENGINEER REFERENCE FILES'), findsOneWidget);
+    expect(find.text('PROJECT REFERENCE INVENTORY'), findsOneWidget);
+    expect(find.text('architectural_reference_brief.dwg'), findsWidgets);
+    expect(find.text('184.6 KB \u2022 DWG'), findsOneWidget);
+    expect(find.text('CAD REFERENCE PREVIEW'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

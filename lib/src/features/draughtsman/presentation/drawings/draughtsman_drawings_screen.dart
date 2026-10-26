@@ -51,6 +51,7 @@ class DraughtsmanDrawingsScreen extends ConsumerStatefulWidget {
 class _DraughtsmanDrawingsScreenState
     extends ConsumerState<DraughtsmanDrawingsScreen> {
   String? _selectedAssignmentId;
+  String? _lastLoadedAssignmentId;
   bool _showGalleryView = false;
   String _searchQuery = '';
 
@@ -142,6 +143,8 @@ class _DraughtsmanDrawingsScreenState
         widget.initialAssignmentId != _selectedAssignmentId) {
       setState(() {
         _selectedAssignmentId = widget.initialAssignmentId;
+        _previousVersionNumber = null;
+        _currentVersionNumber = null;
         _showGalleryView = false;
       });
     }
@@ -183,6 +186,12 @@ class _DraughtsmanDrawingsScreenState
               return first;
             },
           );
+
+          if (_lastLoadedAssignmentId != currentAssignment.id) {
+            _lastLoadedAssignmentId = currentAssignment.id;
+            _previousVersionNumber = null;
+            _currentVersionNumber = null;
+          }
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -279,26 +288,40 @@ class _DraughtsmanDrawingsScreenState
             ? sortedVersions.first.versionNumber
             : 1;
         final currVer = _currentVersionNumber ?? maxVer;
-        final prevVer = _previousVersionNumber ??
-            (currVer > 1
-                ? currVer - 1
-                : (sortedVersions.length > 1
-                    ? sortedVersions[1].versionNumber
-                    : 1));
 
-        final currentVersionObj = sortedVersions.firstWhere(
-          (v) => v.versionNumber == currVer,
-          orElse: () => sortedVersions.isNotEmpty
-              ? sortedVersions.first
-              : DrawingVersion(
-                  id: 'v$currVer',
-                  projectId: assignment.projectId,
-                  fileId: '',
-                  versionNumber: currVer,
-                  uploadedBy: 'Draughtsman',
-                  createdAt: assignment.updatedAt ?? DateTime.now(),
-                ),
-        );
+        DrawingVersion? findVersion(int? ver) {
+          if (ver == null) return null;
+          for (final v in sortedVersions) {
+            if (v.versionNumber == ver) return v;
+          }
+          return null;
+        }
+
+        final currentVersionObj = findVersion(currVer) ??
+            (sortedVersions.isNotEmpty ? sortedVersions.first : null);
+
+        DrawingVersion? previousVersionObj;
+        if (_previousVersionNumber != null) {
+          previousVersionObj = findVersion(_previousVersionNumber);
+        } else if (sortedVersions.length > 1) {
+          for (final v in sortedVersions) {
+            if (v.versionNumber < currVer) {
+              previousVersionObj = v;
+              break;
+            }
+          }
+          if (previousVersionObj == null) {
+            for (final v in sortedVersions) {
+              if (v.versionNumber != currVer) {
+                previousVersionObj = v;
+                break;
+              }
+            }
+          }
+        }
+
+        final prevVer = previousVersionObj?.versionNumber ??
+            (currVer > 1 ? currVer - 1 : 1);
 
         final horizontalPadding = isDesktop
             ? AppSpacing.marginDesktop
@@ -347,6 +370,8 @@ class _DraughtsmanDrawingsScreenState
                         Expanded(
                           flex: 8,
                           child: _buildComparisonArea(
+                            previousVersion: previousVersionObj,
+                            currentVersion: currentVersionObj,
                             prevVer: prevVer,
                             currVer: currVer,
                             allVersions: sortedVersions,
@@ -380,6 +405,8 @@ class _DraughtsmanDrawingsScreenState
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildComparisonArea(
+                          previousVersion: previousVersionObj,
+                          currentVersion: currentVersionObj,
                           prevVer: prevVer,
                           currVer: currVer,
                           allVersions: sortedVersions,
@@ -762,6 +789,8 @@ class _DraughtsmanDrawingsScreenState
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildComparisonArea({
+    required DrawingVersion? previousVersion,
+    required DrawingVersion? currentVersion,
     required int prevVer,
     required int currVer,
     required List<DrawingVersion> allVersions,
@@ -805,12 +834,16 @@ class _DraughtsmanDrawingsScreenState
           // Comparison Viewers (reference lines 246-269)
           if (!_isOverlayMode)
             _buildSplitComparisonView(
+              previousVersion: previousVersion,
+              currentVersion: currentVersion,
               prevVer: prevVer,
               currVer: currVer,
               isDesktop: isDesktop,
             )
           else
             _buildOverlayComparisonView(
+              previousVersion: previousVersion,
+              currentVersion: currentVersion,
               prevVer: prevVer,
               currVer: currVer,
             ),
@@ -1080,7 +1113,59 @@ class _DraughtsmanDrawingsScreenState
   // 5. SPLIT & OVERLAY COMPARISON VIEWERS
   // ─────────────────────────────────────────────────────────────
 
+  Widget _buildNoRevisionPlaceholder({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.4),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, size: 36, color: AppColors.outline),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Text(
+                subtitle,
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSplitComparisonView({
+    required DrawingVersion? previousVersion,
+    required DrawingVersion? currentVersion,
     required int prevVer,
     required int currVer,
     required bool isDesktop,
@@ -1102,11 +1187,15 @@ class _DraughtsmanDrawingsScreenState
                   SizedBox(
                     width: splitW - 4,
                     child: _buildPane(
-                      badgeText: 'Previous: v$prevVer',
+                      badgeText: previousVersion != null
+                          ? 'Previous: v${previousVersion.versionNumber}'
+                          : 'Initial State',
                       badgeBg: Colors.white.withValues(alpha: 0.85),
                       badgeFg: AppColors.onSurfaceVariant,
+                      version: previousVersion,
                       isCurrent: false,
                       hasDiffHighlight: false,
+                      isDesktop: isDesktop,
                     ),
                   ),
 
@@ -1115,11 +1204,15 @@ class _DraughtsmanDrawingsScreenState
                   // Current Pane (Right)
                   Expanded(
                     child: _buildPane(
-                      badgeText: 'Current: v$currVer',
+                      badgeText: currentVersion != null
+                          ? 'Current: v${currentVersion.versionNumber}'
+                          : 'Current Draft',
                       badgeBg: AppColors.primary,
                       badgeFg: Colors.white,
+                      version: currentVersion,
                       isCurrent: true,
                       hasDiffHighlight: true,
+                      isDesktop: isDesktop,
                     ),
                   ),
                 ],
@@ -1180,9 +1273,69 @@ class _DraughtsmanDrawingsScreenState
   }
 
   Widget _buildOverlayComparisonView({
+    required DrawingVersion? previousVersion,
+    required DrawingVersion? currentVersion,
     required int prevVer,
     required int currVer,
   }) {
+    if (currentVersion == null && previousVersion == null) {
+      return Container(
+        height: 400,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(
+            color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: _buildNoRevisionPlaceholder(
+          title: 'No Drawing Uploaded',
+          subtitle: 'Upload a CAD drawing (DXF, DWG) or raster image to inspect.',
+          icon: Icons.upload_file_rounded,
+        ),
+      );
+    }
+
+    if (previousVersion == null || previousVersion.fileId.isEmpty || previousVersion.versionNumber == currentVersion?.versionNumber) {
+      return Container(
+        height: 400,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(
+            color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: _buildNoRevisionPlaceholder(
+          title: 'Overlay Comparison Requires 2 Revisions',
+          subtitle:
+              'Project is currently at Rev ${currentVersion?.versionNumber ?? 1}. Once a second revision is submitted, overlay mode will compare vector changes between revisions. Use Split View to inspect Rev ${currentVersion?.versionNumber ?? 1}.',
+          icon: Icons.layers_clear_rounded,
+        ),
+      );
+    }
+
+    if (currentVersion == null || currentVersion.fileId.isEmpty) {
+      return Container(
+        height: 400,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          border: Border.all(
+            color: AppColors.outlineVariant.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: _buildNoRevisionPlaceholder(
+          title: 'Current Draft Unavailable',
+          subtitle: 'Upload a revised draft to compare against Rev ${previousVersion.versionNumber}.',
+          icon: Icons.upload_file_rounded,
+        ),
+      );
+    }
+
     return Column(
       children: [
         // Slider for overlay opacity blend
@@ -1196,7 +1349,7 @@ class _DraughtsmanDrawingsScreenState
           child: Row(
             children: [
               Text(
-                'v$prevVer (Previous)',
+                'v${previousVersion.versionNumber} (Previous)',
                 style: AppTypography.labelMonoSm.copyWith(
                   color: AppColors.onSurfaceVariant,
                   fontSize: 11,
@@ -1213,7 +1366,7 @@ class _DraughtsmanDrawingsScreenState
                 ),
               ),
               Text(
-                'v$currVer (Current)',
+                'v${currentVersion.versionNumber} (Current)',
                 style: AppTypography.labelMonoSm.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
@@ -1240,13 +1393,15 @@ class _DraughtsmanDrawingsScreenState
             children: [
               // Base Layer: Previous
               Positioned.fill(
-                child: Transform.scale(
-                  scale: _zoomScale,
-                  child: CustomPaint(
-                    painter: _CADBlueprintPainter(
-                      isCurrentVersion: false,
-                      opacity: 1.0 - (_overlayOpacity * 0.4),
-                    ),
+                child: Opacity(
+                  opacity: 1.0 - (_overlayOpacity * 0.4),
+                  child: CadDrawingViewer(
+                    key: ValueKey('cad_drawings_overlay_base_${previousVersion.fileId}_v${previousVersion.versionNumber}'),
+                    fileId: previousVersion.fileId,
+                    fileName: previousVersion.originalName ?? previousVersion.sanitizedName ?? 'drawing_v${previousVersion.versionNumber}.dwg',
+                    fileSize: previousVersion.size,
+                    versionNumber: previousVersion.versionNumber,
+                    height: 400,
                   ),
                 ),
               ),
@@ -1255,15 +1410,13 @@ class _DraughtsmanDrawingsScreenState
               Positioned.fill(
                 child: Opacity(
                   opacity: _overlayOpacity,
-                  child: Transform.scale(
-                    scale: _zoomScale,
-                    child: CustomPaint(
-                      painter: _CADBlueprintPainter(
-                        isCurrentVersion: true,
-                        opacity: 1.0,
-                        accentColor: const Color(0xFF069669),
-                      ),
-                    ),
+                  child: CadDrawingViewer(
+                    key: ValueKey('cad_drawings_overlay_curr_${currentVersion.fileId}_v${currentVersion.versionNumber}'),
+                    fileId: currentVersion.fileId,
+                    fileName: currentVersion.originalName ?? currentVersion.sanitizedName ?? 'drawing_v${currentVersion.versionNumber}.dwg',
+                    fileSize: currentVersion.size,
+                    versionNumber: currentVersion.versionNumber,
+                    height: 400,
                   ),
                 ),
               ),
@@ -1286,7 +1439,7 @@ class _DraughtsmanDrawingsScreenState
                     ],
                   ),
                   child: Text(
-                    'OVERLAY: ${(_overlayOpacity * 100).toInt()}% Current (v$currVer)',
+                    'OVERLAY: ${(_overlayOpacity * 100).toInt()}% Current (v${currentVersion.versionNumber})',
                     style: AppTypography.labelMonoSm.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.bold,
@@ -1306,8 +1459,10 @@ class _DraughtsmanDrawingsScreenState
     required String badgeText,
     required Color badgeBg,
     required Color badgeFg,
+    required DrawingVersion? version,
     required bool isCurrent,
     required bool hasDiffHighlight,
+    required bool isDesktop,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1323,27 +1478,36 @@ class _DraughtsmanDrawingsScreenState
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Blueprint CAD linework
+          // Genuine CAD Linework / Drawing Viewer
           Positioned.fill(
-            child: Transform.scale(
-              scale: _zoomScale,
-              child: CustomPaint(
-                painter: _CADBlueprintPainter(
-                  isCurrentVersion: isCurrent,
-                  opacity: 1.0,
-                ),
-              ),
-            ),
+            child: (version != null && version.fileId.isNotEmpty)
+                ? CadDrawingViewer(
+                    key: ValueKey('cad_drawings_split_${version.fileId}_v${version.versionNumber}'),
+                    fileId: version.fileId,
+                    fileName: version.originalName ?? version.sanitizedName ?? 'drawing_v${version.versionNumber}.dwg',
+                    fileSize: version.size,
+                    versionNumber: version.versionNumber,
+                    height: isDesktop ? 460 : 380,
+                  )
+                : _buildNoRevisionPlaceholder(
+                    title: isCurrent ? 'No Drawing Uploaded' : 'Initial State (Rev 1)',
+                    subtitle: isCurrent
+                        ? 'Upload a CAD drawing (DXF, DWG) or raster image to inspect.'
+                        : 'No prior revision exists for this project.',
+                    icon: isCurrent ? Icons.upload_file_rounded : Icons.history_edu_rounded,
+                  ),
           ),
 
           // Diff highlight border simulation (reference line 260)
-          if (hasDiffHighlight)
+          if (hasDiffHighlight && isCurrent && version != null)
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: const Color(0xFF68DBA9).withValues(alpha: 0.35),
-                    width: 3.5,
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFF68DBA9).withValues(alpha: 0.35),
+                      width: 3.5,
+                    ),
                   ),
                 ),
               ),
@@ -1384,7 +1548,7 @@ class _DraughtsmanDrawingsScreenState
           ),
 
           // Diff callout tag for current revision
-          if (isCurrent)
+          if (isCurrent && version != null)
             Positioned(
               bottom: 12,
               right: 12,
@@ -1419,15 +1583,15 @@ class _DraughtsmanDrawingsScreenState
 
   Widget _buildDetailsCard({
     required Assignment assignment,
-    required DrawingVersion currentVersion,
+    required DrawingVersion? currentVersion,
   }) {
     // Format timestamp: "Oct 24, 2024 at 14:32 PST"
-    final date = currentVersion.createdAt ?? DateTime.now();
+    final date = currentVersion?.createdAt ?? assignment.updatedAt ?? assignment.assignedAt ?? DateTime.now();
     final dateStr =
         '${DateFormat('MMM d, yyyy').format(date)} at ${DateFormat('HH:mm').format(date)}';
 
     // File size and format: e.g. "124 MB • .DWG"
-    final rawSize = currentVersion.size;
+    final rawSize = currentVersion?.size;
     String sizeFormatted;
     if (rawSize != null && rawSize > 0) {
       if (rawSize >= 1024 * 1024) {
@@ -1436,15 +1600,16 @@ class _DraughtsmanDrawingsScreenState
         sizeFormatted = '${(rawSize / 1024).toStringAsFixed(0)} KB';
       }
     } else {
-      sizeFormatted = '124 MB';
+      sizeFormatted = currentVersion != null ? '124 MB' : 'Pending';
     }
 
-    final ext = currentVersion.originalName?.split('.').last.toUpperCase() ??
-        'DWG';
-    final formatStr = '$sizeFormatted • .$ext';
+    final ext = currentVersion?.originalName?.split('.').last.toUpperCase() ??
+        (assignment.drawingType?.toUpperCase() ?? 'DWG');
+    final formatStr = currentVersion != null ? '$sizeFormatted • .$ext' : 'Awaiting Drawing Upload';
 
-    final authorName = currentVersion.uploadedBy.isNotEmpty &&
-            !currentVersion.uploadedBy.contains('-')
+    final authorName = (currentVersion != null &&
+            currentVersion.uploadedBy.isNotEmpty &&
+            !currentVersion.uploadedBy.contains('-'))
         ? currentVersion.uploadedBy
         : 'Sarah Jenkins';
 
@@ -1597,7 +1762,7 @@ class _DraughtsmanDrawingsScreenState
           const SizedBox(height: AppSpacing.lg),
 
           // Preview CAD Drawing Action
-          if (currentVersion.fileId.isNotEmpty) ...[
+          if (currentVersion != null && currentVersion.fileId.isNotEmpty) ...[
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -1628,37 +1793,38 @@ class _DraughtsmanDrawingsScreenState
           ],
 
           // Direct Download Action
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isDownloading
-                  ? null
-                  : () => _downloadDrawing(currentVersion),
-              icon: _isDownloading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.download_rounded, size: 18),
-              label: Text(_isDownloading
-                  ? 'Downloading...'
-                  : 'Download Drawing (v${currentVersion.versionNumber})'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: BorderSide(
-                  color: AppColors.outlineVariant.withValues(alpha: 0.8),
-                  width: 1.0,
+          if (currentVersion != null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isDownloading
+                    ? null
+                    : () => _downloadDrawing(currentVersion),
+                icon: _isDownloading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.download_rounded, size: 18),
+                label: Text(_isDownloading
+                    ? 'Downloading...'
+                    : 'Download Drawing (v${currentVersion.versionNumber})'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(
+                    color: AppColors.outlineVariant.withValues(alpha: 0.8),
+                    width: 1.0,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusDefault),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusDefault),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -2477,12 +2643,10 @@ class _BlueprintGridBackgroundPainter extends CustomPainter {
 class _CADBlueprintPainter extends CustomPainter {
   final bool isCurrentVersion;
   final double opacity;
-  final Color? accentColor;
 
   _CADBlueprintPainter({
     required this.isCurrentVersion,
     this.opacity = 1.0,
-    this.accentColor,
   });
 
   @override
@@ -2559,7 +2723,7 @@ class _CADBlueprintPainter extends CustomPainter {
     if (isCurrentVersion) {
       // Current: Load-bearing wall shifted & highlighted in emerald green
       final diffPaint = Paint()
-        ..color = (accentColor ?? const Color(0xFF069669)).withValues(alpha: 0.95 * opacity)
+        ..color = const Color(0xFF069669).withValues(alpha: 0.95 * opacity)
         ..strokeWidth = 3.5
         ..style = PaintingStyle.stroke;
 
@@ -2614,8 +2778,7 @@ class _CADBlueprintPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CADBlueprintPainter oldDelegate) {
     return oldDelegate.isCurrentVersion != isCurrentVersion ||
-        oldDelegate.opacity != opacity ||
-        oldDelegate.accentColor != accentColor;
+        oldDelegate.opacity != opacity;
   }
 }
 
@@ -2645,7 +2808,10 @@ class _DrawingGridCardState extends State<_DrawingGridCard> {
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
     final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
-    final hasCorrection = (a.correctionRound ?? 0) > 0;
+    final hasActiveCorrection = !isCompleted &&
+        !isUnderReview &&
+        a.assignmentStatus == AssignmentStatus.accepted &&
+        ((a.correctionRound ?? 0) > 0 || a.isRevision);
 
     String statusText;
     Color statusColor;
@@ -2656,7 +2822,7 @@ class _DrawingGridCardState extends State<_DrawingGridCard> {
     } else if (isUnderReview) {
       statusText = 'UNDER REVIEW';
       statusColor = const Color(0xFF069669);
-    } else if (hasCorrection) {
+    } else if (hasActiveCorrection) {
       statusText = 'REVISION';
       statusColor = AppColors.error;
     } else {
@@ -2798,7 +2964,7 @@ class _DrawingGridCardState extends State<_DrawingGridCard> {
                               ),
                             ),
                           ),
-                        if (hasCorrection)
+                        if (hasActiveCorrection)
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 2),

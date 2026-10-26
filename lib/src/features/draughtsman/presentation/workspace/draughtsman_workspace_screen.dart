@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -180,15 +179,17 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
   void initState() {
     super.initState();
     int initialIndex = 0;
-    if (widget.initialTab == 'overview' || widget.initialTab == 'specs') {
-      initialIndex = 2;
-    } else if (widget.initialTab == 'timeline' || widget.initialTab == 'audit') {
-      initialIndex = 3;
-    } else if (widget.initialTab == 'collaboration' || widget.initialTab == 'chat') {
+    if (widget.initialTab == 'reference' || widget.initialTab == 'references' || widget.initialTab == 'files') {
       initialIndex = 1;
+    } else if (widget.initialTab == 'collaboration' || widget.initialTab == 'chat') {
+      initialIndex = 2;
+    } else if (widget.initialTab == 'overview' || widget.initialTab == 'specs') {
+      initialIndex = 3;
+    } else if (widget.initialTab == 'timeline' || widget.initialTab == 'audit') {
+      initialIndex = 4;
     }
     _tabController = TabController(
-      length: 4,
+      length: 5,
       vsync: this,
       initialIndex: initialIndex,
     );
@@ -199,12 +200,14 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
     super.didUpdateWidget(oldWidget);
     if (widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
       int targetIndex = _tabController.index;
-      if (widget.initialTab == 'overview' || widget.initialTab == 'specs') {
-        targetIndex = 2;
-      } else if (widget.initialTab == 'timeline' || widget.initialTab == 'audit') {
-        targetIndex = 3;
-      } else if (widget.initialTab == 'collaboration' || widget.initialTab == 'chat') {
+      if (widget.initialTab == 'reference' || widget.initialTab == 'references' || widget.initialTab == 'files') {
         targetIndex = 1;
+      } else if (widget.initialTab == 'collaboration' || widget.initialTab == 'chat') {
+        targetIndex = 2;
+      } else if (widget.initialTab == 'overview' || widget.initialTab == 'specs') {
+        targetIndex = 3;
+      } else if (widget.initialTab == 'timeline' || widget.initialTab == 'audit') {
+        targetIndex = 4;
       } else if (widget.initialTab == 'workspace' || widget.initialTab == 'canvas') {
         targetIndex = 0;
       }
@@ -381,11 +384,21 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
           indicatorColor: AppColors.secondary,
           indicatorWeight: 2,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'WORKSPACE CANVAS'),
-            Tab(text: 'COLLABORATION HUB'),
-            Tab(text: 'OVERVIEW & SPECS'),
-            Tab(text: 'TIMELINE & AUDIT'),
+          tabs: [
+            const Tab(text: 'WORKSPACE CANVAS'),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('REFERENCE FILES'),
+                  const SizedBox(width: 6),
+                  _ReferenceCountBadge(projectId: widget.projectId),
+                ],
+              ),
+            ),
+            const Tab(text: 'COLLABORATION HUB'),
+            const Tab(text: 'OVERVIEW & SPECS'),
+            const Tab(text: 'TIMELINE & AUDIT'),
           ],
         ),
       ),
@@ -398,6 +411,13 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
               assignment: widget.assignment,
               projectId: widget.projectId,
               project: widget.project,
+              onSwitchToTab: (index) => _tabController.animateTo(index),
+            ),
+            _ReferenceFilesTab(
+              projectId: widget.projectId,
+              project: widget.project,
+              assignment: widget.assignment,
+              onSwitchToTab: (index) => _tabController.animateTo(index),
             ),
             _CollaborationHubTab(
               projectId: widget.projectId,
@@ -407,6 +427,7 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
             _OverviewTab(
               projectId: widget.projectId,
               project: widget.project,
+              onSwitchToTab: (index) => _tabController.animateTo(index),
             ),
             _TimelineTab(
               projectId: widget.projectId,
@@ -419,6 +440,834 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
 }
 
 // ─────────────────────────────────────────────────────────
+// REFERENCE COUNT BADGE
+// ─────────────────────────────────────────────────────────
+
+class _ReferenceCountBadge extends ConsumerWidget {
+  final String projectId;
+
+  const _ReferenceCountBadge({required this.projectId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filesAsync = ref.watch(projectFilesProvider(projectId));
+    return filesAsync.maybeWhen(
+      data: (files) {
+        final count = files.where((f) {
+          final cat = f.category.toLowerCase();
+          return (cat == 'client_upload' ||
+                  cat == 'reference' ||
+                  cat == 'client_reference' ||
+                  cat == 'correction_attachment') &&
+              f.status != 'FAILED';
+        }).length;
+        if (count == 0) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: AppColors.secondary.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.secondary.withValues(alpha: 0.5), width: 0.5),
+          ),
+          child: Text(
+            '$count',
+            style: const TextStyle(
+              fontFamily: 'JetBrains Mono',
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: AppColors.secondary,
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// REFERENCE FILES QUICK ACCESS CARD
+// ─────────────────────────────────────────────────────────
+
+class _ReferenceFilesQuickAccessCard extends ConsumerWidget {
+  final String projectId;
+  final VoidCallback onViewReferences;
+
+  const _ReferenceFilesQuickAccessCard({
+    required this.projectId,
+    required this.onViewReferences,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filesAsync = ref.watch(projectFilesProvider(projectId));
+
+    return filesAsync.maybeWhen(
+      data: (allFiles) {
+        final count = allFiles.where((f) {
+          final cat = f.category.toLowerCase();
+          return (cat == 'client_upload' ||
+                  cat == 'reference' ||
+                  cat == 'client_reference' ||
+                  cat == 'correction_attachment') &&
+              f.status != 'FAILED';
+        }).length;
+
+        if (count == 0) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.secondary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: AppColors.secondary.withValues(alpha: 0.35),
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.folder_shared_outlined, color: AppColors.secondary, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ENGINEER REFERENCE FILES ($count AVAILABLE)',
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Inspect original client drawings & specifications.',
+                      style: AppTypography.bodySm.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: onViewReferences,
+                icon: const Icon(Icons.visibility_outlined, size: 14),
+                label: const Text('Inspect'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.secondary,
+                  foregroundColor: const Color(0xFF07111E),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  textStyle: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// REFERENCE FILES TAB (SINGLE REFERENCE CAD VIEWER + INVENTORY)
+// ─────────────────────────────────────────────────────────
+
+class _ReferenceFilesTab extends ConsumerStatefulWidget {
+  final String projectId;
+  final Project project;
+  final Assignment assignment;
+  final void Function(int tabIndex)? onSwitchToTab;
+
+  const _ReferenceFilesTab({
+    required this.projectId,
+    required this.project,
+    required this.assignment,
+    this.onSwitchToTab,
+  });
+
+  @override
+  ConsumerState<_ReferenceFilesTab> createState() => _ReferenceFilesTabState();
+}
+
+class _ReferenceFilesTabState extends ConsumerState<_ReferenceFilesTab> {
+  String? _selectedFileId;
+  String? _downloadingFileId;
+
+  @override
+  Widget build(BuildContext context) {
+    final filesAsync = ref.watch(projectFilesProvider(widget.projectId));
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(projectFilesProvider(widget.projectId));
+      },
+      child: filesAsync.when(
+        loading: () => const Center(
+          child: AppLoadingIndicator(message: 'Loading reference files...'),
+        ),
+        error: (e, _) => Center(
+          child: AppErrorWidget(
+            message: 'Failed to load reference files: $e',
+            onRetry: () => ref.invalidate(projectFilesProvider(widget.projectId)),
+          ),
+        ),
+        data: (allFiles) {
+          // Strictly filter for original Engineer/client reference files and project brief attachments
+          final referenceFiles = allFiles.where((f) {
+            final cat = f.category.toLowerCase();
+            final isRefCat = cat == 'client_upload' ||
+                cat == 'reference' ||
+                cat == 'client_reference' ||
+                cat == 'correction_attachment';
+            return isRefCat && f.status != 'FAILED';
+          }).toList();
+
+          if (referenceFiles.isEmpty) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Container(
+                    margin: const EdgeInsets.only(top: AppSpacing.xxl),
+                    padding: const EdgeInsets.all(AppSpacing.xxl),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      border: Border.all(
+                        color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerHigh,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.outlineVariant.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.folder_open_rounded,
+                            size: 48,
+                            color: AppColors.outline,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'No Reference Files Attached',
+                          style: AppTypography.headlineSmMobile.copyWith(
+                            color: AppColors.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'The client did not upload reference blueprints, CAD files, or site specifications when submitting this project brief.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.bodyMd.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        ElevatedButton.icon(
+                          onPressed: () => ref.invalidate(projectFilesProvider(widget.projectId)),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text('Refresh Files'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.secondary,
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // Auto-select first previewable reference file or first file
+          ProjectFile? selectedFile;
+          if (_selectedFileId != null) {
+            selectedFile = referenceFiles.where((f) => f.id == _selectedFileId).firstOrNull;
+          }
+          selectedFile ??= referenceFiles.firstWhere(
+            (f) {
+              final ext = f.originalName.split('.').last.toLowerCase();
+              return ext == 'dwg' || ext == 'dxf' || ext == 'pdf' || ext == 'png' || ext == 'jpg' || ext == 'jpeg';
+            },
+            orElse: () => referenceFiles.first,
+          );
+          final currentFile = selectedFile;
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 1024;
+              final horizontalPadding = isDesktop ? AppSpacing.marginDesktop : AppSpacing.marginMobile;
+
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: isDesktop ? AppSpacing.xl : AppSpacing.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header Banner
+                    _buildReferenceHeader(referenceFiles.length),
+                    const SizedBox(height: AppSpacing.lg),
+
+                    if (isDesktop)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Left 7 spans: Single Reference CAD Viewport
+                          Expanded(
+                            flex: 7,
+                            child: _buildSingleReferencePreviewPanel(currentFile, isDesktop: true),
+                          ),
+                          const SizedBox(width: AppSpacing.gridGutter),
+                          // Right 5 spans: Reference Files Inventory
+                          Expanded(
+                            flex: 5,
+                            child: _buildReferenceInventoryPanel(referenceFiles, currentFile),
+                          ),
+                        ],
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildSingleReferencePreviewPanel(currentFile, isDesktop: false),
+                          const SizedBox(height: AppSpacing.xl),
+                          _buildReferenceInventoryPanel(referenceFiles, currentFile),
+                        ],
+                      ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildReferenceHeader(int count) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.35), width: 0.5),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.folder_shared_outlined, color: AppColors.secondary, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          const Text(
+                            'ENGINEER REFERENCE FILES',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '$count ${count == 1 ? 'FILE' : 'FILES'}',
+                              style: const TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Original blueprints, CAD drawings, and specs uploaded by the Engineer at submission.',
+                        style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.onSwitchToTab != null) ...[
+            const SizedBox(width: AppSpacing.md),
+            TextButton.icon(
+              onPressed: () => widget.onSwitchToTab!(0),
+              icon: const Icon(Icons.arrow_back_rounded, size: 14),
+              label: const Text('Back to Workspace Canvas'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.secondary,
+                textStyle: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleReferencePreviewPanel(ProjectFile selectedFile, {required bool isDesktop}) {
+    final ext = selectedFile.originalName.split('.').last.toLowerCase();
+    final isPdf = ext == 'pdf';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.4), width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D1C32).withValues(alpha: 0.04),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Preview Top Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            color: AppColors.surfaceContainerLow,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3)),
+                        ),
+                        child: const Text(
+                          'CAD REFERENCE PREVIEW',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: Color(0xFF00E5FF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Flexible(
+                        child: Text(
+                          selectedFile.originalName,
+                          style: const TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        '(${(selectedFile.size / 1024).toStringAsFixed(1)} KB)',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 11,
+                          color: AppColors.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isPdf)
+                      IconButton(
+                        icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                        color: AppColors.secondary,
+                        tooltip: 'Open PDF in browser',
+                        onPressed: () {
+                          ref.read(fileRepositoryProvider).downloadFile(
+                            selectedFile.id,
+                            selectedFile.originalName,
+                            openInBrowser: true,
+                          );
+                        },
+                      ),
+                    _downloadingFileId == selectedFile.id
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.secondary),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.download_rounded, size: 18),
+                            color: AppColors.secondary,
+                            tooltip: 'Download reference drawing',
+                            onPressed: () => _handleDownload(selectedFile),
+                          ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Dedicated Single Reference CAD Drawing Viewport
+          CadDrawingViewer(
+            key: ValueKey('cad_ref_single_${selectedFile.id}'),
+            fileId: selectedFile.id,
+            fileName: selectedFile.originalName,
+            fileSize: selectedFile.size,
+            versionNumber: 1,
+            height: isDesktop ? 520 : 420,
+            onDownload: () => _handleDownload(selectedFile),
+          ),
+
+          // Viewport bottom footnote
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+            color: AppColors.surfaceContainerLowest,
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.outline),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Single reference drawing inspection mode \u2022 Geometry extracted directly from engineer upload.',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 10,
+                      color: AppColors.outline.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReferenceInventoryPanel(List<ProjectFile> referenceFiles, ProjectFile selectedFile) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.4), width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D1C32).withValues(alpha: 0.04),
+            offset: const Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'PROJECT REFERENCE INVENTORY',
+                style: TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${referenceFiles.length} TOTAL',
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const Text(
+            'Select any reference drawing below to inspect in the single-file CAD viewer or download to your machine.',
+            style: TextStyle(fontSize: 11, color: AppColors.outline),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: referenceFiles.length,
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+            itemBuilder: (context, index) {
+              final file = referenceFiles[index];
+              final isSelected = file.id == selectedFile.id;
+              final ext = file.originalName.split('.').last.toLowerCase();
+              final isCad = ext == 'dwg' || ext == 'dxf';
+              final isPdf = ext == 'pdf';
+              final isImage = ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp';
+
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedFileId = file.id;
+                  });
+                },
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF0B192C)
+                        : AppColors.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF00E5FF)
+                          : AppColors.outlineVariant.withValues(alpha: 0.3),
+                      width: isSelected ? 1.5 : 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF00E5FF).withValues(alpha: 0.15)
+                              : AppColors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          isCad
+                              ? Icons.architecture_rounded
+                              : (isPdf
+                                  ? Icons.picture_as_pdf_rounded
+                                  : (isImage ? Icons.image_rounded : Icons.insert_drive_file_outlined)),
+                          color: isSelected ? const Color(0xFF00E5FF) : AppColors.secondary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              file.originalName,
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                color: isSelected ? Colors.white : AppColors.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  '${(file.size / 1024).toStringAsFixed(1)} KB \u2022 ${ext.toUpperCase()}',
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrains Mono',
+                                    fontSize: 10,
+                                    color: isSelected ? const Color(0xFF00E5FF) : AppColors.outline,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    file.category == 'client_upload'
+                                        ? 'CLIENT UPLOAD'
+                                        : file.category.toUpperCase(),
+                                    style: const TextStyle(
+                                      fontFamily: 'JetBrains Mono',
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      if (isSelected)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'ACTIVE',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF00E5FF),
+                            ),
+                          ),
+                        )
+                      else
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _selectedFileId = file.id;
+                            });
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.secondary,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            textStyle: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11),
+                          ),
+                          child: const Text('Preview'),
+                        ),
+                      _downloadingFileId == file.id
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Padding(
+                                padding: EdgeInsets.all(4.0),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.secondary),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.download_rounded, size: 18),
+                              color: isSelected ? const Color(0xFF00E5FF) : AppColors.secondary,
+                              tooltip: 'Download file',
+                              onPressed: () => _handleDownload(file),
+                            ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleDownload(ProjectFile file) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _downloadingFileId = file.id);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Downloading ${file.originalName}...')),
+    );
+    try {
+      await ref.read(fileRepositoryProvider).downloadFile(file.id, file.originalName);
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Saved "${file.originalName}" successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Download failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingFileId = null);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
 // 1. WORKSPACE CANVAS TAB (PRIMARY CAD AREA)
 // ─────────────────────────────────────────────────────────
 
@@ -427,12 +1276,14 @@ class _WorkspaceCanvasTab extends ConsumerStatefulWidget {
   final Assignment assignment;
   final String projectId;
   final Project project;
+  final void Function(int index)? onSwitchToTab;
 
   const _WorkspaceCanvasTab({
     required this.assignmentId,
     required this.assignment,
     required this.projectId,
     required this.project,
+    this.onSwitchToTab,
   });
 
   @override
@@ -534,6 +1385,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
   Widget _buildWorkflowStatusBanners(AsyncValue<List<Correction>> correctionsAsync) {
     final project = widget.project;
     final status = project.projectStatus ?? ProjectStatus.draft;
+    final isLoadingAction = ref.watch(draughtsmanActionsControllerProvider).isLoading;
 
     final isUnderReview = status == ProjectStatus.underEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
@@ -600,8 +1452,14 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                       if (isOpen) ...[
                         const SizedBox(height: AppSpacing.sm),
                         FilledButton.icon(
-                          onPressed: () => _handleStartCorrection(openCorrection.id),
-                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                          onPressed: isLoadingAction ? null : () => _handleStartCorrection(openCorrection.id),
+                          icon: isLoadingAction
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.play_arrow_rounded, size: 16),
                           label: Text('Start Correction Round #${openCorrection.roundNumber}'),
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.error,
@@ -716,9 +1574,24 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
         .read(draughtsmanActionsControllerProvider.notifier)
         .startCorrection(projectId: widget.projectId, correctionId: correctionId);
 
-    if (success && mounted) {
+    if (!mounted) return;
+    if (success) {
+      ref.invalidate(projectCorrectionsProvider(widget.projectId));
+      ref.invalidate(projectProvider(widget.projectId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Correction phase started. Upload corrected draft.')),
+        const SnackBar(
+          content: Text('Correction phase started. Upload corrected draft.'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } else {
+      final errorState = ref.read(draughtsmanActionsControllerProvider);
+      final errorMsg = errorState.hasError ? errorState.error.toString() : 'Failed to start correction';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMsg),
+          backgroundColor: AppColors.error,
+        ),
       );
     }
   }
@@ -871,12 +1744,14 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error loading drawing: $e')),
                 data: (versions) {
-                  final current = versions.isNotEmpty ? versions.first : null;
-                  final previous = versions.length > 1 ? versions[1] : null;
+                  final sorted = [...versions]..sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
+                  final current = sorted.isNotEmpty ? sorted.first : null;
+                  final previous = sorted.length > 1 ? sorted[1] : null;
 
                   if (_isCadMode) {
                     if (current != null && current.fileId.isNotEmpty) {
                       return CadDrawingViewer(
+                        key: ValueKey('cad_workspace_cad_${current.fileId}_v${current.versionNumber}'),
                         fileId: current.fileId,
                         fileName: current.originalName ?? current.sanitizedName ?? 'drawing_v${current.versionNumber}.dwg',
                         fileSize: current.size,
@@ -884,23 +1759,74 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                         height: 480,
                       );
                     } else {
-                      return const Center(child: Text('No CAD drawing file uploaded yet.'));
+                      return _buildNoRevisionPlaceholder(
+                        title: 'No CAD Drawing File Uploaded',
+                        subtitle: 'Upload a draft drawing (.dxf, .dwg, .png, .jpg) to inspect in CAD view.',
+                        icon: Icons.architecture_rounded,
+                      );
                     }
                   }
 
-                  return InteractiveViewer(
-                    transformationController: _transformationController,
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: _isOverlayMode
-                        ? _buildOverlayViewer(current, previous)
-                        : _buildSplitViewer(current, previous),
-                  );
+                  if (_isOverlayMode) {
+                    return _buildOverlayViewer(current, previous);
+                  }
+
+                  return _buildSplitViewer(current, previous);
                 },
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNoRevisionPlaceholder({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.outlineVariant.withValues(alpha: 0.4),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, size: 36, color: AppColors.outline),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Text(
+                subtitle,
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -917,15 +1843,15 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
               children: [
                 _buildViewerHalf(
                   label: previous != null ? 'Previous: Rev ${previous.versionNumber}' : 'Initial State',
+                  version: previous,
                   isCurrent: false,
-                  revisionNumber: previous?.versionNumber ?? 1,
                   height: 235,
                 ),
                 Container(height: 1, color: AppColors.outlineVariant.withValues(alpha: 0.4)),
                 _buildViewerHalf(
                   label: current != null ? 'Current: Rev ${current.versionNumber}' : 'Current Draft',
+                  version: current,
                   isCurrent: true,
-                  revisionNumber: current?.versionNumber ?? 2,
                   height: 235,
                 ),
               ],
@@ -939,8 +1865,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
             Expanded(
               child: _buildViewerHalf(
                 label: previous != null ? 'Previous: Rev ${previous.versionNumber}' : 'Initial State',
+                version: previous,
                 isCurrent: false,
-                revisionNumber: previous?.versionNumber ?? 1,
               ),
             ),
             // Center Divider with slider handle
@@ -952,8 +1878,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
             Expanded(
               child: _buildViewerHalf(
                 label: current != null ? 'Current: Rev ${current.versionNumber}' : 'Current Draft',
+                version: current,
                 isCurrent: true,
-                revisionNumber: current?.versionNumber ?? 2,
               ),
             ),
           ],
@@ -964,8 +1890,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
 
   Widget _buildViewerHalf({
     required String label,
+    required DrawingVersion? version,
     required bool isCurrent,
-    required int revisionNumber,
     double? height,
   }) {
     return Container(
@@ -974,12 +1900,22 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _BlueprintWorkspacePainter(
-                isCurrent: isCurrent,
-                revisionNumber: revisionNumber,
-              ),
-            ),
+            child: (version != null && version.fileId.isNotEmpty)
+                ? CadDrawingViewer(
+                    key: ValueKey('cad_workspace_${isCurrent ? "curr" : "prev"}_${version.fileId}_v${version.versionNumber}'),
+                    fileId: version.fileId,
+                    fileName: version.originalName ?? version.sanitizedName ?? 'drawing_v${version.versionNumber}.dwg',
+                    fileSize: version.size,
+                    versionNumber: version.versionNumber,
+                    height: height ?? 480,
+                  )
+                : _buildNoRevisionPlaceholder(
+                    title: isCurrent ? 'No Drawing Uploaded' : 'Initial State (Rev 1)',
+                    subtitle: isCurrent
+                        ? 'Upload a CAD drawing (DXF, DWG) or raster image to inspect.'
+                        : 'No prior revision exists for this project.',
+                    icon: isCurrent ? Icons.upload_file_rounded : Icons.history_edu_rounded,
+                  ),
           ),
           Positioned(
             top: 12,
@@ -1019,24 +1955,57 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
   }
 
   Widget _buildOverlayViewer(DrawingVersion? current, DrawingVersion? previous) {
+    if (current == null && previous == null) {
+      return _buildNoRevisionPlaceholder(
+        title: 'No Drawing Uploaded',
+        subtitle: 'Upload a CAD drawing (DXF, DWG) or raster image to inspect.',
+        icon: Icons.upload_file_rounded,
+      );
+    }
+
+    if (previous == null || previous.fileId.isEmpty) {
+      return _buildNoRevisionPlaceholder(
+        title: 'Overlay Comparison Requires 2 Revisions',
+        subtitle: 'Project is currently at Rev ${current?.versionNumber ?? 1}. Once a second revision is submitted, overlay mode will compare vector changes between revisions. Use Split View or CAD View to inspect Rev ${current?.versionNumber ?? 1}.',
+        icon: Icons.layers_clear_rounded,
+      );
+    }
+
+    if (current == null || current.fileId.isEmpty) {
+      return _buildNoRevisionPlaceholder(
+        title: 'Current Draft Unavailable',
+        subtitle: 'Upload a revised draft to compare against Rev ${previous.versionNumber}.',
+        icon: Icons.upload_file_rounded,
+      );
+    }
+
     return Stack(
       children: [
         // Base Layer (Previous Drawing)
         Positioned.fill(
-          child: CustomPaint(
-            painter: _BlueprintWorkspacePainter(
-              isCurrent: false,
-              revisionNumber: previous?.versionNumber ?? 1,
+          child: Opacity(
+            opacity: 0.5,
+            child: CadDrawingViewer(
+              key: ValueKey('cad_workspace_overlay_prev_${previous.fileId}_v${previous.versionNumber}'),
+              fileId: previous.fileId,
+              fileName: previous.originalName ?? previous.sanitizedName ?? 'drawing_v${previous.versionNumber}.dwg',
+              fileSize: previous.size,
+              versionNumber: previous.versionNumber,
+              height: 480,
             ),
           ),
         ),
-        // Overlay Layer (Current Drawing with diff vectors)
+        // Overlay Layer (Current Drawing with diff highlight)
         Positioned.fill(
-          child: CustomPaint(
-            painter: _BlueprintWorkspacePainter(
-              isCurrent: true,
-              isOverlay: true,
-              revisionNumber: current?.versionNumber ?? 2,
+          child: Opacity(
+            opacity: 0.85,
+            child: CadDrawingViewer(
+              key: ValueKey('cad_workspace_overlay_curr_${current.fileId}_v${current.versionNumber}'),
+              fileId: current.fileId,
+              fileName: current.originalName ?? current.sanitizedName ?? 'drawing_v${current.versionNumber}.dwg',
+              fileSize: current.size,
+              versionNumber: current.versionNumber,
+              height: 480,
             ),
           ),
         ),
@@ -1057,7 +2026,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
               ],
             ),
             child: Text(
-              'Overlay Diff: Rev ${previous?.versionNumber ?? 1} vs Rev ${current?.versionNumber ?? 2}',
+              'Overlay Diff: Rev ${previous.versionNumber} vs Rev ${current.versionNumber}',
               style: const TextStyle(
                 fontFamily: 'JetBrains Mono',
                 fontSize: 11,
@@ -1169,6 +2138,13 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Reference Files Quick Access Card
+        _ReferenceFilesQuickAccessCard(
+          projectId: widget.projectId,
+          onViewReferences: () => widget.onSwitchToTab?.call(1),
         ),
 
         const SizedBox(height: AppSpacing.lg),
@@ -1311,122 +2287,9 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// BLUEPRINT WORKSPACE CUSTOM PAINTER
-// Generates CAD architectural geometry, grid coordinates, and revision clouds
-// ─────────────────────────────────────────────────────────
 
-class _BlueprintWorkspacePainter extends CustomPainter {
-  final bool isCurrent;
-  final bool isOverlay;
-  final int revisionNumber;
 
-  _BlueprintWorkspacePainter({
-    required this.isCurrent,
-    this.isOverlay = false,
-    required this.revisionNumber,
-  });
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Technical grid pattern (40px blueprint unit)
-    final gridPaint = Paint()
-      ..color = const Color(0xFFC5C6CD).withValues(alpha: 0.15)
-      ..strokeWidth = 0.5;
-
-    for (double x = 0; x <= w; x += 30) {
-      canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
-    }
-    for (double y = 0; y <= h; y += 30) {
-      canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
-    }
-
-    // Outer structural walls
-    final wallPaint = Paint()
-      ..color = isOverlay
-          ? const Color(0xFF0453CD).withValues(alpha: 0.9)
-          : (isCurrent ? const Color(0xFF0D1C32) : const Color(0xFF75777E))
-      ..strokeWidth = isCurrent ? 2.0 : 1.2
-      ..style = PaintingStyle.stroke;
-
-    final boundary = RRect.fromRectAndRadius(
-      Rect.fromLTWH(36, 36, w - 72, h - 72),
-      const Radius.circular(2),
-    );
-    canvas.drawRRect(boundary, wallPaint);
-
-    // Structural partitions
-    final midX = w * 0.42;
-    final midY = h * 0.50;
-    canvas.drawLine(Offset(midX, 36), Offset(midX, h - 36), wallPaint);
-    canvas.drawLine(Offset(36, midY), Offset(w - 36, midY), wallPaint);
-
-    // Inner doorway swing (90-degree radial arc)
-    final arcPaint = Paint()
-      ..color = AppColors.outline.withValues(alpha: 0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(midX, midY), radius: 28),
-      0,
-      1.57,
-      false,
-      arcPaint,
-    );
-
-    // Architectural central rotunda/circle feature
-    final atriumCenter = Offset(w * 0.72, h * 0.30);
-    final atriumPaint = Paint()
-      ..color = isOverlay
-          ? const Color(0xFF0453CD).withValues(alpha: 0.7)
-          : (isCurrent ? const Color(0xFF0D1C32) : const Color(0xFF75777E))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(atriumCenter, 38, atriumPaint);
-
-    // Revision differential highlight (Overlay & Current)
-    if (isOverlay || isCurrent) {
-      final revisionRect = Rect.fromLTWH(midX + 16, midY + 16, w - midX - 60, h - midY - 60);
-
-      final diffPaint = Paint()
-        ..color = const Color(0xFF069669).withValues(alpha: 0.12)
-        ..style = PaintingStyle.fill;
-      canvas.drawRect(revisionRect, diffPaint);
-
-      final diffBorder = Paint()
-        ..color = const Color(0xFF069669)
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-      canvas.drawRect(revisionRect, diffBorder);
-    }
-
-    // Technical stamp / Coordinate readout
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: 'ARCHI DRAFT CAD WORKSPACE • REV $revisionNumber\nSCALE 1:100 • DWG MATRIX (0, 0)',
-        style: const TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 8,
-          color: Color(0xFF75777E),
-          height: 1.3,
-        ),
-      ),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    textPainter.paint(canvas, Offset(44, h - 64));
-  }
-
-  @override
-  bool shouldRepaint(covariant _BlueprintWorkspacePainter oldDelegate) {
-    return oldDelegate.isCurrent != isCurrent ||
-        oldDelegate.isOverlay != isOverlay ||
-        oldDelegate.revisionNumber != revisionNumber;
-  }
-}
 
 // ─────────────────────────────────────────────────────────
 // SUBMIT WORKSPACE BUTTON
@@ -1823,8 +2686,13 @@ class _CollaborationHubTab extends StatelessWidget {
 class _OverviewTab extends ConsumerWidget {
   final String projectId;
   final Project project;
+  final void Function(int index)? onSwitchToTab;
 
-  const _OverviewTab({required this.projectId, required this.project});
+  const _OverviewTab({
+    required this.projectId,
+    required this.project,
+    this.onSwitchToTab,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1867,6 +2735,7 @@ class _OverviewTab extends ConsumerWidget {
                     category: 'client_reference',
                     emptyMessage: 'No reference files attached by client.',
                     ref: ref,
+                    onSwitchToTab: onSwitchToTab,
                   ),
                 ),
               ],
@@ -2131,12 +3000,14 @@ class _FilesList extends StatelessWidget {
   final String category;
   final String emptyMessage;
   final WidgetRef ref;
+  final void Function(int index)? onSwitchToTab;
 
   const _FilesList({
     required this.projectId,
     required this.category,
     required this.emptyMessage,
     required this.ref,
+    this.onSwitchToTab,
   });
 
   @override
@@ -2147,7 +3018,18 @@ class _FilesList extends StatelessWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Text('Error: $e'),
       data: (files) {
-        final categoryFiles = files.where((f) => f.category == category).toList();
+        final categoryFiles = files.where((f) {
+          final cat = f.category.toLowerCase();
+          if (category == 'client_reference' || category == 'client_upload' || category == 'reference') {
+            return (cat == 'client_upload' ||
+                    cat == 'reference' ||
+                    cat == 'client_reference' ||
+                    cat == 'correction_attachment') &&
+                f.status != 'FAILED';
+          }
+          return f.category == category && f.status != 'FAILED';
+        }).toList();
+
         if (categoryFiles.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -2161,21 +3043,45 @@ class _FilesList extends StatelessWidget {
           );
         }
         return Column(
-          children: categoryFiles.map((f) => _FileTile(file: f, projectId: projectId)).toList(),
+          children: categoryFiles
+              .map((f) => _FileTile(
+                    file: f,
+                    projectId: projectId,
+                    onSwitchToTab: onSwitchToTab,
+                  ))
+              .toList(),
         );
       },
     );
   }
 }
 
-class _FileTile extends StatelessWidget {
+class _FileTile extends ConsumerStatefulWidget {
   final ProjectFile file;
   final String projectId;
+  final void Function(int index)? onSwitchToTab;
 
-  const _FileTile({required this.file, required this.projectId});
+  const _FileTile({
+    required this.file,
+    required this.projectId,
+    this.onSwitchToTab,
+  });
+
+  @override
+  ConsumerState<_FileTile> createState() => _FileTileState();
+}
+
+class _FileTileState extends ConsumerState<_FileTile> {
+  bool _isDownloading = false;
 
   @override
   Widget build(BuildContext context) {
+    final file = widget.file;
+    final ext = file.originalName.split('.').last.toLowerCase();
+    final isCad = ext == 'dwg' || ext == 'dxf';
+    final isPdf = ext == 'pdf';
+    final isImage = ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp';
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -2188,19 +3094,100 @@ class _FileTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.insert_drive_file_outlined, size: 20, color: AppColors.secondary),
+          Icon(
+            isCad
+                ? Icons.architecture_rounded
+                : (isPdf
+                    ? Icons.picture_as_pdf_rounded
+                    : (isImage ? Icons.image_rounded : Icons.insert_drive_file_outlined)),
+            size: 20,
+            color: AppColors.secondary,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(file.originalName, style: AppTypography.bodyMd),
-          ),
-          Text(
-            '${(file.size / 1024).toStringAsFixed(1)} KB',
-            style: const TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 10,
-              color: AppColors.outline,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(file.originalName, style: AppTypography.bodyMd),
+                Text(
+                  '${(file.size / 1024).toStringAsFixed(1)} KB \u2022 ${ext.toUpperCase()}',
+                  style: const TextStyle(
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 10,
+                    color: AppColors.outline,
+                  ),
+                ),
+              ],
             ),
           ),
+          if (widget.onSwitchToTab != null)
+            TextButton.icon(
+              onPressed: () => widget.onSwitchToTab!(1),
+              icon: const Icon(Icons.open_in_full_rounded, size: 14),
+              label: const Text('Open in Viewer'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                textStyle: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11),
+              ),
+            )
+          else if (isCad || isPdf || isImage)
+            IconButton(
+              icon: const Icon(Icons.visibility_outlined, size: 18),
+              color: AppColors.primary,
+              tooltip: 'Preview reference file',
+              onPressed: () {
+                _showCadDrawingPreviewDialog(
+                  context,
+                  fileId: file.id,
+                  fileName: file.originalName,
+                  versionNumber: 1,
+                );
+              },
+            ),
+          _isDownloading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.secondary),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  color: AppColors.secondary,
+                  tooltip: 'Download file',
+                  onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    setState(() => _isDownloading = true);
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Downloading ${file.originalName}...')),
+                    );
+                    try {
+                      await ref.read(fileRepositoryProvider).downloadFile(file.id, file.originalName);
+                      if (mounted) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Saved "${file.originalName}" successfully!'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Download failed: $e'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (mounted) setState(() => _isDownloading = false);
+                    }
+                  },
+                ),
         ],
       ),
     );

@@ -580,6 +580,95 @@ export const adminApi = {
     return `${API_BASE}/api/files/${fileId}/download`;
   },
 
+  /**
+   * Securely downloads a file using the signed-in user's Firebase ID token.
+   * Handles binary stream, token refresh, and accurate Content-Disposition filename parsing.
+   */
+  async downloadFile(fileId: string, fallbackFileName?: string): Promise<{ blob: Blob; filename: string }> {
+    let token = await getAuthToken();
+    if (!token) {
+      throw new ApiError('Authentication required to download files', 401);
+    }
+
+    const url = `${API_BASE}/api/files/${fileId}/download`;
+    let res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    // Token refresh on 401
+    if (res.status === 401) {
+      const refreshedToken = await getAuthToken(true);
+      if (refreshedToken && refreshedToken !== token) {
+        token = refreshedToken;
+        res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+    }
+
+    if (!res.ok) {
+      let errMsg = `Download failed with status ${res.status}`;
+      try {
+        const errJson = await res.json();
+        if (errJson.error) errMsg = errJson.error;
+      } catch {}
+      throw new ApiError(errMsg, res.status);
+    }
+
+    let filename = fallbackFileName || `file_${fileId}`;
+    const disposition = res.headers.get('Content-Disposition');
+    if (disposition) {
+      const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      if (utfMatch && utfMatch[1]) {
+        try {
+          filename = decodeURIComponent(utfMatch[1]);
+        } catch {
+          filename = utfMatch[1];
+        }
+      } else {
+        const standardMatch = disposition.match(/filename=["']?([^"';]+)["']?/i);
+        if (standardMatch && standardMatch[1]) {
+          filename = standardMatch[1];
+        }
+      }
+    }
+
+    const blob = await res.blob();
+    return { blob, filename };
+  },
+
+  /**
+   * Triggers a browser native file save dialog from a downloaded binary Blob.
+   */
+  triggerBlobDownload(blob: Blob, filename: string): void {
+    if (typeof window === 'undefined') return;
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => {
+      window.URL.revokeObjectURL(objectUrl);
+    }, 1000);
+  },
+
+  /**
+   * Convenience helper: downloads with auth and saves to local disk.
+   */
+  async downloadAndSaveFile(fileId: string, fallbackFileName?: string): Promise<string> {
+    const { blob, filename } = await this.downloadFile(fileId, fallbackFileName);
+    this.triggerBlobDownload(blob, filename);
+    return filename;
+  },
+
   // Admin: Persistent Studio Governance Settings
   async getStudioSettings(): Promise<{ settings: StudioSettings; updated_at?: string; updated_by?: string }> {
     try {

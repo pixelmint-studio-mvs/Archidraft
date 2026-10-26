@@ -83,7 +83,7 @@ class CadDrawingViewer extends ConsumerStatefulWidget {
     required this.fileId,
     required this.fileName,
     this.fileSize,
-    required this.versionNumber,
+    this.versionNumber = 1,
     this.onDownload,
     this.height = 440,
   });
@@ -101,8 +101,8 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   Uint8List? _pdfBytes;
   bool _isDxf = false;
   bool _isDwg = false;
-  bool _isPdf = false;
   bool _isRasterImage = false;
+  bool _isPdf = false;
   String _formatBadge = '';
   String _formatDetails = '';
   final TransformationController _transController = TransformationController();
@@ -137,8 +137,8 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       _pdfBytes = null;
       _isDxf = false;
       _isDwg = false;
-      _isPdf = false;
       _isRasterImage = false;
+      _isPdf = false;
     });
 
     try {
@@ -152,8 +152,8 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       final ext = widget.fileName.split('.').last.toLowerCase();
       final isDwgExt = ext == 'dwg';
       final isDxfExt = ext == 'dxf';
-      final isPdfExt = ext == 'pdf';
       final isRasterExt = ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp';
+      final isPdfExt = ext == 'pdf';
 
       // 1. DWG Drawing
       if (isDwgExt || (raw.length >= 4 && String.fromCharCodes(raw.sublist(0, 4)).startsWith('AC'))) {
@@ -357,7 +357,11 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          _isDwg ? Icons.architecture_rounded : (_isDxf ? Icons.polyline_rounded : (_isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded)),
+                          _isDwg
+                              ? Icons.architecture_rounded
+                              : (_isDxf
+                                  ? Icons.polyline_rounded
+                                  : (_isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded)),
                           color: const Color(0xFF00E5FF),
                           size: 14,
                         ),
@@ -489,44 +493,51 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.preview_outlined, size: 48, color: Colors.white54),
-              const SizedBox(height: 12),
+              const Icon(Icons.preview_outlined, size: 36, color: Colors.white54),
+              const SizedBox(height: 8),
               Flexible(
                 child: SingleChildScrollView(
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                     textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              const SizedBox(height: 12),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ElevatedButton.icon(
                     onPressed: _loadDrawing,
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: const Icon(Icons.refresh, size: 14),
                     label: const Text('Retry'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00E5FF),
                       foregroundColor: const Color(0xFF07111E),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
                   ),
-                  const SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: widget.onDownload ?? () {
                       ref.read(fileRepositoryProvider).downloadFile(widget.fileId, widget.fileName, openInBrowser: false);
                     },
-                    icon: const Icon(Icons.download, size: 16),
+                    icon: const Icon(Icons.download, size: 14),
                     label: const Text('Download Original File'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
@@ -602,6 +613,95 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
           child: Image.memory(
             _rawImageBytes!,
             fit: BoxFit.contain,
+          ),
+        ),
+      );
+    }
+
+    // 4. PDF Document Preview Card
+    if (_isPdf) {
+      return Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          margin: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxWidth: 480),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B192C),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.picture_as_pdf_rounded, size: 48, color: Colors.redAccent),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.fileName,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _formatDetails,
+                style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      ref.read(fileRepositoryProvider).downloadFile(
+                        widget.fileId,
+                        widget.fileName,
+                        openInBrowser: true,
+                      );
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text('Open in Browser'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00E5FF),
+                      foregroundColor: const Color(0xFF07111E),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: widget.onDownload ?? () {
+                      ref.read(fileRepositoryProvider).downloadFile(
+                        widget.fileId,
+                        widget.fileName,
+                        openInBrowser: false,
+                      );
+                    },
+                    icon: const Icon(Icons.download_rounded, size: 16),
+                    label: const Text('Download PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       );
