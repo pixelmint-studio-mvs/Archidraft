@@ -138,7 +138,10 @@ class LegalRepository {
       }
     } catch (e) {
       final errStr = e.toString().toLowerCase();
-      if (errStr.contains('404') || errStr.contains('user not found')) {
+      // Only treat an explicit 'user not found' response as an unprovisioned profile state.
+      // Generic HTTP 404 (route not found) or network errors must be rethrown so they
+      // are not silently masked as successful or recoverable legal-status responses.
+      if (errStr.contains('user not found')) {
         return const UserLegalStatus(
           userId: '',
           termsAccepted: false,

@@ -1,11 +1,13 @@
 # ARCHI DRAFT — AUTHORITATIVE INTEGRATION HANDOVER & VERIFICATION REPORT
 
 **Workspace:** `D:\PROJECT\Archidraft-integration-workspace`<br/>
-**Active Branch:** `COMPLETED-INTERGRATION`<br/>
+**Active Branch:** `COMPLETED-INTEGRATION`<br/>
+**Configured Upstream:** `origin/COMPLETED-INTERGRATION`<br/>
 **Remote:** `https://github.com/pixelmint-studio-mvs/Archidraft.git`<br/>
-**Current Synchronized Base HEAD:** `1665c2c7f93ee28aebfae489852ab5363ad68f66` (`docs: update integration handover and remove obsolete scratch notes`)<br/>
-**Date:** October 26, 2026<br/>
-**Status:** **SYNCHRONIZED, VERIFIED, CLEAN & READY FOR PRE-COMMIT REVIEW**
+**Current Local HEAD:** `32df2ef1d0da206d3d14a165f861cc1a00286074`<br/>
+**Remote Tracking HEAD:** `55d45d170fb9e73397a0fec22f22692ae0236610`<br/>
+**Date:** October 27, 2026<br/>
+**Status:** **SYNCHRONIZED, FULLY TESTED & READY FOR PRE-PUSH REVIEW**
 
 ---
 
@@ -40,6 +42,24 @@ This document represents the single authoritative handover, architecture, and ve
    - Implemented comprehensive 27-extension allowlist spanning CAD/BIM (`dwg`, `dxf`, `ifc`, `rvt`, etc.), documents, images, spreadsheets, and archives.
    - Enforced strict authorization: only Ordering Engineers and Admins may upload reference files; assigned Draughtsmen can inspect and download all client files from the Draughtsman Workspace.
    - Guarded form submission: "Initiate Drafting" is locked while file transfers are active.
+8. **Phase 6: Legal Privacy Acceptance & Mandatory Document Seeding (`c4d0f78`):**
+   - Enforced that privacy notice review and acknowledgement is mandatory in the onboarding consent flow.
+   - Automated default legal terms and privacy documents seeding via `ensureDefaultLegalDocuments()` in Cloudflare D1 if unseeded, eliminating 503 maintenance mode deadlocks.
+   - Added automated widget regression coverage in `legal_onboarding_screen_test.dart`.
+9. **Phase 6: Engineer Drawing Versions & Embedded CAD Viewer (`100fe31`):**
+   - Implemented drawing versions history, version switching, revision metadata, and correction notes rendering in `ProjectDetailScreen`.
+   - Wired in-app `CadDrawingViewer` supporting pure-Dart DWG raster header extraction and 2D DXF vector geometry rendering, and integrated `PdfDrawingViewer` across project statuses.
+   - Verified via 7 unit/widget tests in `engineer_drawing_versions_test.dart` and `cad_drawing_viewer_test.dart`.
+10. **Phase 6: Shared Authentication, Registration & Email Verification (`cf79d19`):**
+    - Eliminated unexpected redirects to `/landing` by adding `/verify-email` to public router paths and refactoring `VerifyEmailScreen` to reactively watch Riverpod `authStateChangesProvider`.
+    - Resolved "Invalid email or password" rejections stemming from Firebase project configuration mismatch between staging (`archi-draft-staging`) and production (`archi-draft`).
+    - Added reactive cache invalidation for `userProfileProvider` and `userLegalStatusProvider` upon `signIn`, `register`, and `signOut`.
+    - Verified via 34 tests in `test/features/auth/` including 8/8 comprehensive flow tests in `verify_email_flow_test.dart`.
+11. **Phase 6: API URL Sanitization & Legal Onboarding 404 Repair (`32df2ef`):**
+    - Stripped trailing slashes in `ApiClient.resolveBaseUrl` and added `ApiClient.buildUri` helper, resolving the double-slash concatenation defect (`http://localhost:8787//api/users/me/legal-status`) that caused Hono to return HTTP 404 plain text.
+    - Updated `app_router.dart` to direct authenticated users with unprovisioned D1 profiles (`profileAsync.value == null`) to `/provision-profile` before legal evaluation.
+    - Refined `LegalRepository.getUserLegalStatus()` to gracefully handle missing D1 user profile states without catastrophic service error lockouts while preserving genuine route failure propagation.
+    - Verified via 15/15 API client tests and 49/49 legal suite tests.
 
 ---
 
@@ -47,15 +67,16 @@ This document represents the single authoritative handover, architecture, and ve
 
 | Branch / Commit | Full Commit SHA | Author & Date | Commit Message | Status |
 |---|---|---|---|---|
-| **Base Synchronized Commit** | `4e3b8710dccd122db2090524987c7b103de078bd` | A.Ajmal Basheer, Oct 25, 2026 18:47:15 +0530 | `fix(admin): correct engineer metrics and collaboration navigation` | Linear Ancestor |
-| **Previous Remote Tip** | `1665c2c7f93ee28aebfae489852ab5363ad68f66` | Mohammed Janis P, Oct 25, 2026 20:23:56 +0530 | `docs: update integration handover and remove obsolete scratch notes` | **Remote Reference (`origin/COMPLETED-INTERGRATION`)** |
-| **Commit A (Dropdown Fix)** | `f84a1c863266205cf9f5d3419fcda9a97fbc9a13` | Mohammed Janis P, Oct 26, 2026 | `fix(engineer): normalize technical category dropdown values` | **Local Commit (Ready for push)** |
-| **Commit B (Docs Handover)** | Pending SHA | Mohammed Janis P, Oct 26, 2026 | `docs: update engineer upload and dropdown fix handover` | Staging in progress |
+| **Remote Tip** | `55d45d170fb9e73397a0fec22f22692ae0236610` | Mohammed Janis P, Oct 26, 2026 | `fix(admin-web): sync engineer count badge and date utility contracts` | **Remote Tip (`origin/COMPLETED-INTERGRATION`)** |
+| **Commit 1 (CAD & Versions)** | `100fe31f74e9563ddd466602155099438b4ed9b7` | Mohammed Janis P, Oct 26, 2026 | `fix(engineer): repair drawing versions and embedded CAD viewer` | **Local Commit (Linear)** |
+| **Commit 2 (Legal Repair)** | `c4d0f7854148b0e79887d44eba91da2a29f0de30` | Mohammed Janis P, Oct 27, 2026 | `fix(legal): prevent privacy acceptance regression` | **Local Commit (Linear)** |
+| **Commit 3 (Auth Repair)** | `cf79d1963278ca0cf4fd73787b1efd355eb99f9d` | Mohammed Janis P, Oct 27, 2026 | `fix(auth): stabilize shared registration, email verification, and session routing` | **Local Commit (Linear)** |
+| **Commit 4 (API & Legal 404)** | `32df2ef1d0da206d3d14a165f861cc1a00286074` | Mohammed Janis P, Oct 27, 2026 | `fix(api): sanitize base url trailing slash and handle legal 404 profile provisioning` | **Local HEAD (Linear)** |
 
 > [!IMPORTANT]
 > **Branch Ancestry & Fast-Forward Readiness:**
-> - Local branch `COMPLETED-INTEGRATION` is a direct linear descendant of `origin/COMPLETED-INTERGRATION` (`1665c2c7f93ee28aebfae489852ab5363ad68f66`).
-> - The new commits build linearly on top of `1665c2c`, ensuring a 100% clean fast-forward push when authorized.
+> - Local branch `COMPLETED-INTEGRATION` is a direct linear descendant of `origin/COMPLETED-INTERGRATION` (`55d45d170fb9e73397a0fec22f22692ae0236610`).
+> - The 4 Phase 6 commits build linearly on top of `55d45d1`, ensuring a 100% clean fast-forward push when authorized.
 
 ---
 
@@ -65,17 +86,17 @@ All automated checks were executed directly from the synchronized local workspac
 
 | Test Suite / Tool | Command Executed | Scope | Pass / Fail Count | Status |
 |---|---|---|---|---|
-| **Admin Web Automated Tests** | `npm test` in `apps/admin-web/` | 39 suites (includes `phase_final_dashboard_and_collab.test.ts`) | **161 passed / 0 failed** | ✅ **PASS** |
+| **Admin Web Automated Tests** | `npm test` in `apps/admin-web/` | 36 suites (dossiers, navigation, review queue, KPIs) | **180 passed / 0 failed** | ✅ **PASS** |
 | **Admin Web TypeScript Check** | `npx tsc --noEmit` in `apps/admin-web/` | Entire Next.js Admin code | **0 errors (Clean)** | ✅ **PASS** |
 | **Admin Web Production Build** | `npm run build` in `apps/admin-web/` | Next.js Turbopack compiler | **All 23 routes prerendered** | ✅ **PASS** |
-| **Cloudflare Worker Tests** | `npm test` in `worker/` | 35 suites (Auth, Phase C, D.1, E2E, Isolation, 50MB Upload) | **296 passed / 0 failed** | ✅ **PASS** |
-| **Flutter Code Analysis** | `flutter analyze` on changed files | Project domain, controller, screen & test suites | **No issues found (0 errors/warnings)** | ✅ **PASS** |
-| **Technical Category Dropdown Regression** | `flutter test test/.../technical_category_dropdown_regression_test.dart` | Uniqueness, assertion prevention, draft restore, legacy fallback | **8 passed / 0 failed** | ✅ **PASS** |
-| **Reference Files Upload Section Tests** | `flutter test test/.../reference_files_upload_section_test.dart` | 50 MiB limit, file rendering, auto draft save, upload states | **5 passed / 0 failed** | ✅ **PASS** |
-| **Project Enums & Validators Tests** | `flutter test test/.../project_enums_test.dart test/.../project_validators_test.dart` | DrawingType parsing, firestore serialization, form validation | **14 passed / 0 failed** | ✅ **PASS** |
-| **Project Form Controller Tests** | `flutter test test/.../project_form_controller_test.dart` | Draft load normalization, state mutation, category updates | **7 passed / 0 failed** | ✅ **PASS** |
-| **Flutter API Client Tests** | `flutter test test/features/api/data/api_client_test.dart` | Emulator host loopback & staging security | **11 passed / 0 failed** | ✅ **PASS** |
-| **Flutter Terms Navigation Tests** | `flutter test test/features/legal/presentation/terms_navigation_flow_test.dart` | Terms acceptance & role login routing | **14 passed / 0 failed** | ✅ **PASS** |
+| **Cloudflare Worker Tests** | `npm test` in `worker/` | 35 suites (Auth, Phase C, D.1, Legal gate, E2E, Isolation, 50MB Upload) | **296 passed / 0 failed** | ✅ **PASS** |
+| **Flutter Static Analysis** | `dart analyze` on target features | Router, API, Auth, Legal, Engineer modules | **0 issues found (Clean)** | ✅ **PASS** |
+| **Flutter Auth Flow Tests** | `flutter test test/features/auth/` | Shared auth, `/verify-email`, session restore, profile provision | **34 passed / 0 failed** | ✅ **PASS** |
+| **Flutter Legal Suite Tests** | `flutter test test/features/legal/` | Terms flow, privacy gating, legal router, post-login status | **49 passed / 0 failed** | ✅ **PASS** |
+| **Flutter API Client Tests** | `flutter test test/features/api/data/api_client_test.dart` | Trailing slash stripping & clean URI path building | **15 passed / 0 failed** | ✅ **PASS** |
+| **Flutter CAD & Drawing Versions** | `flutter test test/.../engineer_drawing_versions_test.dart test/.../cad_drawing_viewer_test.dart` | Multi-version switching, revision notes, pure-Dart DWG/DXF rendering | **7 passed / 0 failed** | ✅ **PASS** |
+| **Flutter Projects & Common Tests** | `flutter test test/features/projects/` | Dropdown assertion safety, 50 MiB upload section, status chips | **129 passed / 0 failed** | ✅ **PASS** |
+| **Total Flutter Test Suite** | Target feature test suites | Comprehensive unit & widget testing across all personas | **234 passed / 0 failed** | ✅ **PASS** |
 
 ---
 
@@ -140,10 +161,11 @@ npm run dev
 For Web:
 ```powershell
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
-& "C:\flutter\flutter\bin\flutter.bat" run -d chrome --web-port=8080 --dart-define=STAGING=true
+& "C:\flutter\flutter\bin\flutter.bat" run -d chrome --web-port=8080 --dart-define=STAGING=true --dart-define=API_URL=http://localhost:8787
 ```
 - **Listening URL:** `http://localhost:8080`
 - **Login Route:** `http://localhost:8080/#/login`
+- **Trailing Slash Handling:** Base API URL trailing slashes are automatically sanitized by `ApiClient.resolveBaseUrl` and `ApiClient.buildUri`.
 
 For Android Emulator:
 ```powershell
@@ -160,7 +182,6 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 > **Do Not Commit Credentials:**
 > - `team/TEAM_TESTING_CREDENTIALS.md` is an untracked local file containing staging test accounts and passwords.
 > - It MUST NOT be staged or committed to Git.
-> - Recommend adding `team/` to `.gitignore` or keeping it strictly uncommitted.
 > - Never print plaintext passwords or secrets in pull requests or public commit messages.
 
 ---
@@ -168,8 +189,11 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 ## 7. Pre-Commit Review & Change Set Status
 
 - **Branch:** `COMPLETED-INTEGRATION` (tracking `origin/COMPLETED-INTERGRATION`)
-- **Remote Base HEAD:** `1665c2c7f93ee28aebfae489852ab5363ad68f66`
-- **Working Tree:** All changes verified. Two logical commits:
-  1. `f84a1c863266205cf9f5d3419fcda9a97fbc9a13`: `fix(engineer): normalize technical category dropdown values` (Committed)
-  2. Pending SHA: `docs: update engineer upload and dropdown fix handover` (Staging in progress)
-- **Zero remote push executed:** Local verification complete; awaiting explicit user authorization prior to GitHub push.
+- **Remote Base HEAD:** `55d45d170fb9e73397a0fec22f22692ae0236610`
+- **Current Local HEAD:** `32df2ef1d0da206d3d14a165f861cc1a00286074`
+- **Linear Phase 6 Commits:**
+  1. `100fe31f74e9563ddd466602155099438b4ed9b7`: `fix(engineer): repair drawing versions and embedded CAD viewer`
+  2. `c4d0f7854148b0e79887d44eba91da2a29f0de30`: `fix(legal): prevent privacy acceptance regression`
+  3. `cf79d1963278ca0cf4fd73787b1efd355eb99f9d`: `fix(auth): stabilize shared registration, email verification, and session routing`
+  4. `32df2ef1d0da206d3d14a165f861cc1a00286074`: `fix(api): sanitize base url trailing slash and handle legal 404 profile provisioning`
+- **Zero remote push executed:** Local verification complete; awaiting explicit user review and instruction prior to any further commit or push.
