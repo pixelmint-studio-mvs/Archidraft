@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/Modal';
 import { adminApi } from '@/lib/api';
 import { User } from '@/lib/types';
 import { StudentProfileView } from '@/components/students/StudentProfileView';
+import { NewProjectModal } from '@/components/projects/NewProjectModal';
 import {
   Search,
   GraduationCap,
@@ -37,6 +38,7 @@ import {
   Video,
   FileText,
   Zap,
+  PlusCircle,
 } from 'lucide-react';
 
 
@@ -99,6 +101,15 @@ export default function StudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [studentAssignments, setStudentAssignments] = useState<any[]>([]);
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+
+  // New Project / Practical Assignment Modal State
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
+  const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<string | undefined>(undefined);
+
+  const openAssignProjectModal = (studentId?: string) => {
+    setSelectedStudentForAssignment(studentId);
+    setIsNewProjectModalOpen(true);
+  };
 
   const openStudentDetails = async (student: any) => {
     setSelectedStudent(student);
@@ -248,8 +259,16 @@ export default function StudentsPage() {
           />
         </div>
 
-        {/* Demo Data Toggle (Explicitly labeled for verification) */}
+        {/* Action Button & Demo Data Toggle */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => openAssignProjectModal()}
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98]"
+          >
+            <PlusCircle className="h-4 w-4 text-emerald-400" />
+            <span>ASSIGN PROJECT TO STUDENT</span>
+          </button>
+
           <button
             onClick={() => {
               setShowDemoFixtures(!showDemoFixtures);
@@ -396,15 +415,29 @@ export default function StudentsPage() {
 
                         {/* Actions */}
                         <td className="px-5 py-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openStudentDetails(student)}
-                            className="flex items-center gap-1.5 ml-auto"
-                          >
-                            <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
-                            <span>View Dossier</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {!isFixture && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openAssignProjectModal(student.id)}
+                                className="flex items-center gap-1.5 text-xs text-[#0453cd] border-blue-200 hover:bg-blue-50"
+                                title="Create and assign practical project to this student"
+                              >
+                                <PlusCircle className="h-3.5 w-3.5 text-[#0453cd]" />
+                                <span>Assign Project</span>
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openStudentDetails(student)}
+                              className="flex items-center gap-1.5"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
+                              <span>View Dossier</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -465,10 +498,30 @@ export default function StudentsPage() {
             student={selectedStudent}
             assignments={studentAssignments}
             loading={loadingDetails}
+            onAssignProject={(studentId) => {
+              openAssignProjectModal(studentId);
+            }}
             onClose={() => setSelectedStudent(null)}
           />
         </Modal>
       )}
+
+      {/* ─── Create & Assign Project Modal ─────────────────────────────── */}
+      <NewProjectModal
+        isOpen={isNewProjectModalOpen}
+        onClose={() => {
+          setIsNewProjectModalOpen(false);
+          setSelectedStudentForAssignment(undefined);
+        }}
+        onSuccess={() => {
+          loadData(true);
+          if (selectedStudent && !selectedStudent.isFixture) {
+            openStudentDetails(selectedStudent);
+          }
+        }}
+        initialAssigneeType="STUDENT"
+        initialStudentId={selectedStudentForAssignment}
+      />
     </AdminShell>
   );
 }

@@ -14,6 +14,7 @@ interface AssignModalProps {
   projectName: string;
   onSuccess: () => void;
   isReassign?: boolean;
+  isTrainingProject?: boolean;
 }
 
 export function AssignModal({
@@ -23,12 +24,16 @@ export function AssignModal({
   projectName,
   onSuccess,
   isReassign = false,
+  isTrainingProject = false,
 }: AssignModalProps) {
-  const [draughtsmen, setDraughtsmen] = useState<User[]>([]);
+  const [candidates, setCandidates] = useState<User[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [fetchingList, setFetchingList] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const roleLabel = isTrainingProject ? 'Student Apprentice' : 'Draughtsman';
+  const roleType = isTrainingProject ? 'STUDENT' : 'DRAUGHTSMAN';
 
   useEffect(() => {
     if (isOpen) {
@@ -36,22 +41,22 @@ export function AssignModal({
       setError(null);
       setSelectedId('');
       adminApi
-        .getUsers('DRAUGHTSMAN')
+        .getUsers(roleType)
         .then((list) => {
-          setDraughtsmen(list || []);
+          setCandidates(list || []);
         })
         .catch((err) => {
           console.error(err);
-          setError('Failed to load registered draughtsmen list.');
+          setError(`Failed to load registered ${roleLabel.toLowerCase()}s list.`);
         })
         .finally(() => setFetchingList(false));
     }
-  }, [isOpen]);
+  }, [isOpen, roleType, roleLabel]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedId) {
-      setError('Please select a draughtsman to assign.');
+      setError(`Please select a ${roleLabel.toLowerCase()} to assign.`);
       return;
     }
 
@@ -66,7 +71,7 @@ export function AssignModal({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to assign draughtsman');
+      setError(err.message || `Failed to assign ${roleLabel.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -76,7 +81,7 @@ export function AssignModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isReassign ? 'Reassign Draughtsman' : 'Assign Draughtsman'}
+      title={isReassign ? `Reassign ${roleLabel}` : `Assign ${roleLabel}`}
       description={`Project: "${projectName}" (ID: ${projectId.substring(0, 8)}...)`}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -89,20 +94,20 @@ export function AssignModal({
 
         <div>
           <label className="block text-xs font-mono font-semibold text-slate-700 uppercase tracking-wider mb-2">
-            Select Draughtsman
+            Select {roleLabel}
           </label>
 
           {fetchingList ? (
             <div className="flex items-center justify-center p-8 bg-slate-50 border border-slate-200 rounded-xl">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#0453cd] border-t-transparent" />
             </div>
-          ) : draughtsmen.length === 0 ? (
+          ) : candidates.length === 0 ? (
             <div className="p-4 text-center text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl font-mono">
-              No registered draughtsmen found in the studio database.
+              No registered {roleLabel.toLowerCase()}s found in the studio database.
             </div>
           ) : (
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {draughtsmen.map((d) => (
+              {candidates.map((d) => (
                 <label
                   key={d.id}
                   className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
@@ -114,7 +119,7 @@ export function AssignModal({
                   <div className="flex items-center gap-3">
                     <input
                       type="radio"
-                      name="draughtsman"
+                      name="assignee"
                       value={d.id}
                       checked={selectedId === d.id}
                       onChange={(e) => setSelectedId(e.target.value)}
@@ -148,7 +153,7 @@ export function AssignModal({
             disabled={!selectedId || fetchingList}
             icon={<UserCheck className="h-4 w-4" />}
           >
-            {isReassign ? 'Confirm Reassignment' : 'Assign Project'}
+            {isReassign ? 'Confirm Reassignment' : isTrainingProject ? 'Assign Practical Project' : 'Assign Project'}
           </Button>
         </div>
       </form>

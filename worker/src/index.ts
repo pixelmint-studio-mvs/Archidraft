@@ -733,7 +733,11 @@ app.get('/api/projects/:id', async (c) => {
       p.*,
       u.name as client_name,
       u.email as client_email,
-      (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1) as current_assignment_id
+      COALESCE(
+        (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1),
+        (SELECT sa.id FROM student_assignments sa WHERE sa.project_id = p.id AND sa.status IN ('PENDING', 'ACCEPTED') ORDER BY sa.created_at DESC LIMIT 1),
+        p.current_assignment_id
+      ) as current_assignment_id
     FROM projects p
     LEFT JOIN users u ON p.client_id = u.id
     WHERE p.id = ?
@@ -759,7 +763,11 @@ app.get('/api/projects/:projectId', async (c) => {
       p.*,
       u.name as client_name,
       u.email as client_email,
-      (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1) as current_assignment_id
+      COALESCE(
+        (SELECT a.id FROM assignments a WHERE a.project_id = p.id AND a.status IN ('PENDING', 'ACCEPTED') ORDER BY a.created_at DESC LIMIT 1),
+        (SELECT sa.id FROM student_assignments sa WHERE sa.project_id = p.id AND sa.status IN ('PENDING', 'ACCEPTED') ORDER BY sa.created_at DESC LIMIT 1),
+        p.current_assignment_id
+      ) as current_assignment_id
     FROM projects p
     LEFT JOIN users u ON p.client_id = u.id
     WHERE p.id = ?
@@ -1110,6 +1118,16 @@ app.post('/api/projects/assign', async (c) => {
     return c.json({ error: 'Students cannot be assigned to commercial projects', code: 'INVALID_ASSIGNEE_ROLE' }, 400);
   }
 
+  if (dMan.role === 'STUDENT') {
+    if (!project.training_module_id || typeof project.training_module_id !== 'string' || !project.training_module_id.trim()) {
+      return c.json({ error: 'Training project requires a valid training_module_id before assigning to a student', code: 'MISSING_TRAINING_MODULE' }, 400);
+    }
+    const moduleExists = await db.prepare('SELECT id FROM training_modules WHERE id = ?').bind(project.training_module_id).first();
+    if (!moduleExists) {
+      return c.json({ error: 'Referenced training module does not exist', code: 'INVALID_TRAINING_MODULE' }, 400);
+    }
+  }
+
   // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
   if (dMan.role === 'DRAUGHTSMAN') {
     const activeCountRes = await db.prepare(`
@@ -1156,25 +1174,44 @@ app.post('/api/projects/reassign', async (c) => {
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Only admins can reassign projects' }, 403);
 
   const dMan = await getUser(db, draughtsmanId);
-  if (!dMan || dMan.role !== 'DRAUGHTSMAN') return c.json({ error: 'Invalid draughtsman ID' }, 400);
-
-  // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
-  const activeCountRes = await db.prepare(`
-    SELECT COUNT(*) as count
-    FROM projects
-    WHERE draughtsman_id = ?
-      AND status IN ('WAITING_ACCEPTANCE', 'IN_PROGRESS', 'UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')
-  `).bind(draughtsmanId).first();
-  const activeCount = (activeCountRes?.count as number) || 0;
-  if (activeCount >= 4) {
-    return c.json({
-      error: 'Draughtsman is at maximum capacity (4/4 active projects)',
-      code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED'
-    }, 400);
-  }
+  if (!dMan || (dMan.role !== 'DRAUGHTSMAN' && dMan.role !== 'STUDENT')) return c.json({ error: 'Invalid user role for reassignment' }, 400);
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  if (project.is_training_project === 1 && dMan.role !== 'STUDENT') {
+    return c.json({ error: 'Only students can be assigned to training projects', code: 'INVALID_ASSIGNEE_ROLE' }, 400);
+  }
+  if (project.is_training_project !== 1 && dMan.role === 'STUDENT') {
+    return c.json({ error: 'Students cannot be assigned to commercial projects', code: 'INVALID_ASSIGNEE_ROLE' }, 400);
+  }
+
+  if (dMan.role === 'STUDENT') {
+    if (!project.training_module_id || typeof project.training_module_id !== 'string' || !project.training_module_id.trim()) {
+      return c.json({ error: 'Training project requires a valid training_module_id before assigning to a student', code: 'MISSING_TRAINING_MODULE' }, 400);
+    }
+    const moduleExists = await db.prepare('SELECT id FROM training_modules WHERE id = ?').bind(project.training_module_id).first();
+    if (!moduleExists) {
+      return c.json({ error: 'Referenced training module does not exist', code: 'INVALID_TRAINING_MODULE' }, 400);
+    }
+  }
+
+  // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
+  if (dMan.role === 'DRAUGHTSMAN') {
+    const activeCountRes = await db.prepare(`
+      SELECT COUNT(*) as count
+      FROM projects
+      WHERE draughtsman_id = ?
+        AND status IN ('WAITING_ACCEPTANCE', 'IN_PROGRESS', 'UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')
+    `).bind(draughtsmanId).first();
+    const activeCount = (activeCountRes?.count as number) || 0;
+    if (activeCount >= 4) {
+      return c.json({
+        error: 'Draughtsman is at maximum capacity (4/4 active projects)',
+        code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED'
+      }, 400);
+    }
+  }
 
   if (project.last_action_id === actionId) return c.json({ success: true });
 
@@ -1187,17 +1224,25 @@ app.post('/api/projects/reassign', async (c) => {
   const batch = [];
 
   if (project.current_assignment_id) {
-    batch.push(db.prepare(`UPDATE assignments SET status = 'REPLACED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(project.current_assignment_id));
+    if (project.is_training_project === 1) {
+      batch.push(db.prepare(`UPDATE student_assignments SET status = 'REPLACED' WHERE id = ? OR project_id = ?`).bind(project.current_assignment_id, projectId));
+    } else {
+      batch.push(db.prepare(`UPDATE assignments SET status = 'REPLACED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(project.current_assignment_id));
+    }
   }
 
-  batch.push(db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId));
+  if (dMan.role === 'STUDENT') {
+    batch.push(db.prepare(`INSERT INTO student_assignments (id, project_id, student_id, assignment_type, status) VALUES (?, ?, ?, 'PRACTICAL', 'PENDING')`).bind(assignmentId, projectId, draughtsmanId));
+  } else {
+    batch.push(db.prepare(`INSERT INTO assignments (id, project_id, draughtsman_id, status) VALUES (?, ?, ?, 'PENDING')`).bind(assignmentId, projectId, draughtsmanId));
+  }
   batch.push(db.prepare(`UPDATE projects SET status = 'WAITING_ACCEPTANCE', draughtsman_id = ?, draughtsman_name = ?, current_assignment_id = ?, assigned_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(draughtsmanId, dMan.name, assignmentId, actionId, projectId));
   batch.push(db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-    actionId, projectId, 'DRAUGHTSMAN_REASSIGNED', uid, 'STUDIO_ADMIN', 'Studio Admin reassigned to draughtsman: ' + dMan.name
+    actionId, projectId, dMan.role === 'STUDENT' ? 'STUDENT_REASSIGNED' : 'DRAUGHTSMAN_REASSIGNED', uid, 'STUDIO_ADMIN', `Studio Admin reassigned to ${dMan.role === 'STUDENT' ? 'student' : 'draughtsman'}: ` + dMan.name
   ));
 
   await db.batch(batch);
-  return c.json({ success: true });
+  return c.json({ success: true, assignmentId });
 });
 
 const handleAcceptAssignment = async (c: any) => {
@@ -1205,13 +1250,21 @@ const handleAcceptAssignment = async (c: any) => {
   const db = c.env.DB;
   const body = await c.req.json().catch(() => ({}));
   let { assignmentId, projectId, actionId } = body;
+  if (!actionId) actionId = uuidv4();
 
   const user = await getUser(db, uid);
   if (!user || (user.role !== 'DRAUGHTSMAN' && user.role !== 'STUDENT')) return c.json({ error: 'Only draughtsmen or students can accept assignments' }, 403);
 
   if (!projectId && assignmentId) {
-    const aRec = await db.prepare('SELECT project_id FROM assignments WHERE id = ? UNION SELECT project_id FROM student_assignments WHERE id = ?').bind(assignmentId, assignmentId).first();
-    if (aRec) projectId = aRec.project_id;
+    const aRec = await db.prepare(`
+      SELECT project_id FROM assignments WHERE id = ? OR project_id = ?
+      UNION
+      SELECT project_id FROM student_assignments WHERE id = ? OR project_id = ?
+      UNION
+      SELECT id as project_id FROM projects WHERE id = ?
+      LIMIT 1
+    `).bind(assignmentId, assignmentId, assignmentId, assignmentId, assignmentId).first();
+    if (aRec && aRec.project_id) projectId = aRec.project_id;
   }
 
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
@@ -2138,7 +2191,9 @@ app.post('/api/projects/:projectId/files', async (c) => {
     'correction_attachment',
     'chat_attachment',
     'message_attachment',
-    'workspace_draft'
+    'workspace_draft',
+    'reference',
+    'specification'
   ];
 
   if (!category || !allowedCategories.includes(category)) {
@@ -2190,7 +2245,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   // Strict Deny-by-Default Category Authorization
   let isAuthorized = false;
 
-  if (category === 'client_upload' || category === 'correction_attachment') {
+  if (category === 'client_upload' || category === 'correction_attachment' || category === 'reference' || category === 'specification') {
     const isOwner = (user.role === 'CLIENT' || user.role === 'ENGINEER') && project.client_id === uid;
     const isAdmin = ['ADMIN', 'STUDIO_ADMIN'].includes(user.role as string);
     isAuthorized = isOwner || isAdmin;
@@ -2354,7 +2409,7 @@ app.get('/api/files/:fileId/download', async (c) => {
         // Can download own submitted files or instructor reference/brief materials for this assigned project
         if (fileMeta.uploaded_by === uid) {
           isAuthorized = true;
-        } else if (fileMeta.category === 'client_upload' || fileMeta.category === 'correction_attachment' || fileMeta.category === 'reference') {
+        } else if (fileMeta.category !== 'workspace_draft' && fileMeta.category !== 'draughtsman_version') {
           isAuthorized = true;
         }
       }
@@ -2367,7 +2422,40 @@ app.get('/api/files/:fileId/download', async (c) => {
     return c.json({ error: 'Forbidden: Access to project file denied' }, 403);
   }
 
-  const object = await c.env.STORAGE.get(fileMeta.object_key as string);
+  let object = await c.env.STORAGE.get(fileMeta.object_key as string);
+  if (!object && fileMeta.object_key) {
+    const rawKey = fileMeta.object_key as string;
+    const candidates: string[] = [
+      rawKey.startsWith('/') ? rawKey.substring(1) : `/${rawKey}`,
+    ];
+    try {
+      candidates.push(decodeURIComponent(rawKey));
+      candidates.push(encodeURI(rawKey));
+    } catch {}
+
+    if (fileMeta.project_id && (fileMeta.sanitized_name || fileMeta.original_name)) {
+      const name = (fileMeta.sanitized_name as string) || (fileMeta.original_name as string);
+      candidates.push(
+        `projects/${fileMeta.project_id}/${name}`,
+        `projects/${fileMeta.project_id}/${fileMeta.category}/${fileMeta.id}_${name}`,
+        `projects/${fileMeta.project_id}/workspace_draft/${fileMeta.id}_${name}`,
+        `projects/${fileMeta.project_id}/draughtsman_version/${fileMeta.id}_${name}`,
+        `files/${fileMeta.project_id}/${name}`,
+        `files/${fileMeta.project_id}/${fileMeta.id}_${name}`
+      );
+    }
+
+    for (const altKey of candidates) {
+      if (altKey && altKey !== rawKey) {
+        object = await c.env.STORAGE.get(altKey);
+        if (object) {
+          await db.prepare('UPDATE files SET object_key = ? WHERE id = ?').bind(altKey, fileId).run();
+          break;
+        }
+      }
+    }
+  }
+
   if (!object) return c.json({ error: 'File object missing in R2' }, 404);
 
   const headers = new Headers();
@@ -2429,11 +2517,9 @@ app.delete('/api/projects/:projectId/files/:fileId', async (c) => {
       return c.json({ error: 'Forbidden: You do not have permission to delete files uploaded by another user' }, 403);
     }
 
-    if (fileMeta.category === 'draughtsman_version') {
-      const isVersionRecord = await db.prepare('SELECT id FROM drawing_versions WHERE file_id = ?').bind(fileId).first();
-      if (isVersionRecord) {
-        return c.json({ error: 'Forbidden: Submitted drawing versions cannot be deleted' }, 403);
-      }
+    const isVersionRecord = await db.prepare('SELECT id FROM drawing_versions WHERE file_id = ?').bind(fileId).first();
+    if (isVersionRecord) {
+      return c.json({ error: 'Forbidden: Submitted drawing versions cannot be deleted' }, 403);
     }
   }
 
@@ -3514,7 +3600,7 @@ app.get('/api/admin/assignments', async (c) => {
 
 // ==========================================
 // ADMIN PROJECT INITIATION ENDPOINT
-// Narrowly scoped, explicitly authorized Admin project creation on behalf of a registered Engineer
+// Narrowly scoped, explicitly authorized Admin project creation on behalf of a registered Engineer or direct assignment to a Student
 // ==========================================
 
 app.post('/api/admin/projects', async (c) => {
@@ -3528,6 +3614,8 @@ app.post('/api/admin/projects', async (c) => {
 
   const body = await c.req.json().catch(() => ({}));
   const clientId = body.clientId || body.client_id;
+  const studentId = body.studentId || body.student_id;
+  const isTrainingProject = !!(body.isTrainingProject || body.is_training_project || studentId);
   const projectName = (body.projectName || body.project_name || '').trim();
   const drawingType = (body.drawingType || body.drawing_type || '').trim();
   const projectAddress = (body.projectAddress || body.project_address || 'Draughtsman Studio Scope').trim();
@@ -3535,15 +3623,104 @@ app.post('/api/admin/projects', async (c) => {
   const projectArea = String(body.projectArea || body.project_area || 1500);
   const actionId = body.actionId || crypto.randomUUID();
   const projectId = body.id || body.projectId || ('PRJ-' + crypto.randomUUID().substring(0, 8).toUpperCase());
+  const instructions = (body.instructions || body.description || '').trim();
+  const trainingModuleId = body.trainingModuleId || body.training_module_id;
 
-  if (!clientId) {
-    return c.json({ error: 'Associated Engineer (clientId) is required', code: 'INVALID_CLIENT' }, 400);
-  }
   if (!projectName) {
     return c.json({ error: 'Project name is required', code: 'INVALID_PROJECT_NAME' }, 400);
   }
   if (!drawingType) {
     return c.json({ error: 'Drawing type is required', code: 'INVALID_DRAWING_TYPE' }, 400);
+  }
+
+  // Check idempotency if project already exists
+  const existing = await db.prepare('SELECT id, last_action_id, status FROM projects WHERE id = ?').bind(projectId).first();
+  if (existing) {
+    if (existing.last_action_id === actionId) {
+      return c.json({ success: true, id: projectId, idempotent: true });
+    }
+    return c.json({ error: 'Project with this ID already exists', code: 'CONFLICT' }, 409);
+  }
+
+  // ── BRANCH A: Student Practical Training Assignment ───────────────────────
+  if (isTrainingProject) {
+    if (!studentId) {
+      return c.json({ error: 'Target student (studentId) is required for student assignment', code: 'INVALID_STUDENT' }, 400);
+    }
+
+    const studentUser = await getUser(db, studentId);
+    if (!studentUser || studentUser.role !== 'STUDENT') {
+      return c.json({ error: 'Specified student must be a registered Student', code: 'INVALID_STUDENT' }, 400);
+    }
+
+    if (studentUser.status === 'SUSPENDED') {
+      return c.json({ error: 'Cannot assign project to a suspended Student account', code: 'ACCOUNT_SUSPENDED' }, 403);
+    }
+
+    // Resolve or validate training module association
+    let effectiveModuleId = trainingModuleId;
+    if (effectiveModuleId) {
+      const moduleExists = await db.prepare('SELECT id FROM training_modules WHERE id = ?').bind(effectiveModuleId).first();
+      if (!moduleExists) {
+        return c.json({ error: 'Referenced training module does not exist', code: 'INVALID_TRAINING_MODULE' }, 400);
+      }
+    } else {
+      const firstModule = await db.prepare('SELECT id FROM training_modules ORDER BY created_at ASC LIMIT 1').first();
+      if (firstModule && firstModule.id) {
+        effectiveModuleId = firstModule.id as string;
+      } else {
+        effectiveModuleId = 'mod-practical-core';
+        await db.prepare(`
+          INSERT OR IGNORE INTO training_modules (id, category, type, level, title, description)
+          VALUES ('mod-practical-core', 'Architectural', 'Module', 'Practical', 'Studio Practical Training', 'Practical architectural drafting assignment')
+        `).run();
+      }
+    }
+
+    const formattedAddress = instructions
+      ? (projectAddress && projectAddress !== 'Draughtsman Studio Scope' ? `${projectAddress} — Instructions: ${instructions}` : `Instructions: ${instructions}`)
+      : projectAddress;
+
+    const assignmentId = crypto.randomUUID();
+    const studentName = (studentUser.name as string) || (studentUser.email as string) || 'Student';
+
+    const batch = [
+      db.prepare(`
+        INSERT INTO projects (
+          id, client_id, project_name, project_address, drawing_name, drawing_type,
+          project_area, status, draughtsman_id, draughtsman_name, current_assignment_id,
+          assigned_at, submitted_at, created_at, last_action_id, correction_round,
+          is_training_project, training_module_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'WAITING_ACCEPTANCE', ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, 0, 1, ?)
+      `).bind(projectId, uid, projectName, formattedAddress, drawingName, drawingType, projectArea, studentId, studentName, assignmentId, actionId, effectiveModuleId),
+      db.prepare(`
+        INSERT INTO student_assignments (id, project_id, student_id, assignment_type, status)
+        VALUES (?, ?, ?, 'PRACTICAL', 'PENDING')
+      `).bind(assignmentId, projectId, studentId),
+      db.prepare(`
+        INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details)
+        VALUES (?, ?, 'STUDENT_ASSIGNED', ?, ?, ?)
+      `).bind(
+        actionId, projectId, uid, user.role,
+        `Studio Admin created and assigned practical project "${projectName}" to student: ${studentName}`
+      ),
+      db.prepare(`
+        INSERT INTO notifications (id, user_id, project_id, type, title, message)
+        VALUES (?, ?, ?, 'NEW_ASSIGNMENT', ?, ?)
+      `).bind(
+        crypto.randomUUID(), studentId, projectId,
+        `New Practical Assignment: ${projectName}`,
+        `You have been assigned to project: "${projectName}". Please review instructions and accept to begin drafting.`
+      )
+    ];
+
+    await db.batch(batch);
+    return c.json({ success: true, id: projectId, assignmentId }, 201);
+  }
+
+  // ── BRANCH B: Commercial Project for Engineer Client (Preserved) ──────────
+  if (!clientId) {
+    return c.json({ error: 'Associated Engineer (clientId) is required', code: 'INVALID_CLIENT' }, 400);
   }
 
   // Verify associated client exists and is an Engineer/Client
@@ -3554,15 +3731,6 @@ app.post('/api/admin/projects', async (c) => {
 
   if (clientUser.status === 'SUSPENDED') {
     return c.json({ error: 'Cannot initiate project for a suspended Engineer account', code: 'ACCOUNT_SUSPENDED' }, 403);
-  }
-
-  // Check idempotency if project already exists
-  const existing = await db.prepare('SELECT id, last_action_id, status FROM projects WHERE id = ?').bind(projectId).first();
-  if (existing) {
-    if (existing.last_action_id === actionId) {
-      return c.json({ success: true, id: projectId, idempotent: true });
-    }
-    return c.json({ error: 'Project with this ID already exists', code: 'CONFLICT' }, 409);
   }
 
   const batch = [

@@ -125,7 +125,11 @@ export async function fetchApi<T>(
 }
 
 export interface CreateProjectPayload {
-  clientId: string;
+  clientId?: string;
+  studentId?: string;
+  isTrainingProject?: boolean;
+  trainingModuleId?: string;
+  instructions?: string;
   projectName: string;
   projectAddress?: string;
   drawingName?: string;
@@ -548,7 +552,7 @@ export const adminApi = {
   async uploadProjectFile(
     projectId: string,
     file: File,
-    category: 'client_upload' | 'correction_attachment' | 'chat_attachment' | 'message_attachment' = 'client_upload',
+    category: 'client_upload' | 'correction_attachment' | 'chat_attachment' | 'message_attachment' | 'reference' | 'specification' = 'client_upload',
     actionId?: string
   ): Promise<ProjectFile> {
     const aid = actionId || crypto.randomUUID();

@@ -437,7 +437,10 @@ class _StudentProjectWorkspaceScreenState
               ),
               data: (files) {
                 final refFiles = files
-                    .where((f) => f.category == 'client_upload' || f.category == 'correction_attachment')
+                    .where((f) =>
+                        f.category != 'workspace_draft' &&
+                        f.category != 'draughtsman_version' &&
+                        f.status != 'FAILED')
                     .toList();
 
                 if (refFiles.isEmpty) {

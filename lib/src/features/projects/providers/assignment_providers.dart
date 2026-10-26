@@ -60,6 +60,7 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
 
       await repository.acceptAssignment(
         assignmentId: assignmentId,
+        projectId: projectId,
         actionId: actionId,
       );
 
@@ -84,6 +85,7 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
 
       await repository.rejectAssignment(
         assignmentId: assignmentId,
+        projectId: projectId,
         actionId: actionId,
         reason: 'Manually rejected by draughtsman',
       );

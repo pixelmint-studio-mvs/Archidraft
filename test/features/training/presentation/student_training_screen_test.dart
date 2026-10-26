@@ -122,5 +122,76 @@ void main() {
       expect(pushedRoute, '/student/training/mod_cad_01');
       expect(find.text('Detail for mod_cad_01'), findsOneWidget);
     });
+
+    test('TrainingModule category and type normalization logic', () {
+      expect(TrainingModule.normalizeCategory('Reinforced Concrete Detailing'), 'Structural');
+      expect(TrainingModule.normalizeCategory('concrete'), 'Structural');
+      expect(TrainingModule.normalizeCategory('STRUCTURAL'), 'Structural');
+      expect(TrainingModule.normalizeCategory('rcc detailing'), 'Structural');
+      expect(TrainingModule.normalizeCategory('Architectural Drafting'), 'Architectural');
+      expect(TrainingModule.normalizeCategory('Interior Space Planning'), 'Interior');
+      expect(TrainingModule.normalizeCategory('Building Approval Codes'), 'Approval');
+      expect(TrainingModule.normalizeCategory(null), 'Architectural');
+
+      expect(TrainingModule.normalizeType('mock_project'), 'Mock Project');
+      expect(TrainingModule.normalizeType('masterclass'), 'Masterclass');
+      expect(TrainingModule.normalizeType('module'), 'Module');
+      expect(TrainingModule.normalizeType(null), 'Module');
+
+      final module = TrainingModule.fromMap({
+        'id': 'mod_rc_01',
+        'title': 'Reinforced Concrete Detailing',
+        'category': 'Reinforced Concrete Detailing',
+        'type': 'module',
+        'status': 'in_progress',
+        'progress': 0.5,
+      });
+
+      expect(module.category, 'Structural');
+      expect(module.type, 'Module');
+      expect(module.status, 'In Progress');
+    });
+
+    testWidgets('Reinforced Concrete Detailing module appears under Structural tab', (tester) async {
+      final rccModule = TrainingModule.fromMap({
+        'id': 'mod_rc_01',
+        'title': 'Reinforced Concrete Detailing',
+        'category': 'Reinforced Concrete Detailing',
+        'type': 'module',
+        'status': 'in_progress',
+        'description': 'Advanced rebar placement and concrete detailing.',
+      });
+
+      final router = GoRouter(
+        initialLocation: '/student/training',
+        routes: [
+          GoRoute(
+            path: '/student/training',
+            builder: (context, state) => const StudentTrainingScreen(),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        createTestApp(
+          modules: [rccModule],
+          progress: [
+            const TrainingCategoryProgress(category: 'Structural', overallProgress: 0.5),
+          ],
+          assignments: [],
+          router: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap the Structural tab specifically
+      await tester.tap(find.widgetWithText(Tab, 'Structural'));
+      await tester.pumpAndSettle();
+
+      // Should find the Reinforced Concrete Detailing module card in the Structural view
+      expect(find.text('Reinforced Concrete Detailing'), findsWidgets);
+      // Empty state for Structural must NOT be shown
+      expect(find.text('No Modules in Structural'), findsNothing);
+    });
   });
 }

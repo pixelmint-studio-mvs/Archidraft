@@ -41,7 +41,7 @@ class TrainingRepository {
       return response.map((data) {
         final map = data as Map<String, dynamic>;
         return TrainingCategoryProgress(
-          category: map['category'] as String? ?? 'General',
+          category: TrainingModule.normalizeCategory(map['category'] as String?),
           overallProgress: (map['overall_progress'] as num?)?.toDouble() ?? 0.0,
         );
       }).toList();

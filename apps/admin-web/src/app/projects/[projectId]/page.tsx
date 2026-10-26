@@ -2412,6 +2412,7 @@ export default function ProjectDetailPage({
           projectId={project.id}
           projectName={project.project_name}
           isReassign={isReassign}
+          isTrainingProject={project.is_training_project === 1}
           onSuccess={() => fetchProjectData(true)}
         />
       )}

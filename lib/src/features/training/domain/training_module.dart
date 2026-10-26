@@ -29,15 +29,88 @@ class TrainingModule {
     this.durationOrFormat,
   });
 
+  static String normalizeCategory(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'Architectural';
+    final trimmed = raw.trim();
+    final lower = trimmed.toLowerCase();
+
+    // Structural matches (including Reinforced Concrete, RCC, Civil, Steel, Rebar)
+    if (lower.contains('structur') ||
+        lower.contains('concrete') ||
+        lower.contains('rcc') ||
+        lower.contains('civil') ||
+        lower.contains('steel') ||
+        lower.contains('rebar') ||
+        lower.contains('foundation')) {
+      return 'Structural';
+    }
+
+    // Architectural matches (Floor Plan, Elevation, Section, CAD Drafting)
+    if (lower.contains('architect') ||
+        lower.contains('floor plan') ||
+        lower.contains('elevation') ||
+        lower.contains('section') ||
+        lower.contains('drafting') ||
+        lower.contains('layout')) {
+      return 'Architectural';
+    }
+
+    // Interior matches (Space Planning, Furniture, Interior Detailing)
+    if (lower.contains('interior') ||
+        lower.contains('space plan') ||
+        lower.contains('furniture') ||
+        lower.contains('decor')) {
+      return 'Interior';
+    }
+
+    // Approval matches (Bylaws, Sanctions, Building Codes, Permits)
+    if (lower.contains('approval') ||
+        lower.contains('sanction') ||
+        lower.contains('permit') ||
+        lower.contains('code') ||
+        lower.contains('bylaw') ||
+        lower.contains('authority')) {
+      return 'Approval';
+    }
+
+    if (lower == 'architectural') return 'Architectural';
+    if (lower == 'structural') return 'Structural';
+    if (lower == 'interior') return 'Interior';
+    if (lower == 'approval') return 'Approval';
+
+    return trimmed[0].toUpperCase() + trimmed.substring(1).toLowerCase();
+  }
+
+  static String normalizeType(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'Module';
+    final lower = raw.trim().toLowerCase();
+    if (lower.contains('mock') || lower.contains('project')) {
+      return 'Mock Project';
+    }
+    if (lower.contains('masterclass')) {
+      return 'Masterclass';
+    }
+    return 'Module';
+  }
+
+  static String normalizeStatus(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'Not Started';
+    final lower = raw.trim().toLowerCase();
+    if (lower == 'completed') return 'Completed';
+    if (lower == 'in progress' || lower == 'in_progress') return 'In Progress';
+    if (lower == 'locked') return 'Locked';
+    return 'Not Started';
+  }
+
   factory TrainingModule.fromMap(Map<String, dynamic> data) {
     return TrainingModule(
       id: data['id'] as String? ?? '',
       title: data['title'] as String? ?? 'Untitled',
-      category: data['category'] as String? ?? 'General',
-      type: data['type'] as String? ?? 'Module',
+      category: normalizeCategory(data['category'] as String?),
+      type: normalizeType(data['type'] as String?),
       level: data['level'] as String? ?? 'Beginner',
       description: data['description'] as String? ?? '',
-      status: data['status'] as String? ?? 'Not Started',
+      status: normalizeStatus(data['status'] as String?),
       score: data['score'] as int?,
       progress: (data['progress'] as num?)?.toDouble() ?? 0.0,
       isLocked: data['is_locked'] == 1 || data['is_locked'] == true,

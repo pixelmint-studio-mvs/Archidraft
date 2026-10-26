@@ -109,17 +109,13 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
               children: [
                 _buildHeroCard(module, linkedProject),
                 const SizedBox(height: AppSpacing.lg),
-                if (module.type == 'Module') ...[
-                  _buildLessonsList(module),
-                  if (linkedProject != null) ...[
-                    const SizedBox(height: AppSpacing.xl),
-                    _buildPracticalAssignmentCard(context, ref, module, linkedProject),
-                  ],
-                ] else ...[
-                  if (linkedProject != null)
-                    _buildPracticalAssignmentCard(context, ref, module, linkedProject)
-                  else
-                    _buildPendingAssignmentCard(context),
+                _buildLessonsList(module),
+                if (linkedProject != null) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildPracticalAssignmentCard(context, ref, module, linkedProject),
+                ] else if (module.type == 'Mock Project') ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildPendingAssignmentCard(context),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
               ],
@@ -741,6 +737,9 @@ class _TrainingModuleDetailScreenState extends ConsumerState<TrainingModuleDetai
           error: (error, stack) => Center(child: Text('Error loading lessons: $error', style: const TextStyle(color: Colors.red))),
           data: (lessons) {
             if (lessons.isEmpty) {
+              if (module.type == 'Mock Project') {
+                return const SizedBox.shrink();
+              }
               return Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 decoration: BoxDecoration(

@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { StudentProfileView } from '@/components/students/StudentProfileView';
+import { NewProjectModal } from '@/components/projects/NewProjectModal';
 import { adminApi } from '@/lib/api';
 import { User } from '@/lib/types';
-import { ArrowLeft, AlertCircle, RefreshCw, ShieldAlert, Lock } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RefreshCw, ShieldAlert, Lock, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 // Fallback fixture lookup if ID is a preview fixture
@@ -68,6 +69,7 @@ export default function StudentDetailPage({
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
 
   const fetchStudentData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -173,12 +175,22 @@ export default function StudentDetailPage({
           <p className="text-xs text-slate-500 mt-3 font-mono">Loading student learning portal…</p>
         </div>
       ) : student ? (
-        <StudentProfileView
-          student={student}
-          assignments={assignments}
-          loading={loading}
-          isStandalone={true}
-        />
+        <>
+          <StudentProfileView
+            student={student}
+            assignments={assignments}
+            loading={loading}
+            isStandalone={true}
+            onAssignProject={() => setIsNewProjectModalOpen(true)}
+          />
+          <NewProjectModal
+            isOpen={isNewProjectModalOpen}
+            onClose={() => setIsNewProjectModalOpen(false)}
+            onSuccess={() => fetchStudentData(true)}
+            initialAssigneeType="STUDENT"
+            initialStudentId={id}
+          />
+        </>
       ) : null}
     </AdminShell>
   );

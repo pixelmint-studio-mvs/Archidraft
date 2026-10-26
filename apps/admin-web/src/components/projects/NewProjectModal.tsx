@@ -5,34 +5,29 @@ import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { adminApi } from '@/lib/api';
-import { User, ProjectFile } from '@/lib/types';
+import { User } from '@/lib/types';
 import {
   Building2,
   MapPin,
-  FileCode,
-  Layers,
-  Ruler,
-  Clock,
   UploadCloud,
   CheckCircle2,
   AlertCircle,
-  FileText,
   X,
   ArrowRight,
   ArrowLeft,
-  DollarSign,
-  ShieldCheck,
-  Compass,
   Sparkles,
+  GraduationCap,
 } from 'lucide-react';
 
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (projectId?: string) => void;
+  initialAssigneeType?: 'STUDENT';
+  initialStudentId?: string;
 }
 
-// ── Discipline Categories & Base Rate Mapping ─────────────────────────────────
+// ── Discipline Categories & Scale Options ─────────────────────────────────────
 
 interface DisciplineOption {
   id: string;
@@ -49,58 +44,42 @@ const DISCIPLINES: DisciplineOption[] = [
   { id: 'Municipal / Permit', label: 'Municipal / Permit', rateKey: 'SITE_PLAN', desc: 'Permit packages, boundary surveys & zoning' },
 ];
 
-const TYPE_RATES: Record<string, number> = {
-  FLOOR_PLAN: 1200,
-  STRUCTURAL: 2800,
-  ELEVATION: 1800,
-  ELECTRICAL: 2200,
-  PLUMBING: 2000,
-  SITE_PLAN: 3500,
-  SECTION: 1600,
-  DETAIL: 900,
-};
-
 const DRAWING_SCALES = [
   { value: '1:50', label: '1:50 (Detailed / Fit-out)' },
   { value: '1:100', label: '1:100 (Standard Commercial)' },
   { value: '1:200', label: '1:200 (Site & Campus Plan)' },
 ];
 
-interface SlaOption {
-  id: 'standard' | 'expedited' | 'emergency';
-  title: string;
-  turnaround: string;
-  surcharge: number;
-  badge?: string;
-}
-
-const SLA_OPTIONS: SlaOption[] = [
-  { id: 'standard', title: 'Standard Delivery', turnaround: '5 Business Days Turnaround', surcharge: 0 },
-  { id: 'expedited', title: 'Expedited Priority', turnaround: '48 Hours Turnaround SLA', surcharge: 850, badge: 'RECOMMENDED' },
-  { id: 'emergency', title: 'Emergency Revision', turnaround: '24 Hours Rapid Dispatch', surcharge: 1600, badge: 'URGENT' },
-];
-
-export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalProps) {
+export function NewProjectModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialAssigneeType,
+  initialStudentId,
+}: NewProjectModalProps) {
   const router = useRouter();
 
   // Wizard Step: 1 = Metadata/Identity, 2 = Specs & Files, 3 = Review & Dispatch
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Engineers list
-  const [engineers, setEngineers] = useState<User[]>([]);
-  const [fetchingEngineers, setFetchingEngineers] = useState<boolean>(false);
+  // Assignment Target: Student Apprentice (Academic Training Curriculum)
+  const assigneeType = 'STUDENT' as const;
+
+  // Students list
+  const [students, setStudents] = useState<User[]>([]);
+  const [fetchingStudents, setFetchingStudents] = useState<boolean>(false);
 
   // Step 1: Identity Form State
-  const [selectedEngineerId, setSelectedEngineerId] = useState<string>('');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(initialStudentId || '');
   const [projectName, setProjectName] = useState<string>('');
   const [projectAddress, setProjectAddress] = useState<string>('');
+  const [instructions, setInstructions] = useState<string>('');
   const [clientRefCode, setClientRefCode] = useState<string>('');
 
   // Step 2: Scope & Files Form State
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>(DISCIPLINES[0].id);
   const [drawingScale, setDrawingScale] = useState<string>('1:100');
   const [areaFootprint, setAreaFootprint] = useState<string>('1500');
-  const [selectedSla, setSelectedSla] = useState<'standard' | 'expedited' | 'emergency'>('expedited');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // Step 3: Submission & Progress State
@@ -124,44 +103,35 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
       setAreaFootprint('1500');
       setSelectedFiles([]);
       setSelectedDiscipline(DISCIPLINES[0].id);
-      setSelectedSla('expedited');
+      setInstructions('');
 
-      // Generate randomized reference code
+      // Generate randomized student curriculum reference code
       const randNum = Math.floor(10000 + Math.random() * 90000);
-      setClientRefCode(`PO-ARCH-${randNum}`);
+      setClientRefCode(`STU-PRAC-${randNum}`);
 
-      // Load registered engineers (role: CLIENT)
-      setFetchingEngineers(true);
+      // Load registered students (role: STUDENT)
+      setFetchingStudents(true);
       adminApi
-        .getUsers('CLIENT')
+        .getUsers('STUDENT')
         .then((list) => {
-          setEngineers(list || []);
-          if (list && list.length > 0) {
-            setSelectedEngineerId(list[0].id);
+          const studentList = (list || []).filter((u) => u.role === 'STUDENT');
+          setStudents(studentList);
+          if (initialStudentId && studentList.some((s) => s.id === initialStudentId)) {
+            setSelectedStudentId(initialStudentId);
+          } else if (studentList.length > 0) {
+            setSelectedStudentId(studentList[0].id);
           }
         })
         .catch((err) => {
-          console.error('Failed to load engineers:', err);
+          console.error('Failed to load students:', err);
         })
-        .finally(() => setFetchingEngineers(false));
+        .finally(() => setFetchingStudents(false));
     }
-  }, [isOpen]);
+  }, [isOpen, initialAssigneeType, initialStudentId]);
 
-  // Pricing calculation matching authoritative Stitch formula: Base Fee + SLA Surcharge (No GST)
-  const priceEstimates = useMemo(() => {
-    const area = parseFloat(areaFootprint) || 1500;
-    const disciplineObj = DISCIPLINES.find((d) => d.id === selectedDiscipline) || DISCIPLINES[0];
-    const rate = TYPE_RATES[disciplineObj.rateKey] ?? 1500;
-    const baseFee = Math.round((area / 100) * rate * 0.6 + rate);
-    const slaSurcharge = SLA_OPTIONS.find((s) => s.id === selectedSla)?.surcharge || 0;
-    const total = baseFee + slaSurcharge;
-
-    return { baseFee, slaSurcharge, total };
-  }, [areaFootprint, selectedDiscipline, selectedSla]);
-
-  const selectedEngineer = useMemo(() => {
-    return engineers.find((e) => e.id === selectedEngineerId);
-  }, [engineers, selectedEngineerId]);
+  const selectedStudent = useMemo(() => {
+    return students.find((s) => s.id === selectedStudentId);
+  }, [students, selectedStudentId]);
 
   // File selection handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,11 +153,11 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
   // Step 1 validation
   const validateStep1 = () => {
     if (!projectName.trim()) {
-      setErrorMessage('Project designation is required.');
+      setErrorMessage('Assignment title is required.');
       return false;
     }
-    if (!selectedEngineerId) {
-      setErrorMessage('Please select an Engineer for this project.');
+    if (!selectedStudentId) {
+      setErrorMessage('Please select an enrolled Student Apprentice for this assignment.');
       return false;
     }
     setErrorMessage(null);
@@ -211,17 +181,20 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
     let currentProjectId = createdProjectId;
 
     try {
-      // 1. Create Project Brief if not already created (idempotent retry safe)
+      // 1. Create Student Practical Assignment Brief if not already created (idempotent retry safe)
       if (!currentProjectId) {
         setSubmissionStage('creating_project');
         const disciplineObj = DISCIPLINES.find((d) => d.id === selectedDiscipline) || DISCIPLINES[0];
+
         const res = await adminApi.createProject({
-          clientId: selectedEngineerId,
+          studentId: selectedStudentId,
+          isTrainingProject: true,
           projectName: projectName.trim(),
-          projectAddress: projectAddress.trim() || 'Draughtsman Studio Scope',
-          drawingName: `${disciplineObj.label} Package (${drawingScale})`,
-          drawingType: disciplineObj.rateKey, // Authoritative Firestore/D1 enum recognized by Flutter
+          projectAddress: projectAddress.trim() || 'Academic Studio Campus',
+          drawingName: `${disciplineObj.label} Practical Assignment (${drawingScale})`,
+          drawingType: disciplineObj.rateKey,
           projectArea: Number(areaFootprint) || 1500,
+          instructions: instructions.trim() || undefined,
           actionId: projectActionId,
         });
 
@@ -232,15 +205,17 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
       // 2. Stream reference files to R2
       if (selectedFiles.length > 0 && currentProjectId) {
         setSubmissionStage('uploading_files');
-        let uploaded = 0;
-        for (const file of selectedFiles) {
+        let uploaded = uploadedFileCount;
+        const uploadCategory = 'reference';
+        const remainingFiles = selectedFiles.slice(uploaded);
+        for (const file of remainingFiles) {
           try {
-            await adminApi.uploadProjectFile(currentProjectId, file, 'client_upload');
+            await adminApi.uploadProjectFile(currentProjectId, file, uploadCategory);
             uploaded++;
             setUploadedFileCount(uploaded);
           } catch (fileErr: any) {
             console.error(`Failed to upload ${file.name}:`, fileErr);
-            throw new Error(`Failed to upload reference file "${file.name}". Click retry to resume upload.`);
+            throw new Error(`Failed to upload reference file "${file.name}" (${fileErr.message || 'Upload failed'}). Click retry to resume upload.`);
           }
         }
       }
@@ -249,7 +224,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
     } catch (err: any) {
       console.error('Project initiation error:', err);
       setSubmissionStage('error');
-      setErrorMessage(err.message || 'Failed to dispatch project brief. Please check inputs and retry.');
+      setErrorMessage(err.message || 'Failed to dispatch practical assignment. Please check inputs and retry.');
     }
   };
 
@@ -273,16 +248,18 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[10px] font-mono tracking-widest text-slate-400 uppercase">
-                DRAUGHTSMAN STUDIO // PROJECT INITIATION
+                STUDIO ACADEMY // PRACTICAL ASSIGNMENT
               </span>
             </div>
             <div className="bg-white/10 border border-white/20 text-slate-200 font-mono text-[9px] font-semibold tracking-wider px-2 py-0.5 rounded">
               REV 1.0 · D1 SYNC
             </div>
           </div>
-          <h2 className="text-lg font-bold tracking-tight text-white mt-1">Initiate Architectural Project</h2>
+          <h2 className="text-lg font-bold tracking-tight text-white mt-1">
+            Assign Practical Project to Student
+          </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Specify drawing parameters, commission drafting scope, and define review turnaround requirements.
+            Create a training project with instructions & reference files, and assign directly to an apprentice.
           </p>
 
           {/* ── 3-Step Breadcrumb Progress Tracker ── */}
@@ -353,6 +330,24 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             <div className="flex-1">
               <p className="font-semibold">Action Required</p>
               <p className="mt-0.5 text-rose-700">{errorMessage}</p>
+              {createdProjectId && (
+                <div className="mt-2 pt-2 border-t border-rose-200/60 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMessage(null);
+                      setSubmissionStage('completed');
+                    }}
+                    className="font-mono font-semibold text-rose-900 hover:text-rose-950 underline flex items-center gap-1"
+                  >
+                    Proceed to Project Console without remaining files →
+                  </button>
+                  <span className="text-rose-400">·</span>
+                  <span className="text-[11px] text-rose-600">
+                    Project is registered in D1. You can upload references later from the workspace.
+                  </span>
+                </div>
+              )}
             </div>
             <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-rose-600">
               <X className="h-4 w-4" />
@@ -370,7 +365,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-3.5 bg-[#0a192f] rounded-xs" />
                   <h3 className="text-xs font-bold font-mono tracking-wider uppercase text-slate-800">
-                    Section A // Project Identity & Engineer Association
+                    Section A // Assignment Identity & Student Selection
                   </h3>
                 </div>
                 <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
@@ -378,43 +373,66 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 </span>
               </div>
 
-              {/* Engineer Selection (User-facing label: Engineer, Internal: CLIENT) */}
+              {/* Assignment Target Display */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
+                    Assignment Target <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    CURRICULUM ASSIGNMENT
+                  </span>
+                </div>
+                <div className="p-1 bg-slate-100 rounded-xl border border-slate-200">
+                  <div className="py-2 px-3 rounded-lg text-xs font-bold bg-[#0a192f] text-white shadow-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Student Apprentice</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
+                      ACTIVE TARGET
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Student Selection */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
-                  Registered Engineer <span className="text-rose-500">*</span>
+                  Enrolled Student Apprentice <span className="text-rose-500">*</span>
                 </label>
-                {fetchingEngineers ? (
+                {fetchingStudents ? (
                   <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-500">
-                    Loading registered engineers...
+                    Loading enrolled students...
                   </div>
-                ) : engineers.length === 0 ? (
+                ) : students.length === 0 ? (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-mono">
-                    No registered engineers found. Register an engineer before initiating a brief.
+                    No registered students found in database. Trainees must register via the Student Portal.
                   </div>
                 ) : (
                   <div className="relative">
                     <select
-                      value={selectedEngineerId}
-                      onChange={(e) => setSelectedEngineerId(e.target.value)}
+                      value={selectedStudentId}
+                      onChange={(e) => setSelectedStudentId(e.target.value)}
                       className="w-full text-xs font-medium text-slate-900 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 focus:border-[#0453cd] focus:ring-1 focus:ring-[#0453cd] outline-none shadow-xs"
                     >
-                      {engineers.map((eng) => (
-                        <option key={eng.id} value={eng.id}>
-                          {eng.name} ({eng.email}) {eng.company_name ? `· ${eng.company_name}` : ''}
+                      {students.map((stu) => (
+                        <option key={stu.id} value={stu.id}>
+                          {stu.name} ({stu.email}) {stu.college_name ? `· ${stu.college_name}` : ''}
                         </option>
                       ))}
                     </select>
                   </div>
                 )}
                 <p className="text-[10px] font-mono text-slate-500">
-                  Select the authenticated Engineer client account who will review and approve the drawings.
+                  Select the student apprentice who will receive this practical assignment directly in their learning portal.
                 </p>
               </div>
 
-              {/* Project Designation */}
+              {/* Assignment Title */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
-                  Project Designation <span className="text-rose-500">*</span>
+                  Assignment Title / Project Designation <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -422,16 +440,16 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     type="text"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="e.g. Stavanger Maritime Cultural Center"
+                    placeholder="e.g. AutoCAD Floor Plan & Section Detailing Practical"
                     className="w-full text-xs font-medium text-slate-900 bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 focus:border-[#0453cd] focus:ring-1 focus:ring-[#0453cd] outline-none shadow-xs"
                   />
                 </div>
               </div>
 
-              {/* Site Address */}
+              {/* Campus / Studio Lab Location */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
-                  Site Coordinates & Address
+                  Campus / Studio Lab Location
                 </label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -439,17 +457,34 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     type="text"
                     value={projectAddress}
                     onChange={(e) => setProjectAddress(e.target.value)}
-                    placeholder="e.g. Pier 4, Harbor Promenade, Stavanger"
+                    placeholder="e.g. CAD Design Lab, Semester 4 Practical"
                     className="w-full text-xs font-medium text-slate-900 bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2.5 focus:border-[#0453cd] focus:ring-1 focus:ring-[#0453cd] outline-none shadow-xs"
                   />
                 </div>
+              </div>
+
+              {/* Practical Instructions & Brief */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
+                  Assignment Instructions & Student Brief
+                </label>
+                <textarea
+                  rows={3}
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="Provide drafting requirements, required layers/lineweights, submission deliverables (DWG/PDF), or rubric notes for the student..."
+                  className="w-full text-xs font-medium text-slate-900 bg-white border border-slate-200 rounded-xl p-3 focus:border-[#0453cd] focus:ring-1 focus:ring-[#0453cd] outline-none shadow-xs resize-y"
+                />
+                <p className="text-[10px] font-mono text-slate-500">
+                  These instructions will be displayed directly inside the student's project workspace in their portal.
+                </p>
               </div>
 
               {/* Reference Code [AUTOGEN] */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
-                    Client Reference Code
+                    Curriculum Reference Code
                   </label>
                   <span className="text-[10px] font-mono text-slate-400">[AUTOGEN]</span>
                 </div>
@@ -552,56 +587,31 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 </div>
               </div>
 
-              {/* Turnaround SLA Options */}
+              {/* Academic Training Schedule */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
-                    Section C // Turnaround SLA
+                    Section C // Academic Training Schedule
                   </label>
-                  <span className="text-[10px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                    GUARANTEED
+                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    CURRICULUM
                   </span>
                 </div>
-                <div className="space-y-2">
-                  {SLA_OPTIONS.map((sla) => {
-                    const isSelected = selectedSla === sla.id;
-                    return (
-                      <label
-                        key={sla.id}
-                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-[#0a192f]/5 border-[#0a192f] ring-1 ring-[#0a192f]'
-                            : 'bg-white border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            name="slaOption"
-                            checked={isSelected}
-                            onChange={() => setSelectedSla(sla.id)}
-                            className="text-[#0a192f] focus:ring-[#0a192f] h-4 w-4"
-                          />
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-900">{sla.title}</span>
-                              {sla.badge && (
-                                <span className="bg-[#0a192f] text-white text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold">
-                                  {sla.badge}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[11px] text-slate-500 font-mono block mt-0.5">
-                              {sla.turnaround}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-xs font-mono font-bold text-slate-900">
-                          {sla.surcharge === 0 ? 'Included' : `+$${sla.surcharge}`}
-                        </span>
-                      </label>
-                    );
-                  })}
+                <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl flex items-start gap-3">
+                  <div className="p-2 bg-emerald-100 rounded-lg text-emerald-700 shrink-0 mt-0.5">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <div className="text-xs font-mono">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">Apprentice Studio Training Schedule</span>
+                      <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                        ZERO SURCHARGE
+                      </span>
+                    </div>
+                    <p className="text-slate-600 mt-1 leading-relaxed">
+                      This practical training assignment follows the student apprentice curriculum workflow with revision cycles. No commercial delivery surcharge applies.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -609,14 +619,16 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-600">
-                    Section D // Reference Blueprints & CAD Files
+                    Section D // Reference Blueprints & Practical Assignment Materials
                   </label>
                   <span className="text-[10px] font-mono text-slate-500">[DWG/DXF/PDF/RVT · MAX 50MB]</span>
                 </div>
 
                 <div className="border-2 border-dashed border-sky-400/60 hover:border-[#0a192f] bg-sky-50/40 rounded-xl p-5 text-center transition-colors">
                   <UploadCloud className="w-8 h-8 text-[#0453cd] mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-slate-900">Upload Project Reference Files</p>
+                  <p className="text-xs font-semibold text-slate-900">
+                    Upload Assignment Reference Files for Student
+                  </p>
                   <p className="text-[11px] text-slate-500 mt-0.5">Supports DWG, DXF, RVT, PDF, PNG, JPG, or ZIP</p>
 
                   <label className="mt-3 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#0a192f] text-white text-xs font-mono font-medium shadow-xs cursor-pointer hover:bg-slate-800 active:scale-95 transition-all">
@@ -675,9 +687,11 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900">Project Brief Successfully Commissioned!</h3>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Practical Assignment Successfully Dispatched!
+                    </h3>
                     <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                      The project brief has been recorded in D1 and is immediately visible to the assigned Engineer in their portal.
+                      The practical assignment has been registered in D1 and is immediately visible to the student in their learning portal.
                     </p>
                   </div>
 
@@ -687,8 +701,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                       <span className="font-bold text-slate-900">{createdProjectId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Assigned Engineer:</span>
-                      <span className="text-slate-900">{selectedEngineer?.name}</span>
+                      <span className="text-slate-500">Assigned Student:</span>
+                      <span className="text-slate-900">{selectedStudent?.name} ({selectedStudent?.email})</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Files Uploaded:</span>
@@ -696,7 +710,9 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Service Status:</span>
-                      <span className="text-blue-600 font-bold">SUBMITTED (Awaiting Assignment)</span>
+                      <span className="text-blue-600 font-bold">
+                        WAITING_ACCEPTANCE (Student Assigned)
+                      </span>
                     </div>
                   </div>
 
@@ -731,7 +747,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                   <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-800">
-                        Project Brief Summary
+                        Practical Assignment Summary
                       </h4>
                       <span className="text-[10px] font-mono text-slate-500">{clientRefCode}</span>
                     </div>
@@ -742,8 +758,10 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                         <span className="font-semibold text-slate-900 truncate block">{projectName}</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 block uppercase">Assigned Engineer</span>
-                        <span className="font-semibold text-slate-900 truncate block">{selectedEngineer?.name || 'Engineer'}</span>
+                        <span className="text-[10px] text-slate-500 block uppercase">Assigned Student</span>
+                        <span className="font-semibold text-slate-900 truncate block">
+                          {selectedStudent?.name || 'Student Apprentice'}
+                        </span>
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-500 block uppercase">Discipline & Scale</span>
@@ -754,11 +772,17 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                         <span className="text-slate-800">{areaFootprint} sq.ft</span>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-[10px] text-slate-500 block uppercase">Turnaround SLA</span>
-                        <span className="text-blue-700 font-semibold">
-                          {SLA_OPTIONS.find((s) => s.id === selectedSla)?.title} ({SLA_OPTIONS.find((s) => s.id === selectedSla)?.turnaround})
+                        <span className="text-[10px] text-slate-500 block uppercase">Program Track</span>
+                        <span className="text-emerald-700 font-semibold">
+                          Academic Architectural Practical Training
                         </span>
                       </div>
+                      {instructions && (
+                        <div className="col-span-2">
+                          <span className="text-[10px] text-slate-500 block uppercase">Student Instructions</span>
+                          <span className="text-slate-800 line-clamp-3">{instructions}</span>
+                        </div>
+                      )}
                       {selectedFiles.length > 0 && (
                         <div className="col-span-2">
                           <span className="text-[10px] text-slate-500 block uppercase">Reference Files</span>
@@ -770,43 +794,41 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     </div>
                   </div>
 
-                  {/* Documented Pricing Estimate Card (Stitch Authoritative) */}
+                  {/* Pricing / Training Estimate Card */}
                   <div className="bg-[#0a192f] text-white rounded-xl p-4 border border-slate-800 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-blue-400" />
+                        <GraduationCap className="w-4 h-4 text-emerald-400" />
                         <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-200">
-                          Commercial Service Fee Estimate
+                          Academic Curriculum Assignment
                         </h4>
                       </div>
                       <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                        INDICATIVE QUOTE
+                        APPRENTICE TRACK
                       </span>
                     </div>
 
                     <div className="space-y-2 text-xs font-mono">
                       <div className="flex justify-between text-slate-300">
-                        <span>Base Drafting Fee ({areaFootprint} sq.ft · {selectedDiscipline}):</span>
-                        <span className="font-semibold">${priceEstimates.baseFee.toLocaleString()}</span>
+                        <span>Curriculum Module Fee:</span>
+                        <span className="font-semibold text-emerald-400">$0.00 (Academic Practical Training)</span>
                       </div>
                       <div className="flex justify-between text-slate-300">
-                        <span>SLA Priority Surcharge ({selectedSla.toUpperCase()}):</span>
-                        <span className="font-semibold">
-                          {priceEstimates.slaSurcharge === 0 ? '$0 (Standard 5 Days)' : `+$${priceEstimates.slaSurcharge.toLocaleString()}`}
-                        </span>
+                        <span>Target Apprentice:</span>
+                        <span className="font-semibold text-slate-200">{selectedStudent?.name || 'Selected Student'}</span>
                       </div>
                       <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-slate-700">
-                        <span>Total Estimated Service Fee:</span>
-                        <span className="text-emerald-400">${priceEstimates.total.toLocaleString()} USD</span>
+                        <span>Total Student Billing:</span>
+                        <span className="text-emerald-400">$0.00 USD</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Non-binding Estimate Disclaimer */}
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-[11px] font-mono leading-relaxed flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  {/* Disclaimer */}
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-200 text-[11px] font-mono leading-relaxed flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-amber-300">Pre-Commissioning Indicative Scope Estimate:</span> This calculation is an indicative estimation based on architectural footprint and turnaround SLA. It does NOT constitute a saved invoice, final billing statement, or immediate payment charge. Formal invoicing is generated upon engineer acceptance.
+                      <span className="font-bold text-emerald-300">Direct Student Assignment:</span> This assignment will be immediately dispatched to the student's learning portal under their coursework queue. The student can review requirements, access reference files, and submit CAD deliverables for review.
                     </div>
                   </div>
 
@@ -892,7 +914,11 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 disabled={submissionStage === 'creating_project' || submissionStage === 'uploading_files'}
                 className="bg-[#0453cd] hover:bg-blue-700 text-white text-xs font-mono font-bold shadow-md shadow-blue-900/20 px-5"
               >
-                {submissionStage === 'error' ? 'Retry Commissioning' : 'Commission Project Brief'}
+                {submissionStage === 'error'
+                  ? uploadedFileCount > 0
+                    ? `Retry Upload (${uploadedFileCount}/${selectedFiles.length} uploaded)`
+                    : 'Retry Dispatching'
+                  : 'Dispatch Practical Assignment'}
                 <Sparkles className="w-3.5 h-3.5 ml-1.5 text-amber-300" />
               </Button>
             )}

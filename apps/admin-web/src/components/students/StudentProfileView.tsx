@@ -24,6 +24,7 @@ import {
   Mail,
   Phone,
   BookOpen,
+  PlusCircle,
 } from 'lucide-react';
 
 interface StudentProfileViewProps {
@@ -31,6 +32,7 @@ interface StudentProfileViewProps {
   assignments?: any[];
   loading?: boolean;
   isStandalone?: boolean;
+  onAssignProject?: (studentId: string) => void;
   onClose?: () => void;
 }
 
@@ -39,6 +41,7 @@ export function StudentProfileView({
   assignments = [],
   loading = false,
   isStandalone = false,
+  onAssignProject,
   onClose,
 }: StudentProfileViewProps) {
   const isFixture = !!student.isFixture;
@@ -101,19 +104,31 @@ export function StudentProfileView({
           </div>
         </div>
 
-        {/* Role badge & Canonical UID */}
+        {/* Role badge, Action & Canonical UID */}
         <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
-          {isFixture ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 whitespace-nowrap">
-              <Trophy className="h-4 w-4 text-amber-600 shrink-0" />
-              <span className="text-xs font-mono font-bold uppercase tracking-wider">DEMO FIXTURE</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 whitespace-nowrap">
-              <GraduationCap className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span className="text-xs font-mono font-bold uppercase tracking-wider">STUDENT</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {isFixture ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 whitespace-nowrap">
+                <Trophy className="h-4 w-4 text-amber-600 shrink-0" />
+                <span className="text-xs font-mono font-bold uppercase tracking-wider">DEMO FIXTURE</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 whitespace-nowrap">
+                <GraduationCap className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span className="text-xs font-mono font-bold uppercase tracking-wider">STUDENT</span>
+              </div>
+            )}
+            {onAssignProject && !isFixture && (
+              <Button
+                size="sm"
+                onClick={() => onAssignProject(student.id)}
+                className="bg-[#0a192f] hover:bg-slate-800 text-white text-xs font-mono flex items-center gap-1.5 shadow-xs"
+              >
+                <PlusCircle className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Assign Project</span>
+              </Button>
+            )}
+          </div>
           <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap" title={`Canonical UID: ${student.id}`}>
             UID: {student.id ? `${student.id.substring(0, 10)}…` : '—'}
           </span>
@@ -275,14 +290,27 @@ export function StudentProfileView({
                   Assigned Coursework & Submissions ({assignments.length})
                 </h3>
               </div>
-              {isStandalone && (
-                <Link
-                  href="/students/submissions"
-                  className="text-xs font-mono text-[#0453cd] hover:underline flex items-center gap-1"
-                >
-                  Review Queue <ChevronRight className="h-3 w-3" />
-                </Link>
-              )}
+              <div className="flex items-center gap-2">
+                {onAssignProject && !isFixture && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onAssignProject(student.id)}
+                    className="text-xs font-mono text-[#0453cd] border-blue-200 hover:bg-blue-50 flex items-center gap-1.5"
+                  >
+                    <PlusCircle className="h-3.5 w-3.5 text-[#0453cd]" />
+                    <span>Assign Project</span>
+                  </Button>
+                )}
+                {isStandalone && (
+                  <Link
+                    href="/students/submissions"
+                    className="text-xs font-mono text-[#0453cd] hover:underline flex items-center gap-1"
+                  >
+                    Review Queue <ChevronRight className="h-3 w-3" />
+                  </Link>
+                )}
+              </div>
             </div>
 
             {loading ? (
@@ -291,9 +319,22 @@ export function StudentProfileView({
                 <p className="text-xs text-slate-500 font-mono">Querying student records…</p>
               </div>
             ) : assignments.length === 0 ? (
-              <div className="p-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500 font-mono space-y-1">
+              <div className="p-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500 font-mono space-y-2">
                 <p className="font-semibold text-slate-600">No learning projects or studio assignments recorded for this student yet.</p>
                 <p className="text-[11px] text-slate-400">When architectural drafting modules or student submissions are allocated, they will appear here with review milestones.</p>
+                {onAssignProject && !isFixture && (
+                  <div className="pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onAssignProject(student.id)}
+                      className="text-xs font-mono text-[#0453cd] border-blue-200 hover:bg-blue-50"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5 mr-1.5 text-[#0453cd]" />
+                      Create & Assign Practical Project
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className={`space-y-2.5 ${isStandalone ? '' : 'max-h-60 overflow-y-auto pr-0.5'}`}>

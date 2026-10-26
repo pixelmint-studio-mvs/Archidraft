@@ -397,6 +397,7 @@ function ProjectsContent() {
           projectId={assignTarget.project.id}
           projectName={assignTarget.project.project_name || 'Project'}
           isReassign={assignTarget.isReassign}
+          isTrainingProject={assignTarget.project.is_training_project === 1}
           onSuccess={() => loadProjects(true)}
         />
       )}

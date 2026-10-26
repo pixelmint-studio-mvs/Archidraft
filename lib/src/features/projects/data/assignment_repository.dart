@@ -32,19 +32,22 @@ class AssignmentRepository {
 
   Future<void> acceptAssignment({
     required String assignmentId,
+    String? projectId,
     String? actionId,
   }) async {
     await _apiClient.post(
       '/api/assignments/accept',
       body: {
         'assignmentId': assignmentId,
-        'actionId': ?actionId,
+        if (projectId != null) 'projectId': projectId,
+        if (actionId != null) 'actionId': actionId,
       },
     );
   }
 
   Future<void> rejectAssignment({
     required String assignmentId,
+    String? projectId,
     String? actionId,
     String reason = '',
   }) async {
@@ -52,7 +55,8 @@ class AssignmentRepository {
       '/api/assignments/reject',
       body: {
         'assignmentId': assignmentId,
-        'actionId': ?actionId,
+        if (projectId != null) 'projectId': projectId,
+        if (actionId != null) 'actionId': actionId,
         'reason': reason,
       },
     );

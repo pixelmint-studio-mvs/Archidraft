@@ -34,6 +34,7 @@ const MAX_DRAUGHTSMAN_CAPACITY = 4;
 export default function AssignmentsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [draughtsmen, setDraughtsmen] = useState<User[]>([]);
+  const [students, setStudents] = useState<User[]>([]);
   const [assignments, setAssignments] = useState<GlobalAssignment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -44,7 +45,7 @@ export default function AssignmentsPage() {
   const [drawingTypeFilter, setDrawingTypeFilter] = useState<string>('ALL');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  // Draughtsman filter in dispatch panel
+  // Draughtsman/Student filter in dispatch panel
   const [draughtsmanSearch, setDraughtsmanSearch] = useState<string>('');
 
   // Confirmation Modal state
@@ -60,15 +61,17 @@ export default function AssignmentsPage() {
     setError(null);
 
     try {
-      const [allProjects, allUsers, allAssignments] = await Promise.all([
+      const [allProjects, allUsers, allStudents, allAssignments] = await Promise.all([
         adminApi.getProjects(),
         adminApi.getUsers('DRAUGHTSMAN'),
+        adminApi.getUsers('STUDENT'),
         adminApi.getAdminAssignments(),
       ]);
 
       // Filter only projects that are in WAITING_ASSIGNMENT or active queue
       setProjects(allProjects.filter((p) => p.status === 'WAITING_ASSIGNMENT'));
       setDraughtsmen(allUsers.filter((u) => u.role === 'DRAUGHTSMAN'));
+      setStudents(allStudents.filter((u) => u.role === 'STUDENT'));
       setAssignments(allAssignments);
 
       // Auto-select first project in queue if none selected
@@ -79,7 +82,7 @@ export default function AssignmentsPage() {
         setSelectedProject(null);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load assignment queue and draughtsman data.');
+      setError(err.message || 'Failed to load assignment queue and talent data.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -89,6 +92,9 @@ export default function AssignmentsPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const isTargetTraining = selectedProject?.is_training_project === 1;
+  const candidatePool = isTargetTraining ? students : draughtsmen;
 
   // Calculate workload per draughtsman based on active assignments
   // Active assignments are PENDING or ACCEPTED
@@ -115,16 +121,17 @@ export default function AssignmentsPage() {
     });
   }, [projects, searchQuery, drawingTypeFilter]);
 
-  // Filter draughtsmen
-  const filteredDraughtsmen = useMemo(() => {
-    return draughtsmen.filter((d) => {
+  // Filter candidates (draughtsmen or students)
+  const filteredCandidates = useMemo(() => {
+    return candidatePool.filter((d) => {
       const matchesSearch =
         d.name.toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
         d.email.toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
-        d.qualification?.toLowerCase().includes(draughtsmanSearch.toLowerCase());
+        d.qualification?.toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
+        d.college_name?.toLowerCase().includes(draughtsmanSearch.toLowerCase());
       return matchesSearch;
     });
-  }, [draughtsmen, draughtsmanSearch]);
+  }, [candidatePool, draughtsmanSearch]);
 
   // Open confirmation modal
   const handleInitiateAssignment = (dMan: User) => {
@@ -420,12 +427,12 @@ export default function AssignmentsPage() {
               )}
             </div>
 
-            {/* Draughtsman Talent Pool */}
+            {/* Talent Pool (Draughtsmen or Student Apprentices) */}
             <Card className="bg-white border-slate-200 soft-elevation">
               <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3">
                 <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                   <PenTool className="h-3.5 w-3.5 text-[#0453cd]" />
-                  <span>Draughtsmen Pool ({filteredDraughtsmen.length})</span>
+                  <span>{isTargetTraining ? 'Student Apprentices' : 'Draughtsmen Pool'} ({filteredCandidates.length})</span>
                 </h4>
                 <div className="relative w-36">
                   <Search className="h-3 w-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
@@ -440,14 +447,14 @@ export default function AssignmentsPage() {
               </div>
 
               <div className="divide-y divide-slate-100 max-h-[520px] overflow-y-auto">
-                {filteredDraughtsmen.length === 0 ? (
+                {filteredCandidates.length === 0 ? (
                   <div className="p-8 text-center text-xs text-slate-500 font-mono">
-                    No draughtsmen found.
+                    No {isTargetTraining ? 'student apprentices' : 'draughtsmen'} found.
                   </div>
                 ) : (
-                  filteredDraughtsmen.map((dm) => {
+                  filteredCandidates.map((dm) => {
                     const currentLoad = draughtsmanWorkloadMap[dm.id] || 0;
-                    const isAtCapacity = currentLoad >= MAX_DRAUGHTSMAN_CAPACITY;
+                    const isAtCapacity = !isTargetTraining && currentLoad >= MAX_DRAUGHTSMAN_CAPACITY;
                     const capacityPercent = Math.min(100, Math.round((currentLoad / MAX_DRAUGHTSMAN_CAPACITY) * 100));
 
                     return (
@@ -459,7 +466,11 @@ export default function AssignmentsPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <p className="text-xs font-bold text-slate-900 truncate">{dm.name}</p>
-                              {isAtCapacity ? (
+                              {isTargetTraining ? (
+                                <span className="text-[9px] font-mono font-bold bg-blue-50 text-[#0453cd] px-1.5 py-0.2 rounded border border-blue-200">
+                                  STUDENT
+                                </span>
+                              ) : isAtCapacity ? (
                                 <span className="text-[9px] font-mono font-bold bg-rose-50 text-rose-700 px-1.5 py-0.2 rounded border border-rose-200">
                                   FULL
                                 </span>
@@ -470,6 +481,11 @@ export default function AssignmentsPage() {
                               )}
                             </div>
                             <p className="text-[10px] font-mono text-slate-500 truncate">{dm.email}</p>
+                            {dm.college_name && (
+                              <p className="text-[10px] text-slate-600 truncate mt-0.5">
+                                College: {dm.college_name}
+                              </p>
+                            )}
                             {dm.qualification && (
                               <p className="text-[10px] text-slate-600 truncate mt-0.5">
                                 Spec: {dm.qualification}
@@ -489,23 +505,25 @@ export default function AssignmentsPage() {
                           </Button>
                         </div>
 
-                        {/* Workload Meter */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                            <span>Active Workload</span>
-                            <span className="font-semibold text-slate-800">
-                              {currentLoad} / {MAX_DRAUGHTSMAN_CAPACITY} projects
-                            </span>
+                        {/* Workload Meter (For Draughtsmen) */}
+                        {!isTargetTraining && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+                              <span>Active Workload</span>
+                              <span className="font-semibold text-slate-800">
+                                {currentLoad} / {MAX_DRAUGHTSMAN_CAPACITY} projects
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className={`h-1.5 rounded-full transition-all ${
+                                  isAtCapacity ? 'bg-rose-500' : currentLoad >= 2 ? 'bg-amber-500' : 'bg-[#0453cd]'
+                                }`}
+                                style={{ width: `${capacityPercent}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-1.5 rounded-full transition-all ${
-                                isAtCapacity ? 'bg-rose-500' : currentLoad >= 2 ? 'bg-amber-500' : 'bg-[#0453cd]'
-                              }`}
-                              style={{ width: `${capacityPercent}%` }}
-                            />
-                          </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })
@@ -521,7 +539,7 @@ export default function AssignmentsPage() {
         <Modal
           isOpen={confirmModalOpen}
           onClose={() => !assigning && setConfirmModalOpen(false)}
-          title="Confirm Project Assignment"
+          title={isTargetTraining ? 'Confirm Student Practical Assignment' : 'Confirm Project Assignment'}
         >
           <div className="space-y-4">
             {assignSuccess && (
@@ -538,7 +556,7 @@ export default function AssignmentsPage() {
             )}
 
             <p className="text-xs text-slate-600 leading-relaxed font-sans">
-              You are dispatching this architectural drawing package to the draughtsman below. The project status will advance to{' '}
+              You are dispatching this {isTargetTraining ? 'practical training drawing package to the student apprentice' : 'architectural drawing package to the draughtsman'} below. The project status will advance to{' '}
               <strong className="text-slate-900 font-mono">WAITING_ACCEPTANCE</strong> and an activity log entry will be permanently recorded.
             </p>
 
@@ -554,11 +572,11 @@ export default function AssignmentsPage() {
 
               <div className="space-y-1 sm:border-l sm:border-slate-200 sm:pl-3">
                 <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
-                  Assigned Draughtsman
+                  {isTargetTraining ? 'Assigned Student' : 'Assigned Draughtsman'}
                 </span>
                 <p className="font-bold text-slate-900">{selectedDraughtsman.name}</p>
                 <p className="font-mono text-[11px] text-slate-500">{selectedDraughtsman.email}</p>
-                <p className="text-slate-600 text-[11px]">{selectedDraughtsman.qualification || 'CAD Specialist'}</p>
+                <p className="text-slate-600 text-[11px]">{selectedDraughtsman.college_name || selectedDraughtsman.qualification || (isTargetTraining ? 'Student Apprentice' : 'CAD Specialist')}</p>
               </div>
             </div>
 

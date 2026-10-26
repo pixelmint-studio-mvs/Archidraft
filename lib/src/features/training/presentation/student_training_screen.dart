@@ -94,7 +94,7 @@ class _StudentTrainingScreenState extends ConsumerState<StudentTrainingScreen>
             body: TabBarView(
               controller: _tabController,
               children: _categories.map((category) {
-                final categoryModules = modules.where((m) => m.category == category).toList();
+                final categoryModules = modules.where((m) => TrainingModule.normalizeCategory(m.category) == category).toList();
                 final categoryAssignments = allAssignments.where((a) => categoryModules.any((m) => m.id == a.trainingModuleId)).toList();
                 
                 String title = '$category Training';
@@ -299,8 +299,8 @@ class _TrainingCategoryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mockProjects = modules.where((m) => m.type == 'Mock Project').toList();
-    final currentModules = modules.where((m) => m.type == 'Module').toList();
     final masterclass = modules.where((m) => m.type == 'Masterclass').firstOrNull;
+    final currentModules = modules.where((m) => m.type != 'Mock Project' && m.type != 'Masterclass').toList();
 
     if (modules.isEmpty && assignments.isEmpty) {
       return Center(
