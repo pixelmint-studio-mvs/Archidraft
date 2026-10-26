@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_state_widgets.dart';
+
 import 'package:archi_draft/src/features/projects/domain/assignment.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment_status.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
@@ -108,15 +110,10 @@ class _DraughtsmanInsightsScreenState
                 ),
                 error: (err, _) => AppErrorWidget(
                   message: 'Failed to load assignments: $err',
-                  onRetry: () =>
-                      ref.invalidate(draughtsmanAssignmentsProvider),
+                  onRetry: () => ref.invalidate(draughtsmanAssignmentsProvider),
                 ),
                 data: (assignments) {
-                  return _buildDashboardContent(
-                    context,
-                    summary,
-                    assignments,
-                  );
+                  return _buildDashboardContent(context, summary, assignments);
                 },
               );
             },
@@ -140,25 +137,27 @@ class _DraughtsmanInsightsScreenState
     final completed = (summary['completed'] as num?)?.toInt() ?? 0;
 
     final activeCount = inProgress + underReview + corrections;
-    final completionRate =
-        total > 0 ? (completed / total * 100).toStringAsFixed(1) : '0.0';
+    final completionRate = total > 0
+        ? (completed / total * 100).toStringAsFixed(1)
+        : '0.0';
 
     // Capacity percentage: active assignments relative to a realistic workload pool (e.g. 10)
-    final capacityPct =
-        total > 0 ? ((activeCount / 10).clamp(0.0, 1.0) * 100).toInt() : 0;
+    final capacityPct = total > 0
+        ? ((activeCount / 10).clamp(0.0, 1.0) * 100).toInt()
+        : 0;
 
     // Quality / Productivity rate: First-time pass rate without corrections
     final productivityRate = total > 0
         ? (((total - corrections) / total).clamp(0.0, 1.0) * 100)
-            .toStringAsFixed(0)
+              .toStringAsFixed(0)
         : '100';
 
     final productivityScore = int.tryParse(productivityRate) ?? 100;
     final productivityLabel = productivityScore >= 85
         ? 'Optimal'
         : productivityScore >= 70
-            ? 'Standard'
-            : 'Attention';
+        ? 'Standard'
+        : 'Attention';
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -354,96 +353,81 @@ class _DraughtsmanInsightsScreenState
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ambient background glow (Reference line 143)
-          Positioned(
-            top: -20,
-            right: -20,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.secondary.withValues(alpha: 0.05),
+          Text(
+            'Studio Overview',
+            style: AppTypography.headlineDisplay.copyWith(
+              color: AppColors.primary,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580),
+            child: Text(
+              'Welcome back to the executive suite. System vitals are optimal. Here is your current studio performance.',
+              style: AppTypography.bodyMd.copyWith(
+                color: AppColors.onSurfaceVariant,
+                fontSize: 15,
               ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: AppSpacing.xl),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.sm,
             children: [
-              Text(
-                'Studio Overview',
-                style: AppTypography.headlineDisplay.copyWith(
-                  color: AppColors.primary,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 580),
-                child: Text(
-                  'Welcome back to the executive suite. System vitals are optimal. Here is your current studio performance.',
-                  style: AppTypography.bodyMd.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    fontSize: 15,
+              ElevatedButton.icon(
+                key: const Key('insights_refresh_vitals_button'),
+                onPressed: () {
+                  ref.invalidate(draughtsmanSummaryProvider);
+                  ref.invalidate(draughtsmanAssignmentsProvider);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Executive vitals refreshed.'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Refresh Vitals'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 13,
                   ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  ElevatedButton.icon(
-                    key: const Key('insights_refresh_vitals_button'),
-                    onPressed: () {
-                      ref.invalidate(draughtsmanSummaryProvider);
-                      ref.invalidate(draughtsmanAssignmentsProvider);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Executive vitals refreshed.'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Refresh Vitals'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusDefault),
-                      ),
-                      elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      AppSpacing.radiusDefault,
                     ),
                   ),
-                  OutlinedButton.icon(
-                    key: const Key('insights_view_pipeline_button'),
-                    onPressed: () => context.go('/draughtsman/studio'),
-                    icon: const Icon(Icons.tune_rounded, size: 16),
-                    label: const Text('View Pipeline'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusDefault),
-                      ),
+                  elevation: 0,
+                ),
+              ),
+              OutlinedButton.icon(
+                key: const Key('insights_view_pipeline_button'),
+                onPressed: () => context.go('/draughtsman/studio'),
+                icon: const Icon(Icons.tune_rounded, size: 16),
+                label: const Text('View Pipeline'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 13,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      AppSpacing.radiusDefault,
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -548,12 +532,15 @@ class _DraughtsmanInsightsScreenState
                   });
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceContainerLow,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusDefault),
+                    borderRadius: BorderRadius.circular(
+                      AppSpacing.radiusDefault,
+                    ),
                     border: Border.all(
                       color: AppColors.outlineVariant.withValues(alpha: 0.5),
                       width: 0.5,
@@ -624,8 +611,10 @@ class _DraughtsmanInsightsScreenState
                     builder: (context, constraints) {
                       final entries = monthBuckets.entries.toList();
                       final double barWidth =
-                          (constraints.maxWidth / entries.length * 0.45)
-                              .clamp(14.0, 42.0);
+                          (constraints.maxWidth / entries.length * 0.45).clamp(
+                            14.0,
+                            42.0,
+                          );
 
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -633,10 +622,12 @@ class _DraughtsmanInsightsScreenState
                         children: entries.asMap().entries.map((item) {
                           final index = item.key;
                           final entry = item.value;
-                          final monthLabel = DateFormat('MMM').format(entry.key);
+                          final monthLabel = DateFormat('MMM')
+                              .format(entry.key);
                           final count = entry.value;
 
-                          final isCurrentMonth = entry.key.month == now.month &&
+                          final isCurrentMonth =
+                              entry.key.month == now.month &&
                               entry.key.year == now.year;
                           final isPeak =
                               count == maxCount && count > 0 && maxCount > 1;
@@ -685,8 +676,9 @@ class _DraughtsmanInsightsScreenState
                                         borderRadius: BorderRadius.circular(3),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.1),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.1,
+                                            ),
                                             blurRadius: 4,
                                           ),
                                         ],
@@ -697,10 +689,10 @@ class _DraughtsmanInsightsScreenState
                                             : (isPeak ? 'Peak' : '$count'),
                                         style: AppTypography.labelMonoSm
                                             .copyWith(
-                                          color: Colors.white,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                       ),
                                     )
                                   else
@@ -708,22 +700,21 @@ class _DraughtsmanInsightsScreenState
 
                                   // Bar Pillar
                                   AnimatedContainer(
-                                    duration:
-                                        const Duration(milliseconds: 250),
+                                    duration: const Duration(milliseconds: 250),
                                     width: barWidth,
                                     height: math.max(4.0, barHeight),
                                     decoration: BoxDecoration(
                                       color: isCurrentMonth
                                           ? AppColors.secondary
                                           : count > 0
-                                              ? (isHovered
-                                                  ? AppColors.secondary
+                                          ? (isHovered
+                                                ? AppColors.secondary
                                                       .withValues(alpha: 0.7)
-                                                  : AppColors.surfaceVariant)
-                                              : AppColors.outlineVariant
-                                                  .withValues(alpha: 0.3),
-                                      borderRadius:
-                                          const BorderRadius.vertical(
+                                                : AppColors.surfaceVariant)
+                                          : AppColors.outlineVariant.withValues(
+                                              alpha: 0.3,
+                                            ),
+                                      borderRadius: const BorderRadius.vertical(
                                         top: Radius.circular(3),
                                       ),
                                     ),
@@ -864,13 +855,15 @@ class _DraughtsmanInsightsScreenState
                     ),
                     itemBuilder: (context, i) {
                       final a = recent[i];
-                      final isCorrecting = (a.correctionRound ?? 0) > 0 ||
+                      final isCorrecting =
+                          (a.correctionRound ?? 0) > 0 ||
                           a.projectStatus == 'CORRECTIONS';
                       final isUnderReview =
-                          a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
+                          a.projectStatus == 'UNDER_ENGINEER_REVIEW' ||
+                          a.projectStatus == 'UNDER_CLIENT_REVIEW';
                       final isCompleted =
                           a.assignmentStatus == AssignmentStatus.completed ||
-                              a.projectStatus == 'COMPLETED';
+                          a.projectStatus == 'COMPLETED';
 
                       final relativeTime = _formatRelativeTime(
                         a.updatedAt ?? a.createdAt,
@@ -885,7 +878,9 @@ class _DraughtsmanInsightsScreenState
                           '/draughtsman/assignments/${a.id}',
                           extra: a,
                         ),
-                        hoverColor: AppColors.surfaceVariant.withValues(alpha: 0.3),
+                        hoverColor: AppColors.surfaceVariant.withValues(
+                          alpha: 0.3,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
@@ -929,8 +924,7 @@ class _DraughtsmanInsightsScreenState
                                     const SizedBox(height: 2),
                                     Text(
                                       'PRJ-$code • $relativeTime',
-                                      style: AppTypography.labelMonoSm
-                                          .copyWith(
+                                      style: AppTypography.labelMonoSm.copyWith(
                                         color: AppColors.outline,
                                         fontSize: 10,
                                       ),
@@ -1002,7 +996,8 @@ class _DraughtsmanInsightsScreenState
     // Calculate average turnaround from completed assignments with timestamps
     final turnaroundList = <double>[];
     for (final a in assignments) {
-      if (a.assignedAt != null && (a.submittedAt != null || a.approvedAt != null)) {
+      if (a.assignedAt != null &&
+          (a.submittedAt != null || a.approvedAt != null)) {
         final end = a.approvedAt ?? a.submittedAt!;
         final days = end.difference(a.assignedAt!).inHours / 24.0;
         if (days >= 0) turnaroundList.add(days);
@@ -1286,11 +1281,7 @@ class _DashedLinePainter extends CustomPainter {
     double startX = 0;
 
     while (startX < size.width) {
-      canvas.drawLine(
-        Offset(startX, 0),
-        Offset(startX + dashWidth, 0),
-        paint,
-      );
+      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
       startX += dashWidth + dashSpace;
     }
   }
