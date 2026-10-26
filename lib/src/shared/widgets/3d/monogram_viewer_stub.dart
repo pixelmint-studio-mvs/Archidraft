@@ -12,6 +12,7 @@ Widget buildPlatform3DViewer({
   required String rotationSpeed,
   required bool interactive,
   required String fallbackImagePath,
+  bool respectReducedMotion = false,
 }) {
   if (WebViewPlatform.instance == null) {
     return Image.asset(
