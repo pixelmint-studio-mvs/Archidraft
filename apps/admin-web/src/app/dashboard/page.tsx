@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { adminApi } from '@/lib/api';
+import { formatTime, formatRelativeTime } from '@/lib/dateUtils';
 import { AdminStats, Project } from '@/lib/types';
 import {
   FolderKanban,
@@ -80,15 +81,13 @@ export default function DashboardPage() {
   const cancelledCount = byStatus['CANCELLED'] || 0;
 
   const usersByRole = stats?.users?.byRole || {};
-  const draughtsmanCount = usersByRole['DRAUGHTSMAN'] || 0;
-  // Issue 2 Fix: Authoritative registered engineer count prioritizing backend metric
-  // and accurately combining ENGINEER and legacy CLIENT roles without double counting.
+  const draughtsmanCount = stats?.metrics?.activeDraughtsmen ?? (usersByRole['DRAUGHTSMAN'] || 0);
   const engineerCount =
-    typeof stats?.users?.registeredEngineers === 'number'
-      ? stats.users.registeredEngineers
-      : (usersByRole['ENGINEER'] || 0) + (usersByRole['CLIENT'] || 0);
+    stats?.users?.registeredEngineers ??
+    stats?.metrics?.registeredEngineers ??
+    ((usersByRole['ENGINEER'] || 0) + (usersByRole['CLIENT'] || 0));
   const studentCount = usersByRole['STUDENT'] || 0;
-  const adminCount = usersByRole['ADMIN'] || 0;
+  const adminCount = (usersByRole['ADMIN'] || 0) + (usersByRole['STUDIO_ADMIN'] || 0);
 
   return (
     <AdminShell
@@ -570,7 +569,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-[10px] text-slate-400 font-mono">
-                        {new Date(log.timestamp).toLocaleTimeString()}
+                        {formatTime(log.timestamp)}
                       </p>
                       <Link
                         href={`/projects/${log.project_id}`}

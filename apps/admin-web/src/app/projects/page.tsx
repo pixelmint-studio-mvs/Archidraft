@@ -13,6 +13,7 @@ import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
 import { NewProjectModal } from '@/components/projects/NewProjectModal';
 import { adminApi } from '@/lib/api';
+import { formatDate } from '@/lib/dateUtils';
 import { Project, ProjectStatus } from '@/lib/types';
 import {
   Search,
@@ -301,7 +302,7 @@ function ProjectsContent() {
 
                       {/* Registered Date */}
                       <td className="px-5 py-4 font-mono text-slate-500">
-                        {p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A'}
+                        {formatDate(p.created_at)}
                       </td>
 
                       {/* Administrative Actions */}

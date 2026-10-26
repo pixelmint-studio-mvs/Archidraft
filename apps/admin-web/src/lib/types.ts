@@ -8,25 +8,27 @@
 
 // ── User ──
 
-export type UserRole = 'CLIENT' | 'DRAUGHTSMAN' | 'ADMIN' | 'STUDIO_ADMIN' | 'STUDENT';
+export type UserRole = 'CLIENT' | 'DRAUGHTSMAN' | 'ADMIN' | 'STUDENT' | 'STUDIO_ADMIN' | 'ENGINEER';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED';
 
 /**
  * Helper to get the canonical user-facing role name.
- * 'CLIENT' is the backend database identifier for Engineers.
+ * 'CLIENT' and 'ENGINEER' are canonical identifiers for Engineers.
  */
 export function getDisplayRole(role?: string): string {
   if (!role) return 'Unknown';
   switch (role) {
     case 'CLIENT':
+    case 'ENGINEER':
       return 'Engineer';
     case 'DRAUGHTSMAN':
       return 'Draughtsman';
     case 'STUDENT':
+
       return 'Student';
     case 'ADMIN':
     case 'STUDIO_ADMIN':
-      return 'Studio Admin';
+      return 'Admin';
     default:
       return role;
   }
@@ -172,6 +174,7 @@ export interface ActivityLog {
   actor_role: string;
   details?: string;
   timestamp: string;
+  project_name?: string;
 }
 
 // ── Admin Stats (GET /api/admin/stats response) ──
@@ -192,9 +195,9 @@ export interface AdminStats {
 
 export interface AdminDashboardMetrics {
   totalProjects: number;
-  submittedProjects: number;
   activeProjects: number;
-  inReviewProjects: number;
+  projectsAwaitingAssignment: number;
+  projectsUnderClientReview: number;
   completedProjects: number;
   activeDraughtsmen: number;
   pendingAssignments: number;
@@ -272,6 +275,5 @@ export interface EvaluateSubmissionPayload {
   actionId?: string;
   correctionId?: string;
 }
-
 
 

@@ -13,6 +13,7 @@ import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
 import { EvaluateModal } from '@/components/projects/EvaluateModal';
 import { adminApi } from '@/lib/api';
+import { formatDateTime, formatDate, formatTime, parseUtcDate } from '@/lib/dateUtils';
 import {
   Project,
   ProjectFile,
@@ -99,7 +100,7 @@ function parsePinFromDescription(
 interface CollabMessage {
   id: string;
   author: string;
-  role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' | string;
+  role: 'ADMIN' | 'DRAUGHTSMAN' | 'ENGINEER' | 'STUDENT' | string;
   content: string;
   timestamp: Date;
   attachment?: {
@@ -153,17 +154,17 @@ function toCollabMessage(c: ProjectComment): CollabMessage {
     : undefined;
 
   const rawRole = (c.author_role || '').toUpperCase();
-  let normalizedRole: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' = 'CLIENT';
+  let normalizedRole: 'ADMIN' | 'DRAUGHTSMAN' | 'ENGINEER' | 'STUDENT' | string = 'ENGINEER';
   let defaultAuthor = 'Participant';
 
   if (rawRole === 'ADMIN' || rawRole === 'STUDIO_ADMIN') {
     normalizedRole = 'ADMIN';
-    defaultAuthor = 'Studio Admin';
+    defaultAuthor = 'Admin';
   } else if (rawRole === 'DRAUGHTSMAN') {
     normalizedRole = 'DRAUGHTSMAN';
     defaultAuthor = 'Draughtsman';
   } else if (rawRole === 'ENGINEER' || rawRole === 'CLIENT') {
-    normalizedRole = 'CLIENT';
+    normalizedRole = 'ENGINEER';
     defaultAuthor = 'Engineer';
   } else if (rawRole === 'STUDENT') {
     normalizedRole = 'STUDENT';
@@ -175,7 +176,7 @@ function toCollabMessage(c: ProjectComment): CollabMessage {
     author: c.author_name || defaultAuthor,
     role: normalizedRole,
     content: c.content,
-    timestamp: new Date(c.created_at),
+    timestamp: parseUtcDate(c.created_at) || new Date(),
     attachment: c.attachment_name ? {
       name: c.attachment_name,
       size: formattedSize,
@@ -459,7 +460,7 @@ export default function ProjectDetailPage({
                 <p className="text-sm mt-1 text-rose-800">{project.rejection_reason}</p>
                 {project.cancelled_at && (
                   <p className="text-[11px] text-rose-600 font-mono mt-1">
-                    Recorded at: {new Date(project.cancelled_at).toLocaleString()}
+                    Recorded at: {formatDateTime(project.cancelled_at)}
                   </p>
                 )}
               </div>
@@ -523,7 +524,7 @@ export default function ProjectDetailPage({
                   )}
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span>Created: <span className="text-slate-800 font-medium">{new Date(project.created_at).toLocaleDateString()}</span></span>
+                    <span>Created: <span className="text-slate-800 font-medium">{formatDate(project.created_at)}</span></span>
                   </div>
                 </div>
               </div>
@@ -759,7 +760,7 @@ export default function ProjectDetailPage({
                       {project.submitted_at && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-mono">Submitted</span>
-                          <span className="text-slate-700 font-mono">{new Date(project.submitted_at).toLocaleDateString()}</span>
+                          <span className="text-slate-700 font-mono">{formatDate(project.submitted_at)}</span>
                         </div>
                       )}
                     </div>
@@ -774,7 +775,7 @@ export default function ProjectDetailPage({
                             <div className="h-1.5 w-1.5 rounded-full bg-[#0453cd] mt-1.5 shrink-0" />
                             <div>
                               <p className="text-[10px] font-mono text-[#0453cd] font-semibold">{log.action_type}</p>
-                              <p className="text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString()}</p>
+                              <p className="text-[10px] text-slate-500 font-mono">{formatDateTime(log.timestamp)}</p>
                             </div>
                           </div>
                         ))}
@@ -788,13 +789,21 @@ export default function ProjectDetailPage({
 
           {/* ─── Tab: CAD Comparison Viewer ─────────────────────────────────── */}
           {activeTab === 'cad' && (() => {
-            const versionList = drawingVersions.length > 0
-              ? drawingVersions
-              : [
-                  { id: 'mock-v1', project_id: projectId, version_number: 1, original_name: 'Floor Plan v1.dwg', uploaded_by: 'demo', created_at: new Date().toISOString(), file_id: null as unknown as string, size: 0 },
-                  { id: 'mock-v2', project_id: projectId, version_number: 2, original_name: 'Floor Plan v2.dwg', uploaded_by: 'demo', created_at: new Date().toISOString(), file_id: null as unknown as string, size: 0 },
-                ] as DrawingVersion[];
+            if (drawingVersions.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border border-slate-200 soft-elevation">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3 border border-slate-200">
+                    <SplitSquareVertical className="h-6 w-6 text-slate-400" />
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800">No CAD drawing deliverables submitted yet</p>
+                  <p className="text-[11px] font-mono text-slate-500 max-w-sm mt-1">
+                    Once drawings are uploaded by the assigned draughtsman, they will appear here for architectural comparison and redline pinning.
+                  </p>
+                </div>
+              );
+            }
 
+            const versionList = drawingVersions;
             const vA = versionList[Math.min(cadVersionA, versionList.length - 1)];
             const vB = versionList[Math.min(cadVersionB, versionList.length - 1)];
 
@@ -1556,7 +1565,7 @@ export default function ProjectDetailPage({
                               }}
                             />
                             <p className="text-[10px] font-mono text-slate-400 mb-0.5">
-                              {new Date(v.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {formatDateTime(v.created_at)}
                             </p>
                             <p className="text-xs font-semibold text-slate-900">
                               Version {v.version_number} {i === 0 ? 'Committed' : 'Archived'}
@@ -1601,16 +1610,16 @@ export default function ProjectDetailPage({
               switch (r) {
                 case 'ADMIN':
                 case 'STUDIO_ADMIN':
-                  return { bg: 'rgba(139,92,246,0.15)', text: '#c4b5fd', border: 'rgba(139,92,246,0.3)', label: 'ADMIN' };
+                  return { bg: 'rgba(139,92,246,0.15)', text: '#7c3aed', border: 'rgba(139,92,246,0.3)', label: 'Admin' };
                 case 'DRAUGHTSMAN':
-                  return { bg: 'rgba(6,182,212,0.15)', text: '#67e8f9', border: 'rgba(6,182,212,0.3)', label: 'DRAUGHTSMAN' };
+                  return { bg: 'rgba(6,182,212,0.15)', text: '#0891b2', border: 'rgba(6,182,212,0.3)', label: 'Draughtsman' };
                 case 'CLIENT':
                 case 'ENGINEER':
-                  return { bg: 'rgba(59,130,246,0.15)', text: '#93c5fd', border: 'rgba(59,130,246,0.3)', label: 'ENGINEER' };
+                  return { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', border: 'rgba(59,130,246,0.3)', label: 'Engineer' };
                 case 'STUDENT':
-                  return { bg: 'rgba(16,185,129,0.15)', text: '#6ee7b7', border: 'rgba(16,185,129,0.3)', label: 'STUDENT' };
+                  return { bg: 'rgba(16,185,129,0.15)', text: '#059669', border: 'rgba(16,185,129,0.3)', label: 'Student' };
                 default:
-                  return { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8', border: 'rgba(148,163,184,0.3)', label: r || 'USER' };
+                  return { bg: 'rgba(148,163,184,0.15)', text: '#64748b', border: 'rgba(148,163,184,0.3)', label: r || 'User' };
               }
             };
 
@@ -1706,7 +1715,7 @@ export default function ProjectDetailPage({
                         {/* Messages */}
                         {collabMessages.map((msg) => {
                           const rc = getRoleColor(msg.role);
-                          const timeStr = msg.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                          const timeStr = formatTime(msg.timestamp);
                           const isAdmin = msg.role === 'ADMIN';
                           return (
                             <div key={msg.id} className="flex gap-3 group">
@@ -1922,7 +1931,7 @@ export default function ProjectDetailPage({
                           },
                           {
                             label: project.client_name || 'Engineer',
-                            role: 'CLIENT',
+                            role: 'ENGINEER',
                             status: 'online',
                             note: undefined,
                             href: project.client_id ? `/engineers/${encodeURIComponent(project.client_id)}` : undefined,
@@ -1998,9 +2007,9 @@ export default function ProjectDetailPage({
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 soft-elevation flex-1">
                     <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-4">MESSAGE SUMMARY</p>
                     <div className="space-y-3">
-                      {(['ADMIN', 'DRAUGHTSMAN', 'CLIENT'] as const).map(role => {
+                      {(['ADMIN', 'DRAUGHTSMAN', 'ENGINEER', 'STUDENT'] as const).map(role => {
                         const rc = getRoleColor(role);
-                        const count = collabMessages.filter(m => m.role === role).length;
+                        const count = collabMessages.filter(m => m.role === role || (role === 'ENGINEER' && m.role === 'CLIENT')).length;
                         return (
                           <div key={role} className="flex items-center gap-3">
                             <div className="flex-1">
@@ -2117,13 +2126,13 @@ export default function ProjectDetailPage({
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Submitted At</span>
                     <span className="text-slate-800 font-mono">
-                      {project.submitted_at ? new Date(project.submitted_at).toLocaleString() : 'N/A'}
+                      {formatDateTime(project.submitted_at)}
                     </span>
                   </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Approved At</span>
                     <span className="text-slate-800 font-mono">
-                      {project.approved_at ? new Date(project.approved_at).toLocaleString() : 'N/A'}
+                      {formatDateTime(project.approved_at)}
                     </span>
                   </div>
                   <div className="pt-2 flex justify-between items-center">
@@ -2171,7 +2180,7 @@ export default function ProjectDetailPage({
 
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(file.created_at).toLocaleDateString()}
+                          {formatDate(file.created_at)}
                         </span>
                         <a
                           href={adminApi.getFileDownloadUrl(file.id)}
@@ -2226,7 +2235,7 @@ export default function ProjectDetailPage({
 
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(dv.created_at).toLocaleString()}
+                          {formatDateTime(dv.created_at)}
                         </span>
                         {dv.file_id && (
                           <a
@@ -2284,7 +2293,7 @@ export default function ProjectDetailPage({
                           </span>
                         </div>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(corr.created_at).toLocaleString()}
+                          {formatDateTime(corr.created_at)}
                         </span>
                       </div>
                       <p className="text-xs text-slate-800 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 font-mono">
@@ -2292,7 +2301,7 @@ export default function ProjectDetailPage({
                       </p>
                       {corr.resolved_at && (
                         <p className="text-[10px] text-emerald-700 font-mono font-medium">
-                          Resolved on: {new Date(corr.resolved_at).toLocaleString()}
+                          Resolved on: {formatDateTime(corr.resolved_at)}
                         </p>
                       )}
                     </div>
@@ -2350,9 +2359,9 @@ export default function ProjectDetailPage({
                       </div>
 
                       <div className="text-right text-[10px] text-slate-400 font-mono">
-                        <p>Assigned: {new Date(a.created_at).toLocaleString()}</p>
+                        <p>Assigned: {formatDateTime(a.created_at)}</p>
                         {a.updated_at && a.updated_at !== a.created_at && (
-                          <p className="mt-0.5">Updated: {new Date(a.updated_at).toLocaleString()}</p>
+                          <p className="mt-0.5">Updated: {formatDateTime(a.updated_at)}</p>
                         )}
                       </div>
                     </div>
@@ -2392,7 +2401,7 @@ export default function ProjectDetailPage({
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-[10px] text-slate-400 font-mono">
-                          {new Date(log.timestamp).toLocaleString()}
+                          {formatDateTime(log.timestamp)}
                         </p>
                       </div>
                     </div>

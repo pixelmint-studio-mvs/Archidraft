@@ -48,12 +48,14 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
   } else if (role) {
     switch (role) {
       case 'ADMIN':
+      case 'STUDIO_ADMIN':
         style = 'bg-[#0d1c32] text-white border-[#0d1c32] font-semibold';
         break;
       case 'DRAUGHTSMAN':
         style = 'bg-blue-50 text-[#0453cd] border-blue-200 font-semibold';
         break;
       case 'CLIENT':
+      case 'ENGINEER':
         style = 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold';
         break;
       case 'STUDENT':
@@ -95,13 +97,17 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
 
 function formatRole(role?: string): string {
   if (!role) return '';
-  if (role === 'CLIENT') return 'ENGINEER';
-  return role.toUpperCase();
+  const r = role.toUpperCase();
+  if (r === 'ADMIN' || r === 'STUDIO_ADMIN') return 'Admin';
+  if (r === 'CLIENT' || r === 'ENGINEER') return 'Engineer';
+  if (r === 'DRAUGHTSMAN') return 'Draughtsman';
+  if (r === 'STUDENT') return 'Student';
+  return role;
 }
 
 function formatStatus(status: string): string {
   if (status === 'UNDER_CLIENT_REVIEW' || status === 'UNDER_ENGINEER_REVIEW') {
-    return 'Under Engineer Review';
+    return 'Under Review';
   }
   return status
     .split('_')
