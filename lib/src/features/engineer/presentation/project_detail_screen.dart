@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,8 +16,10 @@ import 'package:archi_draft/src/features/projects/providers/project_form_control
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/cad_drawing_viewer.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:archi_draft/src/features/projects/domain/correction.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/file_attachment_card.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/file_upload_button.dart';
 import 'package:archi_draft/src/features/projects/presentation/widgets/correction_dialog.dart';
@@ -278,11 +280,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         children: [
           OutlinedButton.icon(
             onPressed: () {
+              final versionsAsync = ref.read(projectDrawingVersionsProvider(project.projectId));
+              final latestVersionId = versionsAsync.value?.isNotEmpty == true
+                  ? versionsAsync.value!.first.id
+                  : 'latest';
               showDialog(
                 context: context,
                 builder: (context) => CorrectionDialog(
                   projectId: project.projectId,
-                  targetVersionId: 'latest', 
+                  targetVersionId: latestVersionId,
                 ),
               );
             },
@@ -355,27 +361,8 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   Widget _buildMainArea(BuildContext context, Project project) {
     return Column(
       children: [
-        // Drawing Versions / Comparison
-        if (project.projectStatus == ProjectStatus.underEngineerReview || project.projectStatus == ProjectStatus.completed)
-          _buildDrawingComparisonSection(context, project)
-        else
-          _buildSectionCard(
-            title: 'Drawing Versions',
-            child: Container(
-              height: 300,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.layers_outlined, size: 48, color: AppColors.outline),
-                  const SizedBox(height: AppSpacing.md),
-                  Text('Drawings will appear here once submitted by the draughtsman.', 
-                    style: AppTypography.bodyMd.copyWith(color: AppColors.outlineVariant)
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // Drawing Versions section with embedded CAD viewer
+        _buildDrawingVersionsSection(context, project),
           
         const SizedBox(height: AppSpacing.gridGutter),
         
@@ -416,7 +403,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               onRetry: () => ref.invalidate(projectFilesProvider(project.projectId)),
             ),
             data: (files) {
-              final clientFiles = files.where((f) => f.category == 'client_upload' && f.status != 'FAILED').toList();
+              final clientFiles = files.where((f) => (f.category == 'client_upload' || f.category == 'client_reference') && f.status != 'FAILED').toList();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -438,18 +425,41 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildDrawingComparisonSection(BuildContext context, Project project) {
+  Widget _buildDrawingVersionsSection(BuildContext context, Project project) {
     return ref.watch(projectDrawingVersionsProvider(project.projectId)).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => AppErrorWidget(
-        message: 'Failed to load drawings.',
-        onRetry: () => ref.invalidate(projectDrawingVersionsProvider(project.projectId)),
+      loading: () => _buildSectionCard(
+        title: 'Drawing Versions',
+        child: const SizedBox(
+          height: 240,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (e, _) => _buildSectionCard(
+        title: 'Drawing Versions',
+        child: AppErrorWidget(
+          message: 'Failed to load drawings.',
+          onRetry: () => ref.invalidate(projectDrawingVersionsProvider(project.projectId)),
+        ),
       ),
       data: (versions) {
         if (versions.isEmpty) {
           return _buildSectionCard(
             title: 'Drawing Versions',
-            child: const Text('No drawings submitted yet.', style: TextStyle(color: AppColors.outline)),
+            child: Container(
+              height: 300,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.layers_outlined, size: 48, color: AppColors.outline),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Drawings will appear here once submitted by the draughtsman.',
+                    style: AppTypography.bodyMd.copyWith(color: AppColors.outlineVariant),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
@@ -461,8 +471,41 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           orElse: () => latestVersion,
         );
 
+        final correctionsAsync = ref.watch(projectCorrectionsProvider(project.projectId));
+        final corrections = correctionsAsync.value ?? [];
+        Correction? currentCorrection;
+        for (final c in corrections) {
+          if (c.targetVersionId == current.id) {
+            currentCorrection = c;
+            break;
+          }
+        }
+
+        final ext = (current.originalName ?? '').split('.').last.toUpperCase();
+        final formatLabel = ext.isEmpty ? 'CAD' : ext;
+        final dateStr = current.createdAt != null
+            ? DateFormat.yMMMd().add_jm().format(current.createdAt!)
+            : 'Date unavailable';
+        final draughtsmanLabel = current.uploaderName ??
+            (project.assignedDraughtsmanId != null ? 'Assigned Draughtsman' : 'Draughtsman');
+
+        final String statusLabel;
+        if (current.versionNumber == latestVersion.versionNumber) {
+          if (project.projectStatus == ProjectStatus.underEngineerReview) {
+            statusLabel = 'Under Engineer Review';
+          } else if (project.projectStatus == ProjectStatus.inProgress) {
+            statusLabel = 'In Revision';
+          } else if (project.projectStatus == ProjectStatus.completed) {
+            statusLabel = 'Approved';
+          } else {
+            statusLabel = project.projectStatus?.displayName ?? project.status;
+          }
+        } else {
+          statusLabel = 'Previous Version';
+        }
+
         return _buildSectionCard(
-          title: 'Drawing Viewer',
+          title: 'Drawing Versions',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -523,7 +566,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     onPressed: () {
                       ref.read(fileRepositoryProvider).downloadFile(
                             current.fileId,
-                            current.originalName ?? 'drawing.dwg',
+                            current.originalName ?? 'drawing.$ext',
                             openInBrowser: false,
                           );
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -535,18 +578,113 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: AppSpacing.sm),
+
+              // Version Metadata Strip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.2)),
+                ),
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_outline, size: 14, color: AppColors.outline),
+                        const SizedBox(width: 4),
+                        Text(
+                          draughtsmanLabel,
+                          style: AppTypography.labelMono.copyWith(fontSize: 11, color: AppColors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.outline),
+                        const SizedBox(width: 4),
+                        Text(
+                          dateStr,
+                          style: AppTypography.labelMono.copyWith(fontSize: 11, color: AppColors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.badge_outlined, size: 14, color: AppColors.outline),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusLabel,
+                          style: AppTypography.labelMono.copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: current.versionNumber == latestVersion.versionNumber ? AppColors.primary : AppColors.outline,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.insert_drive_file_outlined, size: 14, color: AppColors.outline),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$formatLabel • ${(current.size != null ? (current.size! / 1024).toStringAsFixed(1) : '0')} KB',
+                          style: AppTypography.labelMono.copyWith(fontSize: 11, color: AppColors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              if (currentCorrection != null && currentCorrection.description.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryContainer.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    border: Border.all(color: AppColors.secondary.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.rate_review_outlined, size: 15, color: AppColors.secondary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Round ${currentCorrection.roundNumber} Revision Notes: ${currentCorrection.description}',
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.onSurface,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const SizedBox(height: AppSpacing.md),
 
               // Interactive CAD Drawing Viewer
               CadDrawingViewer(
                 fileId: current.fileId,
-                fileName: current.originalName ?? 'drawing.dwg',
+                fileName: current.originalName ?? 'drawing.$ext',
                 fileSize: current.size,
                 versionNumber: current.versionNumber,
                 onDownload: () {
                   ref.read(fileRepositoryProvider).downloadFile(
                         current.fileId,
-                        current.originalName ?? 'drawing.dwg',
+                        current.originalName ?? 'drawing.$ext',
                         openInBrowser: false,
                       );
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -563,52 +701,62 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 ...sortedVersions.map((v) {
                   final isCurrent = v.versionNumber == current.versionNumber;
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      isCurrent ? Icons.check_circle_rounded : Icons.history_rounded,
-                      color: isCurrent ? AppColors.primary : AppColors.outline,
-                    ),
-                    title: Text(
-                      'Version ${v.versionNumber}${v.versionNumber == latestVersion.versionNumber ? ' (Latest)' : ''}',
-                      style: AppTypography.bodyMd.copyWith(
-                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                  final vExt = (v.originalName ?? '').split('.').last.toUpperCase();
+                  final vDraughtsman = v.uploaderName ?? (project.assignedDraughtsmanId != null ? 'Assigned Draughtsman' : 'Draughtsman');
+                  final vDate = v.createdAt != null ? DateFormat.yMMMd().format(v.createdAt!) : '';
+
+                  return Material(
+                    color: Colors.transparent,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        isCurrent ? Icons.check_circle_rounded : Icons.history_rounded,
+                        color: isCurrent ? AppColors.primary : AppColors.outline,
                       ),
-                    ),
-                    subtitle: Text('${v.originalName ?? "drawing"} \u2022 ${v.size ?? 0} bytes'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!isCurrent)
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _selectedVersionNumber = v.versionNumber;
-                              });
-                            },
-                            child: const Text('View'),
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.download, size: 18),
-                          tooltip: 'Download file',
-                          onPressed: () {
-                            ref.read(fileRepositoryProvider).downloadFile(
-                                  v.fileId,
-                                  v.originalName ?? 'drawing.dwg',
-                                  openInBrowser: false,
-                                );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Downloading ${v.originalName ?? "drawing"}...')),
-                            );
-                          },
+                      title: Text(
+                        'Version ${v.versionNumber}${v.versionNumber == latestVersion.versionNumber ? ' (Latest)' : ''}',
+                        style: AppTypography.bodyMd.copyWith(
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                         ),
-                      ],
+                      ),
+                      subtitle: Text(
+                        '${v.originalName ?? "drawing"} • $vExt • ${(v.size != null ? (v.size! / 1024).toStringAsFixed(1) : 0)} KB • $vDraughtsman • $vDate',
+                        style: AppTypography.bodySm.copyWith(color: AppColors.outline),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!isCurrent)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedVersionNumber = v.versionNumber;
+                                });
+                              },
+                              child: const Text('View'),
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.download, size: 18),
+                            tooltip: 'Download file',
+                            onPressed: () {
+                              ref.read(fileRepositoryProvider).downloadFile(
+                                    v.fileId,
+                                    v.originalName ?? 'drawing.$vExt',
+                                    openInBrowser: false,
+                                  );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Downloading ${v.originalName ?? "drawing"}...')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _selectedVersionNumber = v.versionNumber;
+                        });
+                      },
                     ),
-                    onTap: () {
-                      setState(() {
-                        _selectedVersionNumber = v.versionNumber;
-                      });
-                    },
                   );
                 }),
               ],

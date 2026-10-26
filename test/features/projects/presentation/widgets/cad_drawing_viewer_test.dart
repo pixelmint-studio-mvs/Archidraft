@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -170,6 +170,38 @@ EOF''';
       expect(find.textContaining('Preview unavailable for .xyz format'), findsOneWidget);
       expect(find.text('Download Original File'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets('Renders PDF vector sheet drawing with embedded viewer and controls', (tester) async {
+      final pdfBytes = Uint8List.fromList(utf8.encode('%PDF-1.4 mock pdf content for architectural blueprint'));
+
+      final fakeClient = FakeCadApiClient({
+        '/api/files/test-pdf-file-id/download': pdfBytes,
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            apiClientProvider.overrideWithValue(fakeClient),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CadDrawingViewer(
+                fileId: 'test-pdf-file-id',
+                fileName: 'site_plan_approval.pdf',
+                fileSize: 1024,
+                versionNumber: 3,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('PDF Document \u2022 Vector Sheet'), findsOneWidget);
+      expect(find.byIcon(Icons.picture_as_pdf_rounded), findsWidgets);
+      expect(find.text('site_plan_approval.pdf'), findsOneWidget);
     });
   });
 }

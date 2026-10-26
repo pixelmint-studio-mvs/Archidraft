@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../api/providers/api_providers.dart';
 import '../../data/file_repository.dart';
 import 'dxf_viewer.dart';
+import 'pdf_drawing_viewer.dart';
 
 /// Pure-Dart utility to extract embedded AutoCAD thumbnail bitmap (DIB)
 /// from standard AutoCAD DWG binary files (AC1012 through AC1032).
@@ -97,8 +98,10 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   Uint8List? _dwgBmpBytes;
   DxfDrawing? _dxfDrawing;
   Uint8List? _rawImageBytes;
+  Uint8List? _pdfBytes;
   bool _isDxf = false;
   bool _isDwg = false;
+  bool _isPdf = false;
   bool _isRasterImage = false;
   String _formatBadge = '';
   String _formatDetails = '';
@@ -131,8 +134,10 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       _dwgBmpBytes = null;
       _dxfDrawing = null;
       _rawImageBytes = null;
+      _pdfBytes = null;
       _isDxf = false;
       _isDwg = false;
+      _isPdf = false;
       _isRasterImage = false;
     });
 
@@ -147,6 +152,7 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       final ext = widget.fileName.split('.').last.toLowerCase();
       final isDwgExt = ext == 'dwg';
       final isDxfExt = ext == 'dxf';
+      final isPdfExt = ext == 'pdf';
       final isRasterExt = ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp';
 
       // 1. DWG Drawing
@@ -179,17 +185,24 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
         _formatBadge = 'AutoCAD DXF \u2022 2D Vector CAD';
         _formatDetails = '$geomCount geometry \u2022 $textCount text labels \u2022 Bounds: ${parsed.bounds.width.toStringAsFixed(1)} x ${parsed.bounds.height.toStringAsFixed(1)}';
       }
-      // 3. Raster Image
+      // 3. PDF Document
+      else if (isPdfExt || (raw.length >= 4 && String.fromCharCodes(raw.sublist(0, 4)) == '%PDF')) {
+        _isPdf = true;
+        _pdfBytes = raw;
+        _formatBadge = 'PDF Document \u2022 Vector Sheet';
+        _formatDetails = 'PDF \u2022 ${raw.length} bytes \u2022 Embedded Vector Engine';
+      }
+      // 4. Raster Image
       else if (isRasterExt) {
         _isRasterImage = true;
         _rawImageBytes = raw;
         _formatBadge = 'Raster Image Preview';
         _formatDetails = '${ext.toUpperCase()} \u2022 ${raw.length} bytes';
       }
-      // 4. Unsupported Format
+      // 5. Unsupported Format
       else {
         throw Exception(
-          'Preview unavailable for .$ext format. Supported formats: .dwg, .dxf, .png, .jpg, .jpeg. '
+          'Preview unavailable for .$ext format. Supported formats: .dwg, .dxf, .pdf, .png, .jpg, .jpeg. '
           'You can download the source file below.'
         );
       }
@@ -344,7 +357,7 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          _isDwg ? Icons.architecture_rounded : (_isDxf ? Icons.polyline_rounded : Icons.image_rounded),
+                          _isDwg ? Icons.architecture_rounded : (_isDxf ? Icons.polyline_rounded : (_isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded)),
                           color: const Color(0xFF00E5FF),
                           size: 14,
                         ),
@@ -566,7 +579,19 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       );
     }
 
-    // 3. Raster Image
+    // 3. PDF Document
+    if (_isPdf && _pdfBytes != null) {
+      return PdfDrawingViewer(
+        bytes: _pdfBytes!,
+        fileName: widget.fileName,
+        fileId: widget.fileId,
+        onDownload: widget.onDownload ?? () {
+          ref.read(fileRepositoryProvider).downloadFile(widget.fileId, widget.fileName, openInBrowser: false);
+        },
+      );
+    }
+
+    // 4. Raster Image
     if (_isRasterImage && _rawImageBytes != null) {
       return InteractiveViewer(
         transformationController: _transController,
