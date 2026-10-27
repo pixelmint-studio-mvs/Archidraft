@@ -33,6 +33,14 @@ class NotificationRepository {
   Future<void> markAllAsRead() async {
     await _apiClient.patch('/api/notifications/read-all');
   }
+
+  Future<void> clearAll() async {
+    try {
+      await _apiClient.delete('/api/notifications');
+    } catch (_) {
+      await _apiClient.post('/api/notifications/clear');
+    }
+  }
 }
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {

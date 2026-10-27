@@ -149,6 +149,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ),
                   );
                 },
+                onClearAll: allNotifications.isNotEmpty
+                    ? () => _confirmClearNotifications(context)
+                    : null,
               ),
 
               const SizedBox(height: AppSpacing.lg),
@@ -264,6 +267,53 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         context.go('/draughtsman/studio');
       } else {
         context.go('/engineer/dashboard');
+      }
+    }
+  }
+
+  Future<void> _confirmClearNotifications(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Notifications?'),
+        content: const Text(
+          'Are you sure you want to clear your notifications? This will remove all notifications from your list. Your projects and drawings will remain safe.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('confirm_clear_notifications_button_engineer'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(clearNotificationsProvider.future);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notifications cleared.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to clear notifications: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -404,6 +454,9 @@ class _DraughtsmanNotificationsScreenState
                     ),
                   );
                 },
+                onClearAll: allNotifications.isNotEmpty
+                    ? () => _confirmClearNotifications(context)
+                    : null,
               ),
 
               const SizedBox(height: AppSpacing.lg),
@@ -543,4 +596,52 @@ class _DraughtsmanNotificationsScreenState
         break;
     }
   }
+
+  Future<void> _confirmClearNotifications(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear Notifications?'),
+        content: const Text(
+          'Are you sure you want to clear your notifications? This will remove all notifications from your list. Your projects, drawings, and corrections will remain safe.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('confirm_clear_notifications_button'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(clearNotificationsProvider.future);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notifications cleared.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to clear notifications: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
 }
+

@@ -40,6 +40,7 @@ class NotificationHeaderCard extends StatelessWidget {
   final int unreadCount;
   final VoidCallback? onMarkAllRead;
   final VoidCallback onRefresh;
+  final VoidCallback? onClearAll;
 
   const NotificationHeaderCard({
     super.key,
@@ -48,6 +49,7 @@ class NotificationHeaderCard extends StatelessWidget {
     required this.unreadCount,
     required this.onMarkAllRead,
     required this.onRefresh,
+    this.onClearAll,
   });
 
   @override
@@ -204,6 +206,28 @@ class NotificationHeaderCard extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.onSurfaceVariant,
                       side: const BorderSide(color: AppColors.outlineVariant),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusDefault),
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    key: const Key('notifications_clear_all_button'),
+                    onPressed: onClearAll,
+                    icon: const Icon(Icons.delete_sweep_outlined, size: 16),
+                    label: const Text('Clear All'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: onClearAll != null ? AppColors.error : AppColors.outlineVariant,
+                      side: BorderSide(
+                        color: onClearAll != null
+                            ? AppColors.error.withValues(alpha: 0.6)
+                            : AppColors.outlineVariant,
+                      ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 10,
