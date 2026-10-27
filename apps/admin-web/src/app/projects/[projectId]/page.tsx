@@ -12,6 +12,7 @@ import { AssignModal } from '@/components/projects/AssignModal';
 import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
 import { EvaluateModal } from '@/components/projects/EvaluateModal';
+import { CadDrawingRenderer } from '@/components/cad/CadDrawingRenderer';
 import { adminApi } from '@/lib/api';
 import { formatDateTime, formatDate, formatTime, parseUtcDate } from '@/lib/dateUtils';
 import {
@@ -289,6 +290,14 @@ export default function ProjectDetailPage({
   const [cadSliderPos, setCadSliderPos] = useState<number>(50);
   const [cadFullscreen, setCadFullscreen] = useState<boolean>(false);
   const [cadContrast, setCadContrast] = useState<'normal' | 'high' | 'invert'>('normal');
+  const [cadSharedBounds, setCadSharedBounds] = useState<{
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Redline pinning state
   const [redlineMode, setRedlineMode] = useState<boolean>(false);
@@ -826,65 +835,24 @@ export default function ProjectDetailPage({
             const vA = versionList[Math.min(cadVersionA, versionList.length - 1)];
             const vB = versionList[Math.min(cadVersionB, versionList.length - 1)];
 
-            // SVG blueprint mock thumbnails inline (no external image dependency)
-            const BlueprintMockA = () => (
-              <svg width="100%" height="100%" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"
-                className="w-full h-full">
-                <rect width="400" height="300" fill="#0d1929" />
-                {/* Grid lines */}
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <line key={`hA${i}`} x1="0" y1={i * 30} x2="400" y2={i * 30} stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <line key={`vA${i}`} x1={i * 30} y1="0" x2={i * 30} y2="300" stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {/* Floor plan v1 - outer walls */}
-                <rect x="40" y="40" width="320" height="220" fill="none" stroke="#60a5fa" strokeWidth="2" />
-                {/* Rooms */}
-                <line x1="180" y1="40" x2="180" y2="260" stroke="#60a5fa" strokeWidth="1.5" />
-                <line x1="40" y1="150" x2="180" y2="150" stroke="#60a5fa" strokeWidth="1.5" />
-                <line x1="280" y1="40" x2="280" y2="160" stroke="#60a5fa" strokeWidth="1.5" />
-                {/* Doors */}
-                <path d="M180 100 Q200 100 200 120" fill="none" stroke="#93c5fd" strokeWidth="1" />
-                {/* Windows */}
-                <line x1="80" y1="40" x2="120" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                <line x1="220" y1="40" x2="260" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                {/* Dimension lines */}
-                <line x1="40" y1="280" x2="360" y2="280" stroke="#6b7280" strokeWidth="0.5" strokeDasharray="4 2" />
-                <text x="200" y="295" textAnchor="middle" fill="#9ca3af" fontSize="8" fontFamily="monospace">320px</text>
-                {/* Label */}
-                <text x="8" y="15" fill="#60a5fa" fontSize="9" fontFamily="monospace" fontWeight="500">v{vA?.version_number ?? 1} · FLOOR PLAN</text>
-              </svg>
-            );
-
-            const BlueprintMockB = () => (
-              <svg width="100%" height="100%" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"
-                className="w-full h-full">
-                <rect width="400" height="300" fill="#0d1929" />
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <line key={`hB${i}`} x1="0" y1={i * 30} x2="400" y2={i * 30} stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <line key={`vB${i}`} x1={i * 30} y1="0" x2={i * 30} y2="300" stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {/* Updated floor plan v2 - same outer, moved wall */}
-                <rect x="40" y="40" width="320" height="220" fill="none" stroke="#60a5fa" strokeWidth="2" />
-                <line x1="200" y1="40" x2="200" y2="260" stroke="#34d399" strokeWidth="1.5" />{/* moved wall - highlighted */}
-                <line x1="40" y1="150" x2="200" y2="150" stroke="#60a5fa" strokeWidth="1.5" />
-                <line x1="280" y1="40" x2="280" y2="160" stroke="#60a5fa" strokeWidth="1.5" />
-                {/* New element: additional room */}
-                <line x1="200" y1="180" x2="360" y2="180" stroke="#34d399" strokeWidth="1.5" strokeDasharray="none" />
-                <path d="M200 110 Q220 110 220 130" fill="none" stroke="#93c5fd" strokeWidth="1" />
-                <line x1="80" y1="40" x2="120" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                <line x1="240" y1="40" x2="280" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                {/* Change highlight overlay */}
-                <rect x="195" y="40" width="10" height="220" fill="#34d399" fillOpacity="0.12" />
-                <rect x="200" y="175" width="160" height="10" fill="#34d399" fillOpacity="0.12" />
-                <line x1="40" y1="280" x2="360" y2="280" stroke="#6b7280" strokeWidth="0.5" strokeDasharray="4 2" />
-                <text x="200" y="295" textAnchor="middle" fill="#9ca3af" fontSize="8" fontFamily="monospace">320px</text>
-                <text x="8" y="15" fill="#34d399" fontSize="9" fontFamily="monospace" fontWeight="500">v{vB?.version_number ?? 2} · FLOOR PLAN (REVISED)</text>
-              </svg>
-            );
+            // Drawing version comparison targets
+            const handleBoundsUpdate = (b: {
+              minX: number;
+              minY: number;
+              maxX: number;
+              maxY: number;
+              width: number;
+              height: number;
+            }) => {
+              setCadSharedBounds((prev) => {
+                if (!prev) return b;
+                const minX = Math.min(prev.minX, b.minX);
+                const minY = Math.min(prev.minY, b.minY);
+                const maxX = Math.max(prev.maxX, b.maxX);
+                const maxY = Math.max(prev.maxY, b.maxY);
+                return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+              });
+            };
 
             // ── Redline pinning handlers (closures — access vB + component-level state setters) ─
 
@@ -1202,7 +1170,14 @@ export default function ProjectDetailPage({
                               >
                                 PREV · v{vA?.version_number ?? 1}
                               </div>
-                              <BlueprintMockA />
+                              <CadDrawingRenderer
+                                fileId={vA?.file_id}
+                                fileName={vA?.original_name || `drawing_v${vA?.version_number}`}
+                                versionNumber={vA?.version_number ?? 1}
+                                strokeColor="#60a5fa"
+                                sharedBounds={cadSharedBounds || undefined}
+                                onBoundsLoaded={handleBoundsUpdate}
+                              />
                             </div>
 
                             {/* Drag handle */}
@@ -1230,19 +1205,14 @@ export default function ProjectDetailPage({
                               >
                                 CURR · v{vB?.version_number ?? 2}
                               </div>
-                              {/* Change indicators */}
-                              <div
-                                className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono"
-                                style={{
-                                  background: 'rgba(2,44,34,0.85)',
-                                  color: '#34d399',
-                                  border: '1px solid rgba(52,211,153,0.3)',
-                                }}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                                CHANGES DETECTED
-                              </div>
-                              <BlueprintMockB />
+                              <CadDrawingRenderer
+                                fileId={vB?.file_id}
+                                fileName={vB?.original_name || `drawing_v${vB?.version_number}`}
+                                versionNumber={vB?.version_number ?? 2}
+                                strokeColor="#34d399"
+                                sharedBounds={cadSharedBounds || undefined}
+                                onBoundsLoaded={handleBoundsUpdate}
+                              />
                             </div>
                           </div>
                         ) : (
@@ -1250,7 +1220,14 @@ export default function ProjectDetailPage({
                           <div className="relative h-full w-full overflow-hidden rounded-xl">
                             {/* Base layer (A) */}
                             <div className="absolute inset-0">
-                              <BlueprintMockA />
+                              <CadDrawingRenderer
+                                fileId={vA?.file_id}
+                                fileName={vA?.original_name || `drawing_v${vA?.version_number}`}
+                                versionNumber={vA?.version_number ?? 1}
+                                strokeColor="#60a5fa"
+                                sharedBounds={cadSharedBounds || undefined}
+                                onBoundsLoaded={handleBoundsUpdate}
+                              />
                             </div>
                             {/* Top layer (B) — clipped by slider */}
                             <div
@@ -1258,7 +1235,14 @@ export default function ProjectDetailPage({
                               style={{ width: `${cadSliderPos}%` }}
                             >
                               <div className="absolute inset-0" style={{ width: `${10000 / cadSliderPos}%` }}>
-                                <BlueprintMockB />
+                                <CadDrawingRenderer
+                                  fileId={vB?.file_id}
+                                  fileName={vB?.original_name || `drawing_v${vB?.version_number}`}
+                                  versionNumber={vB?.version_number ?? 2}
+                                  strokeColor="#34d399"
+                                  sharedBounds={cadSharedBounds || undefined}
+                                  onBoundsLoaded={handleBoundsUpdate}
+                                />
                               </div>
                             </div>
                             {/* Slider line */}
