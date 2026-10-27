@@ -68,6 +68,32 @@ Uint8List? extractDwgThumbnail(Uint8List bytes) {
   return null;
 }
 
+class _CachedDrawingData {
+  final Uint8List? dwgBmpBytes;
+  final DxfDrawing? dxfDrawing;
+  final Uint8List? rawImageBytes;
+  final Uint8List? pdfBytes;
+  final bool isDxf;
+  final bool isDwg;
+  final bool isRasterImage;
+  final bool isPdf;
+  final String formatBadge;
+  final String formatDetails;
+
+  const _CachedDrawingData({
+    this.dwgBmpBytes,
+    this.dxfDrawing,
+    this.rawImageBytes,
+    this.pdfBytes,
+    required this.isDxf,
+    required this.isDwg,
+    required this.isRasterImage,
+    required this.isPdf,
+    required this.formatBadge,
+    required this.formatDetails,
+  });
+}
+
 /// CAD Drawing Viewer supporting DWG, DXF, and raster preview formats
 /// with interactive zoom, pan, fit-to-view, error handling, and download.
 class CadDrawingViewer extends ConsumerStatefulWidget {
@@ -88,11 +114,19 @@ class CadDrawingViewer extends ConsumerStatefulWidget {
     this.height = 440,
   });
 
+  static void clearCache() => _CadDrawingViewerState.clearCache();
+
   @override
   ConsumerState<CadDrawingViewer> createState() => _CadDrawingViewerState();
 }
 
 class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
+  static final Map<String, _CachedDrawingData> _drawingCache = {};
+
+  static void clearCache() {
+    _drawingCache.clear();
+  }
+
   bool _isLoading = true;
   String? _error;
   Uint8List? _dwgBmpBytes;
@@ -128,6 +162,26 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   }
 
   Future<void> _loadDrawing() async {
+    // Fast path: reuse parsed drawing from memory cache instantly
+    if (_drawingCache.containsKey(widget.fileId)) {
+      final cached = _drawingCache[widget.fileId]!;
+      setState(() {
+        _isLoading = false;
+        _error = null;
+        _dwgBmpBytes = cached.dwgBmpBytes;
+        _dxfDrawing = cached.dxfDrawing;
+        _rawImageBytes = cached.rawImageBytes;
+        _pdfBytes = cached.pdfBytes;
+        _isDxf = cached.isDxf;
+        _isDwg = cached.isDwg;
+        _isRasterImage = cached.isRasterImage;
+        _isPdf = cached.isPdf;
+        _formatBadge = cached.formatBadge;
+        _formatDetails = cached.formatDetails;
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -206,6 +260,20 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
           'You can download the source file below.'
         );
       }
+
+      // Populate memory cache for instant future rendering
+      _drawingCache[widget.fileId] = _CachedDrawingData(
+        dwgBmpBytes: _dwgBmpBytes,
+        dxfDrawing: _dxfDrawing,
+        rawImageBytes: _rawImageBytes,
+        pdfBytes: _pdfBytes,
+        isDxf: _isDxf,
+        isDwg: _isDwg,
+        isRasterImage: _isRasterImage,
+        isPdf: _isPdf,
+        formatBadge: _formatBadge,
+        formatDetails: _formatDetails,
+      );
 
       if (mounted) {
         setState(() {

@@ -58,15 +58,30 @@ class DraughtsmanStudioScreen extends ConsumerStatefulWidget {
 }
 
 class _DraughtsmanStudioScreenState
-    extends ConsumerState<DraughtsmanStudioScreen> {
+    extends ConsumerState<DraughtsmanStudioScreen>
+    with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _StudioFilter _filter = _StudioFilter.all;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(draughtsmanAssignmentsProvider);
+    }
   }
 
   @override
@@ -75,13 +90,20 @@ class _DraughtsmanStudioScreenState
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: assignmentsAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         loading: () =>
             const AppLoadingIndicator(message: 'Loading workspace...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load assignments.\n$error',
           onRetry: () => ref.invalidate(draughtsmanAssignmentsProvider),
         ),
-        data: (assignments) => _buildContent(context, assignments),
+        data: (assignments) => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(draughtsmanAssignmentsProvider);
+          },
+          child: _buildContent(context, assignments),
+        ),
       ),
     );
   }

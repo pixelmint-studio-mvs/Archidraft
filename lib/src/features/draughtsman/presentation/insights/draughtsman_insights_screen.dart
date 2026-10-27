@@ -93,6 +93,8 @@ class _DraughtsmanInsightsScreenState
             ref.invalidate(draughtsmanAssignmentsProvider);
           },
           child: summaryAsync.when(
+            skipLoadingOnReload: true,
+            skipLoadingOnRefresh: true,
             loading: () => const AppLoadingIndicator(
               message: 'Loading executive vitals...',
             ),
@@ -105,6 +107,8 @@ class _DraughtsmanInsightsScreenState
             ),
             data: (summary) {
               return assignmentsAsync.when(
+                skipLoadingOnReload: true,
+                skipLoadingOnRefresh: true,
                 loading: () => const AppLoadingIndicator(
                   message: 'Loading assignment telemetry...',
                 ),

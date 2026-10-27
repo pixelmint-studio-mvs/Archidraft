@@ -49,9 +49,9 @@ class ResponsiveScaffold extends ConsumerWidget {
         final isTablet = AppBreakpoints.isTablet(constraints.maxWidth);
 
         // Blueprint Grid Background Pattern (implemented via CustomPaint)
-        final background = CustomPaint(
+        const background = CustomPaint(
           painter: _BlueprintPainter(),
-          child: Container(),
+          child: SizedBox.expand(),
         );
 
         if (isMobile) {
@@ -197,19 +197,21 @@ class ResponsiveScaffold extends ConsumerWidget {
 }
 
 class _BlueprintPainter extends CustomPainter {
+  const _BlueprintPainter();
+
+  static final Paint _gridPaint = Paint()
+    ..color = AppColors.outlineVariant.withValues(alpha: 0.15)
+    ..strokeWidth = 1;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.outlineVariant.withValues(alpha: 0.15)
-      ..strokeWidth = 1;
-
     const double step = 40.0; // AppSpacing.blueprintUnit
 
     for (double i = 0; i < size.width; i += step) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), _gridPaint);
     }
     for (double i = 0; i < size.height; i += step) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), _gridPaint);
     }
   }
 

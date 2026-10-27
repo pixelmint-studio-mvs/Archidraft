@@ -157,6 +157,8 @@ class _DraughtsmanDrawingsScreenState
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: assignmentsAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         loading: () =>
             const AppLoadingIndicator(message: 'Loading technical drawings...'),
         error: (e, _) => AppErrorWidget(
@@ -206,7 +208,7 @@ class _DraughtsmanDrawingsScreenState
                   color: Color(0xFFFBF9FB), // Warm White
                 ),
                 child: CustomPaint(
-                  painter: _BlueprintGridBackgroundPainter(),
+                  painter: const _BlueprintGridBackgroundPainter(),
                   child: _showGalleryView
                       ? _buildGalleryView(relevant, screenWidth)
                       : _buildAuthoritativeInspectionView(
@@ -230,7 +232,7 @@ class _DraughtsmanDrawingsScreenState
       height: double.infinity,
       color: const Color(0xFFFBF9FB),
       child: CustomPaint(
-        painter: _BlueprintGridBackgroundPainter(),
+        painter: const _BlueprintGridBackgroundPainter(),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -272,6 +274,8 @@ class _DraughtsmanDrawingsScreenState
         : ref.watch(projectDrawingVersionsProvider(assignment.projectId));
 
     return versionsAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       loading: () =>
           const AppLoadingIndicator(message: 'Loading drawing versions...'),
       error: (e, _) => AppErrorWidget(
@@ -2617,18 +2621,20 @@ class _DraughtsmanDrawingsScreenState
 // ─────────────────────────────────────────────────────────────
 
 class _BlueprintGridBackgroundPainter extends CustomPainter {
+  const _BlueprintGridBackgroundPainter();
+
+  static final Paint _gridPaint = Paint()
+    ..color = const Color(0xFF75777E).withValues(alpha: 0.05)
+    ..strokeWidth = 1.0;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final gridPaint = Paint()
-      ..color = const Color(0xFF75777E).withValues(alpha: 0.05)
-      ..strokeWidth = 1.0;
-
     const unit = 40.0;
     for (double x = 0; x <= size.width; x += unit) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), _gridPaint);
     }
     for (double y = 0; y <= size.height; y += unit) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), _gridPaint);
     }
   }
 
