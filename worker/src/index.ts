@@ -2793,6 +2793,46 @@ async function verifyStudentAssignment(db: D1Database, uid: string, projectId: s
 }
 
 
+async function isModuleAuthorizedForStudent(db: D1Database, studentId: string, moduleId: string): Promise<boolean> {
+  const mod: any = await db.prepare(
+    "SELECT publication_status FROM training_modules WHERE id = ?"
+  ).bind(moduleId).first();
+  if (!mod || mod.publication_status === 'DRAFT' || mod.publication_status === 'ARCHIVED') {
+    return false;
+  }
+
+  // 1. Direct active learning plan
+  const plan = await db.prepare(
+    "SELECT 1 FROM student_learning_plans WHERE student_id = ? AND module_id = ? AND status != 'ARCHIVED'"
+  ).bind(studentId, moduleId).first();
+  if (plan) return true;
+
+  // 2. Training practical project linked to this module
+  const prj = await db.prepare(
+    "SELECT 1 FROM projects p JOIN student_assignments sa ON sa.project_id = p.id WHERE p.training_module_id = ? AND sa.student_id = ? AND p.is_training_project = 1 AND sa.status != 'REPLACED'"
+  ).bind(moduleId, studentId).first();
+  if (prj) return true;
+
+  // 3. Fallback for unassigned/initial state: if student has no plans at all anywhere
+  const hasAnyPlans = await db.prepare(
+    "SELECT 1 FROM student_learning_plans WHERE student_id = ? AND status != 'ARCHIVED'"
+  ).bind(studentId).first();
+  if (!hasAnyPlans) {
+    const progress = await db.prepare(
+      "SELECT 1 FROM student_progress WHERE student_id = ? AND module_id = ?"
+    ).bind(studentId, moduleId).first();
+    if (progress) return true;
+
+    // Check if module is unassigned public starter module (not locked, published)
+    const starterModule = await db.prepare(
+      "SELECT 1 FROM training_modules WHERE id = ? AND is_locked = 0 AND publication_status = 'PUBLISHED'"
+    ).bind(moduleId).first();
+    if (starterModule) return true;
+  }
+
+  return false;
+}
+
 app.get('/api/student/training/modules', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
@@ -2802,24 +2842,70 @@ app.get('/api/student/training/modules', async (c) => {
     return c.json({ error: 'Unauthorized: Only students can access training modules', code: 'UNAUTHORIZED' }, 403);
   }
 
-  const { results } = await db.prepare(`
-    SELECT
-      tm.*,
-      COALESCE(sp.status, 'Not Started') AS status,
-      sp.score,
-      CASE
-        WHEN sp.status = 'Completed' THEN 1.0
-        WHEN sp.status = 'In Progress' THEN COALESCE(sp.score, 0) / 100.0
-        ELSE 0.0
-      END AS progress,
-      CASE
-        WHEN sp.status IS NOT NULL THEN 0
-        ELSE tm.is_locked
-      END AS is_locked
-    FROM training_modules tm
-    LEFT JOIN student_progress sp ON sp.module_id = tm.id AND sp.student_id = ?
-    ORDER BY tm.created_at ASC
-  `).bind(uid).all();
+  const hasAnyPlans = await db.prepare(
+    "SELECT 1 FROM student_learning_plans WHERE student_id = ? AND status != 'ARCHIVED'"
+  ).bind(uid).first();
+
+  let results: any[] = [];
+  if (hasAnyPlans) {
+    const queryRes = await db.prepare(`
+      SELECT
+        tm.*,
+        slp.target_completion_date,
+        slp.instructions AS plan_instructions,
+        COALESCE(sp.status, 'Not Started') AS status,
+        sp.score,
+        CASE
+          WHEN sp.status = 'Completed' THEN 1.0
+          WHEN sp.status = 'In Progress' THEN COALESCE(sp.score, 0) / 100.0
+          ELSE 0.0
+        END AS progress,
+        CASE
+          WHEN sp.status IS NOT NULL THEN 0
+          ELSE tm.is_locked
+        END AS is_locked
+      FROM training_modules tm
+      JOIN student_learning_plans slp ON slp.module_id = tm.id AND slp.student_id = ? AND slp.status != 'ARCHIVED'
+      LEFT JOIN student_progress sp ON sp.module_id = tm.id AND sp.student_id = ?
+      WHERE tm.publication_status != 'DRAFT' AND tm.publication_status != 'ARCHIVED'
+      ORDER BY tm.created_at ASC
+    `).bind(uid, uid).all();
+    results = queryRes.results || [];
+  } else {
+    // If student has no specific learning plans yet, return modules with assigned practical projects or progress or unlocked
+    const queryRes = await db.prepare(`
+      SELECT
+        tm.*,
+        NULL AS target_completion_date,
+        NULL AS plan_instructions,
+        COALESCE(sp.status, 'Not Started') AS status,
+        sp.score,
+        CASE
+          WHEN sp.status = 'Completed' THEN 1.0
+          WHEN sp.status = 'In Progress' THEN COALESCE(sp.score, 0) / 100.0
+          ELSE 0.0
+        END AS progress,
+        CASE
+          WHEN sp.status IS NOT NULL THEN 0
+          ELSE tm.is_locked
+        END AS is_locked
+      FROM training_modules tm
+      LEFT JOIN student_progress sp ON sp.module_id = tm.id AND sp.student_id = ?
+      WHERE (
+        tm.id IN (
+          SELECT p.training_module_id FROM projects p
+          JOIN student_assignments sa ON sa.project_id = p.id
+          WHERE sa.student_id = ? AND p.is_training_project = 1 AND sa.status != 'REPLACED'
+        )
+        OR sp.id IS NOT NULL
+        OR (tm.is_locked = 0)
+      )
+      AND tm.publication_status != 'DRAFT' AND tm.publication_status != 'ARCHIVED'
+      ORDER BY tm.created_at ASC
+    `).bind(uid, uid).all();
+    results = queryRes.results || [];
+  }
+
   return c.json(results);
 });
 
@@ -2834,6 +2920,11 @@ app.get('/api/student/training/modules/:moduleId', async (c) => {
   }
 
   const moduleId = c.req.param('moduleId');
+  const isAuthorized = await isModuleAuthorizedForStudent(db, uid, moduleId);
+  if (!isAuthorized) {
+    return c.json({ error: 'Forbidden: This training module has not been assigned to your learning plan', code: 'FORBIDDEN' }, 403);
+  }
+
   const module: any = await db.prepare(`
     SELECT
       tm.*,
@@ -2857,9 +2948,15 @@ app.get('/api/student/training/modules/:moduleId', async (c) => {
     return c.json({ error: 'Training module not found', code: 'NOT_FOUND' }, 404);
   }
 
+  // Attach chapters
+  const chapters = await db.prepare(`
+    SELECT * FROM training_chapters WHERE module_id = ? ORDER BY chapter_order ASC, created_at ASC
+  `).bind(moduleId).all();
+  module.chapters = chapters.results || [];
+
   // Derive authoritative progress from completed lessons and practical project status
   const lessons = await db.prepare(`
-    SELECT l.id, slp.status
+    SELECT l.id, COALESCE(l.is_required, 1) AS is_required, slp.status
     FROM training_lessons l
     LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
     WHERE l.module_id = ?
@@ -2867,7 +2964,9 @@ app.get('/api/student/training/modules/:moduleId', async (c) => {
 
   const totalLessons = lessons.results.length;
   if (totalLessons > 0) {
-    const completedLessons = lessons.results.filter((l: any) => l.status === 'COMPLETED').length;
+    const requiredLessons = lessons.results.filter((l: any) => l.is_required !== 0);
+    const requiredTotal = requiredLessons.length > 0 ? requiredLessons.length : totalLessons;
+    const completedRequired = requiredLessons.filter((l: any) => l.status === 'COMPLETED').length;
 
     // Check if practical project exists for this student
     const practicalProject: any = await db.prepare(`
@@ -2880,7 +2979,7 @@ app.get('/api/student/training/modules/:moduleId', async (c) => {
     const hasPractical = !!practicalProject;
     const isPracticalCompleted = practicalProject && practicalProject.status === 'COMPLETED';
 
-    if (completedLessons === totalLessons) {
+    if (completedRequired === requiredTotal) {
       if (!hasPractical || isPracticalCompleted) {
         module.status = 'Completed';
         module.progress = 1.0;
@@ -2891,10 +2990,10 @@ app.get('/api/student/training/modules/:moduleId', async (c) => {
         module.progress = 0.9;
         module.score = module.score ?? 90;
       }
-    } else if (completedLessons > 0) {
+    } else if (completedRequired > 0) {
       module.status = 'In Progress';
-      module.progress = Number((completedLessons / totalLessons).toFixed(2));
-      module.score = module.score ?? Math.round((completedLessons / totalLessons) * 100);
+      module.progress = Number((completedRequired / requiredTotal).toFixed(2));
+      module.score = module.score ?? Math.round((completedRequired / requiredTotal) * 100);
     }
   }
 
@@ -2912,17 +3011,23 @@ app.get('/api/student/training/modules/:moduleId/lessons', async (c) => {
   }
 
   const moduleId = c.req.param('moduleId');
+  const isAuthorized = await isModuleAuthorizedForStudent(db, uid, moduleId);
+  if (!isAuthorized) {
+    return c.json({ error: 'Forbidden: Module not assigned', code: 'FORBIDDEN' }, 403);
+  }
+
   const { results } = await db.prepare(`
     SELECT
       l.*,
-      COALESCE(slp.status, 'NOT_STARTED') AS status
+      COALESCE(slp.status, 'NOT_STARTED') AS status,
+      slp.completed_at
     FROM training_lessons l
     LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
     WHERE l.module_id = ?
     ORDER BY l.lesson_order ASC
   `).bind(uid, moduleId).all();
 
-  return c.json(results);
+  return c.json(results || []);
 });
 
 // GET /api/student/training/lessons/:lessonId
@@ -2936,10 +3041,11 @@ app.get('/api/student/training/lessons/:lessonId', async (c) => {
   }
 
   const lessonId = c.req.param('lessonId');
-  const lesson = await db.prepare(`
+  const lesson: any = await db.prepare(`
     SELECT
       l.*,
-      COALESCE(slp.status, 'NOT_STARTED') AS status
+      COALESCE(slp.status, 'NOT_STARTED') AS status,
+      slp.completed_at
     FROM training_lessons l
     LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
     WHERE l.id = ?
@@ -2947,6 +3053,11 @@ app.get('/api/student/training/lessons/:lessonId', async (c) => {
 
   if (!lesson) {
     return c.json({ error: 'Lesson not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  const isAuthorized = await isModuleAuthorizedForStudent(db, uid, lesson.module_id);
+  if (!isAuthorized) {
+    return c.json({ error: 'Forbidden: Lesson not assigned to your learning plan', code: 'FORBIDDEN' }, 403);
   }
 
   return c.json(lesson);
@@ -2976,23 +3087,30 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
   }
   const moduleId = lesson.module_id;
 
+  const isAuthorized = await isModuleAuthorizedForStudent(db, uid, moduleId);
+  if (!isAuthorized) {
+    return c.json({ error: 'Forbidden: Lesson not assigned to your learning plan', code: 'FORBIDDEN' }, 403);
+  }
+
   const allLessons = await db.prepare(`
-    SELECT l.id, slp.status
+    SELECT l.id, COALESCE(l.is_required, 1) AS is_required, slp.status
     FROM training_lessons l
     LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
     WHERE l.module_id = ?
   `).bind(uid, moduleId).all();
 
   let totalLessons = allLessons.results.length;
-  let completedLessons = 0;
+  const requiredLessons = allLessons.results.filter((l: any) => l.is_required !== 0);
+  const requiredTotal = requiredLessons.length > 0 ? requiredLessons.length : totalLessons;
+  let completedRequired = 0;
 
   for (const l of allLessons.results) {
     let lessonStatus = l.status;
     if (l.id === lessonId) {
       lessonStatus = status;
     }
-    if (lessonStatus === 'COMPLETED') {
-      completedLessons++;
+    if (lessonStatus === 'COMPLETED' && l.is_required !== 0) {
+      completedRequired++;
     }
   }
 
@@ -3009,11 +3127,13 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
     `).bind(id, uid, lessonId, status, status)
   );
 
-  if (totalLessons > 0) {
+  let finalScore = 0;
+  if (requiredTotal > 0) {
     let moduleStatus = 'In Progress';
-    let score = Math.round((completedLessons / totalLessons) * 100);
+    let score = Math.round((completedRequired / requiredTotal) * 100);
+    finalScore = score;
 
-    if (completedLessons === totalLessons) {
+    if (completedRequired === requiredTotal) {
       // Check if this module requires a practical project for this student
       const practicalProject: any = await db.prepare(`
         SELECT p.id, p.status
@@ -3028,6 +3148,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
       if (!hasPracticalProject || isPracticalCompleted) {
         moduleStatus = 'Completed';
         score = 100;
+        finalScore = 100;
 
         const moduleDetails: any = await db.prepare('SELECT title FROM training_modules WHERE id = ?').bind(moduleId).first();
         const moduleTitle = moduleDetails?.title || 'Unknown Module';
@@ -3049,6 +3170,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
         // Hybrid module: lessons finished, but practical project is still pending or in progress
         moduleStatus = 'In Progress';
         score = 90;
+        finalScore = 90;
       }
     }
 
@@ -3067,7 +3189,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
 
   await db.batch(batch);
 
-  return c.json({ success: true });
+  return c.json({ success: true, status, completion_percentage: finalScore });
 });
 
 // GET /api/student/training/progress
@@ -3134,6 +3256,1318 @@ app.post('/api/student/training/progress', async (c) => {
   `).bind(id, uid, module_id, status, score || null).run();
 
   return c.json({ success: true });
+});
+
+// ==========================================
+// TEACHING STUDENTS — ADMIN TRAINING MODULES ENDPOINTS
+// ==========================================
+
+// GET /api/admin/training/modules
+app.get('/api/admin/training/modules', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const category = c.req.query('category');
+  const status = c.req.query('status');
+  const search = c.req.query('search');
+
+  let sql = `
+    SELECT
+      tm.*,
+      COUNT(DISTINCT tc.id) AS chapters_count,
+      COUNT(DISTINCT tl.id) AS lessons_count,
+      COUNT(DISTINCT slp.student_id) AS enrolled_students_count
+    FROM training_modules tm
+    LEFT JOIN training_chapters tc ON tc.module_id = tm.id
+    LEFT JOIN training_lessons tl ON tl.module_id = tm.id
+    LEFT JOIN student_learning_plans slp ON slp.module_id = tm.id AND slp.status != 'ARCHIVED'
+    WHERE 1=1
+  `;
+  const params: any[] = [];
+
+  if (category && category !== 'ALL') {
+    sql += ` AND LOWER(tm.category) = LOWER(?)`;
+    params.push(category);
+  }
+  if (status && status !== 'ALL') {
+    sql += ` AND UPPER(tm.publication_status) = UPPER(?)`;
+    params.push(status);
+  }
+  if (search && search.trim()) {
+    sql += ` AND (LOWER(tm.title) LIKE ? OR LOWER(tm.description) LIKE ?)`;
+    const q = `%${search.trim().toLowerCase()}%`;
+    params.push(q, q);
+  }
+
+  sql += ` GROUP BY tm.id ORDER BY tm.created_at DESC`;
+
+  const { results } = await db.prepare(sql).bind(...params).all();
+  return c.json(results || []);
+});
+
+// POST /api/admin/training/modules
+app.post('/api/admin/training/modules', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = (body.title || '').trim();
+  const category = (body.category || 'Architectural').trim();
+  const type = (body.type || 'Module').trim();
+  const level = (body.level || 'Beginner').trim();
+  const description = (body.description || '').trim();
+  const prerequisites = (body.prerequisites || '').trim();
+  const learningObjectives = (body.learning_objectives || body.learningObjectives || '').trim();
+  const thumbnailUrl = (body.thumbnail_url || body.thumbnailUrl || '').trim();
+  const publicationStatus = (body.publication_status || body.publicationStatus || 'PUBLISHED').toUpperCase();
+  const isLocked = body.is_locked !== undefined ? (body.is_locked ? 1 : 0) : 1;
+
+  if (!title) {
+    return c.json({ error: 'Module title is required', code: 'INVALID_TITLE' }, 400);
+  }
+
+  const id = body.id || ('mod-' + crypto.randomUUID().substring(0, 8));
+
+  // Check if module already exists (for idempotent creation/retries)
+  const existing = await db.prepare('SELECT id FROM training_modules WHERE id = ?').bind(id).first();
+  if (existing) {
+    await db.prepare(`
+      UPDATE training_modules SET
+        category = ?, type = ?, level = ?, title = ?, description = ?,
+        prerequisites = ?, is_locked = ?, publication_status = ?,
+        learning_objectives = ?, thumbnail_url = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(
+      category, type, level, title, description, prerequisites || null, isLocked,
+      publicationStatus, learningObjectives || null, thumbnailUrl || null, id
+    ).run();
+  } else {
+    await db.prepare(`
+      INSERT INTO training_modules (
+        id, category, type, level, title, description, prerequisites, is_locked,
+        publication_status, learning_objectives, thumbnail_url, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).bind(
+      id, category, type, level, title, description, prerequisites || null, isLocked,
+      publicationStatus, learningObjectives || null, thumbnailUrl || null
+    ).run();
+  }
+
+  const created = await db.prepare('SELECT * FROM training_modules WHERE id = ?').bind(id).first();
+
+  // Optional Student Assignment during creation
+  const targetStudentId = body.assign_to_student_id || body.student_id;
+  if (targetStudentId) {
+    const student = await db.prepare("SELECT * FROM users WHERE id = ?").bind(targetStudentId).first();
+    if (!student) {
+      return c.json({
+        error: 'Module saved, but selected student was not found',
+        code: 'STUDENT_NOT_FOUND',
+        id,
+        module: created,
+        assignment_failed: true
+      }, 400);
+    }
+    if (student.role !== 'STUDENT') {
+      return c.json({
+        error: 'Module saved, but selected user is not a Student',
+        code: 'INVALID_ROLE',
+        id,
+        module: created,
+        assignment_failed: true
+      }, 400);
+    }
+    if (student.status === 'SUSPENDED') {
+      return c.json({
+        error: 'Module saved, but cannot assign to suspended student',
+        code: 'ACCOUNT_SUSPENDED',
+        id,
+        module: created,
+        assignment_failed: true
+      }, 403);
+    }
+
+    const planId = 'plan-' + crypto.randomUUID().substring(0, 8);
+    const targetDate = body.target_completion_date || body.targetCompletionDate || null;
+    const instructions = (body.assignment_instructions || body.instructions || '').trim();
+
+    await db.prepare(`
+      INSERT INTO student_learning_plans (
+        id, student_id, module_id, assigned_by, assigned_at,
+        target_completion_date, instructions, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, 'ASSIGNED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(student_id, module_id) DO UPDATE SET
+        target_completion_date = excluded.target_completion_date,
+        instructions = excluded.instructions,
+        status = 'ASSIGNED',
+        updated_at = CURRENT_TIMESTAMP
+    `).bind(planId, targetStudentId, id, uid, targetDate, instructions || null).run();
+
+    await db.prepare(`
+      INSERT INTO student_progress (id, student_id, module_id, status, updated_at)
+      VALUES (?, ?, ?, 'Not Started', CURRENT_TIMESTAMP)
+      ON CONFLICT(student_id, module_id) DO NOTHING
+    `).bind(crypto.randomUUID(), targetStudentId, id).run();
+
+    await db.prepare(`
+      INSERT INTO notifications (id, user_id, type, title, message, created_at)
+      VALUES (?, ?, 'LEARNING_PLAN_ASSIGNED', 'New Training Assigned', ?, CURRENT_TIMESTAMP)
+    `).bind(
+      crypto.randomUUID(), targetStudentId,
+      `You have been assigned training module: "${title}"`
+    ).run();
+
+    return c.json({
+      success: true,
+      id,
+      module: created,
+      assignment: {
+        assigned: true,
+        plan_id: planId,
+        student_id: targetStudentId,
+        student_name: student.name,
+      }
+    }, 201);
+  }
+
+  return c.json({ success: true, id, module: created }, 201);
+});
+
+// GET /api/admin/training/modules/:moduleId
+app.get('/api/admin/training/modules/:moduleId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const module: any = await db.prepare('SELECT * FROM training_modules WHERE id = ?').bind(moduleId).first();
+  if (!module) {
+    return c.json({ error: 'Module not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  const chapters = await db.prepare(`
+    SELECT * FROM training_chapters WHERE module_id = ? ORDER BY chapter_order ASC, created_at ASC
+  `).bind(moduleId).all();
+
+  const lessons = await db.prepare(`
+    SELECT * FROM training_lessons WHERE module_id = ? ORDER BY lesson_order ASC, created_at ASC
+  `).bind(moduleId).all();
+
+  const enrollments = await db.prepare(`
+    SELECT slp.*, u.name as student_name, u.email as student_email, sp.status as student_status, sp.score as student_score
+    FROM student_learning_plans slp
+    JOIN users u ON slp.student_id = u.id
+    LEFT JOIN student_progress sp ON sp.module_id = slp.module_id AND sp.student_id = slp.student_id
+    WHERE slp.module_id = ? AND slp.status != 'ARCHIVED'
+  `).bind(moduleId).all();
+
+  return c.json({
+    module,
+    chapters: chapters.results || [],
+    lessons: lessons.results || [],
+    enrollments: enrollments.results || [],
+  });
+});
+
+// PUT /api/admin/training/modules/:moduleId
+app.put('/api/admin/training/modules/:moduleId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const existing = await db.prepare('SELECT * FROM training_modules WHERE id = ?').bind(moduleId).first();
+  if (!existing) {
+    return c.json({ error: 'Module not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = body.title !== undefined ? String(body.title).trim() : existing.title;
+  const category = body.category !== undefined ? String(body.category).trim() : existing.category;
+  const type = body.type !== undefined ? String(body.type).trim() : existing.type;
+  const level = body.level !== undefined ? String(body.level).trim() : existing.level;
+  const description = body.description !== undefined ? String(body.description).trim() : existing.description;
+  const prerequisites = body.prerequisites !== undefined ? String(body.prerequisites).trim() : existing.prerequisites;
+  const learningObjectives = body.learning_objectives !== undefined ? String(body.learning_objectives).trim() : (body.learningObjectives !== undefined ? String(body.learningObjectives).trim() : existing.learning_objectives);
+  const thumbnailUrl = body.thumbnail_url !== undefined ? String(body.thumbnail_url).trim() : (body.thumbnailUrl !== undefined ? String(body.thumbnailUrl).trim() : existing.thumbnail_url);
+  const publicationStatus = body.publication_status !== undefined ? String(body.publication_status).toUpperCase() : (body.publicationStatus !== undefined ? String(body.publicationStatus).toUpperCase() : existing.publication_status);
+  const isLocked = body.is_locked !== undefined ? (body.is_locked ? 1 : 0) : existing.is_locked;
+
+  if (!title) {
+    return c.json({ error: 'Module title cannot be empty', code: 'INVALID_TITLE' }, 400);
+  }
+
+  await db.prepare(`
+    UPDATE training_modules SET
+      title = ?, category = ?, type = ?, level = ?, description = ?,
+      prerequisites = ?, is_locked = ?, publication_status = ?,
+      learning_objectives = ?, thumbnail_url = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(
+    title, category, type, level, description,
+    prerequisites || null, isLocked, publicationStatus,
+    learningObjectives || null, thumbnailUrl || null, moduleId
+  ).run();
+
+  const updated = await db.prepare('SELECT * FROM training_modules WHERE id = ?').bind(moduleId).first();
+  return c.json({ success: true, module: updated });
+});
+
+// DELETE /api/admin/training/modules/:moduleId (Soft archive - preserves historical student progress)
+app.delete('/api/admin/training/modules/:moduleId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const existing = await db.prepare('SELECT * FROM training_modules WHERE id = ?').bind(moduleId).first();
+  if (!existing) {
+    return c.json({ error: 'Module not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  // Soft archive to preserve historical progress
+  await db.prepare(`
+    UPDATE training_modules SET publication_status = 'ARCHIVED', updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `).bind(moduleId).run();
+
+  return c.json({ success: true, message: 'Module archived. Historical student progress preserved.' });
+});
+
+// ==========================================
+// TEACHING STUDENTS — CHAPTERS & LESSONS CRUD
+// ==========================================
+
+// POST /api/admin/training/modules/:moduleId/chapters
+app.post('/api/admin/training/modules/:moduleId/chapters', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const body = await c.req.json().catch(() => ({}));
+  const title = (body.title || '').trim();
+  const description = (body.description || '').trim();
+  const chapterOrder = Number(body.chapter_order || body.chapterOrder || 1);
+
+  if (!title) {
+    return c.json({ error: 'Chapter title is required', code: 'INVALID_TITLE' }, 400);
+  }
+
+  const id = body.id || ('ch-' + crypto.randomUUID().substring(0, 8));
+
+  await db.prepare(`
+    INSERT INTO training_chapters (id, module_id, title, description, chapter_order, created_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).bind(id, moduleId, title, description || null, chapterOrder).run();
+
+  const chapter = await db.prepare('SELECT * FROM training_chapters WHERE id = ?').bind(id).first();
+  return c.json({ success: true, id, chapter }, 201);
+});
+
+// PUT /api/admin/training/chapters/:chapterId
+app.put('/api/admin/training/chapters/:chapterId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const chapterId = c.req.param('chapterId');
+  const existing = await db.prepare('SELECT * FROM training_chapters WHERE id = ?').bind(chapterId).first();
+  if (!existing) return c.json({ error: 'Chapter not found', code: 'NOT_FOUND' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = body.title !== undefined ? String(body.title).trim() : existing.title;
+  const description = body.description !== undefined ? String(body.description).trim() : existing.description;
+  const chapterOrder = body.chapter_order !== undefined ? Number(body.chapter_order) : (body.chapterOrder !== undefined ? Number(body.chapterOrder) : existing.chapter_order);
+
+  await db.prepare(`
+    UPDATE training_chapters SET title = ?, description = ?, chapter_order = ? WHERE id = ?
+  `).bind(title, description || null, chapterOrder, chapterId).run();
+
+  const updated = await db.prepare('SELECT * FROM training_chapters WHERE id = ?').bind(chapterId).first();
+  return c.json({ success: true, chapter: updated });
+});
+
+// DELETE /api/admin/training/chapters/:chapterId
+app.delete('/api/admin/training/chapters/:chapterId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const chapterId = c.req.param('chapterId');
+  await db.prepare('DELETE FROM training_chapters WHERE id = ?').bind(chapterId).run();
+  return c.json({ success: true });
+});
+
+// POST /api/admin/training/modules/:moduleId/lessons
+app.post('/api/admin/training/modules/:moduleId/lessons', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const moduleId = c.req.param('moduleId');
+  const body = await c.req.json().catch(() => ({}));
+  const title = (body.title || '').trim();
+  const content = (body.content || '').trim();
+  const lessonOrder = Number(body.lesson_order || body.lessonOrder || 1);
+  const estimatedDuration = (body.estimated_duration || body.estimatedDuration || '15 mins').trim();
+  const chapterId = body.chapter_id || body.chapterId || null;
+  const videoUrl = (body.video_url || body.videoUrl || '').trim();
+  const isRequired = body.is_required !== undefined ? (body.is_required ? 1 : 0) : 1;
+  const resourcesJson = typeof body.resources_json === 'string' ? body.resources_json : (body.resources ? JSON.stringify(body.resources) : null);
+
+  if (!title) {
+    return c.json({ error: 'Lesson title is required', code: 'INVALID_TITLE' }, 400);
+  }
+
+  const id = body.id || ('les-' + crypto.randomUUID().substring(0, 8));
+
+  await db.prepare(`
+    INSERT INTO training_lessons (
+      id, module_id, title, content, lesson_order, estimated_duration,
+      chapter_id, resources_json, video_url, is_required, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  `).bind(
+    id, moduleId, title, content, lessonOrder, estimatedDuration,
+    chapterId, resourcesJson, videoUrl || null, isRequired
+  ).run();
+
+  const lesson = await db.prepare('SELECT * FROM training_lessons WHERE id = ?').bind(id).first();
+  return c.json({ success: true, id, lesson }, 201);
+});
+
+// PUT /api/admin/training/lessons/:lessonId
+app.put('/api/admin/training/lessons/:lessonId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const lessonId = c.req.param('lessonId');
+  const existing = await db.prepare('SELECT * FROM training_lessons WHERE id = ?').bind(lessonId).first();
+  if (!existing) return c.json({ error: 'Lesson not found', code: 'NOT_FOUND' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const title = body.title !== undefined ? String(body.title).trim() : existing.title;
+  const content = body.content !== undefined ? String(body.content) : existing.content;
+  const lessonOrder = body.lesson_order !== undefined ? Number(body.lesson_order) : (body.lessonOrder !== undefined ? Number(body.lessonOrder) : existing.lesson_order);
+  const estimatedDuration = body.estimated_duration !== undefined ? String(body.estimated_duration).trim() : existing.estimated_duration;
+  const chapterId = body.chapter_id !== undefined ? body.chapter_id : existing.chapter_id;
+  const videoUrl = body.video_url !== undefined ? String(body.video_url).trim() : existing.video_url;
+  const isRequired = body.is_required !== undefined ? (body.is_required ? 1 : 0) : existing.is_required;
+  const resourcesJson = body.resources_json !== undefined ? (typeof body.resources_json === 'string' ? body.resources_json : JSON.stringify(body.resources_json)) : (body.resources ? JSON.stringify(body.resources) : existing.resources_json);
+
+  await db.prepare(`
+    UPDATE training_lessons SET
+      title = ?, content = ?, lesson_order = ?, estimated_duration = ?,
+      chapter_id = ?, resources_json = ?, video_url = ?, is_required = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(
+    title, content, lessonOrder, estimatedDuration || null,
+    chapterId || null, resourcesJson || null, videoUrl || null, isRequired, lessonId
+  ).run();
+
+  const updated = await db.prepare('SELECT * FROM training_lessons WHERE id = ?').bind(lessonId).first();
+  return c.json({ success: true, lesson: updated });
+});
+
+// DELETE /api/admin/training/lessons/:lessonId
+app.delete('/api/admin/training/lessons/:lessonId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const lessonId = c.req.param('lessonId');
+  await db.prepare('DELETE FROM training_lessons WHERE id = ?').bind(lessonId).run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// TEACHING STUDENTS — STUDENT LEARNING PLANS
+// ==========================================
+
+// GET /api/admin/learning-plans
+app.get('/api/admin/learning-plans', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const studentId = c.req.query('studentId');
+  const moduleId = c.req.query('moduleId');
+
+  let sql = `
+    SELECT
+      slp.*,
+      u.name AS student_name,
+      u.email AS student_email,
+      u.status AS student_account_status,
+      tm.title AS module_title,
+      tm.category AS module_category,
+      tm.level AS module_level,
+      tm.publication_status AS module_publication_status,
+      sp.status AS progress_status,
+      sp.score AS progress_score
+    FROM student_learning_plans slp
+    JOIN users u ON slp.student_id = u.id
+    JOIN training_modules tm ON slp.module_id = tm.id
+    LEFT JOIN student_progress sp ON sp.student_id = slp.student_id AND sp.module_id = slp.module_id
+    WHERE slp.status != 'ARCHIVED'
+  `;
+  const params: any[] = [];
+  if (studentId) {
+    sql += ` AND slp.student_id = ?`;
+    params.push(studentId);
+  }
+  if (moduleId) {
+    sql += ` AND slp.module_id = ?`;
+    params.push(moduleId);
+  }
+  sql += ` ORDER BY slp.created_at DESC`;
+
+  const { results } = await db.prepare(sql).bind(...params).all();
+  return c.json(results || []);
+});
+
+// GET /api/admin/students/:studentId/learning-plans
+app.get('/api/admin/students/:studentId/learning-plans', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const studentId = c.req.param('studentId');
+  const { results } = await db.prepare(`
+    SELECT
+      slp.*,
+      tm.title AS module_title,
+      tm.category AS module_category,
+      tm.level AS module_level,
+      tm.type AS module_type,
+      tm.publication_status,
+      sp.status AS progress_status,
+      sp.score AS progress_score,
+      sp.updated_at AS progress_updated_at
+    FROM student_learning_plans slp
+    JOIN training_modules tm ON slp.module_id = tm.id
+    LEFT JOIN student_progress sp ON sp.student_id = slp.student_id AND sp.module_id = slp.module_id
+    WHERE slp.student_id = ? AND slp.status != 'ARCHIVED'
+    ORDER BY slp.created_at DESC
+  `).bind(studentId).all();
+
+  return c.json(results || []);
+});
+
+// POST /api/admin/students/:studentId/learning-plans
+app.post('/api/admin/students/:studentId/learning-plans', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const studentId = c.req.param('studentId');
+  const student = await db.prepare("SELECT * FROM users WHERE id = ?").bind(studentId).first();
+  if (!student) {
+    return c.json({ error: 'Student not found', code: 'STUDENT_NOT_FOUND' }, 404);
+  }
+  if (student.role !== 'STUDENT') {
+    return c.json({ error: 'Target user is not a Student', code: 'INVALID_ROLE' }, 400);
+  }
+  if (student.status === 'SUSPENDED') {
+    return c.json({ error: 'Cannot assign learning plan to suspended student', code: 'ACCOUNT_SUSPENDED' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const moduleIds: string[] = Array.isArray(body.moduleIds) ? body.moduleIds : (body.moduleId ? [body.moduleId] : []);
+  const targetCompletionDate = body.target_completion_date || body.targetCompletionDate || null;
+  const instructions = (body.instructions || '').trim();
+  const selectedChapters = body.selected_chapters ? (typeof body.selected_chapters === 'string' ? body.selected_chapters : JSON.stringify(body.selected_chapters)) : null;
+  const selectedLessons = body.selected_lessons ? (typeof body.selected_lessons === 'string' ? body.selected_lessons : JSON.stringify(body.selected_lessons)) : null;
+
+  if (moduleIds.length === 0) {
+    return c.json({ error: 'At least one module must be selected', code: 'NO_MODULES_SELECTED' }, 400);
+  }
+
+  const createdPlans: any[] = [];
+  for (const modId of moduleIds) {
+    const mod = await db.prepare("SELECT * FROM training_modules WHERE id = ?").bind(modId).first();
+    if (!mod) continue;
+
+    const planId = 'plan-' + crypto.randomUUID().substring(0, 8);
+    await db.prepare(`
+      INSERT INTO student_learning_plans (
+        id, student_id, module_id, assigned_by, assigned_at,
+        target_completion_date, instructions, selected_chapters, selected_lessons,
+        status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, 'ASSIGNED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT(student_id, module_id) DO UPDATE SET
+        target_completion_date = excluded.target_completion_date,
+        instructions = excluded.instructions,
+        selected_chapters = excluded.selected_chapters,
+        selected_lessons = excluded.selected_lessons,
+        status = 'ASSIGNED',
+        updated_at = CURRENT_TIMESTAMP
+    `).bind(
+      planId, studentId, modId, uid,
+      targetCompletionDate, instructions || null, selectedChapters, selectedLessons
+    ).run();
+
+    // Ensure student_progress entry exists
+    await db.prepare(`
+      INSERT INTO student_progress (id, student_id, module_id, status, updated_at)
+      VALUES (?, ?, ?, 'Not Started', CURRENT_TIMESTAMP)
+      ON CONFLICT(student_id, module_id) DO NOTHING
+    `).bind(crypto.randomUUID(), studentId, modId).run();
+
+    // Send notification to student
+    await db.prepare(`
+      INSERT INTO notifications (id, user_id, type, title, message, created_at)
+      VALUES (?, ?, 'LEARNING_PLAN_ASSIGNED', 'New Training Assigned', ?, CURRENT_TIMESTAMP)
+    `).bind(
+      crypto.randomUUID(), studentId,
+      `You have been assigned training module: "${mod.title}"`
+    ).run();
+
+    createdPlans.push({ planId, moduleId: modId, title: mod.title });
+  }
+
+  return c.json({ success: true, count: createdPlans.length, plans: createdPlans }, 201);
+});
+
+// DELETE /api/admin/learning-plans/:planId
+app.delete('/api/admin/learning-plans/:planId', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const planId = c.req.param('planId');
+  await db.prepare("UPDATE student_learning_plans SET status = 'ARCHIVED', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(planId).run();
+  return c.json({ success: true });
+});
+
+// ==========================================
+// TEACHING STUDENTS — STUDENT PROGRESS DASHBOARD
+// ==========================================
+
+function parseEvaluationScore(criteriaJson: string | null): number | null {
+  if (!criteriaJson) return null;
+  try {
+    const parsed = typeof criteriaJson === 'string' ? JSON.parse(criteriaJson) : criteriaJson;
+    if (typeof parsed === 'number') return parsed;
+    if (parsed && typeof parsed === 'object') {
+      if (typeof parsed.score === 'number') return parsed.score;
+      const entries = Object.entries(parsed).filter(([_, v]) => typeof v === 'number');
+      if (entries.length > 0) {
+        const total = entries.reduce((acc, [_, v]) => acc + (v as number), 0);
+        return Math.round((total / (entries.length * 5)) * 100);
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+function isLessonAssignedToPlan(
+  lesson: { id: string; chapter_id?: string | null },
+  plan: { selected_chapters?: string | null; selected_lessons?: string | null }
+): boolean {
+  if (plan.selected_lessons) {
+    try {
+      const selLessons = typeof plan.selected_lessons === 'string'
+        ? JSON.parse(plan.selected_lessons)
+        : plan.selected_lessons;
+      if (Array.isArray(selLessons) && selLessons.length > 0) {
+        return selLessons.includes(lesson.id);
+      }
+    } catch (e) {}
+  }
+  if (plan.selected_chapters) {
+    try {
+      const selChapters = typeof plan.selected_chapters === 'string'
+        ? JSON.parse(plan.selected_chapters)
+        : plan.selected_chapters;
+      if (Array.isArray(selChapters) && selChapters.length > 0) {
+        return lesson.chapter_id ? selChapters.includes(lesson.chapter_id) : false;
+      }
+    } catch (e) {}
+  }
+  return true;
+}
+
+// GET /api/admin/students-progress
+app.get('/api/admin/students-progress', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const searchParam = c.req.query('search')?.trim().toLowerCase();
+  const statusParam = c.req.query('status')?.trim().toUpperCase();
+
+  // Get all registered students
+  const { results: students } = await db.prepare(`
+    SELECT id, name, email, mobile, status, college_name, qualification, created_at
+    FROM users
+    WHERE role = 'STUDENT'
+    ORDER BY name ASC, email ASC
+  `).all();
+
+  const progressList = [];
+  const nowMs = Date.now();
+
+  for (const st of (students || [])) {
+    // Assigned learning plans
+    const { results: plans } = await db.prepare(`
+      SELECT slp.id, slp.student_id, slp.module_id, slp.assigned_at, slp.target_completion_date,
+             slp.instructions, slp.selected_chapters, slp.selected_lessons, slp.status as plan_status,
+             tm.title as module_title, tm.category as module_category, tm.publication_status,
+             sp.status as module_status, sp.score as module_score, sp.updated_at as module_updated_at
+      FROM student_learning_plans slp
+      JOIN training_modules tm ON tm.id = slp.module_id
+      LEFT JOIN student_progress sp ON sp.module_id = slp.module_id AND sp.student_id = slp.student_id
+      WHERE slp.student_id = ? AND slp.status != 'REVOKED' AND slp.status != 'ARCHIVED'
+      ORDER BY slp.created_at DESC
+    `).bind(st.id).all();
+
+    const assignedPlans = plans || [];
+    const totalAssigned = assignedPlans.length;
+
+    const studentAssignedRequiredLessonIds = new Set<string>();
+    const studentCompletedRequiredLessonIds = new Set<string>();
+    const studentAssignedAllLessonIds = new Set<string>();
+    const studentCompletedAllLessonIds = new Set<string>();
+
+    let completedPlansCount = 0;
+    let inProgressPlansCount = 0;
+    let notStartedPlansCount = 0;
+    let overdueCount = 0;
+    let earliestTargetDate: string | null = null;
+    let latestCompletionDate: string | null = null;
+
+    const mappedPlans = [];
+
+    for (const pl of assignedPlans) {
+      // Query lessons for this module
+      const { results: lessons } = await db.prepare(`
+        SELECT l.id, l.module_id, l.chapter_id, COALESCE(l.is_required, 1) as is_required,
+               slp.status as lesson_status, slp.completed_at
+        FROM training_lessons l
+        LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+        WHERE l.module_id = ?
+        ORDER BY l.lesson_order ASC
+      `).bind(st.id, pl.module_id).all();
+
+      const allModLessons = lessons || [];
+      const assignedLessonsForPlan = allModLessons.filter((l: any) => isLessonAssignedToPlan(l, pl));
+
+      let planReqCount = 0;
+      let planCompReqCount = 0;
+      const planTotalCount = assignedLessonsForPlan.length;
+      let planCompTotalCount = 0;
+
+      for (const les of assignedLessonsForPlan) {
+        studentAssignedAllLessonIds.add(les.id);
+        const isReq = les.is_required !== 0 && les.is_required !== false;
+        if (isReq) {
+          studentAssignedRequiredLessonIds.add(les.id);
+          planReqCount++;
+        }
+        if (les.lesson_status === 'COMPLETED') {
+          studentCompletedAllLessonIds.add(les.id);
+          planCompTotalCount++;
+          if (isReq) {
+            studentCompletedRequiredLessonIds.add(les.id);
+            planCompReqCount++;
+          }
+          if (les.completed_at) {
+            if (!latestCompletionDate || new Date(les.completed_at).getTime() > new Date(latestCompletionDate).getTime()) {
+              latestCompletionDate = les.completed_at;
+            }
+          }
+        }
+      }
+
+      // Determine individual plan status
+      let computedPlanStatus: 'Completed' | 'In Progress' | 'Not Started' = 'Not Started';
+      if (planReqCount > 0) {
+        if (planCompReqCount === planReqCount) {
+          computedPlanStatus = 'Completed';
+        } else if (planCompReqCount > 0 || planCompTotalCount > 0) {
+          computedPlanStatus = 'In Progress';
+        } else {
+          computedPlanStatus = 'Not Started';
+        }
+      } else if (planTotalCount > 0) {
+        if (planCompTotalCount === planTotalCount) {
+          computedPlanStatus = 'Completed';
+        } else if (planCompTotalCount > 0) {
+          computedPlanStatus = 'In Progress';
+        } else {
+          computedPlanStatus = 'Not Started';
+        }
+      }
+
+      if (computedPlanStatus === 'Completed') {
+        completedPlansCount++;
+      } else if (computedPlanStatus === 'In Progress') {
+        inProgressPlansCount++;
+      } else {
+        notStartedPlansCount++;
+      }
+
+      // Check overdue
+      if (pl.target_completion_date) {
+        const targetMs = new Date(pl.target_completion_date).getTime();
+        if (targetMs < nowMs && computedPlanStatus !== 'Completed') {
+          overdueCount++;
+        }
+        if (computedPlanStatus !== 'Completed') {
+          if (!earliestTargetDate || targetMs < new Date(earliestTargetDate).getTime()) {
+            earliestTargetDate = pl.target_completion_date;
+          }
+        }
+      }
+
+      mappedPlans.push({
+        id: pl.id,
+        module_id: pl.module_id,
+        module_title: pl.module_title,
+        module_category: pl.module_category,
+        plan_status: pl.plan_status,
+        target_completion_date: pl.target_completion_date || null,
+        module_status: computedPlanStatus,
+        module_score: pl.module_score ?? null,
+      });
+    }
+
+    // Overall completion percentage
+    const totalRequired = studentAssignedRequiredLessonIds.size;
+    const completedRequired = studentCompletedRequiredLessonIds.size;
+    let overallPercentage = 0;
+    if (totalRequired > 0) {
+      overallPercentage = Math.round((completedRequired / totalRequired) * 100);
+    } else if (studentAssignedAllLessonIds.size > 0) {
+      overallPercentage = Math.round((studentCompletedAllLessonIds.size / studentAssignedAllLessonIds.size) * 100);
+    }
+
+    // Overall training status
+    let trainingStatus = 'UNASSIGNED';
+    if (totalAssigned > 0) {
+      if (overallPercentage === 100) {
+        trainingStatus = 'COMPLETED';
+      } else if (completedRequired > 0 || inProgressPlansCount > 0 || studentCompletedAllLessonIds.size > 0) {
+        trainingStatus = 'IN_PROGRESS';
+      } else {
+        trainingStatus = 'NOT_STARTED';
+      }
+    }
+
+    // Practical training assignments count
+    const practicalCount: any = await db.prepare(`
+      SELECT
+        COUNT(DISTINCT sa.project_id) as total_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'COMPLETED' OR e.overall_result = 'APPROVED' THEN sa.project_id END) as approved_projects,
+        COUNT(DISTINCT CASE WHEN p.status = 'UNDER_ENGINEER_REVIEW' OR p.status = 'UNDER_CLIENT_REVIEW' THEN sa.project_id END) as pending_review
+      FROM student_assignments sa
+      JOIN projects p ON sa.project_id = p.id
+      LEFT JOIN evaluations e ON e.project_id = p.id
+      WHERE sa.student_id = ? AND p.is_training_project = 1 AND sa.status != 'REPLACED'
+    `).bind(st.id).first();
+
+    const summaryItem = {
+      student_id: st.id,
+      student_name: st.name || 'Unnamed Student',
+      student_email: st.email,
+      student_status: st.status || 'ACTIVE',
+      college_name: st.college_name || null,
+      qualification: st.qualification || null,
+      assigned_plans_count: totalAssigned,
+      assigned_modules_count: totalAssigned,
+      completed_plans_count: completedPlansCount,
+      in_progress_plans_count: inProgressPlansCount,
+      not_started_plans_count: notStartedPlansCount,
+      total_required_lessons: totalRequired,
+      completed_required_lessons: completedRequired,
+      overall_completion_percentage: overallPercentage,
+      training_status: trainingStatus,
+      practical_projects_count: practicalCount?.total_projects || 0,
+      practical_approved_count: practicalCount?.approved_projects || 0,
+      practical_pending_count: practicalCount?.pending_review || 0,
+      has_overdue: overdueCount > 0,
+      overdue_count: overdueCount,
+      earliest_target_date: earliestTargetDate,
+      latest_completion_date: latestCompletionDate,
+      plans: mappedPlans,
+
+      // Legacy aliases for backward compatibility:
+      name: st.name || 'Unnamed Student',
+      email: st.email,
+      account_status: st.status || 'ACTIVE',
+      total_assigned_modules: totalAssigned,
+      completed_modules: completedPlansCount,
+      in_progress_modules: inProgressPlansCount,
+      not_started_modules: notStartedPlansCount,
+      practical_projects: {
+        total: practicalCount?.total_projects || 0,
+        completed: practicalCount?.approved_projects || 0,
+        pending_review: practicalCount?.pending_review || 0,
+      },
+    };
+
+    // Filter by status if requested:
+    if (statusParam && statusParam !== 'ALL') {
+      if (statusParam === 'COMPLETED' && trainingStatus !== 'COMPLETED') continue;
+      if (statusParam === 'IN_PROGRESS' && trainingStatus !== 'IN_PROGRESS') continue;
+      if (statusParam === 'NOT_STARTED' && trainingStatus !== 'NOT_STARTED') continue;
+      if (statusParam === 'OVERDUE' && !summaryItem.has_overdue) continue;
+      if (statusParam === 'UNASSIGNED' && trainingStatus !== 'UNASSIGNED') continue;
+    }
+
+    // Filter by search if requested:
+    if (searchParam) {
+      const nameMatch = summaryItem.student_name.toLowerCase().includes(searchParam);
+      const emailMatch = summaryItem.student_email.toLowerCase().includes(searchParam);
+      const collegeMatch = summaryItem.college_name?.toLowerCase().includes(searchParam);
+      if (!nameMatch && !emailMatch && !collegeMatch) continue;
+    }
+
+    progressList.push(summaryItem);
+  }
+
+  return c.json(progressList);
+});
+
+// GET /api/admin/students/:studentId/progress-detail
+app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const studentId = c.req.param('studentId');
+  const student = await db.prepare("SELECT * FROM users WHERE id = ?").bind(studentId).first();
+  if (!student) {
+    return c.json({ error: 'Student not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  // Assigned learning plans with module details
+  const { results: plans } = await db.prepare(`
+    SELECT
+      slp.id AS plan_id,
+      slp.assigned_at,
+      slp.target_completion_date,
+      slp.instructions,
+      slp.selected_chapters,
+      slp.selected_lessons,
+      slp.status AS plan_status,
+      tm.id AS module_id,
+      tm.title AS module_title,
+      tm.category AS module_category,
+      tm.level AS module_level,
+      tm.type AS module_type,
+      tm.description AS module_description,
+      tm.publication_status AS module_publication_status,
+      sp.status AS module_progress_status,
+      sp.score AS module_score,
+      sp.updated_at AS module_last_activity
+    FROM student_learning_plans slp
+    JOIN training_modules tm ON tm.id = slp.module_id
+    LEFT JOIN student_progress sp ON sp.module_id = slp.module_id AND sp.student_id = slp.student_id
+    WHERE slp.student_id = ? AND slp.status != 'REVOKED' AND slp.status != 'ARCHIVED'
+    ORDER BY slp.created_at DESC
+  `).bind(studentId).all();
+
+  const assignedPlans = plans || [];
+  const modulesDetail = [];
+  const studentAssignedRequiredLessonIds = new Set<string>();
+  const studentCompletedRequiredLessonIds = new Set<string>();
+  const studentAssignedAllLessonIds = new Set<string>();
+  const studentCompletedAllLessonIds = new Set<string>();
+
+  let completedModulesCount = 0;
+  let inProgressModulesCount = 0;
+  let notStartedModulesCount = 0;
+  let hasOverdue = false;
+  const nowMs = Date.now();
+
+  for (const pl of assignedPlans) {
+    // Chapters
+    const { results: chapters } = await db.prepare(`
+      SELECT * FROM training_chapters WHERE module_id = ? ORDER BY chapter_order ASC
+    `).bind(pl.module_id).all();
+
+    const allChapters = chapters || [];
+
+    // Lessons with student progress
+    const { results: lessons } = await db.prepare(`
+      SELECT
+        l.id, l.title, l.lesson_order, l.estimated_duration, l.chapter_id,
+        COALESCE(l.is_required, 1) as is_required,
+        l.video_url, l.resources_json,
+        COALESCE(slp.status, 'NOT_STARTED') AS status,
+        CASE WHEN slp.status = 'COMPLETED' THEN 1 ELSE 0 END as is_completed,
+        slp.completed_at
+      FROM training_lessons l
+      LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+      WHERE l.module_id = ?
+      ORDER BY l.lesson_order ASC
+    `).bind(studentId, pl.module_id).all();
+
+    const allLessons = lessons || [];
+    const assignedLessons = allLessons.filter((l: any) => isLessonAssignedToPlan(l, pl));
+
+    // Module lesson counts
+    let modReqLessons = 0;
+    let modCompReqLessons = 0;
+    const modTotalLessons = assignedLessons.length;
+    let modCompLessons = 0;
+
+    const formattedAssignedLessons = assignedLessons.map((les: any) => {
+      let resources = [];
+      if (les.resources_json) {
+        try {
+          resources = typeof les.resources_json === 'string' ? JSON.parse(les.resources_json) : les.resources_json;
+        } catch (e) {}
+      }
+      const isReq = les.is_required !== 0 && les.is_required !== false;
+      const isComp = les.is_completed === 1 || les.status === 'COMPLETED';
+
+      studentAssignedAllLessonIds.add(les.id);
+      if (isReq) {
+        modReqLessons++;
+        studentAssignedRequiredLessonIds.add(les.id);
+      }
+      if (isComp) {
+        modCompLessons++;
+        studentCompletedAllLessonIds.add(les.id);
+        if (isReq) {
+          modCompReqLessons++;
+          studentCompletedRequiredLessonIds.add(les.id);
+        }
+      }
+
+      return {
+        id: les.id,
+        title: les.title,
+        chapter_id: les.chapter_id,
+        lesson_order: les.lesson_order,
+        estimated_duration: les.estimated_duration,
+        is_required: isReq,
+        is_completed: isComp,
+        status: les.status,
+        completed_at: les.completed_at || null,
+        video_url: les.video_url || null,
+        resources: Array.isArray(resources) ? resources : [],
+      };
+    });
+
+    // Group lessons into chapters and standalone lessons
+    const groupedChapters = allChapters.map((ch: any) => ({
+      chapter: {
+        id: ch.id,
+        module_id: ch.module_id,
+        title: ch.title,
+        description: ch.description,
+        chapter_order: ch.chapter_order,
+        created_at: ch.created_at,
+      },
+      lessons: formattedAssignedLessons.filter((l: any) => l.chapter_id === ch.id),
+    }));
+
+    const standaloneLessons = formattedAssignedLessons.filter(
+      (l: any) => !l.chapter_id || !allChapters.some((c: any) => c.id === l.chapter_id)
+    );
+
+    // Compute module completion percentage
+    const modCompletionPercentage = modReqLessons > 0
+      ? Math.round((modCompReqLessons / modReqLessons) * 100)
+      : (modTotalLessons > 0 && modCompLessons === modTotalLessons ? 100 : 0);
+
+    let modStatus = 'Not Started';
+    if (modCompletionPercentage === 100 && (modReqLessons > 0 || modTotalLessons > 0)) {
+      modStatus = 'Completed';
+      completedModulesCount++;
+    } else if (modCompLessons > 0 || pl.module_progress_status === 'In Progress' || pl.plan_status === 'IN_PROGRESS') {
+      modStatus = 'In Progress';
+      inProgressModulesCount++;
+    } else {
+      modStatus = 'Not Started';
+      notStartedModulesCount++;
+    }
+
+    if (pl.target_completion_date && new Date(pl.target_completion_date).getTime() < nowMs && modStatus !== 'Completed') {
+      hasOverdue = true;
+    }
+
+    // Practical project for this module
+    const practical: any = await db.prepare(`
+      SELECT p.id, p.project_name, p.status, p.drawing_name, p.drawing_type, p.created_at, p.submitted_at, p.approved_at,
+             e.overall_result, e.general_feedback, e.criteria_json, e.created_at as evaluated_at
+      FROM projects p
+      JOIN student_assignments sa ON sa.project_id = p.id
+      LEFT JOIN evaluations e ON e.id = (
+        SELECT id FROM evaluations WHERE project_id = p.id ORDER BY created_at DESC LIMIT 1
+      )
+      WHERE p.training_module_id = ? AND sa.student_id = ? AND p.is_training_project = 1 AND sa.status != 'REPLACED'
+      ORDER BY p.created_at DESC
+    `).bind(pl.module_id, studentId).first();
+
+    const practicalScore = practical ? parseEvaluationScore(practical.criteria_json) : null;
+
+    modulesDetail.push({
+      plan: {
+        id: pl.plan_id,
+        assigned_at: pl.assigned_at,
+        target_completion_date: pl.target_completion_date,
+        instructions: pl.instructions,
+        status: pl.plan_status,
+      },
+      module: {
+        id: pl.module_id,
+        title: pl.module_title,
+        category: pl.module_category,
+        level: pl.module_level,
+        type: pl.module_type,
+        description: pl.module_description,
+        status: modStatus,
+        score: pl.module_score ?? null,
+        last_activity: pl.module_last_activity ?? null,
+      },
+      chapters: groupedChapters,
+      standaloneLessons: standaloneLessons,
+      lessons: formattedAssignedLessons, // flat list for backwards compatibility
+      progress: {
+        total_required_lessons: modReqLessons,
+        completed_required_lessons: modCompReqLessons,
+        total_lessons: modTotalLessons,
+        completed_lessons: modCompLessons,
+        completion_percentage: modCompletionPercentage,
+        status: modStatus,
+      },
+      practical_project: practical ? {
+        id: practical.id,
+        project_name: practical.project_name,
+        drawing_name: practical.drawing_name,
+        drawing_type: practical.drawing_type,
+        status: practical.status,
+        submitted_at: practical.submitted_at,
+        approved_at: practical.approved_at,
+        evaluation: practical.overall_result ? {
+          overall_result: practical.overall_result,
+          score: practicalScore,
+          general_feedback: practical.general_feedback,
+          evaluated_at: practical.evaluated_at,
+        } : null,
+      } : null,
+    });
+  }
+
+  // Calculate overall metrics
+  const totalRequired = studentAssignedRequiredLessonIds.size;
+  const completedRequired = studentCompletedRequiredLessonIds.size;
+  const overallPercentage = totalRequired > 0
+    ? Math.round((completedRequired / totalRequired) * 100)
+    : (studentAssignedAllLessonIds.size > 0
+        ? Math.round((studentCompletedAllLessonIds.size / studentAssignedAllLessonIds.size) * 100)
+        : 0);
+
+  // Practical projects query with distinct project IDs
+  const { results: practicals } = await db.prepare(`
+    SELECT
+      p.id, p.project_name, p.drawing_name, p.drawing_type, p.status, p.correction_round,
+      p.created_at, p.submitted_at,
+      e.overall_result, e.general_feedback, e.criteria_json, e.created_at AS evaluated_at
+    FROM student_assignments sa
+    JOIN projects p ON sa.project_id = p.id
+    LEFT JOIN evaluations e ON e.id = (
+      SELECT id FROM evaluations WHERE project_id = p.id ORDER BY created_at DESC LIMIT 1
+    )
+    WHERE sa.student_id = ? AND p.is_training_project = 1 AND sa.status != 'REPLACED'
+    ORDER BY p.created_at DESC
+  `).bind(studentId).all();
+
+  const practicalProjects = (practicals || []).map((p: any) => {
+    const score = parseEvaluationScore(p.criteria_json);
+    return {
+      id: p.id,
+      project_name: p.project_name,
+      drawing_name: p.drawing_name,
+      drawing_type: p.drawing_type,
+      status: p.status,
+      correction_round: p.correction_round,
+      created_at: p.created_at,
+      submitted_at: p.submitted_at,
+      evaluation: p.overall_result ? {
+        overall_result: p.overall_result,
+        score: score,
+        general_feedback: p.general_feedback,
+        evaluated_at: p.evaluated_at,
+      } : null,
+    };
+  });
+
+  // Completion history timeline
+  const completionHistory = [];
+  for (const mObj of modulesDetail) {
+    for (const ch of mObj.chapters) {
+      for (const les of ch.lessons) {
+        if (les.is_completed && les.completed_at) {
+          completionHistory.push({
+            id: `les-${les.id}`,
+            type: 'LESSON_COMPLETED',
+            title: `Completed Lesson: ${les.title}`,
+            subtitle: `${mObj.module.title} • ${ch.chapter.title}`,
+            timestamp: les.completed_at,
+            status: 'COMPLETED',
+            badge: 'Lesson',
+          });
+        }
+      }
+    }
+    for (const les of mObj.standaloneLessons) {
+      if (les.is_completed && les.completed_at) {
+        completionHistory.push({
+          id: `les-${les.id}`,
+          type: 'LESSON_COMPLETED',
+          title: `Completed Lesson: ${les.title}`,
+          subtitle: mObj.module.title,
+          timestamp: les.completed_at,
+          status: 'COMPLETED',
+          badge: 'Lesson',
+        });
+      }
+    }
+  }
+
+  for (const prj of practicalProjects) {
+    if (prj.submitted_at) {
+      completionHistory.push({
+        id: `prj-sub-${prj.id}`,
+        type: 'PROJECT_SUBMITTED',
+        title: `Submitted Drawing: ${prj.project_name}`,
+        subtitle: `${prj.drawing_type} • Round ${prj.correction_round}`,
+        timestamp: prj.submitted_at,
+        status: prj.status,
+        badge: 'Submission',
+      });
+    }
+    if (prj.evaluation && prj.evaluation.evaluated_at) {
+      completionHistory.push({
+        id: `prj-eval-${prj.id}`,
+        type: 'PROJECT_EVALUATED',
+        title: `Evaluation: ${prj.project_name}`,
+        subtitle: `Result: ${prj.evaluation.overall_result}${prj.evaluation.score !== null ? ` (${prj.evaluation.score}/100)` : ''}`,
+        timestamp: prj.evaluation.evaluated_at,
+        status: prj.evaluation.overall_result,
+        badge: 'Evaluation',
+      });
+    }
+  }
+
+  completionHistory.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  return c.json({
+    student: {
+      id: student.id,
+      name: student.name,
+      email: student.email,
+      mobile: student.mobile,
+      college_name: student.college_name,
+      qualification: student.qualification,
+      status: student.status,
+    },
+    plans: assignedPlans.map((p: any) => ({
+      id: p.plan_id,
+      module_id: p.module_id,
+      module_title: p.module_title,
+      module_category: p.module_category,
+      assigned_at: p.assigned_at,
+      target_completion_date: p.target_completion_date,
+      status: p.plan_status,
+    })),
+    summary: {
+      total_modules: assignedPlans.length,
+      total_required_lessons: totalRequired,
+      completed_required_lessons: completedRequired,
+      overall_completion_percentage: overallPercentage,
+    },
+    overallSummary: {
+      total_assigned_modules: assignedPlans.length,
+      completed_modules: completedModulesCount,
+      in_progress_modules: inProgressModulesCount,
+      not_started_modules: notStartedModulesCount,
+      total_required_lessons: totalRequired,
+      completed_required_lessons: completedRequired,
+      overall_completion_percentage: overallPercentage,
+      has_overdue: hasOverdue,
+    },
+    modules: modulesDetail,
+    practicalProjects: practicalProjects,
+    completionHistory: completionHistory,
+  });
 });
 
 // GET /api/student/assignments

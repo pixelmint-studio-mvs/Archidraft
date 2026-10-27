@@ -276,4 +276,214 @@ export interface EvaluateSubmissionPayload {
   correctionId?: string;
 }
 
+// ── Teaching Students: Training Curriculum, Plans & Progress Types ──
+
+export type ModulePublicationStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+
+export interface LessonResource {
+  id: string;
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
+  previewable?: boolean;
+}
+
+export interface TrainingLesson {
+  id: string;
+  module_id: string;
+  chapter_id?: string | null;
+  title: string;
+  content: string;
+  video_url?: string | null;
+  resources?: LessonResource[] | string;
+  resources_json?: string | null;
+  is_required: number | boolean;
+  lesson_order?: number;
+  order_index?: number;
+  estimated_duration?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TrainingChapter {
+  id: string;
+  module_id: string;
+  title: string;
+  description?: string | null;
+  chapter_order: number;
+  created_at: string;
+}
+
+export interface TrainingModule {
+  id: string;
+  title: string;
+  category: string;
+  type?: string;
+  level?: string;
+  description: string;
+  prerequisites?: string;
+  learning_objectives?: string | null;
+  thumbnail_url?: string | null;
+  publication_status: ModulePublicationStatus;
+  is_locked?: number;
+  created_at: string;
+  updated_at?: string;
+  chapters_count?: number;
+  lessons_count?: number;
+  enrolled_students_count?: number;
+  chapters?: TrainingChapter[];
+  lessons?: TrainingLesson[];
+}
+
+export interface StudentLearningPlan {
+  id: string;
+  student_id: string;
+  student_name?: string;
+  student_email?: string;
+  module_id: string;
+  module_title?: string;
+  module_category?: string;
+  module_level?: string;
+  assigned_by?: string;
+  assigned_at: string;
+  target_completion_date?: string | null;
+  instructions?: string | null;
+  selected_chapters?: string | null;
+  selected_lessons?: string | null;
+  status: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'REVOKED';
+  completed_lessons_count?: number;
+  total_required_lessons_count?: number;
+  progress_percentage?: number;
+}
+
+export interface StudentProgressSummary {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  student_status: string;
+  college_name?: string;
+  qualification?: string;
+  assigned_plans_count: number;
+  assigned_modules_count?: number;
+  completed_plans_count: number;
+  in_progress_plans_count: number;
+  not_started_plans_count: number;
+  total_required_lessons: number;
+  completed_required_lessons: number;
+  overall_completion_percentage: number;
+  training_status?: string;
+  practical_projects_count: number;
+  practical_approved_count: number;
+  practical_pending_count?: number;
+  has_overdue: boolean;
+  overdue_count?: number;
+  earliest_assignment_date?: string | null;
+  earliest_target_date?: string | null;
+  latest_completion_date?: string | null;
+  plans: Array<{
+    id: string;
+    module_id: string;
+    module_title: string;
+    module_category: string;
+    plan_status: string;
+    target_completion_date: string | null;
+    module_status: string | null;
+    module_score: number | null;
+  }>;
+  // Legacy aliases
+  name?: string;
+  email?: string;
+  account_status?: string;
+  total_assigned_modules?: number;
+  completed_modules?: number;
+  in_progress_modules?: number;
+  not_started_modules?: number;
+  practical_projects?: {
+    total: number;
+    completed: number;
+    pending_review: number;
+  };
+}
+
+export interface StudentProgressDetail {
+  student: User;
+  plans: any[];
+  summary?: {
+    total_modules: number;
+    total_required_lessons: number;
+    completed_required_lessons: number;
+    overall_completion_percentage: number;
+  };
+  modules: Array<{
+    module: TrainingModule;
+    plan: any;
+    chapters: Array<{
+      chapter: TrainingChapter;
+      lessons: Array<{
+        id: string;
+        title: string;
+        is_required: boolean;
+        is_completed: boolean;
+        completed_at: string | null;
+        resources?: LessonResource[];
+        video_url?: string | null;
+      }>;
+    }>;
+    standaloneLessons: Array<{
+      id: string;
+      title: string;
+      is_required: boolean;
+      is_completed: boolean;
+      completed_at: string | null;
+      resources?: LessonResource[];
+      video_url?: string | null;
+    }>;
+    lessons?: any[];
+    progress: {
+      total_required_lessons: number;
+      completed_required_lessons: number;
+      total_lessons: number;
+      completed_lessons: number;
+      completion_percentage: number;
+      status: string;
+    };
+  }>;
+  practicalProjects: Array<{
+    id: string;
+    project_name: string;
+    drawing_name: string;
+    drawing_type: string;
+    status: string;
+    correction_round: number;
+    created_at: string;
+    submitted_at: string | null;
+    evaluation?: {
+      overall_result: string;
+      score: number | null;
+      general_feedback: string | null;
+      evaluated_at: string | null;
+    } | null;
+  }>;
+  completionHistory?: Array<{
+    id: string;
+    type: 'LESSON_COMPLETED' | 'MODULE_COMPLETED' | 'PROJECT_SUBMITTED' | 'PROJECT_EVALUATED';
+    title: string;
+    subtitle: string;
+    timestamp: string;
+    status?: string;
+    badge?: string;
+  }>;
+  overallSummary: {
+    total_assigned_modules: number;
+    completed_modules: number;
+    in_progress_modules: number;
+    not_started_modules: number;
+    total_required_lessons: number;
+    completed_required_lessons: number;
+    overall_completion_percentage: number;
+    has_overdue: boolean;
+  };
+}
+
 

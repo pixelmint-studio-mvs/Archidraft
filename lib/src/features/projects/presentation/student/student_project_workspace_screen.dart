@@ -14,6 +14,7 @@ import '../../data/file_repository.dart';
 import '../../domain/correction.dart';
 import '../../domain/drawing_version.dart';
 import '../../domain/project.dart';
+import '../../domain/project_file.dart';
 import '../../domain/project_status.dart';
 import '../../providers/assignment_providers.dart';
 import '../../providers/file_providers.dart';
@@ -48,42 +49,60 @@ class _StudentProjectWorkspaceScreenState
       context: context,
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.all(AppSpacing.md),
-        backgroundColor: AppColors.surface,
+        backgroundColor: const Color(0xFF07111E),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          side: BorderSide(
+            color: const Color(0xFF00E5FF).withValues(alpha: 0.35),
+            width: 1.5,
+          ),
         ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: 860,
+          height: 560,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+                color: const Color(0xFF0B192C),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Preview: $fileName',
-                        style: AppTypography.headlineSmMobile.copyWith(color: AppColors.onSurface),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.architecture_rounded,
+                          color: Color(0xFF00E5FF),
+                          size: 20,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'Preview: $fileName',
+                          style: AppTypography.headlineSmMobile.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                     IconButton(
                       key: const ValueKey('close_cad_preview_dialog'),
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      tooltip: 'Close Preview',
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              Flexible(
+              Expanded(
                 child: CadDrawingViewer(
                   fileId: fileId,
                   fileName: fileName,
                   versionNumber: versionNumber,
-                  height: 480,
+                  height: 500,
                 ),
               ),
             ],
@@ -98,6 +117,15 @@ class _StudentProjectWorkspaceScreenState
   bool _locallyAccepted = false;
   bool _isSubmitting = false;
   String? _submissionError;
+
+  String? _selectedDrawingFileId;
+  String? _selectedDrawingFileName;
+  int _selectedDrawingVersionNumber = 1;
+
+  bool _isCadFile(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return ext == 'dwg' || ext == 'dxf';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -455,12 +483,38 @@ class _StudentProjectWorkspaceScreenState
 
                 return Column(
                   children: [
-                    for (final file in refFiles)
+                    for (final file in refFiles) ...[
                       FileAttachmentCard(file: file),
+                      if (_isCadFile(file.sanitizedName))
+                        Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.md, bottom: AppSpacing.sm),
+                          child: OutlinedButton.icon(
+                            key: ValueKey('preview_ref_${file.id}'),
+                            onPressed: () {
+                              setState(() {
+                                _selectedDrawingFileId = file.id;
+                                _selectedDrawingFileName = file.sanitizedName;
+                                _selectedDrawingVersionNumber = 0;
+                              });
+                              _showDrawingPreviewDialog(context, file.id, file.sanitizedName, 0);
+                            },
+                            icon: const Icon(Icons.architecture_rounded, size: 16, color: Color(0xFF00E5FF)),
+                            label: Text('Inspect ${file.sanitizedName} in CAD Viewer'),
+                          ),
+                        ),
+                    ],
                   ],
                 );
               },
             ),
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+
+          // CAD DRAWING CANVAS (Interactive CAD Canvas Section)
+          _buildCadDrawingCanvasSection(
+            context: context,
+            filesAsync: filesAsync,
+            versionsAsync: versionsAsync,
           ),
           const SizedBox(height: AppSpacing.xxl),
 
@@ -560,8 +614,14 @@ class _StudentProjectWorkspaceScreenState
                     for (int i = 0; i < versions.length; i++) ...[
                       _DrawingVersionTile(
                         version: versions[i],
-                        onPreview: (fileId, fileName, versionNumber) =>
-                            _showDrawingPreviewDialog(context, fileId, fileName, versionNumber),
+                        onPreview: (fileId, fileName, versionNumber) {
+                          setState(() {
+                            _selectedDrawingFileId = fileId;
+                            _selectedDrawingFileName = fileName;
+                            _selectedDrawingVersionNumber = versionNumber;
+                          });
+                          _showDrawingPreviewDialog(context, fileId, fileName, versionNumber);
+                        },
                         statusTag: i == 0
                             ? (isCompleted
                                 ? 'Approved'
@@ -632,12 +692,19 @@ class _StudentProjectWorkspaceScreenState
                               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                               child: OutlinedButton.icon(
                                 key: const ValueKey('preview_draft_button'),
-                                onPressed: () => _showDrawingPreviewDialog(
-                                  context,
-                                  currentDraft.id,
-                                  currentDraft.sanitizedName,
-                                  1,
-                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedDrawingFileId = currentDraft.id;
+                                    _selectedDrawingFileName = currentDraft.sanitizedName;
+                                    _selectedDrawingVersionNumber = 1;
+                                  });
+                                  _showDrawingPreviewDialog(
+                                    context,
+                                    currentDraft.id,
+                                    currentDraft.sanitizedName,
+                                    1,
+                                  );
+                                },
                                 icon: const Icon(Icons.visibility_outlined, size: 18),
                                 label: const Text('Preview CAD Drawing'),
                               ),
@@ -1329,6 +1396,307 @@ class _StudentProjectWorkspaceScreenState
       ],
     );
   }
+
+  Widget _buildCadDrawingCanvasSection({
+    required BuildContext context,
+    required AsyncValue<List<ProjectFile>> filesAsync,
+    required AsyncValue<List<DrawingVersion>> versionsAsync,
+  }) {
+    final files = filesAsync.value ?? [];
+    final versions = versionsAsync.value ?? [];
+
+    final draftFiles = files
+        .where((f) =>
+            f.category == 'workspace_draft' &&
+            f.status != 'FAILED' &&
+            _isCadFile(f.sanitizedName))
+        .toList();
+    draftFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final currentDraft = draftFiles.isNotEmpty ? draftFiles.first : null;
+
+    final cadVersions = versions
+        .where((v) =>
+            v.fileId.isNotEmpty &&
+            _isCadFile(v.sanitizedName ?? v.originalName ?? ''))
+        .toList();
+
+    final refCadFiles = files
+        .where((f) =>
+            f.category != 'workspace_draft' &&
+            f.category != 'draughtsman_version' &&
+            f.status != 'FAILED' &&
+            _isCadFile(f.sanitizedName))
+        .toList();
+
+    // Determine the active file to display
+    String? activeFileId = _selectedDrawingFileId;
+    String activeFileName = _selectedDrawingFileName ?? '';
+    int activeVersionNumber = _selectedDrawingVersionNumber;
+
+    final allAvailableIds = <String>{
+      if (currentDraft != null) currentDraft.id,
+      for (final v in cadVersions) v.fileId,
+      for (final r in refCadFiles) r.id,
+    };
+
+    if (activeFileId == null || !allAvailableIds.contains(activeFileId)) {
+      if (currentDraft != null) {
+        activeFileId = currentDraft.id;
+        activeFileName = currentDraft.sanitizedName;
+        activeVersionNumber = 1;
+      } else if (cadVersions.isNotEmpty) {
+        activeFileId = cadVersions.first.fileId;
+        activeFileName = cadVersions.first.sanitizedName ??
+            cadVersions.first.originalName ??
+            'drawing_v${cadVersions.first.versionNumber}.dwg';
+        activeVersionNumber = cadVersions.first.versionNumber;
+      } else {
+        activeFileId = null;
+      }
+    }
+
+    final targetFileId = activeFileId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'CAD DRAWING CANVAS',
+              style: AppTypography.labelMono.copyWith(
+                color: AppColors.onSurfaceVariant,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (targetFileId != null)
+              InkWell(
+                onTap: () => _showDrawingPreviewDialog(
+                  context,
+                  targetFileId,
+                  activeFileName,
+                  activeVersionNumber,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.fullscreen_rounded, size: 16, color: Color(0xFF00E5FF)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Full Screen',
+                        style: AppTypography.labelMono.copyWith(
+                          color: const Color(0xFF00E5FF),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (targetFileId != null && (currentDraft != null || cadVersions.length > 1 || refCadFiles.isNotEmpty)) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (currentDraft != null) ...[
+                ChoiceChip(
+                  selected: activeFileId == currentDraft.id,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedDrawingFileId = currentDraft.id;
+                        _selectedDrawingFileName = currentDraft.sanitizedName;
+                        _selectedDrawingVersionNumber = 1;
+                      });
+                    }
+                  },
+                  label: Text('Draft (WIP): ${currentDraft.sanitizedName}'),
+                  avatar: const Icon(Icons.edit_note_rounded, size: 16),
+                  selectedColor: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: activeFileId == currentDraft.id
+                        ? const Color(0xFF00E5FF)
+                        : AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              for (final v in cadVersions) ...[
+                ChoiceChip(
+                  selected: activeFileId == v.fileId,
+                  onSelected: (selected) {
+                    if (selected && v.fileId.isNotEmpty) {
+                      setState(() {
+                        _selectedDrawingFileId = v.fileId;
+                        _selectedDrawingFileName = v.sanitizedName ??
+                            v.originalName ??
+                            'drawing_v${v.versionNumber}.dwg';
+                        _selectedDrawingVersionNumber = v.versionNumber;
+                      });
+                    }
+                  },
+                  label: Text('Rev ${v.versionNumber}'),
+                  avatar: const Icon(Icons.history_rounded, size: 16),
+                  selectedColor: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: activeFileId == v.fileId
+                        ? const Color(0xFF00E5FF)
+                        : AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              for (final r in refCadFiles) ...[
+                ChoiceChip(
+                  selected: activeFileId == r.id,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedDrawingFileId = r.id;
+                        _selectedDrawingFileName = r.sanitizedName;
+                        _selectedDrawingVersionNumber = 0;
+                      });
+                    }
+                  },
+                  label: Text('Ref: ${r.sanitizedName}'),
+                  avatar: const Icon(Icons.architecture_rounded, size: 16),
+                  selectedColor: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: activeFileId == r.id
+                        ? const Color(0xFF00E5FF)
+                        : AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+        ],
+        if (targetFileId != null)
+          CadDrawingViewer(
+            key: ValueKey('student_workspace_cad_$targetFileId'),
+            fileId: targetFileId,
+            fileName: activeFileName,
+            versionNumber: activeVersionNumber,
+            height: 480,
+          )
+        else
+          Container(
+            height: 320,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFF07111E),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.25),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _StudentCadGridPainter(),
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.architecture_rounded,
+                            color: Color(0xFF00E5FF),
+                            size: 36,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        const Text(
+                          'CAD Canvas Ready',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        const Text(
+                          'Upload a DWG or DXF drawing draft below to inspect geometry on the interactive CAD canvas.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (refCadFiles.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          OutlinedButton.icon(
+                            key: const ValueKey('preview_ref_cad_canvas_btn'),
+                            onPressed: () {
+                              final refFile = refCadFiles.first;
+                              setState(() {
+                                _selectedDrawingFileId = refFile.id;
+                                _selectedDrawingFileName = refFile.sanitizedName;
+                                _selectedDrawingVersionNumber = 0;
+                              });
+                            },
+                            icon: const Icon(
+                              Icons.visibility_outlined,
+                              size: 16,
+                              color: Color(0xFF00E5FF),
+                            ),
+                            label: Text(
+                              'Inspect Reference CAD (${refCadFiles.first.sanitizedName})',
+                              style: const TextStyle(color: Color(0xFF00E5FF)),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.4),
+                              ),
+                              backgroundColor: const Color(0xFF0B192C),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _DetailField {
@@ -1516,3 +1884,32 @@ Correction? _findActiveCorrection(List<Correction> corrections) {
   }
   return null;
 }
+
+/// Subtle CAD Blueprint Grid Painter for Student Workspace
+class _StudentCadGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paintMinor = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.04)
+      ..strokeWidth = 0.5;
+
+    final paintMajor = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.08)
+      ..strokeWidth = 1.0;
+
+    const step = 20.0;
+    for (double x = 0; x <= size.width; x += step) {
+      final isMajor = (x / step).round() % 5 == 0;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), isMajor ? paintMajor : paintMinor);
+    }
+
+    for (double y = 0; y <= size.height; y += step) {
+      final isMajor = (y / step).round() % 5 == 0;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), isMajor ? paintMajor : paintMinor);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+

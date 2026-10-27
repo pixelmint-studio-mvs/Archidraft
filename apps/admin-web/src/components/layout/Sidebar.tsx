@@ -20,6 +20,9 @@ import {
   UserCheck,
   Clock,
   ClipboardCheck,
+  BookOpen,
+  Compass,
+  TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -65,6 +68,31 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Teaching Students',
+    items: [
+      {
+        name: 'Assign Projects',
+        href: '/teaching/assignments',
+        icon: UserCheck,
+      },
+      {
+        name: 'Training Modules',
+        href: '/teaching/modules',
+        icon: BookOpen,
+      },
+      {
+        name: 'Student Learning Plans',
+        href: '/teaching/learning-plans',
+        icon: Compass,
+      },
+      {
+        name: 'Student Progress',
+        href: '/teaching/progress',
+        icon: TrendingUp,
+      },
+    ],
+  },
+  {
     title: 'Workflow & Pipeline',
     items: [
       {
@@ -77,11 +105,6 @@ const NAV_SECTIONS: NavSection[] = [
         name: 'Student Submissions',
         href: '/students/submissions',
         icon: ClipboardCheck,
-      },
-      {
-        name: 'Assignment Console',
-        href: '/assignments',
-        icon: UserCheck,
       },
       {
         name: 'Assignment History',

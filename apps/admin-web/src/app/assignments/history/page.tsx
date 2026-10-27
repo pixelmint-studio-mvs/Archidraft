@@ -169,7 +169,7 @@ export default function AssignmentHistoryPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <Link
-              href="/assignments"
+              href="/teaching/assignments"
               className="px-4 py-2 rounded-lg text-xs font-semibold font-mono tracking-wide text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-2"
             >
               <UserCheck className="h-3.5 w-3.5 text-slate-400" />

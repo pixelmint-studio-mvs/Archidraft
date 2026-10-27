@@ -1,7 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart' hide Evaluation;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:archi_draft/src/features/api/data/api_client.dart';
+import 'package:archi_draft/src/features/api/providers/api_providers.dart';
 import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/domain/project_file.dart';
@@ -13,10 +18,38 @@ import 'package:archi_draft/src/features/projects/providers/file_providers.dart'
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/data/project_repository.dart';
 import 'package:archi_draft/src/features/projects/data/assignment_repository.dart';
+import 'package:archi_draft/src/features/projects/data/file_repository.dart';
 import 'package:archi_draft/src/features/projects/presentation/student/student_project_workspace_screen.dart';
 import 'package:archi_draft/src/features/engineer/presentation/project_detail_screen.dart';
 import 'package:archi_draft/src/features/auth/domain/user_profile.dart';
 import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
+
+class MockCadApiClient extends Fake implements ApiClient {
+  final Map<String, Uint8List> responses;
+
+  MockCadApiClient(this.responses);
+
+  @override
+  Future<Uint8List> downloadBinary(String path) async {
+    if (responses.containsKey(path)) {
+      return responses[path]!;
+    }
+    throw Exception('404 Not Found: $path');
+  }
+}
+
+class MockFileRepository extends Fake implements FileRepository {
+  bool downloadCalled = false;
+  String? downloadedFileId;
+  String? downloadedFileName;
+
+  @override
+  Future<void> downloadFile(String fileId, String fileName, {bool openInBrowser = false}) async {
+    downloadCalled = true;
+    downloadedFileId = fileId;
+    downloadedFileName = fileName;
+  }
+}
 
 class MockProjectRepository extends Fake implements ProjectRepository {
   bool submitCalled = false;
@@ -116,6 +149,8 @@ void main() {
     UserProfile? profile,
     ProjectRepository? repository,
     AssignmentRepository? assignmentRepository,
+    ApiClient? apiClient,
+    FileRepository? fileRepository,
   }) {
     return ProviderScope(
       overrides: [
@@ -130,6 +165,10 @@ void main() {
           projectRepositoryProvider.overrideWithValue(repository),
         if (assignmentRepository != null)
           assignmentRepositoryProvider.overrideWithValue(assignmentRepository),
+        if (apiClient != null)
+          apiClientProvider.overrideWithValue(apiClient),
+        if (fileRepository != null)
+          fileRepositoryProvider.overrideWithValue(fileRepository),
       ],
       child: const MaterialApp(
         home: StudentProjectWorkspaceScreen(projectId: testProjectId),
@@ -943,4 +982,260 @@ void main() {
     });
   });
 
+  group('Student CAD Drawing Preview Enhancement (Section 5 Representative Tests)', () {
+    const sampleDxf = '''0
+SECTION
+2
+ENTITIES
+0
+LINE
+10
+0.0
+20
+0.0
+11
+200.0
+21
+150.0
+0
+ENDSEC
+0
+EOF''';
+
+    testWidgets('1. Valid DXF renders visible 2D vector geometry and controls on Student canvas', (tester) async {
+      final project = createTestProject(status: ProjectStatus.inProgress);
+      final dxfFile = createTestProjectFile(
+        id: 'file_dxf_01',
+        category: 'workspace_draft',
+        originalName: 'elevation_plan.dxf',
+      );
+
+      final fakeClient = MockCadApiClient({
+        '/api/files/file_dxf_01/download': Uint8List.fromList(utf8.encode(sampleDxf)),
+      });
+
+      await tester.pumpWidget(createTestWidget(
+        project: project,
+        files: [dxfFile],
+        apiClient: fakeClient,
+      ));
+      await tester.pumpAndSettle();
+
+      // In-workspace CAD Canvas section
+      expect(find.text('CAD DRAWING CANVAS'), findsOneWidget);
+      expect(find.text('AutoCAD DXF \u2022 2D Vector CAD'), findsOneWidget);
+
+      // Verify zoom in, zoom out, fit-to-view controls
+      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.remove_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.fit_screen_rounded), findsOneWidget);
+
+      // Tap zoom controls
+      await tester.tap(find.byIcon(Icons.add_rounded));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.remove_rounded));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.fit_screen_rounded));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('2. Valid DWG with embedded thumbnail renders geometry preview on Student canvas', (tester) async {
+      final dwgFixture = File('assets/images/architectural_-_annotation_scaling_and_multileaders.dwg');
+      expect(dwgFixture.existsSync(), isTrue);
+      final dwgBytes = dwgFixture.readAsBytesSync();
+
+      final project = createTestProject(status: ProjectStatus.inProgress);
+      final dwgFile = createTestProjectFile(
+        id: 'file_dwg_thumb',
+        category: 'workspace_draft',
+        originalName: 'architectural_drawing.dwg',
+      );
+
+      final fakeClient = MockCadApiClient({
+        '/api/files/file_dwg_thumb/download': dwgBytes,
+      });
+
+      await tester.pumpWidget(createTestWidget(
+        project: project,
+        files: [dwgFile],
+        apiClient: fakeClient,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CAD DRAWING CANVAS'), findsOneWidget);
+      expect(find.text('AutoCAD DWG \u2022 Geometry Preview'), findsOneWidget);
+      expect(find.byType(InteractiveViewer), findsWidgets);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets('3. DWG without embedded thumbnail displays informative state and download original button', (tester) async {
+      // DWG header bytes without BITMAPINFOHEADER DIB
+      final dwgBytesNoThumbnail = Uint8List.fromList(utf8.encode('AC1024_DRAWING_WITHOUT_THUMBNAIL_DATA_BLOCK'));
+
+      final project = createTestProject(status: ProjectStatus.inProgress);
+      final dwgFile = createTestProjectFile(
+        id: 'file_dwg_no_thumb',
+        category: 'workspace_draft',
+        originalName: 'structural_cad.dwg',
+      );
+
+      final fakeClient = MockCadApiClient({
+        '/api/files/file_dwg_no_thumb/download': dwgBytesNoThumbnail,
+      });
+      final mockRepo = MockFileRepository();
+
+      await tester.pumpWidget(createTestWidget(
+        project: project,
+        files: [dwgFile],
+        apiClient: fakeClient,
+        fileRepository: mockRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CAD DRAWING CANVAS'), findsOneWidget);
+      expect(
+        find.textContaining('DWG geometry preview unavailable: no embedded thumbnail found'),
+        findsOneWidget,
+      );
+      final downloadBtn = find.text('Download Original File');
+      expect(downloadBtn, findsOneWidget);
+
+      await tester.tap(downloadBtn);
+      await tester.pumpAndSettle();
+      expect(mockRepo.downloadCalled, isTrue);
+      expect(mockRepo.downloadedFileId, equals('file_dwg_no_thumb'));
+    });
+
+    testWidgets('4. Unsupported or invalid file displays clear unsupported format message and download button', (tester) async {
+      final project = createTestProject(status: ProjectStatus.inProgress);
+      // Staged version with unsupported extension
+      final version = DrawingVersion(
+        id: 'ver_xyz_01',
+        projectId: testProjectId,
+        versionNumber: 1,
+        fileId: 'file_xyz_01',
+        uploadedBy: 'student_001',
+        sanitizedName: 'site_mesh.xyz',
+        size: 4096,
+        createdAt: DateTime.utc(2026, 10, 5),
+      );
+
+      final fakeClient = MockCadApiClient({
+        '/api/files/file_xyz_01/download': Uint8List.fromList(utf8.encode('RANDOM_BINARY_DATA')),
+      });
+      final mockRepo = MockFileRepository();
+
+      // Open via modal preview
+      await tester.pumpWidget(createTestWidget(
+        project: project,
+        versions: [version],
+        apiClient: fakeClient,
+        fileRepository: mockRepo,
+      ));
+      await tester.pumpAndSettle();
+
+      // Tap preview on the version tile
+      final previewIcon = find.byTooltip('Preview CAD Drawing');
+      expect(previewIcon, findsOneWidget);
+      await tester.tap(previewIcon);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Preview: site_mesh.xyz'), findsOneWidget);
+      expect(find.textContaining('Preview unavailable for .xyz format'), findsOneWidget);
+      expect(find.text('Download Original File'), findsOneWidget);
+
+      await tester.tap(find.text('Download Original File'));
+      await tester.pumpAndSettle();
+      expect(mockRepo.downloadCalled, isTrue);
+    });
+
+    testWidgets('5. Missing or inaccessible file (404/403) displays error state and retry button', (tester) async {
+      final project = createTestProject(status: ProjectStatus.inProgress);
+      final dwgFile = createTestProjectFile(
+        id: 'file_missing_404',
+        category: 'workspace_draft',
+        originalName: 'secured_drawing.dwg',
+      );
+
+      // Client has no entry for this file, throwing 404
+      final fakeClient = MockCadApiClient({});
+
+      await tester.pumpWidget(createTestWidget(
+        project: project,
+        files: [dwgFile],
+        apiClient: fakeClient,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CAD DRAWING CANVAS'), findsOneWidget);
+      expect(find.textContaining('404 Not Found'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets('6. Version switching & Reference CAD preview on Student interactive canvas', (tester) async {
+      final project = createTestProject(status: ProjectStatus.inProgress);
+      final draftFile = createTestProjectFile(
+        id: 'file_draft_cad',
+        category: 'workspace_draft',
+        originalName: 'working_draft.dxf',
+      );
+      final refFile = createTestProjectFile(
+        id: 'file_ref_cad',
+        category: 'client_upload',
+        originalName: 'instructor_ref.dxf',
+      );
+      final version1 = DrawingVersion(
+        id: 'ver_01',
+        projectId: testProjectId,
+        versionNumber: 1,
+        fileId: 'file_v1_cad',
+        uploadedBy: 'student_001',
+        sanitizedName: 'submittal_v1.dxf',
+        size: 4096,
+        createdAt: DateTime.utc(2026, 10, 3),
+      );
+
+      final fakeClient = MockCadApiClient({
+        '/api/files/file_draft_cad/download': Uint8List.fromList(utf8.encode(sampleDxf)),
+        '/api/files/file_v1_cad/download': Uint8List.fromList(utf8.encode(sampleDxf)),
+        '/api/files/file_ref_cad/download': Uint8List.fromList(utf8.encode(sampleDxf)),
+      });
+
+      await tester.pumpWidget(createTestWidget(
+        project: project,
+        files: [draftFile, refFile],
+        versions: [version1],
+        apiClient: fakeClient,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CAD DRAWING CANVAS'), findsOneWidget);
+
+      // Verify choice chips for version toggling
+      expect(find.text('Draft (WIP): working_draft.dxf'), findsOneWidget);
+      expect(find.text('Rev 1'), findsOneWidget);
+      expect(find.text('Ref: instructor_ref.dxf'), findsOneWidget);
+
+      // Switch to Rev 1
+      await tester.tap(find.text('Rev 1'));
+      await tester.pumpAndSettle();
+
+      // Switch to Reference CAD
+      await tester.tap(find.text('Ref: instructor_ref.dxf'));
+      await tester.pumpAndSettle();
+
+      // Verify reference file preview button exists under Reference & Specification Files
+      expect(find.text('Inspect instructor_ref.dxf in CAD Viewer'), findsOneWidget);
+      await tester.tap(find.text('Inspect instructor_ref.dxf in CAD Viewer'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Preview: instructor_ref.dxf'), findsOneWidget);
+      expect(find.byKey(const ValueKey('close_cad_preview_dialog')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('close_cad_preview_dialog')));
+      await tester.pumpAndSettle();
+    });
+  });
 }

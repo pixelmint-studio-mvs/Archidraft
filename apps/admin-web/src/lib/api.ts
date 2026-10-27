@@ -17,6 +17,13 @@ import {
   ProjectComment,
   StudentSubmission,
   EvaluateSubmissionPayload,
+  TrainingModule,
+  TrainingChapter,
+  TrainingLesson,
+  StudentLearningPlan,
+  StudentProgressSummary,
+  StudentProgressDetail,
+  LessonResource,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || 'http://localhost:8787';
@@ -630,5 +637,193 @@ export const adminApi = {
         actionId: aid,
       }),
     });
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TEACHING STUDENTS — Modules, Chapters, Lessons, Learning Plans & Progress
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Modules CRUD & Publication
+  async getTrainingModules(params?: { category?: string; status?: string; search?: string }): Promise<TrainingModule[]> {
+    const query = new URLSearchParams();
+    if (params?.category && params.category !== 'ALL') query.set('category', params.category);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    if (params?.search) query.set('search', params.search);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<TrainingModule[]>(`/api/admin/training/modules${qs}`);
+  },
+
+  async getTrainingModule(moduleId: string): Promise<{ module: TrainingModule; chapters: TrainingChapter[]; lessons: TrainingLesson[] }> {
+    return fetchApi<{ module: TrainingModule; chapters: TrainingChapter[]; lessons: TrainingLesson[] }>(`/api/admin/training/modules/${moduleId}`);
+  },
+
+  async createTrainingModule(
+    payload: Partial<TrainingModule> & {
+      assign_to_student_id?: string;
+      target_completion_date?: string | null;
+      assignment_instructions?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    id: string;
+    module: TrainingModule;
+    assignment?: {
+      assigned: boolean;
+      plan_id: string;
+      student_id: string;
+      student_name: string;
+    };
+  }> {
+    return fetchApi<{
+      success: boolean;
+      id: string;
+      module: TrainingModule;
+      assignment?: {
+        assigned: boolean;
+        plan_id: string;
+        student_id: string;
+        student_name: string;
+      };
+    }>('/api/admin/training/modules', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateTrainingModule(moduleId: string, payload: Partial<TrainingModule>): Promise<{ success: boolean; module: TrainingModule }> {
+    return fetchApi<{ success: boolean; module: TrainingModule }>(`/api/admin/training/modules/${moduleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteTrainingModule(moduleId: string): Promise<{ success: boolean; archived: boolean }> {
+    return fetchApi<{ success: boolean; archived: boolean }>(`/api/admin/training/modules/${moduleId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Chapters Management
+  async createTrainingChapter(
+    moduleId: string,
+    payload: { title: string; description?: string; chapter_order?: number; id?: string }
+  ): Promise<{ success: boolean; id: string; chapter: TrainingChapter }> {
+    return fetchApi<{ success: boolean; id: string; chapter: TrainingChapter }>(`/api/admin/training/modules/${moduleId}/chapters`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateTrainingChapter(
+    chapterId: string,
+    payload: { title?: string; description?: string; chapter_order?: number }
+  ): Promise<{ success: boolean; chapter: TrainingChapter }> {
+    return fetchApi<{ success: boolean; chapter: TrainingChapter }>(`/api/admin/training/chapters/${chapterId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteTrainingChapter(chapterId: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/admin/training/chapters/${chapterId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Lessons Management
+  async createTrainingLesson(
+    moduleId: string,
+    payload: {
+      title: string;
+      content?: string;
+      chapter_id?: string | null;
+      video_url?: string | null;
+      resources?: LessonResource[];
+      resources_json?: string;
+      is_required?: boolean | number;
+      lesson_order?: number;
+      estimated_duration?: string;
+      id?: string;
+    }
+  ): Promise<{ success: boolean; id: string; lesson: TrainingLesson }> {
+    return fetchApi<{ success: boolean; id: string; lesson: TrainingLesson }>(`/api/admin/training/modules/${moduleId}/lessons`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateTrainingLesson(
+    lessonId: string,
+    payload: {
+      title?: string;
+      content?: string;
+      chapter_id?: string | null;
+      video_url?: string | null;
+      resources?: LessonResource[];
+      resources_json?: string;
+      is_required?: boolean | number;
+      lesson_order?: number;
+      estimated_duration?: string;
+    }
+  ): Promise<{ success: boolean; lesson: TrainingLesson }> {
+    return fetchApi<{ success: boolean; lesson: TrainingLesson }>(`/api/admin/training/lessons/${lessonId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteTrainingLesson(lessonId: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/admin/training/lessons/${lessonId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Student Learning Plans
+  async getAllLearningPlans(params?: { studentId?: string; moduleId?: string; status?: string }): Promise<StudentLearningPlan[]> {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set('studentId', params.studentId);
+    if (params?.moduleId) query.set('moduleId', params.moduleId);
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<StudentLearningPlan[]>(`/api/admin/learning-plans${qs}`);
+  },
+
+  async getStudentLearningPlans(studentId: string): Promise<StudentLearningPlan[]> {
+    return fetchApi<StudentLearningPlan[]>(`/api/admin/students/${studentId}/learning-plans`);
+  },
+
+  async assignLearningPlan(
+    studentId: string,
+    payload: {
+      moduleIds: string[];
+      targetCompletionDate?: string | null;
+      instructions?: string;
+      selectedChapters?: string[];
+      selectedLessons?: string[];
+    }
+  ): Promise<{ success: boolean; count: number; plans: StudentLearningPlan[] }> {
+    return fetchApi<{ success: boolean; count: number; plans: StudentLearningPlan[] }>(`/api/admin/students/${studentId}/learning-plans`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async revokeLearningPlan(planId: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/admin/learning-plans/${planId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Student Progress Monitoring
+  async getStudentsProgress(params?: { search?: string; status?: string }): Promise<StudentProgressSummary[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<StudentProgressSummary[]>(`/api/admin/students-progress${qs}`);
+  },
+
+  async getStudentProgressDetail(studentId: string): Promise<StudentProgressDetail> {
+    return fetchApi<StudentProgressDetail>(`/api/admin/students/${studentId}/progress-detail`);
   },
 };
