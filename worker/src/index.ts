@@ -698,8 +698,9 @@ app.get('/api/projects', async (c) => {
   }
 
   if (role === 'DRAUGHTSMAN') {
-    let query = 'SELECT * FROM projects WHERE draughtsman_id = ?';
-    const params: any[] = [uid];
+    let query = `SELECT * FROM projects
+      WHERE (draughtsman_id = ? OR EXISTS (SELECT 1 FROM assignments a WHERE a.project_id = projects.id AND a.draughtsman_id = ?))`;
+    const params: any[] = [uid, uid];
     if (status) {
       query += ' AND status = ?';
       params.push(status);
@@ -712,7 +713,7 @@ app.get('/api/projects', async (c) => {
   if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
     let query = 'SELECT * FROM projects WHERE 1=1';
     const params: any[] = [];
-    if (status) {
+    if (status && status !== 'ALL') {
       query += ' AND status = ?';
       params.push(status);
     }
@@ -723,6 +724,45 @@ app.get('/api/projects', async (c) => {
 
   return c.json({ error: 'Forbidden: Insufficient role permissions' }, 403);
 });
+
+// DELETE /api/projects/:id - Per-project removal by authorized Admin
+app.delete('/api/projects/:id', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('id');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const role = user.role as string;
+  if (!['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
+    return c.json({ error: 'Forbidden: Only administrators can remove projects' }, 403);
+  }
+
+  const project = await db.prepare('SELECT id, project_name, status FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) {
+    return c.json({ error: 'Project not found' }, 404);
+  }
+
+  // Safe transactional removal cascading related project-scoped records
+  const batch = [
+    db.prepare('DELETE FROM corrections WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM drawing_versions WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM project_messages WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM assignments WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM files WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId),
+  ];
+
+  await db.batch(batch);
+
+  return c.json({
+    success: true,
+    removedProjectId: projectId,
+    projectName: (project as any).project_name,
+    message: `Project ${projectId} successfully removed.`
+  });
+});
+
 
 
 app.get('/api/projects/:id', async (c) => {
@@ -1334,7 +1374,7 @@ app.get('/api/assignments', async (c) => {
   }
 
   const { results } = await db.prepare(`
-    SELECT
+    SELECT 
       a.id, a.project_id, a.draughtsman_id, a.status, a.created_at, a.updated_at,
       p.project_name, p.project_address, p.drawing_name, p.drawing_type,
       p.project_area, p.status as project_status, p.correction_round,
@@ -1344,6 +1384,7 @@ app.get('/api/assignments', async (c) => {
     WHERE a.draughtsman_id = ?
     ORDER BY a.created_at DESC
   `).bind(uid).all();
+
   return c.json(results);
 });
 
@@ -2654,6 +2695,32 @@ app.post('/api/notifications/:id/read', async (c) => {
   await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').bind(id).run();
   return c.json({ success: true });
 });
+
+app.delete('/api/notifications', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
+  return c.json({ success: true });
+});
+
+app.post('/api/notifications/clear', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
+  return c.json({ success: true });
+});
+
+app.delete('/api/notifications/:id', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const id = c.req.param('id');
+  const notif = await db.prepare('SELECT * FROM notifications WHERE id = ?').bind(id).first();
+  if (!notif) return c.json({ error: 'Notification not found' }, 404);
+  if (notif.user_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  await db.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?').bind(id, uid).run();
+  return c.json({ success: true });
+});
+
 
 // ==========================================
 // FINANCIALS API

@@ -279,14 +279,27 @@ export const adminApi = {
   },
 
   // Projects
-  async getProjects(status?: ProjectStatus): Promise<Project[]> {
-    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  async getProjects(status?: ProjectStatus | string): Promise<Project[]> {
+    const params = new URLSearchParams();
+    if (status && status !== 'ALL') {
+      params.set('status', status);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
     const remoteProjects = await fetchApi<Project[]>(`/api/projects${query}`).catch(() => []);
 
-    if (status && (status as string) !== 'ALL') {
+    if (status && status !== 'ALL') {
       return remoteProjects.filter((p) => p.status === status);
     }
     return remoteProjects;
+  },
+
+  async removeProject(projectId: string): Promise<{ success: boolean; removedProjectId: string; message?: string }> {
+    return fetchApi<{ success: boolean; removedProjectId: string; message?: string }>(
+      `/api/projects/${projectId}`,
+      {
+        method: 'DELETE',
+      }
+    );
   },
 
   async getProject(projectId: string): Promise<Project> {
