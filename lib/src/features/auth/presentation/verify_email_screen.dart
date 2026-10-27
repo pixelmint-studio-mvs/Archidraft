@@ -1,9 +1,10 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../legal/providers/legal_providers.dart';
 import '../providers/auth_providers.dart';
 
 /// Email verification screen shown after registration or when
@@ -65,9 +66,13 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     setState(() => _isChecking = false);
 
     if (isVerified) {
-      // Verified — GoRouter redirect will handle navigation
-      // Force auth state refresh by invalidating the provider
+      // Force auth state, profile, and legal status refresh
       ref.invalidate(authStateChangesProvider);
+      ref.invalidate(userProfileProvider);
+      ref.invalidate(userLegalStatusProvider);
+      if (mounted) {
+        context.go('/');
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -113,13 +118,15 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   Future<void> _handleLogout() async {
     final controller = ref.read(authControllerProvider.notifier);
     await controller.signOut();
-    // GoRouter redirect handles navigation to /login
+    if (mounted) {
+      context.go('/landing');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    final email = currentUser?.email ?? 'your email';
+    final user = ref.watch(authStateChangesProvider).value;
+    final email = user?.email ?? 'your email';
 
     return Scaffold(
       body: SafeArea(

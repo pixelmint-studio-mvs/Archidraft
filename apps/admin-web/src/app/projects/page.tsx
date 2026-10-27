@@ -12,7 +12,9 @@ import { AssignModal } from '@/components/projects/AssignModal';
 import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
 import { NewProjectModal } from '@/components/projects/NewProjectModal';
+import { RemoveProjectModal } from '@/components/projects/RemoveProjectModal';
 import { adminApi } from '@/lib/api';
+import { formatDate } from '@/lib/dateUtils';
 import { Project, ProjectStatus } from '@/lib/types';
 import {
   Search,
@@ -29,6 +31,7 @@ import {
   FolderKanban,
   FileText,
   User,
+  Trash2,
 } from 'lucide-react';
 
 const STATUS_FILTERS: { label: string; value: string }[] = [
@@ -58,6 +61,7 @@ function ProjectsContent() {
   const [assignTarget, setAssignTarget] = useState<{ project: Project; isReassign: boolean } | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Project | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Project | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Project | null>(null);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState<boolean>(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
@@ -67,7 +71,9 @@ function ProjectsContent() {
     setError(null);
 
     try {
-      const data = await adminApi.getProjects();
+      const data = await adminApi.getProjects(
+        selectedStatus === 'ALL' ? undefined : (selectedStatus as ProjectStatus)
+      );
       setProjects(data || []);
     } catch (err: any) {
       console.error(err);
@@ -80,7 +86,7 @@ function ProjectsContent() {
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [selectedStatus]);
 
   const handleQuickApprove = async (projectId: string) => {
     setActionLoadingId(projectId);
@@ -301,7 +307,7 @@ function ProjectsContent() {
 
                       {/* Registered Date */}
                       <td className="px-5 py-4 font-mono text-slate-500">
-                        {p.created_at ? new Date(p.created_at).toLocaleDateString() : 'N/A'}
+                        {formatDate(p.created_at)}
                       </td>
 
                       {/* Administrative Actions */}
@@ -370,7 +376,7 @@ function ProjectsContent() {
                             </button>
                           )}
 
-                          {/* 6. View Details link */}
+                          {/* View Details link */}
                           <Link
                             href={`/projects/${p.id}`}
                             className="p-1.5 text-slate-400 hover:text-[#0453cd] hover:bg-blue-50 rounded-lg transition-colors"
@@ -378,6 +384,15 @@ function ProjectsContent() {
                           >
                             <ExternalLink className="h-4 w-4" />
                           </Link>
+
+                          {/* Remove Project action (Authorized Admin deletion) */}
+                          <button
+                            onClick={() => setRemoveTarget(p)}
+                            title={`Remove project ${p.id} from database`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -419,6 +434,18 @@ function ProjectsContent() {
           projectId={cancelTarget.id}
           projectName={cancelTarget.project_name || 'Project'}
           onSuccess={() => loadProjects(true)}
+        />
+      )}
+
+      {removeTarget && (
+        <RemoveProjectModal
+          isOpen={true}
+          onClose={() => setRemoveTarget(null)}
+          project={removeTarget}
+          onSuccess={(removedId) => {
+            setProjects((prev) => prev.filter((p) => p.id !== removedId));
+            loadProjects(true);
+          }}
         />
       )}
 

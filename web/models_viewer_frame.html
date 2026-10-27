@@ -21,6 +21,13 @@
       background-color: transparent;
       --poster-color: transparent;
     }
+    .fallback-msg {
+      display: none;
+      color: #94a3b8;
+      font-family: sans-serif;
+      font-size: 11px;
+      text-align: center;
+    }
   </style>
   <script type="module" src="model-viewer.min.js"></script>
 </head>
@@ -32,27 +39,94 @@
     orientation="0 90deg 0"
     camera-orbit="0deg 90deg 105%"
     field-of-view="32deg"
-    auto-rotate
-    rotation-per-second="36deg"
     auto-rotate-delay="0"
     interaction-prompt="none"
-    disable-zoom
-    disable-pan
-    disable-tap
     shadow-intensity="1.2"
     shadow-softness="0.5"
-    style="pointer-events: none;"
+    tabindex="0"
+    role="img"
+    aria-label="Archi Draft Monogram 3D"
   ></model-viewer>
+  <div id="fallback" class="fallback-msg">3D Monogram</div>
 
   <script>
-    // Accessibility check: halt auto-rotate if reduced motion is requested
     (function() {
       try {
+        var params = new URLSearchParams(window.location.search);
+        var autoRotateParam = params.get('autoRotate') !== 'false';
+        var respectReducedMotion = params.get('respectReducedMotion') === 'true';
+        var rotationSpeed = params.get('rotationSpeed') || '36deg';
+        var interactive = params.get('interactive') === 'true';
+
         var mv = document.getElementById('monogramViewer');
-        if (mv && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!mv) return;
+
+        // Interactive vs ambient styling
+        if (interactive) {
+          mv.setAttribute('camera-controls', '');
+          mv.style.pointerEvents = 'auto';
+          mv.style.cursor = 'grab';
+        } else {
+          mv.setAttribute('disable-zoom', '');
+          mv.setAttribute('disable-pan', '');
+          mv.setAttribute('disable-tap', '');
+          mv.style.pointerEvents = 'none';
+        }
+
+        // Standardize rotation speed format
+        var speedVal = rotationSpeed;
+        if (!speedVal.includes('deg')) {
+          speedVal = speedVal + 'deg';
+        }
+        mv.setAttribute('rotation-per-second', speedVal);
+
+        // Rotation Policy:
+        // Ambient brand monogram rotates by default, unblocked by OS animation setting.
+        // Explicit respectReducedMotion=true strictly obeys OS reduced motion.
+        var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var shouldRotate = autoRotateParam && (!respectReducedMotion || !prefersReduced);
+
+        if (shouldRotate) {
+          mv.setAttribute('auto-rotate', '');
+        } else {
           mv.removeAttribute('auto-rotate');
         }
-      } catch (e) {}
+
+        // Accessible pause/play toggle
+        var isRotating = shouldRotate;
+        function toggleRotation() {
+          isRotating = !isRotating;
+          if (isRotating) {
+            mv.setAttribute('auto-rotate', '');
+          } else {
+            mv.removeAttribute('auto-rotate');
+          }
+        }
+
+        window.addEventListener('keydown', function(e) {
+          if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            toggleRotation();
+          }
+        });
+
+        // Error handling fallback
+        mv.addEventListener('error', function() {
+          var fb = document.getElementById('fallback');
+          if (fb) fb.style.display = 'block';
+        });
+
+        // Tab visibility management: pause when hidden, resume when visible
+        document.addEventListener('visibilitychange', function() {
+          if (document.hidden) {
+            mv.removeAttribute('auto-rotate');
+          } else if (isRotating) {
+            mv.setAttribute('auto-rotate', '');
+          }
+        });
+      } catch (err) {
+        console.warn('Monogram viewer frame init warning:', err);
+      }
     })();
   </script>
 </body>

@@ -97,8 +97,12 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
 
 function formatRole(role?: string): string {
   if (!role) return '';
-  if (role === 'CLIENT') return 'ENGINEER';
-  return role.toUpperCase();
+  const r = role.toUpperCase();
+  if (r === 'ADMIN' || r === 'STUDIO_ADMIN') return 'Admin';
+  if (r === 'CLIENT' || r === 'ENGINEER') return 'Engineer';
+  if (r === 'DRAUGHTSMAN') return 'Draughtsman';
+  if (r === 'STUDENT') return 'Student';
+  return role;
 }
 
 function formatStatus(status: string): string {

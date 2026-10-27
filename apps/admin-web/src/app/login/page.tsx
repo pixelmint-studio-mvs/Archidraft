@@ -25,17 +25,32 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[LOGIN SUBMIT] Email:', email, 'Password length:', password.length);
+    if (loading) return;
+
     setLocalError(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setLocalError('Please enter your email address.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setLocalError('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setLocalError('Please enter your password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
-      console.log('[LOGIN SUCCESS] Navigating to /dashboard');
+      await login(trimmedEmail, password);
       router.replace('/dashboard');
     } catch (err: any) {
-      console.error('[LOGIN ERROR]', err);
-      setLocalError(err.message || 'Authentication failed. Please verify credentials.');
+      setLocalError(err.message || 'Invalid email or password. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -44,7 +59,10 @@ export default function LoginPage() {
   const displayError = localError || authError;
 
   return (
-    <div className="blueprint-bg min-h-screen text-slate-900 selection:bg-[#0453cd] selection:text-white flex flex-col justify-between relative overflow-x-hidden p-6 md:p-12">
+    <div
+      className="blueprint-bg min-h-screen text-slate-900 selection:bg-[#0453cd] selection:text-white flex flex-col justify-between relative overflow-x-hidden p-6 md:p-12"
+      suppressHydrationWarning
+    >
       {/* Top Left Technical Tag */}
       <div className="absolute top-6 left-6 md:top-10 md:left-12 text-slate-400 font-mono text-xs hidden sm:flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />

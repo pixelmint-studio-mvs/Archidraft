@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/auth_error_mapper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../providers/auth_providers.dart';
@@ -75,14 +77,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     if (!mounted) return;
 
-    if (!success) {
+    if (success) {
+      context.go('/verify-email');
+    } else {
       final errorState = ref.read(authControllerProvider);
       if (errorState.hasError) {
+        String message;
+        if (errorState.error is FirebaseAuthException) {
+          message = AuthErrorMapper.mapException(errorState.error!);
+        } else {
+          final raw = errorState.error.toString().replaceAll('Exception: ', '');
+          message = raw.isNotEmpty ? raw : 'Registration failed. Please try again.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              errorState.error.toString().replaceAll('Exception: ', ''),
-            ),
+            content: Text(message),
             backgroundColor: AppColors.error,
           ),
         );

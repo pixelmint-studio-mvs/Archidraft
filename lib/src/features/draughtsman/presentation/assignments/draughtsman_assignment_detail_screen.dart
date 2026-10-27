@@ -1,4 +1,4 @@
-﻿import 'package:archi_draft/src/features/projects/domain/activity_log.dart';
+import 'package:archi_draft/src/features/projects/domain/activity_log.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +16,7 @@ import 'package:archi_draft/src/features/projects/domain/drawing_version.dart';
 import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
+import 'package:archi_draft/src/features/projects/presentation/widgets/cad_drawing_viewer.dart';
 
 /// Detailed view for a single assignment.
 ///
@@ -836,8 +837,30 @@ class _DraughtsmanAssignmentDetailScreenState
               color: AppColors.outlineVariant.withValues(alpha: 0.45),
             ),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
+              Positioned.fill(
+                child: current.fileId.isNotEmpty
+                    ? CadDrawingViewer(
+                        key: ValueKey('cad_detail_single_${current.fileId}_v${current.versionNumber}'),
+                        fileId: current.fileId,
+                        fileName: current.originalName ??
+                            current.sanitizedName ??
+                            'drawing_v${current.versionNumber}.dwg',
+                        fileSize: current.size,
+                        versionNumber: current.versionNumber,
+                        height: isDesktop ? 380 : 300,
+                      )
+                    : Center(
+                        child: Text(
+                          'No CAD file attached to v${current.versionNumber}',
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+              ),
               Positioned(
                 top: 12,
                 left: 12,
@@ -853,18 +876,6 @@ class _DraughtsmanAssignmentDetailScreenState
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 11,
-                    ),
-                  ),
-                ),
-              ),
-              Center(
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: CustomPaint(
-                    size: const Size(400, 280),
-                    painter: _BlueprintDrawingPainter(
-                      isRevised: false,
-                      revisionNumber: current.versionNumber,
                     ),
                   ),
                 ),
@@ -887,8 +898,30 @@ class _DraughtsmanAssignmentDetailScreenState
               color: AppColors.outlineVariant.withValues(alpha: 0.45),
             ),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
+              Positioned.fill(
+                child: previous.fileId.isNotEmpty
+                    ? CadDrawingViewer(
+                        key: ValueKey('cad_detail_prev_${previous.fileId}_v${previous.versionNumber}'),
+                        fileId: previous.fileId,
+                        fileName: previous.originalName ??
+                            previous.sanitizedName ??
+                            'drawing_v${previous.versionNumber}.dwg',
+                        fileSize: previous.size,
+                        versionNumber: previous.versionNumber,
+                        height: isNarrow ? 240 : (isDesktop ? 380 : 300),
+                      )
+                    : Center(
+                        child: Text(
+                          'No CAD file attached to v${previous.versionNumber}',
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+              ),
               Positioned(
                 top: 12,
                 left: 12,
@@ -912,15 +945,6 @@ class _DraughtsmanAssignmentDetailScreenState
                   ),
                 ),
               ),
-              Center(
-                child: CustomPaint(
-                  size: const Size(220, 200),
-                  painter: _BlueprintDrawingPainter(
-                    isRevised: false,
-                    revisionNumber: previous.versionNumber,
-                  ),
-                ),
-              ),
             ],
           ),
         );
@@ -935,8 +959,30 @@ class _DraughtsmanAssignmentDetailScreenState
               width: 1.5,
             ),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
+              Positioned.fill(
+                child: current.fileId.isNotEmpty
+                    ? CadDrawingViewer(
+                        key: ValueKey('cad_detail_curr_${current.fileId}_v${current.versionNumber}'),
+                        fileId: current.fileId,
+                        fileName: current.originalName ??
+                            current.sanitizedName ??
+                            'drawing_v${current.versionNumber}.dwg',
+                        fileSize: current.size,
+                        versionNumber: current.versionNumber,
+                        height: isNarrow ? 240 : (isDesktop ? 380 : 300),
+                      )
+                    : Center(
+                        child: Text(
+                          'No CAD file attached to v${current.versionNumber}',
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+              ),
               Positioned(
                 top: 12,
                 left: 12,
@@ -957,15 +1003,6 @@ class _DraughtsmanAssignmentDetailScreenState
                   ),
                 ),
               ),
-              Center(
-                child: CustomPaint(
-                  size: const Size(220, 200),
-                  painter: _BlueprintDrawingPainter(
-                    isRevised: true,
-                    revisionNumber: current.versionNumber,
-                  ),
-                ),
-              ),
             ],
           ),
         );
@@ -980,12 +1017,15 @@ class _DraughtsmanAssignmentDetailScreenState
           );
         }
 
-        return Row(
-          children: [
-            Expanded(child: prevPanel),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: currPanel),
-          ],
+        return SizedBox(
+          height: isDesktop ? 380 : 300,
+          child: Row(
+            children: [
+              Expanded(child: prevPanel),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: currPanel),
+            ],
+          ),
         );
       },
     );
@@ -994,6 +1034,7 @@ class _DraughtsmanAssignmentDetailScreenState
   Widget _buildOverlayViewport(
       DrawingVersion current, DrawingVersion previous) {
     return Container(
+      height: 380,
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -1001,8 +1042,41 @@ class _DraughtsmanAssignmentDetailScreenState
           color: AppColors.secondary.withValues(alpha: 0.45),
         ),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
+          if (previous.fileId.isNotEmpty)
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.5,
+                child: CadDrawingViewer(
+                  key: ValueKey('cad_detail_overlay_prev_${previous.fileId}_v${previous.versionNumber}'),
+                  fileId: previous.fileId,
+                  fileName: previous.originalName ??
+                      previous.sanitizedName ??
+                      'drawing_v${previous.versionNumber}.dwg',
+                  fileSize: previous.size,
+                  versionNumber: previous.versionNumber,
+                  height: 380,
+                ),
+              ),
+            ),
+          if (current.fileId.isNotEmpty)
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.8,
+                child: CadDrawingViewer(
+                  key: ValueKey('cad_detail_overlay_curr_${current.fileId}_v${current.versionNumber}'),
+                  fileId: current.fileId,
+                  fileName: current.originalName ??
+                      current.sanitizedName ??
+                      'drawing_v${current.versionNumber}.dwg',
+                  fileSize: current.size,
+                  versionNumber: current.versionNumber,
+                  height: 380,
+                ),
+              ),
+            ),
           Positioned(
             top: 12,
             left: 12,
@@ -1026,19 +1100,6 @@ class _DraughtsmanAssignmentDetailScreenState
                   ),
                 ),
               ],
-            ),
-          ),
-          Center(
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: CustomPaint(
-                size: const Size(360, 260),
-                painter: _BlueprintDrawingPainter(
-                  isRevised: true,
-                  isOverlayMode: true,
-                  revisionNumber: current.versionNumber,
-                ),
-              ),
             ),
           ),
         ],
@@ -2098,112 +2159,6 @@ class _ToolbarSegment extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// BLUEPRINT TECHNICAL DRAWING PAINTER
-// Generates authentic architectural drawing geometry with dimension lines
-// ─────────────────────────────────────────────────────────
-
-class _BlueprintDrawingPainter extends CustomPainter {
-  final bool isRevised;
-  final bool isOverlayMode;
-  final int revisionNumber;
-
-  _BlueprintDrawingPainter({
-    required this.isRevised,
-    this.isOverlayMode = false,
-    required this.revisionNumber,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Grid pattern
-    final gridPaint = Paint()
-      ..color = AppColors.outlineVariant.withValues(alpha: 0.15)
-      ..strokeWidth = 0.5;
-
-    for (double x = 0; x <= w; x += 20) {
-      canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
-    }
-    for (double y = 0; y <= h; y += 20) {
-      canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
-    }
-
-    // Outer boundary walls
-    final wallPaint = Paint()
-      ..color = isOverlayMode && isRevised
-          ? AppColors.secondary
-          : const Color(0xFF1B1B1D)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-
-    final boundary = RRect.fromRectAndRadius(
-      Rect.fromLTWH(30, 30, w - 60, h - 60),
-      const Radius.circular(2),
-    );
-    canvas.drawRRect(boundary, wallPaint);
-
-    // Inner room walls
-    final midX = w * 0.45;
-    final midY = h * 0.52;
-    canvas.drawLine(Offset(midX, 30), Offset(midX, h - 30), wallPaint);
-    canvas.drawLine(Offset(30, midY), Offset(w - 30, midY), wallPaint);
-
-    // Door swing arc
-    final arcPaint = Paint()
-      ..color = AppColors.outline.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(midX, midY), radius: 24),
-      0,
-      1.57,
-      false,
-      arcPaint,
-    );
-
-    // If Revised (Current version) — highlight the revision area
-    if (isRevised) {
-      final highlightPaint = Paint()
-        ..color = AppColors.secondary.withValues(alpha: 0.12)
-        ..style = PaintingStyle.fill;
-
-      final highlightBorder = Paint()
-        ..color = AppColors.secondary
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-
-      final revisedRoom = Rect.fromLTWH(midX + 10, 40, w - midX - 80, midY - 50);
-      canvas.drawRect(revisedRoom, highlightPaint);
-      canvas.drawRect(revisedRoom, highlightBorder);
-    }
-
-    // Technical stamp / Scale tag
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: 'ARCHI DRAFT • PRECISION SYSTEM • v$revisionNumber\nSCALE 1:100 • DWG MATRIX',
-        style: TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 8,
-          color: AppColors.outline.withValues(alpha: 0.7),
-          height: 1.3,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    textPainter.paint(canvas, Offset(40, h - 55));
-  }
-
-  @override
-  bool shouldRepaint(covariant _BlueprintDrawingPainter oldDelegate) {
-    return oldDelegate.isRevised != isRevised ||
-        oldDelegate.isOverlayMode != isOverlayMode ||
-        oldDelegate.revisionNumber != revisionNumber;
   }
 }
 

@@ -19,9 +19,13 @@ class LegalRepository {
         if (docs.isNotEmpty) {
           return docs.map((d) {
             final isTrivial = d.content.trim().isEmpty ||
-              d.content.trim() == '# Terms and Conditions' ||
-              d.content.trim() == '# Terms';
-          if (!isTrivial) return d;
+                d.content.trim().length < 200 ||
+                d.content.trim() == '# Terms and Conditions' ||
+                d.content.trim() == '# Terms' ||
+                d.content.trim() == '# Privacy Policy' ||
+                d.content.trim().startsWith('# Platform Terms and Conditions') ||
+                d.content.trim().startsWith('# Privacy Policy\n\nThis Privacy Policy governs');
+            if (!isTrivial) return d;
             final fallbackContent = d.documentType == 'TERMS_AND_CONDITIONS'
                 ? kAuthoritativeTermsAndConditionsContent
                 : (d.documentType == 'PRIVACY_POLICY' ? kAuthoritativePrivacyPolicyContent : d.content);
@@ -60,8 +64,12 @@ class LegalRepository {
       if (response is Map<String, dynamic> && response['document'] is Map<String, dynamic>) {
         final doc = LegalDocument.fromJson(response['document'] as Map<String, dynamic>);
         final isTrivial = doc.content.trim().isEmpty ||
+            doc.content.trim().length < 200 ||
             doc.content.trim() == '# Terms and Conditions' ||
-            doc.content.trim() == '# Terms';
+            doc.content.trim() == '# Terms' ||
+            doc.content.trim() == '# Privacy Policy' ||
+            doc.content.trim().startsWith('# Platform Terms and Conditions') ||
+            doc.content.trim().startsWith('# Privacy Policy\n\nThis Privacy Policy governs');
         if (!isTrivial) {
           return doc;
         }
@@ -99,33 +107,53 @@ class LegalRepository {
 
   /// Retrieves authenticated user's current compliance and consent state
   Future<UserLegalStatus> getUserLegalStatus() async {
-    final response = await _apiClient.get('/api/users/me/legal-status');
-    if (response is Map<String, dynamic>) {
-      final status = UserLegalStatus.fromJson(response);
-      const isStaging = bool.fromEnvironment('STAGING', defaultValue: false);
-      const stagingTestUids = {
-        'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer
-        'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman
-        '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student
-        'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin
-      };
-      if (isStaging && stagingTestUids.contains(status.userId)) {
-        return UserLegalStatus(
-          userId: status.userId,
-          termsAccepted: true,
+    try {
+      final response = await _apiClient.get('/api/users/me/legal-status');
+      if (response is Map<String, dynamic>) {
+        final status = UserLegalStatus.fromJson(response);
+        const isStaging = bool.fromEnvironment('STAGING', defaultValue: false);
+        const stagingTestUids = {
+          'KXAR90JgoVYLuOKzkbxpKTC8ATa2', // Staging Engineer
+          'TJjtkBm3lgRlpKtcI5u3jpYPH9s1', // Staging Draughtsman
+          '2iypyxUntQX6djOzwjgPo5xWrGD2', // Staging Student
+          'QBhduHDU1mYUxvtQ89adVnwQYCg1', // Staging Studio Admin
+        };
+        if (isStaging && stagingTestUids.contains(status.userId)) {
+          return UserLegalStatus(
+            userId: status.userId,
+            termsAccepted: true,
+            reacceptanceRequired: false,
+            acceptedTermsVersion: status.acceptedTermsVersion ?? '1.0.0-staging-test',
+            latestTermsVersion: status.latestTermsVersion ?? '1.0.0-staging-test',
+            privacyNoticeAcknowledged: true,
+            acknowledgedPrivacyVersion: status.acknowledgedPrivacyVersion,
+            latestPrivacyVersion: status.latestPrivacyVersion,
+            optionalConsents: status.optionalConsents,
+            requiresAction: false,
+            hasEffectiveTerms: true,
+            missingMandatoryDocs: false,
+          );
+        }
+        return status;
+      }
+    } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      // Only treat an explicit 'user not found' response as an unprovisioned profile state.
+      // Generic HTTP 404 (route not found) or network errors must be rethrown so they
+      // are not silently masked as successful or recoverable legal-status responses.
+      if (errStr.contains('user not found')) {
+        return const UserLegalStatus(
+          userId: '',
+          termsAccepted: false,
           reacceptanceRequired: false,
-          acceptedTermsVersion: status.acceptedTermsVersion ?? '1.0.0-staging-test',
-          latestTermsVersion: status.latestTermsVersion ?? '1.0.0-staging-test',
-          privacyNoticeAcknowledged: true,
-          acknowledgedPrivacyVersion: status.acknowledgedPrivacyVersion,
-          latestPrivacyVersion: status.latestPrivacyVersion,
-          optionalConsents: status.optionalConsents,
-          requiresAction: false,
+          privacyNoticeAcknowledged: false,
+          optionalConsents: {},
+          requiresAction: true,
           hasEffectiveTerms: true,
           missingMandatoryDocs: false,
         );
       }
-      return status;
+      rethrow;
     }
     throw Exception('Failed to parse user legal status');
   }

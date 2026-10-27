@@ -26,6 +26,7 @@ import {
   User,
   BookOpen,
   Filter,
+  Loader2,
 } from 'lucide-react';
 
 type FilterStatus = 'ALL' | 'UNDER_REVIEW' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
@@ -34,6 +35,7 @@ export default function StudentSubmissionsPage() {
   const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Search & Filter
@@ -374,15 +376,28 @@ export default function StudentSubmissionsPage() {
 
                             {/* Inspect File direct download */}
                             {sub.latest_file_id && (
-                              <a
-                                href={adminApi.getFileDownloadUrl(sub.latest_file_id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    setDownloadingId(sub.latest_file_id!);
+                                    await adminApi.downloadAndSaveFile(sub.latest_file_id!, `submission_${sub.student_name || 'student'}.dwg`);
+                                  } catch (err: any) {
+                                    alert(err.message || 'Download failed');
+                                  } finally {
+                                    setDownloadingId(null);
+                                  }
+                                }}
+                                disabled={downloadingId === sub.latest_file_id}
                                 title="Download and inspect CAD drawing"
-                                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-[#0453cd] hover:border-[#0453cd] hover:bg-blue-50/50 transition-all"
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-[#0453cd] hover:border-[#0453cd] hover:bg-blue-50/50 disabled:opacity-50 transition-all cursor-pointer"
                               >
-                                <FileDown className="h-3.5 w-3.5" />
-                              </a>
+                                {downloadingId === sub.latest_file_id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0453cd]" />
+                                ) : (
+                                  <FileDown className="h-3.5 w-3.5" />
+                                )}
+                              </button>
                             )}
 
                             {/* Link to Full Project detail */}

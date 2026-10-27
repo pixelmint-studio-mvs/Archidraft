@@ -636,11 +636,16 @@ app.patch('/api/users/:id/status', async (c) => {
 // Helper: UUID v4 (simple fallback for action/log IDs if client doesn't provide it)
 
 async function verifyDraughtsmanWorkspaceAccess(db: D1Database, project: any, uid: string): Promise<boolean> {
-  if (project.draughtsman_id !== uid) return false;
-  const assignment = await db.prepare(
-    'SELECT status FROM assignments WHERE project_id = ? AND draughtsman_id = ? ORDER BY created_at DESC LIMIT 1'
+  if (project.draughtsman_id === uid) {
+    const assignment = await db.prepare(
+      'SELECT status FROM assignments WHERE project_id = ? AND draughtsman_id = ? ORDER BY created_at DESC LIMIT 1'
+    ).bind(project.id, uid).first();
+    if (assignment?.status === 'ACCEPTED' || assignment?.status === 'COMPLETED') return true;
+  }
+  const directAssignment = await db.prepare(
+    "SELECT status FROM assignments WHERE project_id = ? AND draughtsman_id = ? AND status IN ('ACCEPTED', 'COMPLETED') ORDER BY created_at DESC LIMIT 1"
   ).bind(project.id, uid).first();
-  return assignment?.status === 'ACCEPTED' || assignment?.status === 'COMPLETED';
+  return !!directAssignment;
 }
 
 async function canUserAccessProject(db: D1Database, project: any, user: any, uid: string): Promise<boolean> {
@@ -693,8 +698,9 @@ app.get('/api/projects', async (c) => {
   }
 
   if (role === 'DRAUGHTSMAN') {
-    let query = 'SELECT * FROM projects WHERE draughtsman_id = ?';
-    const params: any[] = [uid];
+    let query = `SELECT * FROM projects
+      WHERE (draughtsman_id = ? OR EXISTS (SELECT 1 FROM assignments a WHERE a.project_id = projects.id AND a.draughtsman_id = ?))`;
+    const params: any[] = [uid, uid];
     if (status) {
       query += ' AND status = ?';
       params.push(status);
@@ -707,7 +713,7 @@ app.get('/api/projects', async (c) => {
   if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
     let query = 'SELECT * FROM projects WHERE 1=1';
     const params: any[] = [];
-    if (status) {
+    if (status && status !== 'ALL') {
       query += ' AND status = ?';
       params.push(status);
     }
@@ -718,6 +724,45 @@ app.get('/api/projects', async (c) => {
 
   return c.json({ error: 'Forbidden: Insufficient role permissions' }, 403);
 });
+
+// DELETE /api/projects/:id - Per-project removal by authorized Admin
+app.delete('/api/projects/:id', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('id');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const role = user.role as string;
+  if (!['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
+    return c.json({ error: 'Forbidden: Only administrators can remove projects' }, 403);
+  }
+
+  const project = await db.prepare('SELECT id, project_name, status FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) {
+    return c.json({ error: 'Project not found' }, 404);
+  }
+
+  // Safe transactional removal cascading related project-scoped records
+  const batch = [
+    db.prepare('DELETE FROM corrections WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM drawing_versions WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM project_messages WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM assignments WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM files WHERE project_id = ?').bind(projectId),
+    db.prepare('DELETE FROM projects WHERE id = ?').bind(projectId),
+  ];
+
+  await db.batch(batch);
+
+  return c.json({
+    success: true,
+    removedProjectId: projectId,
+    projectName: (project as any).project_name,
+    message: `Project ${projectId} successfully removed.`
+  });
+});
+
 
 
 app.get('/api/projects/:id', async (c) => {
@@ -913,7 +958,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
       ).bind(projectId).first();
       const vNum = ((latest?.v as number) || 0) + 1;
       const corr = await db.prepare(
-        "SELECT id FROM corrections WHERE project_id = ? AND status = 'OPEN'"
+        "SELECT id FROM corrections WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS') ORDER BY round_number DESC LIMIT 1"
       ).bind(projectId).first();
 
       batch.push(
@@ -927,7 +972,7 @@ app.post('/api/projects/submit-drawing', async (c) => {
 
   batch.push(
     db.prepare(`UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
-    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'OPEN'`).bind(projectId),
+    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS')`).bind(projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, projectId, 'DRAWING_SUBMITTED', uid, user.role,
       user.role === 'STUDENT' ? 'Student submitted drawing for review.' : 'Draughtsman submitted the drawing for engineer review.'
@@ -1022,7 +1067,7 @@ app.post('/api/projects/approve-final', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const body = await c.req.json();
-  const { projectId, actionId } = body;
+  const { projectId, actionId, drawingVersionId } = body;
 
   const user = await getUser(db, uid);
   const allowedApprovers = ['CLIENT', 'ENGINEER', 'STUDIO_ADMIN', 'ADMIN'];
@@ -1036,15 +1081,23 @@ app.post('/api/projects/approve-final', async (c) => {
   if (project.status === 'COMPLETED' && project.last_action_id === actionId) return c.json({ success: true });
   if (project.status !== 'UNDER_ENGINEER_REVIEW' && project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in review state' }, 400);
 
-  const batch = [
-    db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
-    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'PROJECT_COMPLETED', uid, 'ENGINEER', 'Engineer approved the final drawing.'
-    ),
-    db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), project.draughtsman_id, projectId, 'PROJECT_COMPLETED', 'Project Approved', 'The engineer has approved the final drawing.'
-    )
-  ];
+  // Verify approval of an older drawing version cannot mark a project completed when a newer version exists
+  if (drawingVersionId) {
+    const latestVersion = await db.prepare(
+      'SELECT id, version_number FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1'
+    ).bind(projectId).first();
+    if (latestVersion && latestVersion.id !== drawingVersionId) {
+      const targetVersion = await db.prepare('SELECT version_number FROM drawing_versions WHERE id = ?').bind(drawingVersionId).first();
+      if (targetVersion && (latestVersion.version_number as number) > (targetVersion.version_number as number)) {
+        return c.json({
+          error: 'Cannot approve an older drawing version when a newer revision exists requiring review',
+          code: 'OLDER_VERSION_APPROVAL'
+        }, 400);
+      }
+    }
+  }
+
+  const batch = buildApproveFinalBatch(db, project, uid, actionId, 'ENGINEER', null);
   await db.batch(batch);
   return c.json({ success: true });
 });
@@ -1374,7 +1427,7 @@ app.get('/api/assignments', async (c) => {
   }
 
   const { results } = await db.prepare(`
-    SELECT
+    SELECT 
       a.id, a.project_id, a.draughtsman_id, a.status, a.created_at, a.updated_at,
       p.project_name, p.project_address, p.drawing_name, p.drawing_type,
       p.project_area, p.status as project_status, p.correction_round,
@@ -1384,6 +1437,7 @@ app.get('/api/assignments', async (c) => {
     WHERE a.draughtsman_id = ?
     ORDER BY a.created_at DESC
   `).bind(uid).all();
+
   return c.json(results);
 });
 
@@ -1651,7 +1705,10 @@ function buildApproveFinalBatch(
 ) {
   const targetRecipient = studentId || project.draughtsman_id;
   const batch: any[] = [
-    db.prepare(`UPDATE projects SET status = 'COMPLETED', last_action_id = ? WHERE id = ?`).bind(actionId, project.id),
+    db.prepare(`UPDATE projects SET status = 'COMPLETED', approved_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, project.id),
+    db.prepare(`UPDATE assignments SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'ACCEPTED'`).bind(project.id),
+    db.prepare(`UPDATE student_assignments SET status = 'COMPLETED' WHERE project_id = ? AND status = 'ACCEPTED'`).bind(project.id),
+    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS')`).bind(project.id),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, project.id, 'PROJECT_COMPLETED', uid, role, 'Approved the final drawing.'
     )
@@ -1800,6 +1857,18 @@ app.post('/api/projects/evaluate', async (c) => {
   ];
 
   if (normalizedResult === 'APPROVED') {
+    // Verify approval of an older drawing version cannot mark a project completed when a newer version exists
+    const latestVersion = await db.prepare(
+      'SELECT id, version_number FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1'
+    ).bind(projectId).first();
+
+    if (latestVersion && latestVersion.id !== drawingVersionId && (latestVersion.version_number as number) > (drawingVersion.version_number as number)) {
+      return c.json({
+        error: 'Cannot mark project completed by approving an older drawing version when a newer revision exists requiring review',
+        code: 'OLDER_VERSION_APPROVAL'
+      }, 400);
+    }
+
     batch = batch.concat(buildApproveFinalBatch(db, project, uid, actualActionId, user.role, studentId));
 
     // Synchronize training module progress and credential
@@ -1927,6 +1996,66 @@ app.get('/api/projects/:projectId/corrections', async (c) => {
 
   const { results } = await db.prepare('SELECT * FROM corrections WHERE project_id = ? ORDER BY round_number DESC').bind(projectId).all();
   return c.json(results);
+});
+
+// Start / Accept a Correction Round
+app.post('/api/projects/:projectId/corrections/:correctionId/start', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const correctionId = c.req.param('correctionId');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const allowedRoles = ['DRAUGHTSMAN', 'STUDENT', 'STUDIO_ADMIN', 'ADMIN'];
+  if (!allowedRoles.includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Only assigned draughtsman, student, or admin can start a correction round' }, 403);
+  }
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) {
+    return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
+  }
+
+  const correction = await db.prepare(
+    'SELECT * FROM corrections WHERE id = ? AND project_id = ?'
+  ).bind(correctionId, projectId).first();
+
+  if (!correction) {
+    return c.json({ error: 'Correction not found for this project' }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const actionId = body.actionId || uuidv4();
+
+  // Idempotency: If already in progress, return success without duplicate logs or errors
+  if (correction.status === 'IN_PROGRESS') {
+    return c.json({ success: true, correctionId, status: 'IN_PROGRESS' });
+  }
+
+  if (correction.status === 'RESOLVED') {
+    return c.json({ error: 'Correction round has already been resolved' }, 400);
+  }
+
+  if (correction.status !== 'OPEN') {
+    return c.json({ error: 'Correction is not in an open state' }, 400);
+  }
+
+  const batch = [
+    db.prepare(`UPDATE corrections SET status = 'IN_PROGRESS' WHERE id = ?`).bind(correctionId),
+    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+      actionId, projectId, 'CORRECTION_STARTED', uid, user.role,
+      `${['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string) ? 'Studio Admin' : (user.role === 'STUDENT' ? 'Student' : 'Draughtsman')} started working on correction (Round ${correction.round_number}).`
+    )
+  ];
+  await db.batch(batch);
+
+  return c.json({ success: true, correctionId, status: 'IN_PROGRESS' });
 });
 
 // Project Messages (Collaboration Hub)
@@ -2357,7 +2486,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
     if (category === 'draughtsman_version') {
       const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
       const vNum = ((latest?.v as number) || 0) + 1;
-      const corr = await db.prepare("SELECT id FROM corrections WHERE project_id = ? AND status = 'OPEN'").bind(projectId).first();
+      const corr = await db.prepare("SELECT id FROM corrections WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS') ORDER BY round_number DESC LIMIT 1").bind(projectId).first();
 
       await db.prepare(`
         INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id) 
@@ -2652,6 +2781,32 @@ app.post('/api/notifications/:id/read', async (c) => {
   await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').bind(id).run();
   return c.json({ success: true });
 });
+
+app.delete('/api/notifications', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
+  return c.json({ success: true });
+});
+
+app.post('/api/notifications/clear', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
+  return c.json({ success: true });
+});
+
+app.delete('/api/notifications/:id', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const id = c.req.param('id');
+  const notif = await db.prepare('SELECT * FROM notifications WHERE id = ?').bind(id).first();
+  if (!notif) return c.json({ error: 'Notification not found' }, 404);
+  if (notif.user_id !== uid) return c.json({ error: 'Permission denied' }, 403);
+  await db.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?').bind(id, uid).run();
+  return c.json({ success: true });
+});
+
 
 // ==========================================
 // FINANCIALS API

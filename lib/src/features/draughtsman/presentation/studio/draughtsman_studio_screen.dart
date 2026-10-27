@@ -19,22 +19,28 @@ enum _StudioFilter { all, pending, inProgress, corrections, completed }
 
 extension _StudioFilterX on _StudioFilter {
   bool matches(Assignment a) {
+    final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
+        a.projectStatus == 'COMPLETED';
+    final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' ||
+        a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final hasActiveCorrection = !isCompleted &&
+        !isUnderReview &&
+        a.assignmentStatus == AssignmentStatus.accepted &&
+        ((a.correctionRound ?? 0) > 0 || a.isRevision);
+
     switch (this) {
       case _StudioFilter.all:
-        return a.assignmentStatus != AssignmentStatus.completed &&
-            a.projectStatus != 'COMPLETED';
+        return !isCompleted;
       case _StudioFilter.pending:
         return a.assignmentStatus == AssignmentStatus.pending;
       case _StudioFilter.inProgress:
         return a.assignmentStatus == AssignmentStatus.accepted &&
-            a.projectStatus == 'IN_PROGRESS' &&
-            (a.correctionRound == null || a.correctionRound == 0);
+            !hasActiveCorrection &&
+            !isCompleted;
       case _StudioFilter.corrections:
-        return a.assignmentStatus == AssignmentStatus.accepted &&
-            (a.correctionRound ?? 0) > 0;
+        return hasActiveCorrection;
       case _StudioFilter.completed:
-        return a.assignmentStatus == AssignmentStatus.completed ||
-            a.projectStatus == 'COMPLETED';
+        return isCompleted;
     }
   }
 }
@@ -52,15 +58,30 @@ class DraughtsmanStudioScreen extends ConsumerStatefulWidget {
 }
 
 class _DraughtsmanStudioScreenState
-    extends ConsumerState<DraughtsmanStudioScreen> {
+    extends ConsumerState<DraughtsmanStudioScreen>
+    with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _StudioFilter _filter = _StudioFilter.all;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(draughtsmanAssignmentsProvider);
+    }
   }
 
   @override
@@ -69,13 +90,20 @@ class _DraughtsmanStudioScreenState
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: assignmentsAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         loading: () =>
             const AppLoadingIndicator(message: 'Loading workspace...'),
         error: (error, _) => AppErrorWidget(
           message: 'Failed to load assignments.\n$error',
           onRetry: () => ref.invalidate(draughtsmanAssignmentsProvider),
         ),
-        data: (assignments) => _buildContent(context, assignments),
+        data: (assignments) => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(draughtsmanAssignmentsProvider);
+          },
+          child: _buildContent(context, assignments),
+        ),
       ),
     );
   }
@@ -252,9 +280,11 @@ class _DraughtsmanStudioScreenState
       );
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.md,
       children: [
         searchWidget,
         filtersWidget,
@@ -431,8 +461,11 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
     final isPending = a.assignmentStatus == AssignmentStatus.pending;
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
-    final hasCorrection = (a.correctionRound ?? 0) > 0;
     final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final hasActiveCorrection = !isCompleted &&
+        !isUnderReview &&
+        a.assignmentStatus == AssignmentStatus.accepted &&
+        ((a.correctionRound ?? 0) > 0 || a.isRevision);
 
     // Status pill tokens matching code.html
     String statusLabel;
@@ -441,7 +474,13 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
     Color statusBorder;
     IconData statusIcon;
 
-    if (hasCorrection) {
+    if (isCompleted) {
+      statusLabel = 'Completed';
+      statusColor = AppColors.onTertiaryContainer;
+      statusBg = AppColors.tertiaryFixedDim.withValues(alpha: 0.25);
+      statusBorder = AppColors.onTertiaryContainer.withValues(alpha: 0.20);
+      statusIcon = Icons.check_circle_outline_rounded;
+    } else if (hasActiveCorrection) {
       statusLabel = 'Correction';
       statusColor = AppColors.error;
       statusBg = AppColors.errorContainer.withValues(alpha: 0.35);
@@ -459,12 +498,6 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
       statusBg = AppColors.surfaceContainerHigh;
       statusBorder = AppColors.outlineVariant.withValues(alpha: 0.40);
       statusIcon = Icons.rate_review_outlined;
-    } else if (isCompleted) {
-      statusLabel = 'Completed';
-      statusColor = AppColors.onTertiaryContainer;
-      statusBg = AppColors.tertiaryFixedDim.withValues(alpha: 0.25);
-      statusBorder = AppColors.onTertiaryContainer.withValues(alpha: 0.20);
-      statusIcon = Icons.check_circle_outline_rounded;
     } else {
       statusLabel = 'In Progress';
       statusColor = AppColors.secondary;
@@ -518,7 +551,7 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: hasCorrection
+                  color: hasActiveCorrection
                       ? AppColors.errorContainer.withValues(alpha: 0.12)
                       : (isPending
                           ? AppColors.tertiaryFixedDim.withValues(alpha: 0.12)
@@ -660,7 +693,7 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
                             ),
 
                           // Redlining hint overlay if correction
-                          if (hasCorrection)
+                          if (hasActiveCorrection)
                             Positioned.fill(
                               child: Container(
                                 color: AppColors.error.withValues(alpha: 0.05),
@@ -699,7 +732,7 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
                                       ),
                                     ),
                                   ),
-                                if (hasCorrection)
+                                if (hasActiveCorrection)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -740,7 +773,7 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
                   SizedBox(
                     width: double.infinity,
                     height: 46,
-                    child: hasCorrection
+                    child: hasActiveCorrection
                         ? OutlinedButton(
                             onPressed: () {
                               context.push('/draughtsman/workspace/${a.id}');

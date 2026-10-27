@@ -18,6 +18,7 @@ class HexagonalMonogram3DViewer extends StatefulWidget {
   final bool autoRotate;
   final String rotationSpeed;
   final bool interactive;
+  final bool respectReducedMotion;
   final String assetPath;
   final String fallbackImagePath;
 
@@ -29,6 +30,7 @@ class HexagonalMonogram3DViewer extends StatefulWidget {
     this.autoRotate = true,
     this.rotationSpeed = '36deg',
     this.interactive = false,
+    this.respectReducedMotion = false,
     this.assetPath = 'assets/models/architectural_hexagonal_monogram.glb',
     this.fallbackImagePath = 'assets/images/draughtsman_logo.jpeg',
   });
@@ -60,7 +62,8 @@ class _HexagonalMonogram3DViewerState extends State<HexagonalMonogram3DViewer> {
 
     final disableAnimations =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final shouldAutoRotate = widget.autoRotate && !disableAnimations;
+    final shouldAutoRotate =
+        widget.autoRotate && (!widget.respectReducedMotion || !disableAnimations);
 
     Widget viewer;
     try {
@@ -69,6 +72,7 @@ class _HexagonalMonogram3DViewerState extends State<HexagonalMonogram3DViewer> {
         autoRotate: shouldAutoRotate,
         rotationSpeed: widget.rotationSpeed,
         interactive: widget.interactive,
+        respectReducedMotion: widget.respectReducedMotion,
         fallbackImagePath: widget.fallbackImagePath,
       );
     } catch (_) {

@@ -79,6 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/login',
         '/register',
         '/forgot-password',
+        '/verify-email',
       ];
       final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/');
 
@@ -118,6 +119,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final profileAsync = ref.read(userProfileProvider);
       if (profileAsync.isLoading) {
         return null; // Wait for profile to load
+      }
+
+      // If user profile is missing in the database, direct them to provision their profile
+      if (profileAsync.value == null) {
+        if (currentPath == '/provision-profile') return null;
+        return '/provision-profile';
       }
 
       final role = ref.read(currentUserRoleProvider);

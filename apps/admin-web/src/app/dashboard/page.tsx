@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { adminApi } from '@/lib/api';
+import { formatTime, formatRelativeTime } from '@/lib/dateUtils';
 import { AdminStats, Project } from '@/lib/types';
 import {
   FolderKanban,
@@ -568,7 +569,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-[10px] text-slate-400 font-mono">
-                        {new Date(log.timestamp).toLocaleTimeString()}
+                        {formatTime(log.timestamp)}
                       </p>
                       <Link
                         href={`/projects/${log.project_id}`}

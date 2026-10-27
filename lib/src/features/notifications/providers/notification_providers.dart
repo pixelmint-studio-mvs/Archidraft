@@ -31,6 +31,12 @@ final markAllNotificationsReadProvider = FutureProvider<void>((ref) async {
   ref.invalidate(notificationsProvider);
 });
 
+final clearNotificationsProvider = FutureProvider<void>((ref) async {
+  final repository = ref.watch(notificationRepositoryProvider);
+  await repository.clearAll();
+  ref.invalidate(notificationsProvider);
+});
+
 final unreadNotificationsCountProvider = Provider<int>((ref) {
   final async = ref.watch(notificationsProvider);
   return async.maybeWhen(
@@ -38,4 +44,5 @@ final unreadNotificationsCountProvider = Provider<int>((ref) {
     orElse: () => 0,
   );
 });
+
 

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../api/providers/api_providers.dart';
 import '../../data/file_repository.dart';
 import 'dxf_viewer.dart';
+import 'pdf_drawing_viewer.dart';
 
 /// Pure-Dart utility to extract embedded AutoCAD thumbnail bitmap (DIB)
 /// from standard AutoCAD DWG binary files (AC1012 through AC1032).
@@ -67,6 +68,32 @@ Uint8List? extractDwgThumbnail(Uint8List bytes) {
   return null;
 }
 
+class _CachedDrawingData {
+  final Uint8List? dwgBmpBytes;
+  final DxfDrawing? dxfDrawing;
+  final Uint8List? rawImageBytes;
+  final Uint8List? pdfBytes;
+  final bool isDxf;
+  final bool isDwg;
+  final bool isRasterImage;
+  final bool isPdf;
+  final String formatBadge;
+  final String formatDetails;
+
+  const _CachedDrawingData({
+    this.dwgBmpBytes,
+    this.dxfDrawing,
+    this.rawImageBytes,
+    this.pdfBytes,
+    required this.isDxf,
+    required this.isDwg,
+    required this.isRasterImage,
+    required this.isPdf,
+    required this.formatBadge,
+    required this.formatDetails,
+  });
+}
+
 /// CAD Drawing Viewer supporting DWG, DXF, and raster preview formats
 /// with interactive zoom, pan, fit-to-view, error handling, and download.
 class CadDrawingViewer extends ConsumerStatefulWidget {
@@ -82,24 +109,34 @@ class CadDrawingViewer extends ConsumerStatefulWidget {
     required this.fileId,
     required this.fileName,
     this.fileSize,
-    required this.versionNumber,
+    this.versionNumber = 1,
     this.onDownload,
     this.height = 440,
   });
+
+  static void clearCache() => _CadDrawingViewerState.clearCache();
 
   @override
   ConsumerState<CadDrawingViewer> createState() => _CadDrawingViewerState();
 }
 
 class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
+  static final Map<String, _CachedDrawingData> _drawingCache = {};
+
+  static void clearCache() {
+    _drawingCache.clear();
+  }
+
   bool _isLoading = true;
   String? _error;
   Uint8List? _dwgBmpBytes;
   DxfDrawing? _dxfDrawing;
   Uint8List? _rawImageBytes;
+  Uint8List? _pdfBytes;
   bool _isDxf = false;
   bool _isDwg = false;
   bool _isRasterImage = false;
+  bool _isPdf = false;
   String _formatBadge = '';
   String _formatDetails = '';
   final TransformationController _transController = TransformationController();
@@ -125,15 +162,37 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   }
 
   Future<void> _loadDrawing() async {
+    // Fast path: reuse parsed drawing from memory cache instantly
+    if (_drawingCache.containsKey(widget.fileId)) {
+      final cached = _drawingCache[widget.fileId]!;
+      setState(() {
+        _isLoading = false;
+        _error = null;
+        _dwgBmpBytes = cached.dwgBmpBytes;
+        _dxfDrawing = cached.dxfDrawing;
+        _rawImageBytes = cached.rawImageBytes;
+        _pdfBytes = cached.pdfBytes;
+        _isDxf = cached.isDxf;
+        _isDwg = cached.isDwg;
+        _isRasterImage = cached.isRasterImage;
+        _isPdf = cached.isPdf;
+        _formatBadge = cached.formatBadge;
+        _formatDetails = cached.formatDetails;
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
       _dwgBmpBytes = null;
       _dxfDrawing = null;
       _rawImageBytes = null;
+      _pdfBytes = null;
       _isDxf = false;
       _isDwg = false;
       _isRasterImage = false;
+      _isPdf = false;
     });
 
     try {
@@ -148,6 +207,7 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       final isDwgExt = ext == 'dwg';
       final isDxfExt = ext == 'dxf';
       final isRasterExt = ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp';
+      final isPdfExt = ext == 'pdf';
 
       // 1. DWG Drawing
       if (isDwgExt || (raw.length >= 4 && String.fromCharCodes(raw.sublist(0, 4)).startsWith('AC'))) {
@@ -179,20 +239,41 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
         _formatBadge = 'AutoCAD DXF \u2022 2D Vector CAD';
         _formatDetails = '$geomCount geometry \u2022 $textCount text labels \u2022 Bounds: ${parsed.bounds.width.toStringAsFixed(1)} x ${parsed.bounds.height.toStringAsFixed(1)}';
       }
-      // 3. Raster Image
+      // 3. PDF Document
+      else if (isPdfExt || (raw.length >= 4 && String.fromCharCodes(raw.sublist(0, 4)) == '%PDF')) {
+        _isPdf = true;
+        _pdfBytes = raw;
+        _formatBadge = 'PDF Document \u2022 Vector Sheet';
+        _formatDetails = 'PDF \u2022 ${raw.length} bytes \u2022 Embedded Vector Engine';
+      }
+      // 4. Raster Image
       else if (isRasterExt) {
         _isRasterImage = true;
         _rawImageBytes = raw;
         _formatBadge = 'Raster Image Preview';
         _formatDetails = '${ext.toUpperCase()} \u2022 ${raw.length} bytes';
       }
-      // 4. Unsupported Format
+      // 5. Unsupported Format
       else {
         throw Exception(
-          'Preview unavailable for .$ext format. Supported formats: .dwg, .dxf, .png, .jpg, .jpeg. '
+          'Preview unavailable for .$ext format. Supported formats: .dwg, .dxf, .pdf, .png, .jpg, .jpeg. '
           'You can download the source file below.'
         );
       }
+
+      // Populate memory cache for instant future rendering
+      _drawingCache[widget.fileId] = _CachedDrawingData(
+        dwgBmpBytes: _dwgBmpBytes,
+        dxfDrawing: _dxfDrawing,
+        rawImageBytes: _rawImageBytes,
+        pdfBytes: _pdfBytes,
+        isDxf: _isDxf,
+        isDwg: _isDwg,
+        isRasterImage: _isRasterImage,
+        isPdf: _isPdf,
+        formatBadge: _formatBadge,
+        formatDetails: _formatDetails,
+      );
 
       if (mounted) {
         setState(() {
@@ -344,7 +425,11 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          _isDwg ? Icons.architecture_rounded : (_isDxf ? Icons.polyline_rounded : Icons.image_rounded),
+                          _isDwg
+                              ? Icons.architecture_rounded
+                              : (_isDxf
+                                  ? Icons.polyline_rounded
+                                  : (_isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded)),
                           color: const Color(0xFF00E5FF),
                           size: 14,
                         ),
@@ -476,44 +561,51 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.preview_outlined, size: 48, color: Colors.white54),
-              const SizedBox(height: 12),
+              const Icon(Icons.preview_outlined, size: 36, color: Colors.white54),
+              const SizedBox(height: 8),
               Flexible(
                 child: SingleChildScrollView(
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                     textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              const SizedBox(height: 12),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ElevatedButton.icon(
                     onPressed: _loadDrawing,
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: const Icon(Icons.refresh, size: 14),
                     label: const Text('Retry'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00E5FF),
                       foregroundColor: const Color(0xFF07111E),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
                   ),
-                  const SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: widget.onDownload ?? () {
                       ref.read(fileRepositoryProvider).downloadFile(widget.fileId, widget.fileName, openInBrowser: false);
                     },
-                    icon: const Icon(Icons.download, size: 16),
+                    icon: const Icon(Icons.download, size: 14),
                     label: const Text('Download Original File'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
@@ -566,7 +658,19 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
       );
     }
 
-    // 3. Raster Image
+    // 3. PDF Document
+    if (_isPdf && _pdfBytes != null) {
+      return PdfDrawingViewer(
+        bytes: _pdfBytes!,
+        fileName: widget.fileName,
+        fileId: widget.fileId,
+        onDownload: widget.onDownload ?? () {
+          ref.read(fileRepositoryProvider).downloadFile(widget.fileId, widget.fileName, openInBrowser: false);
+        },
+      );
+    }
+
+    // 4. Raster Image
     if (_isRasterImage && _rawImageBytes != null) {
       return InteractiveViewer(
         transformationController: _transController,
@@ -577,6 +681,95 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
           child: Image.memory(
             _rawImageBytes!,
             fit: BoxFit.contain,
+          ),
+        ),
+      );
+    }
+
+    // 4. PDF Document Preview Card
+    if (_isPdf) {
+      return Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          margin: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxWidth: 480),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B192C),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.picture_as_pdf_rounded, size: 48, color: Colors.redAccent),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.fileName,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _formatDetails,
+                style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      ref.read(fileRepositoryProvider).downloadFile(
+                        widget.fileId,
+                        widget.fileName,
+                        openInBrowser: true,
+                      );
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text('Open in Browser'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00E5FF),
+                      foregroundColor: const Color(0xFF07111E),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: widget.onDownload ?? () {
+                      ref.read(fileRepositoryProvider).downloadFile(
+                        widget.fileId,
+                        widget.fileName,
+                        openInBrowser: false,
+                      );
+                    },
+                    icon: const Icon(Icons.download_rounded, size: 16),
+                    label: const Text('Download PDF'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white38),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       );

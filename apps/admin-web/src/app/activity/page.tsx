@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { adminApi } from '@/lib/api';
+import { formatRelativeTime, formatTime } from '@/lib/dateUtils';
 import { ActivityLog } from '@/lib/types';
 import {
   Search,
@@ -53,19 +54,6 @@ const ACTION_COLORS: Record<string, { bg: string; text: string; border: string }
 
 function actionStyle(type: string) {
   return ACTION_COLORS[type] ?? ACTION_COLORS.DEFAULT;
-}
-
-// ── Relative time helper ──────────────────────────────────────────────────────
-
-function relativeTime(ts: string): string {
-  const diff = Date.now() - new Date(ts).getTime();
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return s + 's ago';
-  const m = Math.floor(s / 60);
-  if (m < 60) return m + 'm ago';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + 'h ago';
-  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // ── New-entry animation wrapper ───────────────────────────────────────────────
@@ -130,9 +118,9 @@ function LiveRow({ log, isNew }: { log: ActivityLog; isNew: boolean }) {
 
       {/* Timestamp */}
       <td className="px-5 py-3.5 text-right">
-        <span className="text-[11px] font-mono font-medium text-slate-700">{relativeTime(log.timestamp)}</span>
+        <span className="text-[11px] font-mono font-medium text-slate-700">{formatRelativeTime(log.timestamp)}</span>
         <p className="text-[10px] font-mono text-slate-400 mt-0.5">
-          {new Date(log.timestamp).toLocaleTimeString()}
+          {formatTime(log.timestamp)}
         </p>
       </td>
     </tr>
@@ -439,7 +427,7 @@ export default function ActivityPage() {
                       {isNew && <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: style.text }} />}
                       {log.action_type}
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500">{relativeTime(log.timestamp)}</span>
+                    <span className="text-[10px] font-mono text-slate-500">{formatRelativeTime(log.timestamp)}</span>
                   </div>
 
                   <p className="text-xs text-slate-800 leading-relaxed mb-2.5 font-normal">{log.details}</p>

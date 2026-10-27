@@ -28,7 +28,7 @@ export function getDisplayRole(role?: string): string {
       return 'Student';
     case 'ADMIN':
     case 'STUDIO_ADMIN':
-      return 'Studio Admin';
+      return 'Admin';
     default:
       return role;
   }

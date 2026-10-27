@@ -121,5 +121,51 @@ void main() {
       );
       expect(client.baseUrl, equals('https://api.draughtsmanstudio.com'));
     });
+
+    test('strips trailing slashes from overrideUrl in resolveBaseUrl', () {
+      final url = ApiClient.resolveBaseUrl(
+        overrideUrl: 'http://localhost:8787/',
+        isRelease: false,
+      );
+      expect(url, equals('http://localhost:8787'));
+
+      final multipleSlashes = ApiClient.resolveBaseUrl(
+        overrideUrl: 'http://localhost:8787///',
+        isRelease: false,
+      );
+      expect(multipleSlashes, equals('http://localhost:8787'));
+    });
+  });
+
+  group('ApiClient.buildUri', () {
+    test('constructs clean URI without double slash even if baseUrl has trailing slash', () {
+      final client = ApiClient(
+        _FakeFirebaseAuth(),
+        baseUrl: 'http://localhost:8787/',
+        isRelease: false,
+      );
+      final uri = client.buildUri('/api/users/me/legal-status');
+      expect(uri.toString(), equals('http://localhost:8787/api/users/me/legal-status'));
+    });
+
+    test('constructs clean URI if path does not have leading slash', () {
+      final client = ApiClient(
+        _FakeFirebaseAuth(),
+        baseUrl: 'http://localhost:8787',
+        isRelease: false,
+      );
+      final uri = client.buildUri('api/users/me/legal-status');
+      expect(uri.toString(), equals('http://localhost:8787/api/users/me/legal-status'));
+    });
+
+    test('appends query parameters correctly', () {
+      final client = ApiClient(
+        _FakeFirebaseAuth(),
+        baseUrl: 'http://localhost:8787',
+        isRelease: false,
+      );
+      final uri = client.buildUri('/api/legal/documents/current', {'locale': 'en-IN'});
+      expect(uri.toString(), equals('http://localhost:8787/api/legal/documents/current?locale=en-IN'));
+    });
   });
 }

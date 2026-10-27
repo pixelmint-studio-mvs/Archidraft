@@ -10,10 +10,8 @@ import 'package:archi_draft/src/features/projects/domain/drawing_type.dart';
 import 'package:archi_draft/src/features/projects/domain/project_validators.dart';
 import 'package:archi_draft/src/features/projects/providers/project_form_controller.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
-import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 import 'package:archi_draft/src/features/profile/providers/profile_providers.dart';
-import 'package:archi_draft/src/features/projects/presentation/widgets/file_upload_button.dart';
-import 'package:archi_draft/src/features/projects/presentation/widgets/file_attachment_card.dart';
+import 'package:archi_draft/src/features/engineer/presentation/widgets/reference_files_upload_section.dart';
 
 /// Single-page project brief form.
 ///
@@ -244,7 +242,10 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
                     isOptional: true,
                   ),
 
-                  _buildUploadArea(formState, controller),
+                  ReferenceFilesUploadSection(
+                    projectId: formState.projectId,
+                    controller: controller,
+                  ),
 
                   _buildEstimateCard(formState),
 
@@ -309,105 +310,6 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
     );
   }
 
-  Widget _buildUploadArea(ProjectFormState formState, ProjectFormController controller) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xl),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0C000000),
-            blurRadius: 30,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'SOURCE_FILES (CAD/PDF)',
-            style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (formState.projectId == null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              decoration: BoxDecoration(
-                color: AppColors.secondaryFixed,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(
-                  color: AppColors.secondary.withValues(alpha: 0.4),
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.save_outlined, color: AppColors.secondary, size: 40),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Save your draft first to upload files.',
-                    style: AppTypography.buttonText.copyWith(color: AppColors.primary),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  FilledButton.tonal(
-                    onPressed: (formState.isSaving || formState.isSubmitting)
-                        ? null
-                        : () async {
-                            final success = await controller.saveDraft();
-                            if (success && mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Draft saved successfully.'),
-                                  backgroundColor: AppColors.secondary,
-                                ),
-                              );
-                            }
-                          },
-                    child: const Text('Save Draft Now'),
-                  ),
-                ],
-              ),
-            )
-          else ...[
-            SizedBox(
-              width: double.infinity,
-              child: FileUploadButton(
-                projectId: formState.projectId!,
-                category: 'client_upload',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ref.watch(projectFilesProvider(formState.projectId!)).when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Text('Error loading files: $err', style: TextStyle(color: AppColors.error)),
-              data: (files) {
-                final clientFiles = files.where((f) => f.category == 'client_upload' && f.status != 'FAILED').toList();
-                if (clientFiles.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.md),
-                    child: Text(
-                      'No source files uploaded yet. Upload reference files to provide context for your request.',
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.outline,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  );
-                }
-                return Column(
-                  children: clientFiles.map((f) => FileAttachmentCard(file: f)).toList(),
-                );
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
   Widget _buildEstimateCard(ProjectFormState formState) {
     return Container(

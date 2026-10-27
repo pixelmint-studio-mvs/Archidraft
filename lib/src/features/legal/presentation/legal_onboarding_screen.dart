@@ -43,7 +43,10 @@ class LegalOnboardingScreen extends ConsumerStatefulWidget {
     if (lower.contains('api error')) {
       return 'Legal policy service error: $errStr. Please try again.';
     }
-    return 'Unable to reach legal policy service. Please check network connection.';
+    if (lower.contains('user not authenticated') || lower.contains('unauthenticated')) {
+      return 'Legal policy service error: Session expired. Please log in again.';
+    }
+    return 'Legal policy service error: $errStr. Please try again.';
   }
 
   @override
@@ -91,7 +94,7 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
   Future<void> _handleAcceptance(LegalDocument? termsDoc, LegalDocument? privacyDoc) async {
     if (_isSubmitting) return;
-    if (!_termsAgreed && termsDoc != null) return;
+    if ((!_termsAgreed && termsDoc != null) || !_privacyAcknowledged) return;
 
     if (widget.isPreLogin) {
       final role = widget.preLoginRole ?? ref.read(preLoginTermsProvider).role ?? 'ENGINEER';
@@ -124,29 +127,28 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       );
 
       // 2. Acknowledge privacy notice
-      if (_privacyAcknowledged) {
-        final effectivePriv = (privacyDoc != null && privacyDoc.content.trim().length > 50)
-            ? privacyDoc
-            : kDefaultEffectivePrivacyDocument;
-        await repo.acknowledgePrivacy(
-          documentId: effectivePriv.id,
-          version: effectivePriv.version,
-        );
-      }
+      final effectivePriv = (privacyDoc != null && privacyDoc.content.trim().length > 50)
+          ? privacyDoc
+          : kDefaultEffectivePrivacyDocument;
+
+      await repo.acknowledgePrivacy(
+        documentId: effectivePriv.id,
+        version: effectivePriv.version,
+      );
 
       // 3. Record optional purpose-specific consents
       await repo.updateConsent(
         purpose: 'MARKETING_COMMUNICATIONS',
         granted: _marketingConsent,
-        documentId: privacyDoc?.id,
-        version: privacyDoc?.version,
+        documentId: effectivePriv.id,
+        version: effectivePriv.version,
       );
 
       await repo.updateConsent(
         purpose: 'PORTFOLIO_SHOWCASE',
         granted: _portfolioConsent,
-        documentId: privacyDoc?.id,
-        version: privacyDoc?.version,
+        documentId: effectivePriv.id,
+        version: effectivePriv.version,
       );
 
       // Refresh and await legal status so router immediately allows navigation with valid compliant state
@@ -162,7 +164,7 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _submissionError = 'Failed to record legal acceptance. Please verify your connection and try again.';
+          _submissionError = LegalOnboardingScreen.mapLegalErrorMessage(e);
         });
       }
     }
@@ -452,7 +454,7 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
             // Accept button
             ElevatedButton(
-              onPressed: (!_termsAgreed || _isSubmitting)
+              onPressed: (!_termsAgreed || !_privacyAcknowledged || _isSubmitting)
                   ? null
                   : () => _handleAcceptance(termsDoc, privacyDocAsync.value),
               style: ElevatedButton.styleFrom(
@@ -505,8 +507,10 @@ class _LegalOnboardingScreenState extends ConsumerState<LegalOnboardingScreen> {
 
   Widget _buildPrivacyPreviewSection({required LegalDocument privacyDoc}) {
     final isTrivialPrivacy = privacyDoc.content.trim().isEmpty ||
+        privacyDoc.content.trim().length < 200 ||
         privacyDoc.content.trim() == 'Digital Personal Data Protection and Privacy Notice...' ||
-        privacyDoc.content.trim() == '# Privacy Policy';
+        privacyDoc.content.trim() == '# Privacy Policy' ||
+        privacyDoc.content.trim().startsWith('# Privacy Policy\n\nThis Privacy Policy governs');
     final privContent = isTrivialPrivacy
         ? kAuthoritativePrivacyPolicyContent
         : privacyDoc.content;

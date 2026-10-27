@@ -18,6 +18,17 @@ interface Monogram3DViewerProps {
   rotationSpeed?: number;
   fallbackSrc?: string;
   alt?: string;
+  /**
+   * Policy for reduced-motion accessibility preference.
+   * By default (false), the architectural brand monogram maintains smooth, non-intrusive
+   * ambient rotation. Set to true to strictly halt auto-rotation when the OS or user
+   * requests reduced motion.
+   */
+  respectReducedMotion?: boolean;
+  /**
+   * Allows direct touch/mouse drag interaction to rotate the 3D monogram.
+   */
+  interactive?: boolean;
 }
 
 export function Monogram3DViewer({
@@ -27,6 +38,8 @@ export function Monogram3DViewer({
   rotationSpeed,
   fallbackSrc = '/draughtsman_logo.jpeg',
   alt = 'Architectural Hexagonal Monogram 3D',
+  respectReducedMotion = false,
+  interactive = false,
 }: Monogram3DViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -183,16 +196,52 @@ export function Monogram3DViewer({
 
     // Frame-rate independent turntable rotation
     const clock = new THREE.Clock(false);
-    // Default targets ~10s per revolution (~0.628 rad/s)
-    const rotSpeedRadPerSec = (2 * Math.PI) / Math.max(revolutionDuration, 1);
+    // Calculate rotation speed in radians per second
+    const effectiveRotSpeedRadPerSec = rotationSpeed !== undefined
+      ? (rotationSpeed > 0.5 ? rotationSpeed : rotationSpeed * 60)
+      : (2 * Math.PI) / Math.max(revolutionDuration, 1);
+
+    let isDragging = false;
+    let previousX = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (!interactive) return;
+      isDragging = true;
+      previousX = e.clientX;
+      (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!interactive || !isDragging) return;
+      const deltaX = e.clientX - previousX;
+      previousX = e.clientX;
+      turntableGroup.rotation.y += deltaX * 0.01;
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!interactive) return;
+      isDragging = false;
+      try {
+        (e.target as HTMLElement)?.releasePointerCapture?.(e.pointerId);
+      } catch (_) {}
+    };
+
+    if (interactive) {
+      container.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    }
 
     const animate = () => {
       if (isDisposed) return;
 
       if (clock.running) {
         const delta = clock.getDelta();
-        if (autoRotate && !prefersReducedMotion) {
-          turntableGroup.rotation.y += rotSpeedRadPerSec * delta;
+        // Policy: brand monogram auto-rotates by default unless respectReducedMotion is explicitly true
+        const shouldRotate = autoRotate && (!respectReducedMotion || !prefersReducedMotion);
+        if (shouldRotate && !isDragging) {
+          turntableGroup.rotation.y += effectiveRotSpeedRadPerSec * delta;
         }
       }
 
@@ -207,6 +256,13 @@ export function Monogram3DViewer({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
 
+      if (interactive) {
+        container.removeEventListener('pointerdown', onPointerDown);
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        window.removeEventListener('pointercancel', onPointerUp);
+      }
+
       turntableGroup.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.geometry?.dispose();
@@ -220,7 +276,7 @@ export function Monogram3DViewer({
 
       renderer?.dispose();
     };
-  }, [autoRotate, revolutionDuration, rotationSpeed]);
+  }, [autoRotate, revolutionDuration, rotationSpeed, respectReducedMotion, interactive]);
 
   if (hasError) {
     return (
@@ -235,14 +291,14 @@ export function Monogram3DViewer({
   return (
     <div
       ref={containerRef}
-      className={`relative flex items-center justify-center pointer-events-none bg-transparent ${className}`}
+      className={`relative flex items-center justify-center bg-transparent ${interactive ? 'pointer-events-auto cursor-grab active:cursor-grabbing' : 'pointer-events-none'} ${className}`}
     >
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="h-4 w-4 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
         </div>
       )}
-      <canvas ref={canvasRef} className="w-full h-full block pointer-events-none bg-transparent" />
+      <canvas ref={canvasRef} className={`w-full h-full block bg-transparent ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`} />
     </div>
   );
 }

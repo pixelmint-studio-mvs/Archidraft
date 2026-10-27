@@ -12,7 +12,9 @@ import { AssignModal } from '@/components/projects/AssignModal';
 import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
 import { EvaluateModal } from '@/components/projects/EvaluateModal';
+import { CadDrawingRenderer } from '@/components/cad/CadDrawingRenderer';
 import { adminApi } from '@/lib/api';
+import { formatDateTime, formatDate, formatTime, parseUtcDate } from '@/lib/dateUtils';
 import {
   Project,
   ProjectFile,
@@ -63,6 +65,8 @@ import {
   MapPin,
   Target,
   X,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 type TabKey = 'overview' | 'timeline' | 'cad' | 'collab' | 'files' | 'drawings' | 'corrections' | 'assignments' | 'activity';
@@ -99,7 +103,7 @@ function parsePinFromDescription(
 interface CollabMessage {
   id: string;
   author: string;
-  role: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' | string;
+  role: 'ADMIN' | 'DRAUGHTSMAN' | 'ENGINEER' | 'STUDENT' | string;
   content: string;
   timestamp: Date;
   attachment?: {
@@ -153,17 +157,17 @@ function toCollabMessage(c: ProjectComment): CollabMessage {
     : undefined;
 
   const rawRole = (c.author_role || '').toUpperCase();
-  let normalizedRole: 'ADMIN' | 'DRAUGHTSMAN' | 'CLIENT' | 'STUDENT' = 'CLIENT';
+  let normalizedRole: 'ADMIN' | 'DRAUGHTSMAN' | 'ENGINEER' | 'STUDENT' | string = 'ENGINEER';
   let defaultAuthor = 'Participant';
 
   if (rawRole === 'ADMIN' || rawRole === 'STUDIO_ADMIN') {
     normalizedRole = 'ADMIN';
-    defaultAuthor = 'Studio Admin';
+    defaultAuthor = 'Admin';
   } else if (rawRole === 'DRAUGHTSMAN') {
     normalizedRole = 'DRAUGHTSMAN';
     defaultAuthor = 'Draughtsman';
   } else if (rawRole === 'ENGINEER' || rawRole === 'CLIENT') {
-    normalizedRole = 'CLIENT';
+    normalizedRole = 'ENGINEER';
     defaultAuthor = 'Engineer';
   } else if (rawRole === 'STUDENT') {
     normalizedRole = 'STUDENT';
@@ -175,7 +179,7 @@ function toCollabMessage(c: ProjectComment): CollabMessage {
     author: c.author_name || defaultAuthor,
     role: normalizedRole,
     content: c.content,
-    timestamp: new Date(c.created_at),
+    timestamp: parseUtcDate(c.created_at) || new Date(),
     attachment: c.attachment_name ? {
       name: c.attachment_name,
       size: formattedSize,
@@ -286,6 +290,14 @@ export default function ProjectDetailPage({
   const [cadSliderPos, setCadSliderPos] = useState<number>(50);
   const [cadFullscreen, setCadFullscreen] = useState<boolean>(false);
   const [cadContrast, setCadContrast] = useState<'normal' | 'high' | 'invert'>('normal');
+  const [cadSharedBounds, setCadSharedBounds] = useState<{
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Redline pinning state
   const [redlineMode, setRedlineMode] = useState<boolean>(false);
@@ -310,6 +322,23 @@ export default function ProjectDetailPage({
   const [isCancelOpen, setIsCancelOpen] = useState<boolean>(false);
   const [isEvaluateOpen, setIsEvaluateOpen] = useState<boolean>(false);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  // Authenticated file download state
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownloadFile = async (fileId: string, fallbackFileName?: string) => {
+    try {
+      setDownloadingFileId(fileId);
+      setDownloadError(null);
+      await adminApi.downloadAndSaveFile(fileId, fallbackFileName);
+    } catch (err: any) {
+      console.error('File download error:', err);
+      setDownloadError(err.message || 'Failed to download file. Please verify permissions.');
+    } finally {
+      setDownloadingFileId(null);
+    }
+  };
 
   const fetchProjectData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -459,7 +488,7 @@ export default function ProjectDetailPage({
                 <p className="text-sm mt-1 text-rose-800">{project.rejection_reason}</p>
                 {project.cancelled_at && (
                   <p className="text-[11px] text-rose-600 font-mono mt-1">
-                    Recorded at: {new Date(project.cancelled_at).toLocaleString()}
+                    Recorded at: {formatDateTime(project.cancelled_at)}
                   </p>
                 )}
               </div>
@@ -523,7 +552,7 @@ export default function ProjectDetailPage({
                   )}
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span>Created: <span className="text-slate-800 font-medium">{new Date(project.created_at).toLocaleDateString()}</span></span>
+                    <span>Created: <span className="text-slate-800 font-medium">{formatDate(project.created_at)}</span></span>
                   </div>
                 </div>
               </div>
@@ -759,7 +788,7 @@ export default function ProjectDetailPage({
                       {project.submitted_at && (
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-mono">Submitted</span>
-                          <span className="text-slate-700 font-mono">{new Date(project.submitted_at).toLocaleDateString()}</span>
+                          <span className="text-slate-700 font-mono">{formatDate(project.submitted_at)}</span>
                         </div>
                       )}
                     </div>
@@ -774,7 +803,7 @@ export default function ProjectDetailPage({
                             <div className="h-1.5 w-1.5 rounded-full bg-[#0453cd] mt-1.5 shrink-0" />
                             <div>
                               <p className="text-[10px] font-mono text-[#0453cd] font-semibold">{log.action_type}</p>
-                              <p className="text-[10px] text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString()}</p>
+                              <p className="text-[10px] text-slate-500 font-mono">{formatDateTime(log.timestamp)}</p>
                             </div>
                           </div>
                         ))}
@@ -788,75 +817,42 @@ export default function ProjectDetailPage({
 
           {/* ─── Tab: CAD Comparison Viewer ─────────────────────────────────── */}
           {activeTab === 'cad' && (() => {
-            const versionList = drawingVersions.length > 0
-              ? drawingVersions
-              : [
-                  { id: 'mock-v1', project_id: projectId, version_number: 1, original_name: 'Floor Plan v1.dwg', uploaded_by: 'demo', created_at: new Date().toISOString(), file_id: null as unknown as string, size: 0 },
-                  { id: 'mock-v2', project_id: projectId, version_number: 2, original_name: 'Floor Plan v2.dwg', uploaded_by: 'demo', created_at: new Date().toISOString(), file_id: null as unknown as string, size: 0 },
-                ] as DrawingVersion[];
+            if (drawingVersions.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border border-slate-200 soft-elevation">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3 border border-slate-200">
+                    <SplitSquareVertical className="h-6 w-6 text-slate-400" />
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800">No CAD drawing deliverables submitted yet</p>
+                  <p className="text-[11px] font-mono text-slate-500 max-w-sm mt-1">
+                    Once drawings are uploaded by the assigned draughtsman, they will appear here for architectural comparison and redline pinning.
+                  </p>
+                </div>
+              );
+            }
 
+            const versionList = drawingVersions;
             const vA = versionList[Math.min(cadVersionA, versionList.length - 1)];
             const vB = versionList[Math.min(cadVersionB, versionList.length - 1)];
 
-            // SVG blueprint mock thumbnails inline (no external image dependency)
-            const BlueprintMockA = () => (
-              <svg width="100%" height="100%" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"
-                className="w-full h-full">
-                <rect width="400" height="300" fill="#0d1929" />
-                {/* Grid lines */}
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <line key={`hA${i}`} x1="0" y1={i * 30} x2="400" y2={i * 30} stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <line key={`vA${i}`} x1={i * 30} y1="0" x2={i * 30} y2="300" stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {/* Floor plan v1 - outer walls */}
-                <rect x="40" y="40" width="320" height="220" fill="none" stroke="#60a5fa" strokeWidth="2" />
-                {/* Rooms */}
-                <line x1="180" y1="40" x2="180" y2="260" stroke="#60a5fa" strokeWidth="1.5" />
-                <line x1="40" y1="150" x2="180" y2="150" stroke="#60a5fa" strokeWidth="1.5" />
-                <line x1="280" y1="40" x2="280" y2="160" stroke="#60a5fa" strokeWidth="1.5" />
-                {/* Doors */}
-                <path d="M180 100 Q200 100 200 120" fill="none" stroke="#93c5fd" strokeWidth="1" />
-                {/* Windows */}
-                <line x1="80" y1="40" x2="120" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                <line x1="220" y1="40" x2="260" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                {/* Dimension lines */}
-                <line x1="40" y1="280" x2="360" y2="280" stroke="#6b7280" strokeWidth="0.5" strokeDasharray="4 2" />
-                <text x="200" y="295" textAnchor="middle" fill="#9ca3af" fontSize="8" fontFamily="monospace">320px</text>
-                {/* Label */}
-                <text x="8" y="15" fill="#60a5fa" fontSize="9" fontFamily="monospace" fontWeight="500">v{vA?.version_number ?? 1} · FLOOR PLAN</text>
-              </svg>
-            );
-
-            const BlueprintMockB = () => (
-              <svg width="100%" height="100%" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"
-                className="w-full h-full">
-                <rect width="400" height="300" fill="#0d1929" />
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <line key={`hB${i}`} x1="0" y1={i * 30} x2="400" y2={i * 30} stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {Array.from({ length: 14 }).map((_, i) => (
-                  <line key={`vB${i}`} x1={i * 30} y1="0" x2={i * 30} y2="300" stroke="#1e3a5f" strokeWidth="0.5" />
-                ))}
-                {/* Updated floor plan v2 - same outer, moved wall */}
-                <rect x="40" y="40" width="320" height="220" fill="none" stroke="#60a5fa" strokeWidth="2" />
-                <line x1="200" y1="40" x2="200" y2="260" stroke="#34d399" strokeWidth="1.5" />{/* moved wall - highlighted */}
-                <line x1="40" y1="150" x2="200" y2="150" stroke="#60a5fa" strokeWidth="1.5" />
-                <line x1="280" y1="40" x2="280" y2="160" stroke="#60a5fa" strokeWidth="1.5" />
-                {/* New element: additional room */}
-                <line x1="200" y1="180" x2="360" y2="180" stroke="#34d399" strokeWidth="1.5" strokeDasharray="none" />
-                <path d="M200 110 Q220 110 220 130" fill="none" stroke="#93c5fd" strokeWidth="1" />
-                <line x1="80" y1="40" x2="120" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                <line x1="240" y1="40" x2="280" y2="40" stroke="#bfdbfe" strokeWidth="3" />
-                {/* Change highlight overlay */}
-                <rect x="195" y="40" width="10" height="220" fill="#34d399" fillOpacity="0.12" />
-                <rect x="200" y="175" width="160" height="10" fill="#34d399" fillOpacity="0.12" />
-                <line x1="40" y1="280" x2="360" y2="280" stroke="#6b7280" strokeWidth="0.5" strokeDasharray="4 2" />
-                <text x="200" y="295" textAnchor="middle" fill="#9ca3af" fontSize="8" fontFamily="monospace">320px</text>
-                <text x="8" y="15" fill="#34d399" fontSize="9" fontFamily="monospace" fontWeight="500">v{vB?.version_number ?? 2} · FLOOR PLAN (REVISED)</text>
-              </svg>
-            );
+            // Drawing version comparison targets
+            const handleBoundsUpdate = (b: {
+              minX: number;
+              minY: number;
+              maxX: number;
+              maxY: number;
+              width: number;
+              height: number;
+            }) => {
+              setCadSharedBounds((prev) => {
+                if (!prev) return b;
+                const minX = Math.min(prev.minX, b.minX);
+                const minY = Math.min(prev.minY, b.minY);
+                const maxX = Math.max(prev.maxX, b.maxX);
+                const maxY = Math.max(prev.maxY, b.maxY);
+                return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+              });
+            };
 
             // ── Redline pinning handlers (closures — access vB + component-level state setters) ─
 
@@ -1174,7 +1170,14 @@ export default function ProjectDetailPage({
                               >
                                 PREV · v{vA?.version_number ?? 1}
                               </div>
-                              <BlueprintMockA />
+                              <CadDrawingRenderer
+                                fileId={vA?.file_id}
+                                fileName={vA?.original_name || `drawing_v${vA?.version_number}`}
+                                versionNumber={vA?.version_number ?? 1}
+                                strokeColor="#60a5fa"
+                                sharedBounds={cadSharedBounds || undefined}
+                                onBoundsLoaded={handleBoundsUpdate}
+                              />
                             </div>
 
                             {/* Drag handle */}
@@ -1202,19 +1205,14 @@ export default function ProjectDetailPage({
                               >
                                 CURR · v{vB?.version_number ?? 2}
                               </div>
-                              {/* Change indicators */}
-                              <div
-                                className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded text-[9px] font-mono"
-                                style={{
-                                  background: 'rgba(2,44,34,0.85)',
-                                  color: '#34d399',
-                                  border: '1px solid rgba(52,211,153,0.3)',
-                                }}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                                CHANGES DETECTED
-                              </div>
-                              <BlueprintMockB />
+                              <CadDrawingRenderer
+                                fileId={vB?.file_id}
+                                fileName={vB?.original_name || `drawing_v${vB?.version_number}`}
+                                versionNumber={vB?.version_number ?? 2}
+                                strokeColor="#34d399"
+                                sharedBounds={cadSharedBounds || undefined}
+                                onBoundsLoaded={handleBoundsUpdate}
+                              />
                             </div>
                           </div>
                         ) : (
@@ -1222,7 +1220,14 @@ export default function ProjectDetailPage({
                           <div className="relative h-full w-full overflow-hidden rounded-xl">
                             {/* Base layer (A) */}
                             <div className="absolute inset-0">
-                              <BlueprintMockA />
+                              <CadDrawingRenderer
+                                fileId={vA?.file_id}
+                                fileName={vA?.original_name || `drawing_v${vA?.version_number}`}
+                                versionNumber={vA?.version_number ?? 1}
+                                strokeColor="#60a5fa"
+                                sharedBounds={cadSharedBounds || undefined}
+                                onBoundsLoaded={handleBoundsUpdate}
+                              />
                             </div>
                             {/* Top layer (B) — clipped by slider */}
                             <div
@@ -1230,7 +1235,14 @@ export default function ProjectDetailPage({
                               style={{ width: `${cadSliderPos}%` }}
                             >
                               <div className="absolute inset-0" style={{ width: `${10000 / cadSliderPos}%` }}>
-                                <BlueprintMockB />
+                                <CadDrawingRenderer
+                                  fileId={vB?.file_id}
+                                  fileName={vB?.original_name || `drawing_v${vB?.version_number}`}
+                                  versionNumber={vB?.version_number ?? 2}
+                                  strokeColor="#34d399"
+                                  sharedBounds={cadSharedBounds || undefined}
+                                  onBoundsLoaded={handleBoundsUpdate}
+                                />
                               </div>
                             </div>
                             {/* Slider line */}
@@ -1556,7 +1568,7 @@ export default function ProjectDetailPage({
                               }}
                             />
                             <p className="text-[10px] font-mono text-slate-400 mb-0.5">
-                              {new Date(v.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              {formatDateTime(v.created_at)}
                             </p>
                             <p className="text-xs font-semibold text-slate-900">
                               Version {v.version_number} {i === 0 ? 'Committed' : 'Archived'}
@@ -1580,14 +1592,23 @@ export default function ProjectDetailPage({
 
                   {/* Download CTA */}
                   {vB?.file_id && (
-                    <a
-                      href={adminApi.getFileDownloadUrl(vB.file_id)}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-xs font-semibold font-mono text-white transition-all bg-[#0d1c32] hover:bg-[#1a2d4b] shadow-xs"
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadFile(vB.file_id!, vB.original_name || vB.sanitized_name || `drawing_v${vB.version_number}.dwg`)}
+                      disabled={downloadingFileId === vB.file_id}
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-xs font-semibold font-mono text-white transition-all bg-[#0d1c32] hover:bg-[#1a2d4b] disabled:opacity-50 shadow-xs cursor-pointer"
                     >
-                      <Download className="h-4 w-4" />
-                      Download Current Version (v{vB.version_number})
-                    </a>
+                      {downloadingFileId === vB.file_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      <span>
+                        {downloadingFileId === vB.file_id
+                          ? 'Downloading...'
+                          : `Download Current Version (v${vB.version_number})`}
+                      </span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -1601,16 +1622,16 @@ export default function ProjectDetailPage({
               switch (r) {
                 case 'ADMIN':
                 case 'STUDIO_ADMIN':
-                  return { bg: 'rgba(139,92,246,0.15)', text: '#c4b5fd', border: 'rgba(139,92,246,0.3)', label: 'ADMIN' };
+                  return { bg: 'rgba(139,92,246,0.15)', text: '#7c3aed', border: 'rgba(139,92,246,0.3)', label: 'Admin' };
                 case 'DRAUGHTSMAN':
-                  return { bg: 'rgba(6,182,212,0.15)', text: '#67e8f9', border: 'rgba(6,182,212,0.3)', label: 'DRAUGHTSMAN' };
+                  return { bg: 'rgba(6,182,212,0.15)', text: '#0891b2', border: 'rgba(6,182,212,0.3)', label: 'Draughtsman' };
                 case 'CLIENT':
                 case 'ENGINEER':
-                  return { bg: 'rgba(59,130,246,0.15)', text: '#93c5fd', border: 'rgba(59,130,246,0.3)', label: 'ENGINEER' };
+                  return { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', border: 'rgba(59,130,246,0.3)', label: 'Engineer' };
                 case 'STUDENT':
-                  return { bg: 'rgba(16,185,129,0.15)', text: '#6ee7b7', border: 'rgba(16,185,129,0.3)', label: 'STUDENT' };
+                  return { bg: 'rgba(16,185,129,0.15)', text: '#059669', border: 'rgba(16,185,129,0.3)', label: 'Student' };
                 default:
-                  return { bg: 'rgba(148,163,184,0.15)', text: '#94a3b8', border: 'rgba(148,163,184,0.3)', label: r || 'USER' };
+                  return { bg: 'rgba(148,163,184,0.15)', text: '#64748b', border: 'rgba(148,163,184,0.3)', label: r || 'User' };
               }
             };
 
@@ -1706,7 +1727,7 @@ export default function ProjectDetailPage({
                         {/* Messages */}
                         {collabMessages.map((msg) => {
                           const rc = getRoleColor(msg.role);
-                          const timeStr = msg.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                          const timeStr = formatTime(msg.timestamp);
                           const isAdmin = msg.role === 'ADMIN';
                           return (
                             <div key={msg.id} className="flex gap-3 group">
@@ -1769,12 +1790,15 @@ export default function ProjectDetailPage({
 
                                   {/* File attachment */}
                                   {msg.attachment && !msg.isVoice && (
-                                    <a
-                                      href={msg.attachment.downloadUrl || '#'}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      download={msg.attachment.name}
-                                      className="mt-3 flex items-center gap-3 p-2.5 rounded-lg w-fit pr-4 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors text-inherit no-underline group/att"
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (msg.attachment?.fileId) {
+                                          handleDownloadFile(msg.attachment.fileId, msg.attachment.name);
+                                        }
+                                      }}
+                                      disabled={msg.attachment?.fileId ? downloadingFileId === msg.attachment.fileId : false}
+                                      className="mt-3 flex items-center gap-3 p-2.5 rounded-lg w-fit pr-4 bg-slate-50 border border-slate-200 hover:bg-slate-100 disabled:opacity-50 transition-colors text-inherit no-underline group/att cursor-pointer text-left"
                                     >
                                       <div className="p-1.5 rounded-md"
                                         style={{
@@ -1791,8 +1815,12 @@ export default function ProjectDetailPage({
                                         </p>
                                         <p className="text-[9px] font-mono text-slate-500">{msg.attachment.size}</p>
                                       </div>
-                                      <Download className="h-3.5 w-3.5 text-slate-400 group-hover/att:text-slate-700 transition-colors ml-2 shrink-0" />
-                                    </a>
+                                      {msg.attachment?.fileId && downloadingFileId === msg.attachment.fileId ? (
+                                        <Loader2 className="h-3.5 w-3.5 text-[#0453cd] animate-spin ml-2 shrink-0" />
+                                      ) : (
+                                        <Download className="h-3.5 w-3.5 text-slate-400 group-hover/att:text-slate-700 transition-colors ml-2 shrink-0" />
+                                      )}
+                                    </button>
                                   )}
                                 </div>
 
@@ -1922,7 +1950,7 @@ export default function ProjectDetailPage({
                           },
                           {
                             label: project.client_name || 'Engineer',
-                            role: 'CLIENT',
+                            role: 'ENGINEER',
                             status: 'online',
                             note: undefined,
                             href: project.client_id ? `/engineers/${encodeURIComponent(project.client_id)}` : undefined,
@@ -1998,9 +2026,9 @@ export default function ProjectDetailPage({
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 soft-elevation flex-1">
                     <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-4">MESSAGE SUMMARY</p>
                     <div className="space-y-3">
-                      {(['ADMIN', 'DRAUGHTSMAN', 'CLIENT'] as const).map(role => {
+                      {(['ADMIN', 'DRAUGHTSMAN', 'ENGINEER', 'STUDENT'] as const).map(role => {
                         const rc = getRoleColor(role);
-                        const count = collabMessages.filter(m => m.role === role).length;
+                        const count = collabMessages.filter(m => m.role === role || (role === 'ENGINEER' && m.role === 'CLIENT')).length;
                         return (
                           <div key={role} className="flex items-center gap-3">
                             <div className="flex-1">
@@ -2117,13 +2145,13 @@ export default function ProjectDetailPage({
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Submitted At</span>
                     <span className="text-slate-800 font-mono">
-                      {project.submitted_at ? new Date(project.submitted_at).toLocaleString() : 'N/A'}
+                      {formatDateTime(project.submitted_at)}
                     </span>
                   </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Approved At</span>
                     <span className="text-slate-800 font-mono">
-                      {project.approved_at ? new Date(project.approved_at).toLocaleString() : 'N/A'}
+                      {formatDateTime(project.approved_at)}
                     </span>
                   </div>
                   <div className="pt-2 flex justify-between items-center">
@@ -2142,6 +2170,16 @@ export default function ProjectDetailPage({
                 title="Engineer Reference Materials & Uploads"
                 subtitle="Documents, sketches, and reference files stored securely in Cloudflare R2"
               />
+
+              {downloadError && (
+                <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-center justify-between font-mono">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                    <span>{downloadError}</span>
+                  </div>
+                  <button onClick={() => setDownloadError(null)} className="text-red-500 hover:text-red-700 font-bold ml-2">×</button>
+                </div>
+              )}
 
               {files.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400 font-mono">
@@ -2171,17 +2209,21 @@ export default function ProjectDetailPage({
 
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(file.created_at).toLocaleDateString()}
+                          {formatDate(file.created_at)}
                         </span>
-                        <a
-                          href={adminApi.getFileDownloadUrl(file.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadFile(file.id, file.original_name || file.sanitized_name)}
+                          disabled={downloadingFileId === file.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 border border-blue-200 rounded-lg transition-colors cursor-pointer"
                         >
-                          <Download className="h-3 w-3" />
-                          <span>Download</span>
-                        </a>
+                          {downloadingFileId === file.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Download className="h-3 w-3" />
+                          )}
+                          <span>{downloadingFileId === file.id ? 'Downloading...' : 'Download'}</span>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2226,18 +2268,22 @@ export default function ProjectDetailPage({
 
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(dv.created_at).toLocaleString()}
+                          {formatDateTime(dv.created_at)}
                         </span>
                         {dv.file_id && (
-                          <a
-                            href={adminApi.getFileDownloadUrl(dv.file_id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadFile(dv.file_id!, dv.original_name || dv.sanitized_name || `drawing_v${dv.version_number}.dwg`)}
+                            disabled={downloadingFileId === dv.file_id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-[#0453cd] hover:text-blue-800 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 border border-blue-200 rounded-lg transition-colors cursor-pointer"
                           >
-                            <Download className="h-3 w-3" />
-                            <span>Download v{dv.version_number}</span>
-                          </a>
+                            {downloadingFileId === dv.file_id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                            <span>{downloadingFileId === dv.file_id ? 'Downloading...' : `Download v${dv.version_number}`}</span>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -2284,7 +2330,7 @@ export default function ProjectDetailPage({
                           </span>
                         </div>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(corr.created_at).toLocaleString()}
+                          {formatDateTime(corr.created_at)}
                         </span>
                       </div>
                       <p className="text-xs text-slate-800 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 font-mono">
@@ -2292,7 +2338,7 @@ export default function ProjectDetailPage({
                       </p>
                       {corr.resolved_at && (
                         <p className="text-[10px] text-emerald-700 font-mono font-medium">
-                          Resolved on: {new Date(corr.resolved_at).toLocaleString()}
+                          Resolved on: {formatDateTime(corr.resolved_at)}
                         </p>
                       )}
                     </div>
@@ -2350,9 +2396,9 @@ export default function ProjectDetailPage({
                       </div>
 
                       <div className="text-right text-[10px] text-slate-400 font-mono">
-                        <p>Assigned: {new Date(a.created_at).toLocaleString()}</p>
+                        <p>Assigned: {formatDateTime(a.created_at)}</p>
                         {a.updated_at && a.updated_at !== a.created_at && (
-                          <p className="mt-0.5">Updated: {new Date(a.updated_at).toLocaleString()}</p>
+                          <p className="mt-0.5">Updated: {formatDateTime(a.updated_at)}</p>
                         )}
                       </div>
                     </div>
@@ -2392,7 +2438,7 @@ export default function ProjectDetailPage({
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-[10px] text-slate-400 font-mono">
-                          {new Date(log.timestamp).toLocaleString()}
+                          {formatDateTime(log.timestamp)}
                         </p>
                       </div>
                     </div>

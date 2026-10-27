@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { adminApi } from '@/lib/api';
+import { formatDateTime } from '@/lib/dateUtils';
 import { GlobalAssignment, AssignmentStatus } from '@/lib/types';
 import {
   History,
@@ -358,12 +359,12 @@ export default function AssignmentHistoryPage() {
 
                         {/* Dispatched timestamp */}
                         <td className="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
-                          {record.created_at ? new Date(record.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                          {formatDateTime(record.created_at)}
                         </td>
 
                         {/* Updated timestamp */}
                         <td className="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
-                          {record.updated_at ? new Date(record.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                          {formatDateTime(record.updated_at)}
                         </td>
 
                         {/* Actions */}

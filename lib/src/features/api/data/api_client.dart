@@ -27,7 +27,10 @@ class ApiClient {
     bool? isAndroidEmulator,
   }) {
     final releaseMode = isRelease ?? kReleaseMode;
-    final configured = (overrideUrl ?? const String.fromEnvironment('API_URL')).trim();
+    var configured = (overrideUrl ?? const String.fromEnvironment('API_URL')).trim();
+    while (configured.endsWith('/')) {
+      configured = configured.substring(0, configured.length - 1);
+    }
 
     if (releaseMode) {
       if (configured.isEmpty) {
@@ -99,15 +102,24 @@ class ApiClient {
     return headers;
   }
 
+  Uri buildUri(String path, [Map<String, String>? queryParams]) {
+    final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+    final uri = Uri.parse('$cleanBase$cleanPath');
+    return queryParams != null && queryParams.isNotEmpty
+        ? uri.replace(queryParameters: queryParams)
+        : uri;
+  }
+
   Future<dynamic> get(String path, {Map<String, String>? queryParams}) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: queryParams);
+    final uri = buildUri(path, queryParams);
     final headers = await _getHeaders();
     final response = await http.get(uri, headers: headers);
     return _handleResponse(response);
   }
 
   Future<dynamic> post(String path, {Map<String, dynamic>? body}) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final headers = await _getHeaders();
     final response = await http.post(
       uri,
@@ -118,7 +130,7 @@ class ApiClient {
   }
 
   Future<dynamic> delete(String path) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final headers = await _getHeaders();
     final response = await http.delete(
       uri,
@@ -128,7 +140,7 @@ class ApiClient {
   }
 
   Future<dynamic> patch(String path, {Map<String, dynamic>? body}) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final headers = await _getHeaders();
     final response = await http.patch(
       uri,
@@ -139,7 +151,7 @@ class ApiClient {
   }
 
   Future<dynamic> put(String path, {Map<String, dynamic>? body}) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final headers = await _getHeaders();
     final response = await http.put(
       uri,
@@ -150,7 +162,7 @@ class ApiClient {
   }
 
   Future<dynamic> postFileStream(String path, Stream<List<int>> stream, int length, {required String fileName, required String contentType, required String actionId}) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final user = _firebaseAuth.currentUser;
     if (user == null) {
       throw Exception('User not authenticated');
@@ -178,7 +190,7 @@ class ApiClient {
 
   Future<List<int>> downloadBinary(String path) async {
     // Deprecated for large files: Use downloadFileStream instead for Mobile
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final headers = await _getHeaders();
     headers.remove('Content-Type');
     
@@ -192,7 +204,7 @@ class ApiClient {
   }
 
   Future<void> downloadFileStream(String path, String savePath, {bool openInBrowser = false}) async {
-    final uri = Uri.parse('$baseUrl$path');
+    final uri = buildUri(path);
     final headers = await _getHeaders();
     headers.remove('Content-Type');
 

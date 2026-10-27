@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../training/providers/training_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -16,14 +17,33 @@ final assignmentRepositoryProvider = Provider<AssignmentRepository>((ref) {
 });
 
 // ──────────────────────────────────────────
-// DRAUGHTSMAN ASSIGNMENTS
+// DRAUGHTSMAN ASSIGNMENTS (Live polling & silent refresh)
 // ──────────────────────────────────────────
+
+List<Assignment>? _lastKnownDraughtsmanAssignments;
 
 final draughtsmanAssignmentsProvider = FutureProvider<List<Assignment>>((
   ref,
 ) async {
   final repository = ref.watch(assignmentRepositoryProvider);
-  return repository.getAssignments();
+
+  // 5-second polling interval while active/watched
+  final timer = Timer(const Duration(seconds: 5), () {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(() => timer.cancel());
+
+  try {
+    final assignments = await repository.getAssignments();
+    _lastKnownDraughtsmanAssignments = assignments;
+    return assignments;
+  } catch (e) {
+    // Retain last known valid data on background refresh errors
+    if (_lastKnownDraughtsmanAssignments != null) {
+      return _lastKnownDraughtsmanAssignments!;
+    }
+    rethrow;
+  }
 });
 
 final assignmentProvider = FutureProvider.family<Assignment, String>((
