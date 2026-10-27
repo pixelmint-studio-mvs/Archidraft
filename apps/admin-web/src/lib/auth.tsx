@@ -172,11 +172,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      let msg = err.message || 'Login failed';
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        msg = 'Invalid email or password.';
+      let msg = 'Invalid email or password. Please check your credentials and try again.';
+      if (
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/user-not-found' ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/invalid-login-credentials'
+      ) {
+        msg = 'Invalid email or password. Please check your credentials and try again.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Invalid email address format. Please enter a valid email.';
       } else if (err.code === 'auth/too-many-requests') {
         msg = 'Too many failed login attempts. Please try again later.';
+      } else if (err.code === 'auth/network-request-failed') {
+        msg = 'Network connection failed. Please check your connection and try again.';
+      } else if (err.message && typeof err.message === 'string' && !err.message.includes('Firebase:')) {
+        msg = err.message;
       }
       setError(msg);
       throw new Error(msg);
