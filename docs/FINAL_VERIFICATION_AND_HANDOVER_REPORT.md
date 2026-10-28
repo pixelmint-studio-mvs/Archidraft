@@ -60,6 +60,12 @@ This document represents the single authoritative handover, architecture, and ve
     - Updated `app_router.dart` to direct authenticated users with unprovisioned D1 profiles (`profileAsync.value == null`) to `/provision-profile` before legal evaluation.
     - Refined `LegalRepository.getUserLegalStatus()` to gracefully handle missing D1 user profile states without catastrophic service error lockouts while preserving genuine route failure propagation.
     - Verified via 15/15 API client tests and 49/49 legal suite tests.
+12. **Phase 6: Engineer Activity Feed Scoping & Double-'Z' Timestamp Resolution:**
+    - Diagnosed and fixed empty activity feed and identical timestamp display (`Oct 28, 2026 · 7:27 PM`) on `/engineer/activity`.
+    - Updated Cloudflare Worker `GET /api/activity` endpoint to scope records to `(p.client_id = uid OR a.actor_id = uid)` and normalize stored SQLite timestamps to standard UTC ISO-8601 `Z` strings via `normalizeTimestampString`.
+    - Refactored `ActivityLog.parseTimestamp` to safely handle standard ISO-8601 strings (ending with or without `Z`), SQLite space-delimited formats, and integer Unix epoch timestamps without double-`Z` concatenation corruption.
+    - Updated `ActivityLog.createdAt` to be nullable (`DateTime?`). Unparseable or absent timestamps explicitly evaluate to `null` and render as "Date unavailable" across `EngineerActivityScreen`, `ActivityTimeline`, and `WorkflowTimelineWidget`, strictly preventing silent fallback to `DateTime.now()`.
+    - Verified via 6/6 unit tests in `test/unit/activity_log_test.dart`, 4/4 widget tests in `test/features/engineer/presentation/engineer_activity_screen_test.dart`, live Chrome CDP runtime evaluation, and 342/342 Worker tests.
 
 ---
 

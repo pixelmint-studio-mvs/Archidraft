@@ -30,7 +30,9 @@ flutter test
 - `test/unit/validators_test.dart`: 39/39 passing (Form input validation, numeric area limits, email/password rules).
 - `test/widget_test.dart`: 7/7 passing (Safe authentication error mapping).
 - `test/features/auth/presentation/login_screen_test.dart`: 1/1 passing (Login screen rendering and authenticate interaction).
-- **Total Tests Passed:** **91 tests passed** (0 failures).
+- `test/unit/activity_log_test.dart`: 6/6 passing (ISO-8601 parsing without double-Z corruption, SQLite timestamps, explicit null handling for corrupt dates, distinct timestamp delta).
+- `test/features/engineer/presentation/engineer_activity_screen_test.dart`: 4/4 passing (Empty feed refresh button, distinct formatted timestamp rendering, Date unavailable display for null dates, error state retry).
+- **Total Tests Passed:** **101 tests passed** (0 failures).
 
 ### Cloudflare Worker Typecheck
 ```bash
@@ -59,6 +61,7 @@ npm run typecheck
 | **File Upload (50 MB)** | Streaming API & D1 Test | ✅ PASS | Byte-counter enforcement via Worker `TransformStream`. |
 | **File Download** | Mobile/Web Streaming Test | ✅ PASS | Streamed to disk on mobile, Blob-triggered on Web. |
 | **Workflow Actions** | State Machine API Test | ✅ PASS | Submit Project, Request Correction (max 3), Approve Final. |
+| **Activity Feed & Timestamps** | Chrome CDP Runtime & Widget Tests | ✅ PASS | Scoped activity feed (`/engineer/activity`) renders distinct historical timestamps in local time. Missing or unparseable dates render as 'Date unavailable'. |
 
 ---
 

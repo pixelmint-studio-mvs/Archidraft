@@ -25,11 +25,12 @@ class FakeAssignmentRepository implements AssignmentRepository {
 
   @override
   Future<void> acceptAssignment(
-      {required String assignmentId, String? actionId}) async {}
+      {required String assignmentId, String? projectId, String? actionId}) async {}
 
   @override
   Future<void> rejectAssignment(
       {required String assignmentId,
+      String? projectId,
       String? actionId,
       String reason = ''}) async {}
 }

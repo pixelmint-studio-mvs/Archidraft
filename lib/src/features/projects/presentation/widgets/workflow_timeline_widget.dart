@@ -226,7 +226,7 @@ class WorkflowTimelineWidget extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(sanitiseActivityDetails(act.details), style: AppTypography.bodyMd.copyWith(fontSize: 13, color: AppColors.onSurfaceVariant)),
-                              Text('${act.actorRole} • ${DateFormat('MMM d, h:mm a').format(act.createdAt)}', style: AppTypography.labelMono.copyWith(fontSize: 10, color: AppColors.outline)),
+                              Text('${act.actorRole} • ${act.createdAt != null ? DateFormat('MMM d, h:mm a').format(act.createdAt!) : 'Date unavailable'}', style: AppTypography.labelMono.copyWith(fontSize: 10, color: AppColors.outline)),
                             ],
                           ),
                         )).toList(),
