@@ -22,7 +22,7 @@ import '../../providers/project_providers.dart';
 import '../widgets/file_attachment_card.dart';
 import '../widgets/file_upload_button.dart';
 import 'widgets/evaluation_card.dart';
-import '../widgets/cad_drawing_viewer.dart';
+import 'widgets/student_cad_drawing_viewer.dart';
 
 /// Workspace screen for a student working on an assigned training project.
 ///
@@ -98,11 +98,19 @@ class _StudentProjectWorkspaceScreenState
                 ),
               ),
               Expanded(
-                child: CadDrawingViewer(
+                child: StudentCadDrawingViewer(
                   fileId: fileId,
                   fileName: fileName,
                   versionNumber: versionNumber,
                   height: 500,
+                  isDialog: true,
+                  onDownload: () {
+                    ref.read(fileRepositoryProvider).downloadFile(
+                          fileId,
+                          fileName,
+                          openInBrowser: false,
+                        );
+                  },
                 ),
               ),
             ],
@@ -122,9 +130,16 @@ class _StudentProjectWorkspaceScreenState
   String? _selectedDrawingFileName;
   int _selectedDrawingVersionNumber = 1;
 
-  bool _isCadFile(String fileName) {
+
+  bool _isSupportedPreviewFile(String fileName) {
     final ext = fileName.split('.').last.toLowerCase();
-    return ext == 'dwg' || ext == 'dxf';
+    return ext == 'dwg' ||
+        ext == 'dxf' ||
+        ext == 'pdf' ||
+        ext == 'png' ||
+        ext == 'jpg' ||
+        ext == 'jpeg' ||
+        ext == 'webp';
   }
 
   @override
@@ -485,7 +500,7 @@ class _StudentProjectWorkspaceScreenState
                   children: [
                     for (final file in refFiles) ...[
                       FileAttachmentCard(file: file),
-                      if (_isCadFile(file.sanitizedName))
+                      if (_isSupportedPreviewFile(file.sanitizedName))
                         Padding(
                           padding: const EdgeInsets.only(left: AppSpacing.md, bottom: AppSpacing.sm),
                           child: OutlinedButton.icon(
@@ -1409,7 +1424,7 @@ class _StudentProjectWorkspaceScreenState
         .where((f) =>
             f.category == 'workspace_draft' &&
             f.status != 'FAILED' &&
-            _isCadFile(f.sanitizedName))
+            _isSupportedPreviewFile(f.sanitizedName))
         .toList();
     draftFiles.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final currentDraft = draftFiles.isNotEmpty ? draftFiles.first : null;
@@ -1417,7 +1432,7 @@ class _StudentProjectWorkspaceScreenState
     final cadVersions = versions
         .where((v) =>
             v.fileId.isNotEmpty &&
-            _isCadFile(v.sanitizedName ?? v.originalName ?? ''))
+            _isSupportedPreviewFile(v.sanitizedName ?? v.originalName ?? ''))
         .toList();
 
     final refCadFiles = files
@@ -1425,7 +1440,7 @@ class _StudentProjectWorkspaceScreenState
             f.category != 'workspace_draft' &&
             f.category != 'draughtsman_version' &&
             f.status != 'FAILED' &&
-            _isCadFile(f.sanitizedName))
+            _isSupportedPreviewFile(f.sanitizedName))
         .toList();
 
     // Determine the active file to display
@@ -1584,12 +1599,19 @@ class _StudentProjectWorkspaceScreenState
           const SizedBox(height: AppSpacing.xs),
         ],
         if (targetFileId != null)
-          CadDrawingViewer(
+          StudentCadDrawingViewer(
             key: ValueKey('student_workspace_cad_$targetFileId'),
             fileId: targetFileId,
             fileName: activeFileName,
             versionNumber: activeVersionNumber,
             height: 480,
+            onDownload: () {
+              ref.read(fileRepositoryProvider).downloadFile(
+                    targetFileId,
+                    activeFileName,
+                    openInBrowser: false,
+                  );
+            },
           )
         else
           Container(
@@ -1692,6 +1714,17 @@ class _StudentProjectWorkspaceScreenState
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const Center(
+            child: Text(
+              'For better viewing experience, Use Drawing viewer apps.',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 11,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
       ],

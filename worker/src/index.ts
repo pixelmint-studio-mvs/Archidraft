@@ -1,71 +1,13 @@
+import { generateCertificatePdf } from './certificate_generator';
 
 function generateSimpleCertificatePdf(studentName: string, title: string, date: string, credentialId: string, verifyUrl: string): Uint8Array {
-  const safeName = (studentName || 'Student').replace(/[()\\]/g, '');
-  const safeTitle = (title || 'Module Certification').replace(/[()\\]/g, '');
-  const safeDate = (date || '').replace(/[()\\]/g, '');
-  const safeId = (credentialId || '').replace(/[()\\]/g, '');
-  const safeUrl = (verifyUrl || '').replace(/[()\\]/g, '');
-
-  const content = `BT
-/F1 22 Tf
-50 340 Td
-(ARCHI DRAFT - Certificate of Completion) Tj
-0 -40 Td
-/F1 14 Tf
-(This is to certify that) Tj
-0 -30 Td
-/F1 18 Tf
-(${safeName}) Tj
-0 -30 Td
-/F1 14 Tf
-(has successfully completed practical training requirements for) Tj
-0 -30 Td
-/F1 16 Tf
-(${safeTitle}) Tj
-0 -40 Td
-/F1 11 Tf
-(Issue Date: ${safeDate}) Tj
-0 -20 Td
-(Credential ID: ${safeId}) Tj
-0 -20 Td
-(Verification URL: ${safeUrl}) Tj
-ET`;
-
-  const streamLength = content.length;
-  const pdfString = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 400] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
-endobj
-4 0 obj
-<< /Length ${streamLength} >>
-stream
-${content}
-endstream
-endobj
-5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000244 00000 n 
-0000000${(310 + streamLength).toString().padStart(3, '0')} 00000 n 
-trailer
-<< /Size 6 /Root 1 0 R >>
-startxref
-${380 + streamLength}
-%%EOF`;
-
-  return new TextEncoder().encode(pdfString);
+  return generateCertificatePdf({
+    studentName,
+    lessonTitle: title,
+    completionDate: date,
+    certificateId: credentialId,
+    verifyUrl,
+  });
 }
 
 import { getStudentAchievements } from './achievements';
@@ -3200,11 +3142,15 @@ app.get('/api/student/training/lessons/:lessonId', async (c) => {
     SELECT
       l.*,
       COALESCE(slp.status, 'NOT_STARTED') AS status,
-      slp.completed_at
+      slp.completed_at,
+      sc.id AS certificate_id,
+      sc.verification_token,
+      sc.certificate_object_key
     FROM training_lessons l
     LEFT JOIN student_lesson_progress slp ON slp.lesson_id = l.id AND slp.student_id = ?
+    LEFT JOIN student_credentials sc ON sc.reference_id = l.id AND sc.student_id = ? AND sc.type = 'LESSON_COMPLETION'
     WHERE l.id = ?
-  `).bind(uid, lessonId).first();
+  `).bind(uid, uid, lessonId).first();
 
   if (!lesson) {
     return c.json({ error: 'Lesson not found', code: 'NOT_FOUND' }, 404);
@@ -3236,7 +3182,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
     return c.json({ error: 'Invalid status', code: 'BAD_REQUEST' }, 400);
   }
 
-  const lesson: any = await db.prepare('SELECT module_id FROM training_lessons WHERE id = ?').bind(lessonId).first();
+  const lesson: any = await db.prepare('SELECT id, module_id, title FROM training_lessons WHERE id = ?').bind(lessonId).first();
   if (!lesson) {
     return c.json({ error: 'Lesson not found', code: 'NOT_FOUND' }, 404);
   }
@@ -3281,6 +3227,90 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
         completed_at = CASE WHEN excluded.status = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END
     `).bind(id, uid, lessonId, status, status)
   );
+
+  let certificateData: any = null;
+  if (status === 'COMPLETED') {
+    const existingCert: any = await db.prepare(`
+      SELECT id, verification_token, certificate_object_key, issued_at
+      FROM student_credentials
+      WHERE student_id = ? AND type = 'LESSON_COMPLETION' AND reference_id = ?
+    `).bind(uid, lessonId).first();
+
+    const lessonExactTitle = lesson.title || 'Architectural Lesson';
+    const moduleDetails: any = await db.prepare('SELECT title FROM training_modules WHERE id = ?').bind(moduleId).first();
+    const moduleExactTitle = moduleDetails?.title || 'Training Program';
+
+    let certId = existingCert?.id;
+    let verificationToken = existingCert?.verification_token;
+    let objectKey = existingCert?.certificate_object_key;
+
+    if (!certId) {
+      const shortSuffix = crypto.randomUUID().slice(0, 8).toUpperCase();
+      certId = `DS-AD-LES-${shortSuffix}`;
+    }
+    if (!verificationToken) {
+      verificationToken = crypto.randomUUID().replace(/-/g, '');
+    }
+
+    if (!existingCert) {
+      batch.push(
+        db.prepare(`
+          INSERT INTO student_credentials (id, student_id, type, reference_id, title, description, issued_at, verification_token)
+          VALUES (?, ?, 'LESSON_COMPLETION', ?, ?, ?, CURRENT_TIMESTAMP, ?)
+          ON CONFLICT(student_id, type, reference_id) DO NOTHING
+        `).bind(
+          certId,
+          uid,
+          lessonId,
+          lessonExactTitle,
+          `Completed the lesson: ${lessonExactTitle} in module: ${moduleExactTitle}`,
+          verificationToken
+        )
+      );
+    }
+
+    const publicVerifyUrl = `https://www.draughtsmanstudio.com/verify?id=${certId}&token=${verificationToken}`;
+
+    if (!objectKey) {
+      objectKey = `certificates/${uid}/${certId}.pdf`;
+      try {
+        const studentDisplayName = (user.name as string) || (user.email as string) || 'Student';
+        const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const pdfBytes = generateCertificatePdf({
+          studentName: studentDisplayName,
+          lessonTitle: lessonExactTitle,
+          completionDate: dateStr,
+          certificateId: certId,
+          verifyUrl: publicVerifyUrl,
+        });
+
+        if (c.env.STORAGE) {
+          await c.env.STORAGE.put(objectKey, pdfBytes, {
+            httpMetadata: { contentType: 'application/pdf' },
+          });
+          batch.push(
+            db.prepare(`
+              UPDATE student_credentials
+              SET certificate_object_key = ?, verification_token = ?
+              WHERE id = ? AND student_id = ?
+            `).bind(objectKey, verificationToken, certId, uid)
+          );
+        }
+      } catch (pdfErr) {
+        console.error('Lesson certificate PDF generation deferred/failed:', pdfErr);
+      }
+    }
+
+    certificateData = {
+      id: certId,
+      title: lessonExactTitle,
+      moduleTitle: moduleExactTitle,
+      verificationToken: verificationToken,
+      verifyUrl: publicVerifyUrl,
+      downloadUrl: `/api/student/credentials/${certId}/certificate`
+    };
+  }
 
   let finalScore = 0;
   if (requiredTotal > 0) {
@@ -3344,7 +3374,7 @@ app.post('/api/student/training/lessons/:lessonId/progress', async (c) => {
 
   await db.batch(batch);
 
-  return c.json({ success: true, status, completion_percentage: finalScore });
+  return c.json({ success: true, status, completion_percentage: finalScore, certificate: certificateData });
 });
 
 // GET /api/student/training/progress
@@ -4835,10 +4865,23 @@ app.get('/api/student/credentials', async (c) => {
   if (!user || user.role !== 'STUDENT') return c.json({ error: 'Unauthorized' }, 403);
 
   const { results } = await db.prepare(`
-    SELECT id, type, title, description, reference_id as referenceId, issued_at as issuedAt, certificate_object_key as certificateObjectKey, verification_token as verificationToken
-    FROM student_credentials
-    WHERE student_id = ?
-    ORDER BY issued_at DESC
+    SELECT 
+      c.id, 
+      c.type, 
+      c.title, 
+      c.description, 
+      c.reference_id as referenceId, 
+      c.issued_at as issuedAt, 
+      c.certificate_object_key as certificateObjectKey, 
+      c.verification_token as verificationToken,
+      tl.title as lessonTitle,
+      COALESCE(tm.title, tm_direct.title) as moduleTitle
+    FROM student_credentials c
+    LEFT JOIN training_lessons tl ON c.type = 'LESSON_COMPLETION' AND tl.id = c.reference_id
+    LEFT JOIN training_modules tm ON tm.id = tl.module_id
+    LEFT JOIN training_modules tm_direct ON c.type = 'MODULE_CERTIFICATION' AND tm_direct.id = c.reference_id
+    WHERE c.student_id = ?
+    ORDER BY c.issued_at DESC
   `).bind(uid).all();
 
   return c.json(results);
@@ -4856,34 +4899,37 @@ app.post('/api/student/credentials/:credentialId/certificate', async (c) => {
   const credential = await db.prepare('SELECT * FROM student_credentials WHERE id = ? AND student_id = ?').bind(credentialId, uid).first();
   if (!credential) return c.json({ error: 'Credential not found' }, 404);
 
-  // NOTE: If certificate exists, we still regenerate if the QR code wasn't included, but for Part 5C,
-  // we just regenerate anyway to ensure it has the QR. Or we can just overwrite. 
-  // The instruction: "preserve the existing credential, update the certificate artifact deterministically"
-
   let verificationToken = credential.verification_token as string | null;
   if (!verificationToken) {
     verificationToken = crypto.randomUUID().replace(/-/g, '');
     await db.prepare('UPDATE student_credentials SET verification_token = ? WHERE id = ?').bind(verificationToken, credentialId).run();
   }
 
-  // Assuming Firebase Hosting uses the project ID for default domain
-  const publicUrl = `https://archi-draft.web.app/verify/${verificationToken}`;
+  const publicUrl = `https://www.draughtsmanstudio.com/verify?id=${credential.id}&token=${verificationToken}`;
 
   try {
     const studentName = (user.name as string) || (user.email as string) || 'Student';
-    const credentialTitle = (credential.title as string) || 'Module Certification';
-    const issueDate = new Date(credential.issued_at as string).toLocaleDateString();
+    const credentialTitle = (credential.title as string) || 'Architectural Lesson';
+    const issueDate = new Date(credential.issued_at as string || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    const pdfBytes = generateSimpleCertificatePdf(studentName, credentialTitle, issueDate, credential.id as string, publicUrl);
-
-    const objectKey = `certificates/${uid}/${credentialId}.pdf`;
-    await c.env.STORAGE.put(objectKey, pdfBytes, {
-      httpMetadata: { contentType: 'application/pdf' },
+    const pdfBytes = generateCertificatePdf({
+      studentName,
+      lessonTitle: credentialTitle,
+      completionDate: issueDate,
+      certificateId: credential.id as string,
+      verifyUrl: publicUrl,
     });
 
-    await db.prepare('UPDATE student_credentials SET certificate_object_key = ? WHERE id = ?').bind(objectKey, credentialId).run();
+    const objectKey = `certificates/${uid}/${credentialId}.pdf`;
+    if (c.env.STORAGE) {
+      await c.env.STORAGE.put(objectKey, pdfBytes, {
+        httpMetadata: { contentType: 'application/pdf' },
+      });
+    }
 
-    return c.json({ message: 'Certificate generated', certificateObjectKey: objectKey, verificationToken });
+    await db.prepare('UPDATE student_credentials SET certificate_object_key = ?, verification_token = ? WHERE id = ?').bind(objectKey, verificationToken, credentialId).run();
+
+    return c.json({ message: 'Certificate generated', certificateObjectKey: objectKey, verificationToken, verifyUrl: publicUrl });
   } catch (error: any) {
     console.error('PDF generation error:', error);
     return c.json({ error: 'Failed to generate certificate' }, 500);
@@ -4902,12 +4948,44 @@ app.get('/api/student/credentials/:credentialId/certificate', async (c) => {
   const credential = await db.prepare('SELECT * FROM student_credentials WHERE id = ? AND student_id = ?').bind(credentialId, uid).first();
   if (!credential) return c.json({ error: 'Credential not found' }, 404);
 
-  if (!credential.certificate_object_key) {
-    return c.json({ error: 'Certificate not generated yet' }, 404);
-  }
+  let object = credential.certificate_object_key && c.env.STORAGE ? await c.env.STORAGE.get(credential.certificate_object_key as string) : null;
+  if (!object) {
+    // Self-healing fallback: Generate PDF dynamically if not yet cached in R2
+    try {
+      let verificationToken = credential.verification_token as string | null;
+      if (!verificationToken) {
+        verificationToken = crypto.randomUUID().replace(/-/g, '');
+      }
+      const studentName = (user.name as string) || (user.email as string) || 'Student';
+      const credentialTitle = (credential.title as string) || 'Architectural Lesson';
+      const issueDate = new Date(credential.issued_at as string || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const publicUrl = `https://www.draughtsmanstudio.com/verify?id=${credential.id}&token=${verificationToken}`;
 
-  const object = await c.env.STORAGE.get(credential.certificate_object_key as string);
-  if (!object) return c.json({ error: 'Certificate file missing in R2' }, 404);
+      const pdfBytes = generateCertificatePdf({
+        studentName,
+        lessonTitle: credentialTitle,
+        completionDate: issueDate,
+        certificateId: credential.id as string,
+        verifyUrl: publicUrl,
+      });
+
+      const objectKey = `certificates/${uid}/${credentialId}.pdf`;
+      if (c.env.STORAGE) {
+        await c.env.STORAGE.put(objectKey, pdfBytes, {
+          httpMetadata: { contentType: 'application/pdf' },
+        });
+        await db.prepare('UPDATE student_credentials SET certificate_object_key = ?, verification_token = ? WHERE id = ?').bind(objectKey, verificationToken, credentialId).run();
+      }
+
+      const headers = new Headers();
+      headers.set('Content-Type', 'application/pdf');
+      headers.set('Content-Disposition', `attachment; filename="Certificate_${credentialId}.pdf"`);
+      return new Response(pdfBytes, { headers });
+    } catch (genErr) {
+      console.error('Self-healing PDF generation failed:', genErr);
+      return c.json({ error: 'Certificate not generated yet' }, 404);
+    }
+  }
 
   const headers = new Headers();
   object.writeHttpMetadata(headers as any);
@@ -4922,12 +5000,22 @@ app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
   const token = c.req.param('verificationToken');
   const db = c.env.DB;
 
-  const result = await db.prepare(`
-    SELECT c.id, c.type, c.title, c.issued_at as issuedAt, u.name as display_name 
+  const result: any = await db.prepare(`
+    SELECT 
+      c.id, 
+      c.type, 
+      c.title, 
+      c.issued_at as issuedAt, 
+      u.name as display_name,
+      tl.title as lesson_title,
+      COALESCE(tm.title, tm_direct.title) as module_title
     FROM student_credentials c
     JOIN users u ON c.student_id = u.id
-    WHERE c.verification_token = ?
-  `).bind(token).first();
+    LEFT JOIN training_lessons tl ON c.type = 'LESSON_COMPLETION' AND tl.id = c.reference_id
+    LEFT JOIN training_modules tm ON tm.id = tl.module_id
+    LEFT JOIN training_modules tm_direct ON c.type = 'MODULE_CERTIFICATION' AND tm_direct.id = c.reference_id
+    WHERE c.verification_token = ? OR c.id = ?
+  `).bind(token, token).first();
 
   if (!result) {
     return c.json({ valid: false, error: 'Certificate not found' }, 404);
@@ -4942,8 +5030,11 @@ app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
       id: result.id,
       type: result.type,
       title: result.title,
+      lessonTitle: result.lesson_title || result.title,
+      moduleTitle: result.module_title || null,
       issuedAt: result.issuedAt,
-      recipientName: recipientName
+      recipientName: recipientName,
+      issuingAuthority: 'Draughtsman Studio & Archi Draft'
     }
   });
 });

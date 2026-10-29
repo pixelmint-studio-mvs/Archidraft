@@ -1065,7 +1065,8 @@ EOF''';
       await tester.pumpAndSettle();
 
       expect(find.text('CAD DRAWING CANVAS'), findsOneWidget);
-      expect(find.text('AutoCAD DWG \u2022 Geometry Preview'), findsOneWidget);
+      expect(find.text('AutoCAD DWG \u2022 Embedded Thumbnail'), findsOneWidget);
+      expect(find.text('For better viewing experience, Use Drawing viewer apps.'), findsWidgets);
       expect(find.byType(InteractiveViewer), findsWidgets);
       expect(find.byType(Image), findsOneWidget);
     });

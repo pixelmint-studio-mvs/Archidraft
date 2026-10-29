@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/backend_authorization.test.mjs test/cross_user_isolation_f1.test.mjs test/admin_student_contract.test.mjs test/legal_privacy_authorization.test.mjs test/phase_b_security_remediation.test.mjs test/phase_c_remediation.test.mjs test/phase_d_remediation.test.mjs test/phase_d10_staging_legal_gate.test.mjs test/teaching_students_curriculum.test.mjs",
+    "test": "node --test test/backend_authorization.test.mjs test/cross_user_isolation_f1.test.mjs test/admin_student_contract.test.mjs test/legal_privacy_authorization.test.mjs test/phase_b_security_remediation.test.mjs test/phase_c_remediation.test.mjs test/phase_d_remediation.test.mjs test/phase_d10_staging_legal_gate.test.mjs test/teaching_students_curriculum.test.mjs test/student_lesson_certificates.test.mjs",
     "preflight:staging": "node scripts/preflight_guard.mjs --env staging",
     "preflight:prod": "node scripts/preflight_guard.mjs --env production",
     "dev": "wrangler dev",
@@ -16,10 +16,12 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "aws4fetch": "^1.0.20",
     "dwg2dxf-converter": "^1.0.4",
     "hono": "^4.13.7",
-    "jose": "^6.2.12"
+    "jose": "^6.2.12",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260911.1",

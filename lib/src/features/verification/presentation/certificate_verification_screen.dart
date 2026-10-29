@@ -100,7 +100,15 @@ class CertificateVerificationScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Text('✓ Valid Certificate', style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
           const Divider(height: 32),
+          if (credentialData['id'] != null && credentialData['id'].toString().isNotEmpty) ...[
+            _buildDetailRow('Certificate ID:', credentialData['id'].toString()),
+            const SizedBox(height: 16),
+          ],
           _buildDetailRow('Certificate / Credential:', credentialData['title'] ?? ''),
+          if (credentialData['moduleTitle'] != null && credentialData['moduleTitle'].toString().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildDetailRow('Training Module:', credentialData['moduleTitle'].toString()),
+          ],
           const SizedBox(height: 16),
           _buildDetailRow('Recipient:', credentialData['recipientName'] ?? ''),
           const SizedBox(height: 16),
@@ -109,7 +117,7 @@ class CertificateVerificationScreen extends ConsumerWidget {
           _buildDetailRow('Credential Type:', credentialData['type'] ?? ''),
           const SizedBox(height: 32),
           Text(
-            'Verification:\nVerified by Archi Draft',
+            'Verification:\nVerified by Archi Draft & Draughtsman Studio',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.onSurfaceVariant, fontStyle: FontStyle.italic),
           ),
