@@ -29,6 +29,7 @@ void main() {
     test('acceptAssignment success', () async {
       when(mockRepository.acceptAssignment(
         assignmentId: anyNamed('assignmentId'),
+        projectId: anyNamed('projectId'),
         actionId: anyNamed('actionId'),
       )).thenAnswer((_) async => {});
 
@@ -46,6 +47,7 @@ void main() {
       expect(container.read(draughtsmanActionsControllerProvider), isA<AsyncData>());
       verify(mockRepository.acceptAssignment(
         assignmentId: 'assign_123',
+        projectId: 'proj_123',
         actionId: anyNamed('actionId'),
       )).called(1);
     });
@@ -53,6 +55,7 @@ void main() {
     test('acceptAssignment error', () async {
       when(mockRepository.acceptAssignment(
         assignmentId: anyNamed('assignmentId'),
+        projectId: anyNamed('projectId'),
         actionId: anyNamed('actionId'),
       )).thenThrow(Exception('Failed to accept'));
 
@@ -70,6 +73,7 @@ void main() {
     test('rejectAssignment success', () async {
       when(mockRepository.rejectAssignment(
         assignmentId: anyNamed('assignmentId'),
+        projectId: anyNamed('projectId'),
         actionId: anyNamed('actionId'),
         reason: anyNamed('reason'),
       )).thenAnswer((_) async => {});
@@ -85,6 +89,7 @@ void main() {
       expect(container.read(draughtsmanActionsControllerProvider), isA<AsyncData>());
       verify(mockRepository.rejectAssignment(
         assignmentId: 'assign_456',
+        projectId: 'proj_456',
         actionId: anyNamed('actionId'),
         reason: 'Manually rejected by draughtsman',
       )).called(1);
@@ -93,6 +98,7 @@ void main() {
     test('rejectAssignment error', () async {
       when(mockRepository.rejectAssignment(
         assignmentId: anyNamed('assignmentId'),
+        projectId: anyNamed('projectId'),
         actionId: anyNamed('actionId'),
         reason: anyNamed('reason'),
       )).thenThrow(Exception('Failed to reject'));
