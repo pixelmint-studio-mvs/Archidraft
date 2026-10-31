@@ -1,0 +1,28 @@
+# HTML, bootstrap and app configuration - Never cache so updates are immediate
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+/flutter_bootstrap.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/flutter_service_worker.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/version.json
+  Cache-Control: no-cache, no-store, must-revalidate
+/manifest.json
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Compiled application bundle - Revalidate with ETag on each request
+/main.dart.js
+  Cache-Control: no-cache, must-revalidate
+
+# Static application assets, icons, fonts, models - Conservative 1 hour cache
+/assets/*
+  Cache-Control: public, max-age=3600, must-revalidate
+/icons/*
+  Cache-Control: public, max-age=3600, must-revalidate
+/models/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+# CanvasKit WebAssembly engine binaries - 1 day cache (tied to Flutter engine)
+/canvaskit/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+

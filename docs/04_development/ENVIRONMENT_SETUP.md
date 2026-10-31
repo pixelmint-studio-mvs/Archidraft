@@ -70,7 +70,7 @@ Configured via environment variables and fallback defaults:
 | Environment | Environment Variable | D1 Binding (`DB`) | R2 Storage Binding (`STORAGE`) | Allowed Origins |
 | :--- | :--- | :--- | :--- | :--- |
 | **Local (Default)** | `ENVIRONMENT="development"` | `archi-draft-db-local` (Local SQLite) | `archi-draft-storage-local` | `http://localhost:3000,http://localhost:8787` |
-| **Staging (`env.staging`)** | `ENVIRONMENT="staging"` | `archi-draft-db-staging` (Remote D1) | `archi-draft-storage-staging` | `https://admin-staging.draughtsmanstudio.com,http://localhost:3000` |
+| **Staging (`env.staging`)** | `ENVIRONMENT="staging"` | `archi-draft-db-staging` (Remote D1: `065d76ba-...`) | `archi-draft-storage-staging` (Remote R2) | `https://archidraft-app.pages.dev,https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,http://localhost:3000` |
 | **Production (`env.production`)** | `ENVIRONMENT="production"` | `archi-draft-db` (LOCKED) | `archi-draft-storage` (LOCKED) | Strictly locked; deployment prohibited |
 
 ---

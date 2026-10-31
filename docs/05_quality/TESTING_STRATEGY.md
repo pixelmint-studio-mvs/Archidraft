@@ -55,17 +55,19 @@ Tests client-side API hydration, contract normalization, UI components, and stat
 
 To ensure absolute transparency and audit readiness, verification evidence is classified into three categories:
 
-### Category 1: Tests Directly Run & Validated in Current Task
-- `node --test apps/admin-web/test/activity-feed.test.ts apps/admin-web/test/user-dossier-contracts.test.ts`
-  - **Result:** **11 / 11 tests passed** (0 failures, 132ms execution time).
-- `node --test worker/test/backend_authorization.test.mjs`
-  - **Result:** **88 / 88 tests passed** (including all 8 activity feed authorization tests).
+### Category 1: Tests Directly Run & Validated in Staging Deployment Task
+- `npm test --prefix worker`: **351 / 351 passed** (39 suites, 0 failures, 1196ms).
+- `flutter test` (targeted): **15 / 15 passed** (Activity log double-`Z` timestamp parsing, distinct timestamp rendering, project message models).
+- `flutter analyze lib/`: **0 errors** (4 informational linter warnings).
+- Preflight Guard: `npm run preflight:staging --prefix worker` -> **PASS** (Zero production resources referenced).
+- Live Staging Smoke Tests: Verified `https://archidraft-app.pages.dev` on Google Chrome and Microsoft Edge on Windows (HTTP 200, `/verify` deep link, conservative caching).
+- Mobile Emulation: Verified responsive layout and touch targets (≥48 dp) under Google Pixel 7 (Android 14) viewport emulation (390x844 dp). *(Physical Android hardware testing remains pending).*
 
 ### Category 2: Verified Historical Evidence
-- Worker Test Suite Total: **281 / 281 passed** across 34 suites.
-- Admin Test Suite Total: **151 / 151 passed** across 36 suites (was 145 prior to Activity Feed addition).
+- Worker Test Suite Total: **351 / 351 passed** across 39 suites.
+- Admin Test Suite Total: **151 / 151 passed** across 36 suites.
 - Flutter Unit & Widget Suite: **304 / 304 passed**.
-- Flutter Static Analysis: **0 issues found** (including PIXMINT package).
+- Flutter Static Analysis: **0 errors** across `lib/`.
 
 ### Category 3: Outstanding Manual Runtime Checks
 The following manual browser verifications cannot be performed by automated unit tests and must be completed by the operator:

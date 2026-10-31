@@ -3,14 +3,16 @@
 This document defines the approved technology stack for ARCHI DRAFT.
 
 ## Core Stack
-- **Frontend:** Flutter
+- **Frontend Framework:** Flutter (Dart 3.4+ / Flutter 3.22+)
 - **Programming Language:** Dart
-- **Primary Platform:** Android
-- **Future Platform:** Web
+- **Supported Platforms:** Web (Chrome, Edge, Android Mobile/Tablet) and Android Native
+
 - **Authentication:** Firebase Authentication
-- **Database:** Cloud Firestore
-- **File Storage:** Firebase Storage
-- **Critical Backend Logic:** Firebase Cloud Functions (Node.js)
+- **Database:** Cloudflare D1 (Relational SQLite)
+- **File Storage:** Cloudflare R2 (Object Storage)
+- **Backend API:** Cloudflare Workers (Hono runtime)
+- **Web Hosting:** Cloudflare Pages (`archidraft-app` at `https://archidraft-app.pages.dev`)
+- **Admin Studio:** Next.js 14 / React (hosted on Vercel at `https://admin-web-eight-wine.vercel.app/`)
 - **Version Control:** Git
 - **Repository Hosting:** GitHub/GitLab/Bitbucket (To be decided by the team)
 

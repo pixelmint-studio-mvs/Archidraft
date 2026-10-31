@@ -1,15 +1,36 @@
 # ARCHI DRAFT — MASTER INTEGRATION & SYSTEM ARCHITECTURE GUIDE
 
 **Repository Root:** `D:\PROJECT\Archidraft-integration-workspace`
-**Git Branch:** `COMPLETED-INTERGRATION` (HEAD: `f21fb29`)
-**Delivery Branch Target:** `COMPLETED-INTERGRATION` (All work staged and ready for manual review; commits and push held strictly pending owner approval)
+**Git Branch:** `COMPLETED-INTERGRATION`
+**Deployment Status:** Staging Live on Cloudflare Pages (`https://archidraft-app.pages.dev`)
 **System Architecture:** Flutter Multiplatform Client (Web, Desktop, Android) + Next.js Admin Studio + Cloudflare Worker API (Hono) + Cloudflare D1 (Relational SQLite) + Cloudflare R2 (Object Storage) + Firebase Auth (Cryptographic Identity Verification) + PIXMINT BOT 2.0 Integration
 
 ---
 
-## 1. Project Overview
+## 1. Project Overview & Current Staging Deployment
 
 **ARCHI DRAFT** is an enterprise-grade architectural and technical drawing production platform connecting Engineers/Clients, Professional Draughtsmen, CAD Academy Students, and Studio Administrators in a secure, role-governed workflow.
+
+### 🚀 Staging Deployment Status (ACTIVE)
+
+The multi-role Flutter Web application is deployed live on **Cloudflare Pages** and operates against the isolated staging cloud infrastructure:
+
+| Staging Resource | Configuration / Endpoint | Status |
+| :--- | :--- | :--- |
+| **Public Staging Web App** | [https://archidraft-app.pages.dev](https://archidraft-app.pages.dev) | **LIVE** (Cloudflare Pages project: `archidraft-app`) |
+| **Unique Deployment URL** | [https://9ba115dd.archidraft-app.pages.dev](https://9ba115dd.archidraft-app.pages.dev) | **ACTIVE** (Direct immutable build) |
+| **Backend Worker API** | `https://archi-draft-worker-staging.imserratex.workers.dev` | **DEPLOYED** (Cloudflare Worker Hono API) |
+| **Relational Database** | `archi-draft-db-staging` (`065d76ba-eca5-4cc1-ba39-51281b79d6b4`) | **ISOLATED** (Cloudflare D1 SQLite) |
+| **CAD Object Storage** | `archi-draft-storage-staging` | **ISOLATED** (Cloudflare R2 Bucket) |
+| **Identity Provider** | `archi-draft-staging` (Project #`528293938258`) | **ISOLATED** (Firebase Authentication) |
+| **Public Credential Check** | [https://archidraft-app.pages.dev/verify](https://archidraft-app.pages.dev/verify) | **ACTIVE** (Unauthenticated verification route) |
+| **Studio Admin Portal** | [https://admin-web-eight-wine.vercel.app/](https://admin-web-eight-wine.vercel.app/) | **PRESERVED** (Hosted independently on Vercel) |
+| **Supported Clients** | Windows PC/Laptop browsers & Android mobile/tablet browsers | **TESTED** (Responsive CanvasKit/HTML rendering) |
+| **Deployment Guide** | [docs/deployment/STAGING_DEPLOYMENT.md](docs/deployment/STAGING_DEPLOYMENT.md) | **DOCUMENTED** |
+
+> [!IMPORTANT]
+> **Strict Environment Isolation:**
+> Production resources (`archi-draft-worker`, production D1 `af8d3312-5f6e-46ce-bcc1-dfa91e484cc0`, production R2 `archi-draft-storage`, and production Firebase `archi-draft`) are locked and untouched. All staging demo traffic and test accounts interact solely with the isolated staging tier.
 
 ### Architecture Highlights
 - **Client Application:** Flutter (Dart 3.4+ / Flutter 3.22+) using Riverpod 2.x for reactive state management and GoRouter for declarative, role-guarded, fail-closed navigation. Includes embedded PIXMINT AI Chatbot drawer.
