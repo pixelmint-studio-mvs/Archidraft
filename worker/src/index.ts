@@ -615,6 +615,20 @@ function uuidv4() {
   return crypto.randomUUID();
 }
 
+function normalizeTimestampString(val: any): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val === 'string') {
+    if (val.includes('T')) return val;
+    const isoLike = val.replace(' ', 'T');
+    return isoLike.endsWith('Z') ? isoLike : `${isoLike}Z`;
+  }
+  if (typeof val === 'number') {
+    return new Date(val).toISOString();
+  }
+  return String(val);
+}
+
+
 // ==========================================
 // PROJECTS API
 // ==========================================
@@ -2637,7 +2651,11 @@ app.get('/api/projects/:projectId/activity', async (c) => {
   }
   query += ' ORDER BY timestamp DESC';
   const logs = await db.prepare(query).bind(projectId).all();
-  return c.json(logs.results);
+  return c.json((logs.results || []).map((l: any) => ({
+    ...l,
+    actor_role: l.actor_role === 'CLIENT' ? 'ENGINEER' : l.actor_role,
+    timestamp: normalizeTimestampString(l.timestamp),
+  })));
 });
 
 app.get('/api/activity', async (c) => {
@@ -2657,20 +2675,20 @@ app.get('/api/activity', async (c) => {
       SELECT a.*, p.project_name
       FROM activity_logs a
       LEFT JOIN projects p ON a.project_id = p.id
-      WHERE p.client_id = ? AND a.action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')
+      WHERE (p.client_id = ? OR a.actor_id = ?) AND a.action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')
       ORDER BY a.timestamp DESC
       LIMIT ?
-    `).bind(uid, limit).all();
+    `).bind(uid, uid, limit).all();
   } else if (user.role === 'DRAUGHTSMAN') {
     // Activities for projects assigned to this Draughtsman
     logs = await db.prepare(`
       SELECT a.*, p.project_name
       FROM activity_logs a
       LEFT JOIN projects p ON a.project_id = p.id
-      WHERE p.draughtsman_id = ?
+      WHERE (p.draughtsman_id = ? OR a.actor_id = ?)
       ORDER BY a.timestamp DESC
       LIMIT ?
-    `).bind(uid, limit).all();
+    `).bind(uid, uid, limit).all();
   } else if (['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
     // Global audit stream for administrators
     logs = await db.prepare(`
@@ -2684,7 +2702,11 @@ app.get('/api/activity', async (c) => {
     return c.json({ error: 'Forbidden' }, 403);
   }
 
-  return c.json(logs.results);
+  return c.json((logs.results || []).map((l: any) => ({
+    ...l,
+    actor_role: l.actor_role === 'CLIENT' ? 'ENGINEER' : l.actor_role,
+    timestamp: normalizeTimestampString(l.timestamp),
+  })));
 });
 
 app.get('/api/notifications', async (c) => {

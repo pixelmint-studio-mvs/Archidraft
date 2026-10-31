@@ -67,7 +67,7 @@ class ActivityTimeline extends ConsumerWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${log.actorRole} • ${DateFormat('MMM d, y h:mm a').format(log.createdAt)}',
+                            '${log.actorRole} • ${log.createdAt != null ? DateFormat('MMM d, y h:mm a').format(log.createdAt!) : 'Date unavailable'}',
                             style: AppTypography.labelMono.copyWith(color: AppColors.onSurfaceVariant),
                           ),
                         ],

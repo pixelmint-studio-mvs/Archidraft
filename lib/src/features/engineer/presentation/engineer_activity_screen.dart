@@ -29,12 +29,20 @@ class EngineerActivityScreen extends ConsumerWidget {
         return Icons.cancel_outlined;
       case 'DRAUGHTSMAN_ASSIGNED':
         return Icons.person_pin_outlined;
+      case 'ASSIGNMENT_ACCEPTED':
+        return Icons.how_to_reg_outlined;
       case 'DRAWING_SUBMITTED':
         return Icons.draw_outlined;
       case 'CORRECTION_REQUESTED':
         return Icons.build_circle_outlined;
+      case 'CORRECTION_STARTED':
+        return Icons.engineering_outlined;
+      case 'CORRECTION_RESOLVED':
+        return Icons.task_alt_outlined;
       case 'PROJECT_COMPLETED':
         return Icons.check_circle_outline;
+      case 'PROJECT_CANCELLED':
+        return Icons.cancel_presentation_outlined;
       case 'FILE_UPLOADED':
         return Icons.cloud_upload_outlined;
       case 'FILE_DELETED':
@@ -48,14 +56,19 @@ class EngineerActivityScreen extends ConsumerWidget {
     switch (actionType) {
       case 'PROJECT_APPROVED':
       case 'PROJECT_COMPLETED':
+      case 'CORRECTION_RESOLVED':
         return AppColors.secondary;
       case 'PROJECT_REJECTED':
+      case 'PROJECT_CANCELLED':
       case 'FILE_DELETED':
         return AppColors.error;
       case 'CORRECTION_REQUESTED':
+      case 'CORRECTION_STARTED':
         return Colors.orange[800] ?? Colors.orange;
       case 'PROJECT_SUBMITTED':
       case 'DRAWING_SUBMITTED':
+      case 'ASSIGNMENT_ACCEPTED':
+      case 'DRAUGHTSMAN_ASSIGNED':
         return AppColors.primary;
       default:
         return AppColors.outline;
@@ -111,42 +124,59 @@ class EngineerActivityScreen extends ConsumerWidget {
                   ),
                   data: (activities) {
                     if (activities.isEmpty) {
-                      return Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(AppSpacing.xxl),
-                          margin: const EdgeInsets.all(AppSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerLowest,
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-                            border: Border.all(
-                              color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                      return RefreshIndicator(
+                        onRefresh: () async => ref.invalidate(engineerActivityLogsProvider),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                                  margin: const EdgeInsets.all(AppSpacing.lg),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceContainerLowest,
+                                    borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                                    border: Border.all(
+                                      color: AppColors.outlineVariant.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.history_toggle_off_rounded,
+                                        size: 56,
+                                        color: AppColors.outlineVariant,
+                                      ),
+                                      const SizedBox(height: AppSpacing.md),
+                                      Text(
+                                        'No Activity Yet',
+                                        style: AppTypography.headlineLgMobile.copyWith(
+                                          color: AppColors.primary,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        'Activities will appear here as your projects are created, reviewed, and updated.',
+                                        style: AppTypography.bodyMd.copyWith(
+                                          color: AppColors.outline,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: AppSpacing.md),
+                                      OutlinedButton.icon(
+                                        onPressed: () => ref.invalidate(engineerActivityLogsProvider),
+                                        icon: const Icon(Icons.refresh, size: 16),
+                                        label: const Text('Refresh Feed'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.history_toggle_off_rounded,
-                                size: 56,
-                                color: AppColors.outlineVariant,
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              Text(
-                                'No Activity Yet',
-                                style: AppTypography.headlineLgMobile.copyWith(
-                                  color: AppColors.primary,
-                                  fontSize: 18,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                'Activities will appear here as your projects are created, reviewed, and updated.',
-                                style: AppTypography.bodyMd.copyWith(
-                                  color: AppColors.outline,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
                           ),
                         ),
                       );
@@ -177,11 +207,14 @@ class EngineerActivityScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            child: ListTile(
+                            child: Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                              child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: AppSpacing.lg,
                                 vertical: AppSpacing.xs,
-                              ),
+                            ),
                               leading: Container(
                                 width: 40,
                                 height: 40,
@@ -201,7 +234,7 @@ class EngineerActivityScreen extends ConsumerWidget {
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
                                 child: Text(
-                                  '${log.projectName != null ? "${log.projectName} • " : ""}${log.actorRole} • ${DateFormat('MMM d, y • h:mm a').format(log.createdAt)}',
+                                  '${log.projectName != null ? "${log.projectName} • " : ""}${log.actorRole} • ${log.createdAt != null ? DateFormat('MMM d, y • h:mm a').format(log.createdAt!) : 'Date unavailable'}',
                                   style: AppTypography.labelMono.copyWith(
                                     fontSize: 11,
                                     color: AppColors.outline,
@@ -219,7 +252,8 @@ class EngineerActivityScreen extends ConsumerWidget {
                                 }
                               },
                             ),
-                          );
+                          ),
+                        );
                         },
                       ),
                     );

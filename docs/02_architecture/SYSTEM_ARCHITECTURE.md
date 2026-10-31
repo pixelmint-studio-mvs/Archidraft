@@ -121,8 +121,9 @@ The platform implements an automated audit logging pipeline to ensure full trace
    - Ordering: Reverse chronological order (`ORDER BY a.timestamp DESC LIMIT ?`).
 3. **Role Authorization Matrix for `/api/activity`:**
    - `ADMIN` & `STUDIO_ADMIN`: Full global platform audit stream.
-   - `ENGINEER` & `CLIENT`: Scoped to projects owned by the user (excluding internal reassignments).
-   - `DRAUGHTSMAN`: Scoped to projects assigned to the draughtsman.
+   - `ENGINEER` & `CLIENT`: Scoped to projects owned by the user (`p.client_id = uid`) or actions authored by the user (`a.actor_id = uid`), excluding internal reassignments.
+   - `DRAUGHTSMAN`: Scoped to projects assigned to the draughtsman (`p.draughtsman_id = uid`) or actions authored by the user (`a.actor_id = uid`).
+   - Timestamp Normalization: Worker endpoint normalizes SQLite stored timestamps to standard UTC ISO-8601 strings ending in `Z` (`normalizeTimestampString`). Clients use robust parsing (`ActivityLog.parseTimestamp`) that safely handles ISO-8601, SQLite space-delimited formats, and Unix epoch milliseconds without double-`Z` corruption. Invalid or missing timestamps explicitly parse to `null` and render as `Date unavailable` rather than defaulting to `DateTime.now()`.
    - `STUDENT` / Unauthenticated / Guests: Rejected (`403 Forbidden` / `401 Unauthorized`).
 4. **Admin UI Resiliency (`apps/admin-web/src/app/activity/page.tsx`):**
    - Background polling every 15 seconds.

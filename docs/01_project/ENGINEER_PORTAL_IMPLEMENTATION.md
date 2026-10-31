@@ -159,9 +159,11 @@
 
 ## 18. Scoped Engineer Activity Feed
 - **Routes:** `/engineer/activity` (`EngineerActivityScreen`) and project-level activity in details.
-- **Engineer Scoping:** The Worker endpoint `GET /api/activity` filters activity exclusively to projects where `client_id = uid`.
+- **Engineer Scoping:** The Worker endpoint `GET /api/activity` filters activity exclusively to projects where `p.client_id = uid` or `a.actor_id = uid`.
 - **Excluded Events:** Internal administrative actions (`ASSIGNMENT_REJECTED`, `DRAUGHTSMAN_REASSIGNED`) and financial logs (`INVOICE_CREATED`, `PAYMENT_RECORDED`) are filtered out.
 - **Sanitization:** UI sanitizes internal identifiers (e.g., `client_upload` → "Project Brief").
+- **Timestamp Normalization & Robust Parsing:** Events use UTC ISO-8601 formatting normalized across backend and Flutter frontend (`ActivityLog.parseTimestamp`). Invalid or missing timestamps explicitly parse to `null` and render as "Date unavailable" rather than falling back to `DateTime.now()`.
+- **Feed UI Resilience:** Implements explicit loading, error retry, and empty state with a "Refresh Feed" button; ListTile elements are wrapped in transparent `Material` widgets to ensure reliable ink splashes and bounds.
 
 ---
 

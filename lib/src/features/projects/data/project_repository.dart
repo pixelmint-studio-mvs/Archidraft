@@ -236,7 +236,17 @@ class ProjectRepository {
   Future<List<ActivityLog>> fetchActivityLogs(String projectId) async {
     final response = await _apiClient.get('/api/projects/$projectId/activity');
     if (response is List) {
-      return response.map((json) => ActivityLog.fromJson(json)).toList();
+      return response.map((json) => ActivityLog.fromJson(Map<String, dynamic>.from(json as Map))).toList();
+    }
+    if (response is Map) {
+      if (response['results'] is List) {
+        return (response['results'] as List)
+            .map((json) => ActivityLog.fromJson(Map<String, dynamic>.from(json as Map)))
+            .toList();
+      }
+      if (response['error'] != null) {
+        throw Exception(response['error'].toString());
+      }
     }
     return [];
   }
@@ -246,13 +256,28 @@ class ProjectRepository {
     if (response is List) {
       return response.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     }
+    if (response is Map && response['results'] is List) {
+      return (response['results'] as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
     return [];
   }
 
   Future<List<ActivityLog>> fetchEngineerActivityLogs() async {
     final response = await _apiClient.get('/api/activity');
     if (response is List) {
-      return response.map((json) => ActivityLog.fromJson(json)).toList();
+      return response.map((json) => ActivityLog.fromJson(Map<String, dynamic>.from(json as Map))).toList();
+    }
+    if (response is Map) {
+      if (response['results'] is List) {
+        return (response['results'] as List)
+            .map((json) => ActivityLog.fromJson(Map<String, dynamic>.from(json as Map)))
+            .toList();
+      }
+      if (response['error'] != null) {
+        throw Exception(response['error'].toString());
+      }
     }
     return [];
   }
