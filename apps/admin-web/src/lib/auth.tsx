@@ -160,11 +160,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (
         isDevFallbackEnabled &&
         email.trim().toLowerCase() === 'contact@draughtsmanstudio.com' &&
-        pass.trim() === 'AAAJ@PMS'
+        (pass.trim() === 'AAAJ@PMS' || pass.trim() === 'AAAJ@PIXELMINT')
       ) {
         console.warn('Firebase login failed, falling back to local dev admin session:', err);
         setUser({
-          id: 'dev-admin-uid',
+          id: 'bCrLwG8lMRbViDOrBmClwc96xJ42',
           email: 'contact@draughtsmanstudio.com',
           name: 'Studio Admin (Dev)',
           role: 'ADMIN',

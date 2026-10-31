@@ -118,6 +118,9 @@ app.use('*', async (c, next) => {
           ) {
             return origin;
           }
+          if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.vercel.app')) {
+            return origin;
+          }
         } catch {
           // invalid URL
         }
