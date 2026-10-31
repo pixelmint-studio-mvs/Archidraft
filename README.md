@@ -339,6 +339,11 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 - **Components & Endpoints:** `apps/admin-web/src/app/activity/page.tsx` and `GET /api/activity` in `worker/src/index.ts`.
 - **Implementation:** Updated Worker SQL query from `JOIN projects` to `LEFT JOIN projects` so system and unlinked events are preserved. Added limit validation (1-500) and role-based filtering. Admin UI polls every 15 seconds, retains previously fetched events on poll network drops, and renders dedicated error cards versus truthful empty states.
 
+### F. Public Certificate Verification API & CORS Configuration
+- **Components & Endpoints:** `GET /api/public/credentials/verify/:verificationToken` in `worker/src/index.ts`, `worker/wrangler.toml`, and D1 database migrations `0008`–`0022`.
+- **Implementation:** Deployed public verification route to production Cloudflare Worker (`archi-draft-worker`). Applied missing D1 migrations (`0008` through `0022`) to create `student_credentials` and curriculum tables. Added `https://www.draughtsmanstudio.com` and `https://draughtsmanstudio.com` to `ALLOWED_ORIGINS` and `BASELINE_PRODUCTION_ORIGINS`. Verified unauthenticated read-only resolution, dual lookup (token & cert ID), and strict rejection of unauthorized mutations.
+- **Developer Guide:** See [`CERTIFICATE_VERIFICATION_README.md`](CERTIFICATE_VERIFICATION_README.md) for full integration contracts and code examples.
+
 ---
 
 ## 12. Commit Readiness & Delivery Governance

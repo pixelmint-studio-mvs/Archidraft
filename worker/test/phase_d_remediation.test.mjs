@@ -227,6 +227,22 @@ test('PHASE D.1 Remediation: CORS Allowlist Suite', async (t) => {
     assert.equal(res.headers.get('Access-Control-Allow-Origin'), null);
   });
 
+  await t.test('Permits Draughtsman Studio public website origins in production', async () => {
+    const { env } = createIsolatedTestDb({ ENVIRONMENT: 'production' });
+    for (const origin of ['https://www.draughtsmanstudio.com', 'https://draughtsmanstudio.com']) {
+      const res = await app.request('/api/health', {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': origin,
+          'Access-Control-Request-Method': 'GET',
+        }
+      }, env);
+      assert.equal(res.status, 204);
+      assert.equal(res.headers.get('Access-Control-Allow-Origin'), origin);
+      assert.equal(res.headers.get('Access-Control-Allow-Credentials'), 'true');
+    }
+  });
+
   await t.test('Disallows localhost in production environment', async () => {
     const { env } = createIsolatedTestDb({ ENVIRONMENT: 'production' });
     const res = await app.request('/api/health', {

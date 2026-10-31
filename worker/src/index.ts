@@ -32,6 +32,8 @@ type Variables = {
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 const BASELINE_PRODUCTION_ORIGINS = new Set([
+  'https://www.draughtsmanstudio.com',
+  'https://draughtsmanstudio.com',
   'https://admin.draughtsmanstudio.com',
   'https://archi-draft.vercel.app',
 ]);

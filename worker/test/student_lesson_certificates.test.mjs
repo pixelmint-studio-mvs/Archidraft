@@ -300,6 +300,31 @@ test('Student Lesson Completion Certificate E2E Lifecycle', async (t) => {
     assert.equal(res404.status, 404);
     const body404 = await res404.json();
     assert.equal(body404.valid, false);
+
+    // CORS verification from Draughtsman Studio domain
+    const resCors = await app.request(`/api/public/credentials/verify/${cred.id}`, {
+      headers: {
+        'Origin': 'https://www.draughtsmanstudio.com'
+      }
+    }, env);
+    assert.equal(resCors.status, 200);
+    assert.equal(resCors.headers.get('Access-Control-Allow-Origin'), 'https://www.draughtsmanstudio.com');
+    assert.equal(resCors.headers.get('Access-Control-Allow-Credentials'), 'true');
+
+    // CORS verification from unapproved domain is rejected
+    const resUnapprovedCors = await app.request(`/api/public/credentials/verify/${cred.id}`, {
+      headers: {
+        'Origin': 'https://evil-unapproved.com'
+      }
+    }, env);
+    assert.equal(resUnapprovedCors.status, 200);
+    assert.equal(resUnapprovedCors.headers.get('Access-Control-Allow-Origin'), null);
+
+    // Non-GET requests require authentication (narrow exemption check)
+    const resPost = await app.request(`/api/public/credentials/verify/${cred.id}`, {
+      method: 'POST'
+    }, env);
+    assert.equal(resPost.status, 401);
   });
 
   await t.test('6. Student B cannot access or download Student A’s certificate (Strict Isolation)', async () => {

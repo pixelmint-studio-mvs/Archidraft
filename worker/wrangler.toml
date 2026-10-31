@@ -27,7 +27,7 @@ name = "archi-draft-worker-staging"
 ENVIRONMENT = "staging"
 FIREBASE_PROJECT_ID = "archi-draft-staging"
 # Staging permitted web origins (Vercel preview + custom staging domain)
-ALLOWED_ORIGINS = "https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,http://localhost:3000"
+ALLOWED_ORIGINS = "https://www.draughtsmanstudio.com,https://draughtsmanstudio.com,https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,http://localhost:3000"
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -48,7 +48,7 @@ name = "archi-draft-worker"
 ENVIRONMENT = "production"
 FIREBASE_PROJECT_ID = "archi-draft"
 # Production permitted web origins (Custom production domain + production Vercel deployment)
-ALLOWED_ORIGINS = "https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app"
+ALLOWED_ORIGINS = "https://www.draughtsmanstudio.com,https://draughtsmanstudio.com,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app"
 
 [[env.production.d1_databases]]
 binding = "DB"
