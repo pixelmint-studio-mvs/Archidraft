@@ -187,7 +187,7 @@ export default function SettingsPage() {
   };
 
   const workerUrl =
-    process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://archi-draft-worker.imserratex.workers.dev';
+    process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://archi-draft-worker-staging.imserratex.workers.dev';
   const firebaseProject = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'archi-draft';
   const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'archi-draft.firebaseapp.com';
 

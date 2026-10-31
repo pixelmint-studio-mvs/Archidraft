@@ -26,7 +26,15 @@ import {
   LessonResource,
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || 'http://localhost:8787';
+export const API_BASE = (() => {
+  if (typeof window !== 'undefined') {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalhost && (window.location.hostname.endsWith('.vercel.app') || window.location.protocol === 'https:')) {
+      return 'https://archi-draft-worker-staging.imserratex.workers.dev';
+    }
+  }
+  return process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://archi-draft-worker-staging.imserratex.workers.dev';
+})();
 
 export class ApiError extends Error {
   status: number;
