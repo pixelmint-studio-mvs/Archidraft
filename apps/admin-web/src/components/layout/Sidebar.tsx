@@ -68,31 +68,6 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Teaching Students',
-    items: [
-      {
-        name: 'Assign Projects',
-        href: '/teaching/assignments',
-        icon: UserCheck,
-      },
-      {
-        name: 'Training Modules',
-        href: '/teaching/modules',
-        icon: BookOpen,
-      },
-      {
-        name: 'Student Learning Plans',
-        href: '/teaching/learning-plans',
-        icon: Compass,
-      },
-      {
-        name: 'Student Progress',
-        href: '/teaching/progress',
-        icon: TrendingUp,
-      },
-    ],
-  },
-  {
     title: 'Workflow & Pipeline',
     items: [
       {
@@ -138,6 +113,31 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/students',
         icon: GraduationCap,
         badgeKey: 'students',
+      },
+    ],
+  },
+  {
+    title: 'Teaching Students',
+    items: [
+      {
+        name: 'Assign Projects',
+        href: '/teaching/assignments',
+        icon: UserCheck,
+      },
+      {
+        name: 'Training Modules',
+        href: '/teaching/modules',
+        icon: BookOpen,
+      },
+      {
+        name: 'Student Learning Plans',
+        href: '/teaching/learning-plans',
+        icon: Compass,
+      },
+      {
+        name: 'Student Progress',
+        href: '/teaching/progress',
+        icon: TrendingUp,
       },
     ],
   },
