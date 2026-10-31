@@ -59,7 +59,26 @@ export function AdminShell({
   }
 
   if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
-    return null; // Route protection in AuthProvider will redirect
+    if (typeof window !== 'undefined') {
+      window.location.replace('/login');
+    }
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[#0B0F17] text-white">
+        <div className="flex flex-col items-center gap-4 p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl max-w-sm text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+          <h3 className="font-bold text-base text-white">Redirecting to Login...</h3>
+          <p className="text-xs text-slate-400">
+            Please sign in with your Studio Admin credentials to access the Dashboard.
+          </p>
+          <a
+            href="/login"
+            className="mt-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors"
+          >
+            Click here if not redirected
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (

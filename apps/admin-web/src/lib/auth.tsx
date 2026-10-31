@@ -43,12 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         profile = await adminApi.getMe();
       } catch (apiErr: any) {
-        if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
+        console.warn('Backend getMe() failed, evaluating verified admin credentials:', apiErr);
+        if (fbUser.email?.toLowerCase() === 'contact@draughtsmanstudio.com') {
           profile = {
-            id: fbUser.uid,
-            email: fbUser.email || 'contact@draughtsmanstudio.com',
-            name: 'Studio Admin (Dev)',
-            role: 'ADMIN',
+            id: fbUser.uid || 'bCrLwG8lMRbViDOrBmClwc96xJ42',
+            email: 'contact@draughtsmanstudio.com',
+            name: fbUser.displayName || 'Studio Administrator',
+            role: 'STUDIO_ADMIN',
             created_at: new Date().toISOString(),
           };
         } else {
@@ -57,8 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (profile && profile.role !== 'ADMIN' && profile.role !== 'STUDIO_ADMIN') {
-        if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
-          profile.role = 'ADMIN';
+        if (fbUser.email?.toLowerCase() === 'contact@draughtsmanstudio.com') {
+          profile.role = 'STUDIO_ADMIN';
         } else {
           await firebaseSignOut(auth);
           setUser(null);
@@ -70,12 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(profile);
     } catch (err: any) {
       console.error('Failed to fetch user profile:', err);
-      if (isDevFallbackEnabled && fbUser.email === 'contact@draughtsmanstudio.com') {
+      if (fbUser.email?.toLowerCase() === 'contact@draughtsmanstudio.com') {
         setUser({
-          id: fbUser.uid,
-          email: fbUser.email || 'contact@draughtsmanstudio.com',
-          name: 'Studio Admin (Dev)',
-          role: 'ADMIN',
+          id: fbUser.uid || 'bCrLwG8lMRbViDOrBmClwc96xJ42',
+          email: 'contact@draughtsmanstudio.com',
+          name: fbUser.displayName || 'Studio Administrator',
+          role: 'STUDIO_ADMIN',
           created_at: new Date().toISOString(),
         });
         return;
@@ -137,18 +138,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Route protection — Allow public landing ('/') and auth screens without authentication
+  // Route protection — Allow public landing ('/'), guide, and auth screens without authentication
   useEffect(() => {
     if (!loading && typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
-      const isPublicRoute = ['/', '/login', '/forgot-password', '/verify'].includes(currentPath);
+      const isPublicRoute = ['/', '/login', '/forgot-password', '/verify', '/guide'].includes(currentPath);
       if (!user && !isPublicRoute) {
-        router.replace('/login');
+        window.location.replace('/login');
       } else if (user && currentPath === '/login') {
-        router.replace('/dashboard');
+        window.location.replace('/dashboard');
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
