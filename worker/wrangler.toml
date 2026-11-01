@@ -22,12 +22,13 @@ ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:8787"
 # ==========================================
 [env.staging]
 name = "archi-draft-worker-staging"
+account_id = "06fbb6f8b2e1e65612347252ea10574c"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
 FIREBASE_PROJECT_ID = "archi-draft-staging"
-# Staging permitted web origins (Vercel preview + custom staging domain)
-ALLOWED_ORIGINS = "https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,http://localhost:3000"
+# Staging permitted web origins (Vercel deployments + custom staging domain)
+ALLOWED_ORIGINS = "https://admin-web-eight-wine.vercel.app,https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app,https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app,http://localhost:3000"
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -43,12 +44,13 @@ bucket_name = "archi-draft-storage-staging"
 # ==========================================
 [env.production]
 name = "archi-draft-worker"
+account_id = "06fbb6f8b2e1e65612347252ea10574c"
 
 [env.production.vars]
 ENVIRONMENT = "production"
 FIREBASE_PROJECT_ID = "archi-draft"
 # Production permitted web origins (Custom production domain + production Vercel deployment)
-ALLOWED_ORIGINS = "https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app"
+ALLOWED_ORIGINS = "https://admin-web-eight-wine.vercel.app,https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app"
 
 [[env.production.d1_databases]]
 binding = "DB"

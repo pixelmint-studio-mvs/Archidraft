@@ -91,7 +91,11 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 const BASELINE_PRODUCTION_ORIGINS = new Set([
   'https://admin.draughtsmanstudio.com',
+  'https://admin-staging.draughtsmanstudio.com',
   'https://archi-draft.vercel.app',
+  'https://archi-draft-staging.vercel.app',
+  'https://admin-web-eight-wine.vercel.app',
+  'https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app',
 ]);
 
 app.use('*', async (c, next) => {
