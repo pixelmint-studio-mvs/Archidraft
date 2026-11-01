@@ -7,7 +7,7 @@ import { Card, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { adminApi } from '@/lib/api';
+import { adminApi, classifyApiError, ClassifiedError } from '@/lib/api';
 import { formatTime, formatRelativeTime } from '@/lib/dateUtils';
 import { AdminStats, Project } from '@/lib/types';
 import {
@@ -29,28 +29,106 @@ import {
   ExternalLink,
   ChevronRight,
   Layers,
+  Lock,
+  ShieldAlert,
+  ServerCrash,
+  WifiOff,
+  FileWarning,
+  RefreshCw,
+  LogIn,
 } from 'lucide-react';
+
+function DashboardErrorView({
+  errorInfo,
+  onRetry,
+  isRetrying,
+}: {
+  errorInfo: ClassifiedError;
+  onRetry: () => void;
+  isRetrying: boolean;
+}) {
+  const getIcon = () => {
+    switch (errorInfo.kind) {
+      case 'AUTH_FAILED':
+        return <Lock className="h-8 w-8 text-amber-600" />;
+      case 'AUTH_FORBIDDEN':
+        return <ShieldAlert className="h-8 w-8 text-rose-600" />;
+      case 'BACKEND_DOWN':
+        return <ServerCrash className="h-8 w-8 text-rose-600" />;
+      case 'NETWORK_FAILURE':
+        return <WifiOff className="h-8 w-8 text-amber-600" />;
+      case 'INVALID_RESPONSE':
+        return <FileWarning className="h-8 w-8 text-orange-600" />;
+      default:
+        return <AlertCircle className="h-8 w-8 text-rose-600" />;
+    }
+  };
+
+  const getBorderColor = () => {
+    switch (errorInfo.kind) {
+      case 'AUTH_FAILED':
+      case 'NETWORK_FAILURE':
+        return 'border-amber-200 bg-amber-50/40';
+      default:
+        return 'border-rose-200 bg-rose-50/40';
+    }
+  };
+
+  return (
+    <div className={`p-8 sm:p-12 rounded-2xl border ${getBorderColor()} soft-elevation my-6 text-center max-w-2xl mx-auto`}>
+      <div className="inline-flex p-3 rounded-2xl bg-white shadow-xs border border-slate-200 mb-4">
+        {getIcon()}
+      </div>
+      <div className="flex items-center justify-center gap-2 mb-2">
+        <h3 className="text-lg font-bold text-slate-900">{errorInfo.title}</h3>
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold border border-slate-200">
+          {errorInfo.status > 0 ? `HTTP ${errorInfo.status}` : 'NETWORK_OFFLINE'}
+        </span>
+      </div>
+      <p className="text-sm text-slate-600 leading-relaxed max-w-lg mx-auto mb-6">
+        {errorInfo.message}
+      </p>
+      <div className="p-3 rounded-xl bg-white/80 border border-slate-200/80 text-xs text-slate-500 font-mono mb-6 max-w-md mx-auto">
+        Platform telemetry is paused to prevent displaying misleading zero-record metrics.
+      </div>
+      <div className="flex items-center justify-center gap-3">
+        <Button
+          onClick={onRetry}
+          disabled={isRetrying}
+          className="bg-[#0453cd] hover:bg-blue-700 text-white font-mono text-xs flex items-center gap-2"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
+          <span>{isRetrying ? 'Retrying...' : (errorInfo.actionText || 'Retry Request')}</span>
+        </Button>
+        {errorInfo.kind === 'AUTH_FAILED' && (
+          <Link href="/login">
+            <Button variant="outline" size="sm" className="font-mono text-xs flex items-center gap-1.5">
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Go to Sign In</span>
+            </Button>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [pendingProjects, setPendingProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorInfo, setErrorInfo] = useState<ClassifiedError | null>(null);
 
   const loadData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     else setLoading(true);
-    setError(null);
+    setErrorInfo(null);
 
     try {
       const [statsData, projectsData] = await Promise.all([
-        adminApi.getStats().catch(() => ({
-          projects: { total: 0, byStatus: {} },
-          users: { total: 1, byRole: { ADMIN: 1 } },
-          recentActivity: [],
-        })),
-        adminApi.getProjects().catch(() => []),
+        adminApi.getStats(),
+        adminApi.getProjects(),
       ]);
       setStats(statsData);
       // Filter projects that need immediate admin action
@@ -58,9 +136,11 @@ export default function DashboardPage() {
         (p) => p.status === 'SUBMITTED' || p.status === 'WAITING_ASSIGNMENT'
       );
       setPendingProjects(needsAction.slice(0, 5));
+      setErrorInfo(null);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to load dashboard metrics');
+      console.error('Failed to load dashboard metrics:', err);
+      const classified = classifyApiError(err);
+      setErrorInfo(classified);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -96,12 +176,27 @@ export default function DashboardPage() {
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >
-      {error && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-800 flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
-          <span className="font-medium">{error}</span>
-          <Button variant="outline" size="sm" onClick={() => loadData(true)} className="ml-auto">
-            Retry
+      {errorInfo && stats && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <span className="font-bold">{errorInfo.title}: </span>
+              <span>{errorInfo.message}</span>
+              <span className="text-xs font-mono text-amber-700 block mt-0.5">
+                (Displaying cached data. Refresh failed with {errorInfo.status > 0 ? `status ${errorInfo.status}` : 'network failure'})
+              </span>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            className="sm:ml-auto shrink-0 bg-white"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Retry Refresh</span>
           </Button>
         </div>
       )}
@@ -113,6 +208,12 @@ export default function DashboardPage() {
             Aggregating platform metrics across all portals...
           </p>
         </div>
+      ) : errorInfo && !stats ? (
+        <DashboardErrorView
+          errorInfo={errorInfo}
+          onRetry={() => loadData(true)}
+          isRetrying={refreshing}
+        />
       ) : (
         <div className="space-y-8">
           {/* Three Portals Unified Executive Banner */}

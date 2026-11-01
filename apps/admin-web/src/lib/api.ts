@@ -48,6 +48,118 @@ export class ApiError extends Error {
   }
 }
 
+export type ApiErrorKind =
+  | 'AUTH_FAILED'        // 401: Authentication failure (expired / invalid token)
+  | 'AUTH_FORBIDDEN'     // 403: Authorization failure (insufficient privileges / role)
+  | 'BACKEND_DOWN'       // 502, 503, 504: Cloudflare Worker backend unavailable
+  | 'NETWORK_FAILURE'    // 0: Network / DNS / offline / connection drop
+  | 'INVALID_RESPONSE'   // Malformed JSON / unexpected schema
+  | 'SERVER_ERROR'       // 500: Worker unhandled runtime error
+  | 'NOT_FOUND'          // 404: Resource not found
+  | 'UNKNOWN';
+
+export interface ClassifiedError {
+  kind: ApiErrorKind;
+  title: string;
+  message: string;
+  status: number;
+  canRetry: boolean;
+  actionText?: string;
+}
+
+export function classifyApiError(err: unknown): ClassifiedError {
+  if (err instanceof ApiError) {
+    if (err.data?.invalidResponse || err.message.toLowerCase().includes('invalid response')) {
+      return {
+        kind: 'INVALID_RESPONSE',
+        title: 'Invalid Response',
+        message: 'The server returned an invalid or malformed data payload.',
+        status: err.status,
+        canRetry: true,
+        actionText: 'Retry Request',
+      };
+    }
+    if (err.status === 401) {
+      return {
+        kind: 'AUTH_FAILED',
+        title: 'Authentication Failure',
+        message: 'Your authentication session has expired or is invalid. Please sign in again to continue.',
+        status: 401,
+        canRetry: true,
+        actionText: 'Sign In Again',
+      };
+    }
+    if (err.status === 403) {
+      return {
+        kind: 'AUTH_FORBIDDEN',
+        title: 'Authorization Failure',
+        message: 'Access Denied: Your account does not possess administrator privileges to access this console.',
+        status: 403,
+        canRetry: false,
+        actionText: 'Check Permissions',
+      };
+    }
+    if (err.status === 502 || err.status === 503 || err.status === 504) {
+      return {
+        kind: 'BACKEND_DOWN',
+        title: 'Backend Unavailable',
+        message: `The Cloudflare Worker backend service is currently unreachable (HTTP ${err.status}). Please verify service status and retry.`,
+        status: err.status,
+        canRetry: true,
+        actionText: 'Retry Connection',
+      };
+    }
+    if (err.status === 0 || err.data?.isNetworkError) {
+      return {
+        kind: 'NETWORK_FAILURE',
+        title: 'Network Failure',
+        message: 'Unable to connect to the backend server. Please verify your internet connection.',
+        status: 0,
+        canRetry: true,
+        actionText: 'Retry Request',
+      };
+    }
+    if (err.status >= 500) {
+      return {
+        kind: 'SERVER_ERROR',
+        title: 'Backend Service Error',
+        message: err.message || `An internal server error occurred (HTTP ${err.status}).`,
+        status: err.status,
+        canRetry: true,
+        actionText: 'Retry Request',
+      };
+    }
+    return {
+      kind: 'UNKNOWN',
+      title: 'API Request Failed',
+      message: err.message || `Request failed with status ${err.status}`,
+      status: err.status,
+      canRetry: true,
+      actionText: 'Retry Request',
+    };
+  }
+
+  if (err instanceof TypeError || (err as any)?.message?.includes('fetch')) {
+    return {
+      kind: 'NETWORK_FAILURE',
+      title: 'Network Failure',
+      message: 'Failed to communicate with the backend API. Please check your internet connection.',
+      status: 0,
+      canRetry: true,
+      actionText: 'Retry Request',
+    };
+  }
+
+  return {
+    kind: 'UNKNOWN',
+    title: 'Unexpected Error',
+    message: (err as any)?.message || 'An unexpected error occurred while communicating with the server.',
+    status: -1,
+    canRetry: true,
+    actionText: 'Retry Request',
+  };
+}
+
 async function getAuthToken(forceRefresh = false): Promise<string | null> {
   if (typeof window === 'undefined') return null;
 
@@ -100,10 +212,25 @@ export async function fetchApi<T>(
 
   const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (netErr: any) {
+    const isNetworkError =
+      netErr?.message?.includes('Failed to fetch') ||
+      netErr?.name === 'TypeError' ||
+      netErr?.message?.includes('NetworkError');
+    throw new ApiError(
+      isNetworkError
+        ? 'Network failure: Unable to reach backend API. Please check your internet connection or server availability.'
+        : `Network connection error: ${netErr?.message || 'Failed to fetch'}`,
+      0,
+      { isNetworkError: true, originalError: netErr }
+    );
+  }
 
   if (!res.ok) {
     // If request failed with 401 Unauthorized and we haven't retried yet, force refresh ID token and retry once
@@ -131,10 +258,18 @@ export async function fetchApi<T>(
     throw new ApiError(message, res.status, errBody);
   }
 
-  // Handle empty responses
+  // Handle empty or JSON responses
   const contentType = res.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
-    return (await res.json()) as T;
+    try {
+      return (await res.json()) as T;
+    } catch (parseErr: any) {
+      throw new ApiError(
+        'Invalid response: Expected JSON from backend but received malformed data.',
+        502,
+        { invalidResponse: true, parseErr }
+      );
+    }
   }
   return {} as T;
 }
@@ -192,10 +327,16 @@ export const adminApi = {
   async getStats(): Promise<AdminStats> {
     try {
       const [metrics, projects, users, recentActivity] = await Promise.all([
-        this.getDashboardMetrics().catch(() => null),
-        this.getProjects().catch(() => []),
-        this.getUsers().catch(() => []),
-        this.getActivityLogs(10).catch(() => []),
+        this.getDashboardMetrics().catch((err) => {
+          if (err?.status === 404) return null;
+          throw err;
+        }),
+        this.getProjects(),
+        this.getUsers(),
+        this.getActivityLogs(10).catch((err) => {
+          if (err?.status === 404) return [];
+          throw err;
+        }),
       ]);
       const byStatus: Record<string, number> = {};
       projects.forEach((p) => {
@@ -267,7 +408,7 @@ export const adminApi = {
     // Populate projects / assignments if not returned by the direct lookup
     if (!projects || projects.length === 0) {
       if (user.role === 'CLIENT' || (user.role as string) === 'ENGINEER') {
-        const allProjects = await this.getProjects().catch(() => []);
+        const allProjects = await this.getProjects();
         projects = allProjects.filter((p) => p.client_id === userId);
       } else if (user.role === 'DRAUGHTSMAN') {
         try {
@@ -275,12 +416,16 @@ export const adminApi = {
           if (assignments && assignments.length > 0) {
             projects = assignments;
           } else {
-            const allProjects = await this.getProjects().catch(() => []);
+            const allProjects = await this.getProjects();
             projects = allProjects.filter((p) => p.draughtsman_id === userId);
           }
-        } catch {
-          const allProjects = await this.getProjects().catch(() => []);
-          projects = allProjects.filter((p) => p.draughtsman_id === userId);
+        } catch (err: any) {
+          if (err?.status === 404) {
+            const allProjects = await this.getProjects();
+            projects = allProjects.filter((p) => p.draughtsman_id === userId);
+          } else {
+            throw err;
+          }
         }
       } else if (user.role === 'STUDENT') {
         try {
@@ -288,8 +433,12 @@ export const adminApi = {
           if (studentData?.assignments && Array.isArray(studentData.assignments)) {
             projects = studentData.assignments;
           }
-        } catch {
-          projects = [];
+        } catch (err: any) {
+          if (err?.status === 404) {
+            projects = [];
+          } else {
+            throw err;
+          }
         }
       }
     }
@@ -304,7 +453,7 @@ export const adminApi = {
       params.set('status', status);
     }
     const query = params.toString() ? `?${params.toString()}` : '';
-    const remoteProjects = await fetchApi<Project[]>(`/api/projects${query}`).catch(() => []);
+    const remoteProjects = await fetchApi<Project[]>(`/api/projects${query}`);
 
     if (status && status !== 'ALL') {
       return remoteProjects.filter((p) => p.status === status);
@@ -335,40 +484,45 @@ export const adminApi = {
   async getProjectActivity(projectId: string): Promise<ActivityLog[]> {
     try {
       return await fetchApi<ActivityLog[]>(`/api/projects/${projectId}/activity`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectAssignments(projectId: string): Promise<Assignment[]> {
     try {
       return await fetchApi<Assignment[]>(`/api/projects/${projectId}/assignments`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
     try {
       return await fetchApi<ProjectFile[]>(`/api/projects/${projectId}/files`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectDrawingVersions(projectId: string): Promise<DrawingVersion[]> {
     try {
       return await fetchApi<DrawingVersion[]>(`/api/projects/${projectId}/drawing_versions`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectCorrections(projectId: string): Promise<Correction[]> {
     try {
       return await fetchApi<Correction[]>(`/api/projects/${projectId}/corrections`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
@@ -376,8 +530,9 @@ export const adminApi = {
   async getProjectComments(projectId: string): Promise<ProjectComment[]> {
     try {
       return await fetchApi<ProjectComment[]>(`/api/projects/${projectId}/comments`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
@@ -410,12 +565,12 @@ export const adminApi = {
       // In staging/prod D1 database, engineers may have role 'ENGINEER' or legacy 'CLIENT'
       const [clients, engineers] = await Promise.all([
         fetchApi<User[]>('/api/users?role=CLIENT').catch((err) => {
-          if (err?.status === 401 || err?.status === 403) throw err;
-          return [];
+          if (err?.status === 404) return [];
+          throw err;
         }),
         fetchApi<User[]>('/api/users?role=ENGINEER').catch((err) => {
-          if (err?.status === 401 || err?.status === 403) throw err;
-          return [];
+          if (err?.status === 404) return [];
+          throw err;
         }),
       ]);
       const map = new Map<string, User>();
@@ -514,8 +669,9 @@ export const adminApi = {
 
     try {
       return await fetchApi<GlobalAssignment[]>(`/api/admin/assignments${qs}`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
