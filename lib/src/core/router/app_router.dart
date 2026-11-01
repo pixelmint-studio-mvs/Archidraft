@@ -80,8 +80,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/register',
         '/forgot-password',
         '/verify-email',
+        '/verify',
       ];
-      final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/');
+      final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/') || currentPath.startsWith('/verify?');
 
       // Not logged in
       if (!isLoggedIn) {
@@ -177,6 +178,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (role == UserRole.student) return '/student/dashboard';
         if (role == UserRole.admin) return '/admin/dashboard';
         return '/';
+      }
+
+      // Allow verification routes regardless of whether user is authenticated
+      if (currentPath.startsWith('/verify/') || currentPath == '/verify') {
+        return null;
       }
 
       // Redirect from public routes, verify-email, or root to the role dashboard
@@ -497,9 +503,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
+        path: '/verify',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? state.uri.queryParameters['id'] ?? '';
+          return CertificateVerificationScreen(token: token);
+        },
+      ),
+      GoRoute(
         path: '/verify/:token',
         builder: (context, state) {
-          final token = state.pathParameters['token']!;
+          final token = state.pathParameters['token'] ?? state.uri.queryParameters['token'] ?? state.uri.queryParameters['id'] ?? '';
           return CertificateVerificationScreen(token: token);
         },
       ),

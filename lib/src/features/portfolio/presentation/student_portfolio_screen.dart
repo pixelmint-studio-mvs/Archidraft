@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -1097,16 +1098,56 @@ class _PortfolioCredentialCardState extends ConsumerState<PortfolioCredentialCar
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: widget.credential.isLessonCompletion
+                                ? AppColors.secondary.withValues(alpha: 0.1)
+                                : AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            widget.credential.isLessonCompletion ? 'LESSON CERTIFICATE' : 'MODULE CERTIFICATION',
+                            style: AppTypography.labelMono.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: widget.credential.isLessonCompletion ? AppColors.secondary : AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.credential.id,
+                          style: AppTypography.labelMono.copyWith(
+                            fontSize: 10,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      widget.credential.title,
+                      widget.credential.displayTitle,
                       style: AppTypography.headlineSmMobile.copyWith(
                         color: AppColors.onSurface,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (widget.credential.moduleTitle != null && widget.credential.moduleTitle!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Module: ${widget.credential.moduleTitle}',
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
-                      'Type: ${widget.credential.type} • Issued: ${dateFormat.format(widget.credential.issuedAt)}',
+                      'Issued: ${dateFormat.format(widget.credential.issuedAt)}',
                       style: AppTypography.bodySm.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -1173,7 +1214,12 @@ class _PortfolioCredentialCardState extends ConsumerState<PortfolioCredentialCar
               if (hasVerification)
                 TextButton.icon(
                   onPressed: () {
+                    final verifyUrl = widget.credential.publicVerificationUrl;
                     context.push('/verify/${widget.credential.verificationToken}');
+                    Clipboard.setData(ClipboardData(text: verifyUrl));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Verification link copied to clipboard')),
+                    );
                   },
                   icon: const Icon(Icons.qr_code, size: 18),
                   label: const Text('View Online Verification'),

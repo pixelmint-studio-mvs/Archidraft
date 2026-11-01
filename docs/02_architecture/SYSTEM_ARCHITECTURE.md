@@ -13,8 +13,8 @@ The Archi Draft Studio platform implements a distributed, role-isolated architec
 ```mermaid
 graph TB
     subgraph Client Tier
-        FW[Flutter Web / Desktop / Mobile<br/>Port 8080<br/>Engineer, Draughtsman, Student]
-        AW[Next.js Admin Studio<br/>Port 3000<br/>Studio Admin & Supervisors]
+        FW[Flutter Web Client<br/>Pages: archidraft-app.pages.dev<br/>Engineer, Draughtsman, Student]
+        AW[Next.js Admin Studio<br/>Vercel: admin-web-eight-wine.vercel.app<br/>Studio Admin & Supervisors]
     end
 
     subgraph AI Assistant Tier
@@ -46,7 +46,8 @@ graph TB
 ## 2. Multiplatform Client Tier
 
 ### A. Flutter Multi-Persona Application (`lib/`)
-- **Port:** `8080`
+- **Staging Deployment:** Hosted on Cloudflare Pages (`archidraft-app` at `https://archidraft-app.pages.dev`).
+- **Development Port:** `8080`
 - **Target Personas:**
   1. **Engineer (Client):** Project brief creation, scope specification, reference uploads, drawing review, redline markup, correction requests, and final drawing approval.
   2. **Draughtsman:** Assignment acceptance/rejection, drawing drafts, CAD/DXF/DWG revision submissions, and collaboration communication.
@@ -56,7 +57,8 @@ graph TB
 - **API Base URL Resolution:** Governed by `lib/src/features/api/data/api_client.dart` via `--dart-define=API_URL=...` (defaults safely to `http://localhost:8787` in debug/test mode).
 
 ### B. Next.js Studio Admin Web Portal (`apps/admin-web/`)
-- **Port:** `3000`
+- **Hosting:** Preserved on Vercel (`https://admin-web-eight-wine.vercel.app/`).
+- **Development Port:** `3000`
 - **Target Persona:** Studio Administrator
 - **Key Capabilities:**
   - Executive Dashboard metrics and project status breakdown.

@@ -138,13 +138,10 @@ class _StudentCredentialsCardState extends ConsumerState<StudentCredentialsCard>
                   onAction: () => _handleGenerateOrDownload(cred),
                   onVerify: cred.verificationToken != null 
                     ? () {
-                        // We can either push to the verification screen
+                        final verifyUrl = cred.publicVerificationUrl;
                         context.push('/verify/${cred.verificationToken}');
                         
-                        // And copy to clipboard for convenience
-                        Clipboard.setData(ClipboardData(
-                          text: 'https://archi-draft.web.app/verify/${cred.verificationToken}'
-                        ));
+                        Clipboard.setData(ClipboardData(text: verifyUrl));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Verification link copied to clipboard')),
                         );
@@ -174,6 +171,7 @@ class _CredentialItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasCert = credential.certificateObjectKey != null;
+    final isLesson = credential.isLessonCompletion;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -187,25 +185,70 @@ class _CredentialItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
+                  color: isLesson
+                      ? AppColors.secondaryContainer.withValues(alpha: 0.6)
+                      : AppColors.primaryContainer,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.workspace_premium, color: AppColors.primary),
+                child: Icon(
+                  Icons.workspace_premium,
+                  color: isLesson ? AppColors.secondary : AppColors.primary,
+                ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isLesson
+                                ? AppColors.secondary.withValues(alpha: 0.1)
+                                : AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isLesson ? 'LESSON CERTIFICATE' : 'MODULE CERTIFICATION',
+                            style: AppTypography.labelMono.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isLesson ? AppColors.secondary : AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          credential.id,
+                          style: AppTypography.labelMono.copyWith(
+                            fontSize: 10,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      credential.title,
+                      credential.displayTitle,
                       style: AppTypography.headlineSmMobile,
                     ),
+                    if (credential.moduleTitle != null && credential.moduleTitle!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Module: ${credential.moduleTitle}',
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       'Issued: ${credential.issuedAt.toLocal().toString().split(' ')[0]}',
@@ -228,11 +271,14 @@ class _CredentialItem extends StatelessWidget {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (hasCert && onVerify != null)
-                        IconButton(
+                      if (onVerify != null)
+                        TextButton.icon(
                           onPressed: onVerify,
-                          icon: const Icon(Icons.share),
-                          tooltip: 'Share Verification Link',
+                          icon: const Icon(Icons.qr_code, size: 16),
+                          label: const Text('Verify'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                          ),
                         ),
                       const SizedBox(width: 4),
                       OutlinedButton.icon(

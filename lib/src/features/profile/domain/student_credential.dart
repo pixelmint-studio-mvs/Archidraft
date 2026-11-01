@@ -7,6 +7,8 @@ class StudentCredential {
   final DateTime issuedAt;
   final String? certificateObjectKey;
   final String? verificationToken;
+  final String? lessonTitle;
+  final String? moduleTitle;
 
   StudentCredential({
     required this.id,
@@ -17,7 +19,14 @@ class StudentCredential {
     required this.issuedAt,
     this.certificateObjectKey,
     this.verificationToken,
+    this.lessonTitle,
+    this.moduleTitle,
   });
+
+  bool get isLessonCompletion => type == 'LESSON_COMPLETION';
+  bool get isModuleCertification => type == 'MODULE_CERTIFICATION';
+  String get displayTitle => lessonTitle ?? title;
+  String get publicVerificationUrl => 'https://www.draughtsmanstudio.com/verify?id=$id${verificationToken != null ? '&token=$verificationToken' : ''}';
 
   factory StudentCredential.fromJson(Map<String, dynamic> json) {
     return StudentCredential(
@@ -29,6 +38,8 @@ class StudentCredential {
       issuedAt: DateTime.parse(json['issuedAt'] as String),
       certificateObjectKey: json['certificateObjectKey'] as String?,
       verificationToken: json['verificationToken'] as String?,
+      lessonTitle: json['lessonTitle'] as String?,
+      moduleTitle: json['moduleTitle'] as String?,
     );
   }
 }
