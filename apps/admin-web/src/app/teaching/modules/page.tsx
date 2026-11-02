@@ -240,6 +240,8 @@ export default function TeachingModulesPage() {
     <AdminShell
       title="Training Modules"
       subtitle="Author, configure, publish, and manage architectural training modules and curriculum."
+      backHref="/students"
+      backLabel="Back"
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >

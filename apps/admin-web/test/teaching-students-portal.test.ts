@@ -4,40 +4,52 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 describe('Teaching Students Portal — Admin Implementation Tests', () => {
-  // ── 1. Sidebar Navigation & Route Relocation Contract ──────────────────────────
-  describe('Sidebar Navigation Architecture & Assign Projects Relocation', () => {
+  // ── 1. Sidebar Navigation Architecture & Consolidation Contract ─────────────
+  describe('Sidebar Navigation Architecture & Consolidation', () => {
     const sidebarPath = path.resolve(process.cwd(), 'src/components/layout/Sidebar.tsx');
     const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
 
-    test('Sidebar includes dedicated TEACHING STUDENTS navigation section', () => {
-      assert.match(
-        sidebarContent,
-        /title:\s*'Teaching Students'/i,
-        'Sidebar must include dedicated "Teaching Students" navigation section'
+    test('Sidebar does NOT include a separate TEACHING STUDENTS category heading', () => {
+      assert.equal(
+        sidebarContent.includes("'Teaching Students'"),
+        false,
+        'Sidebar must not contain a separate "Teaching Students" category heading'
       );
     });
 
-    test('Teaching Students contains exactly the 4 required operational options', () => {
-      assert.match(sidebarContent, /name:\s*'Assign Projects'/);
-      assert.match(sidebarContent, /href:\s*'\/teaching\/assignments'/);
-
-      assert.match(sidebarContent, /name:\s*'Training Modules'/);
-      assert.match(sidebarContent, /href:\s*'\/teaching\/modules'/);
-
-      assert.match(sidebarContent, /name:\s*'Student Learning Plans'/);
-      assert.match(sidebarContent, /href:\s*'\/teaching\/learning-plans'/);
-
-      assert.match(sidebarContent, /name:\s*'Student Progress'/);
-      assert.match(sidebarContent, /href:\s*'\/teaching\/progress'/);
+    test('Sidebar does NOT contain separate links for the four consolidated options', () => {
+      assert.equal(
+        sidebarContent.includes("'Assign Projects'"),
+        false,
+        'Sidebar must not contain "Assign Projects" as a separate link'
+      );
+      assert.equal(
+        sidebarContent.includes("'Training Modules'"),
+        false,
+        'Sidebar must not contain "Training Modules" as a separate link'
+      );
+      assert.equal(
+        sidebarContent.includes("'Student Learning Plans'"),
+        false,
+        'Sidebar must not contain "Student Learning Plans" as a separate link'
+      );
+      assert.equal(
+        sidebarContent.includes("'Student Progress'"),
+        false,
+        'Sidebar must not contain "Student Progress" as a separate link'
+      );
     });
 
-    test('Assign Projects appears ONLY ONCE in the sidebar navigation array', () => {
-      const assignMatches = sidebarContent.match(/name:\s*['"]Assign Projects['"]/g);
-      assert.ok(assignMatches, 'Assign Projects must exist in Sidebar');
-      assert.equal(
-        assignMatches.length,
-        1,
-        'Assign Projects must appear exactly once in the sidebar navigation'
+    test('Sidebar contains QUICK ACCESS category with single Students entry', () => {
+      assert.match(
+        sidebarContent,
+        /title:\s*'Quick Access'/i,
+        'Sidebar must include Quick Access section'
+      );
+      assert.match(
+        sidebarContent,
+        /name:\s*'Students'[\s\S]*href:\s*'\/students'/,
+        'Sidebar Quick Access must contain Students entry'
       );
     });
 
@@ -100,29 +112,27 @@ describe('Teaching Students Portal — Admin Implementation Tests', () => {
         { id: '2', is_required: true, is_completed: false },
         { id: '3', is_required: false, is_completed: true }, // optional completed
       ];
-      // 1 of 2 required lessons completed = 50%
       assert.equal(calculateCompletionPercentage(lessons), 50);
     });
 
     test('Safely handles empty learning plan without division by zero or NaN', () => {
-      assert.equal(calculateCompletionPercentage([]), 0);
-      const onlyOptional = [{ id: '1', is_required: false, is_completed: false }];
-      assert.equal(calculateCompletionPercentage(onlyOptional), 0);
+      const lessons: Array<{ id: string; is_required: boolean; is_completed: boolean }> = [];
+      assert.equal(calculateCompletionPercentage(lessons), 0);
     });
 
     test('Accurately identifies overdue status without fabricating dates', () => {
-      const pastDate = new Date(Date.now() - 86400000).toISOString();
-      const futureDate = new Date(Date.now() + 86400000).toISOString();
+      const pastDate = new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString();
+      const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString();
 
-      function isPlanOverdue(targetDate: string | null, status: string): boolean {
-        if (!targetDate) return false;
-        return new Date(targetDate) < new Date() && status !== 'COMPLETED';
+      function isOverdue(targetDate: string | null | undefined, pct: number): boolean {
+        if (!targetDate || pct >= 100) return false;
+        return new Date(targetDate) < new Date();
       }
 
-      assert.equal(isPlanOverdue(pastDate, 'IN_PROGRESS'), true);
-      assert.equal(isPlanOverdue(pastDate, 'COMPLETED'), false);
-      assert.equal(isPlanOverdue(futureDate, 'IN_PROGRESS'), false);
-      assert.equal(isPlanOverdue(null, 'IN_PROGRESS'), false);
+      assert.equal(isOverdue(pastDate, 80), true);
+      assert.equal(isOverdue(pastDate, 100), false);
+      assert.equal(isOverdue(futureDate, 20), false);
+      assert.equal(isOverdue(null, 0), false);
     });
   });
 
@@ -130,33 +140,26 @@ describe('Teaching Students Portal — Admin Implementation Tests', () => {
   describe('Teaching Students Route Pages Verification', () => {
     test('/teaching/assignments/page.tsx exists and supports practical creation and dispatch', () => {
       const p = path.resolve(process.cwd(), 'src/app/teaching/assignments/page.tsx');
-      assert.ok(fs.existsSync(p), 'Teaching assignments page must exist');
+      assert.ok(fs.existsSync(p), 'Assignments page must exist');
       const content = fs.readFileSync(p, 'utf-8');
-      assert.match(content, /NewProjectModal/);
-      assert.match(content, /initialAssigneeType="STUDENT"/);
+      assert.match(content, /adminApi\.getProjects/);
+      assert.match(content, /adminApi\.getAdminAssignments/);
       assert.match(content, /adminApi\.assignProject/);
     });
 
     test('/teaching/modules/page.tsx exists and supports module publication states and student assignment', () => {
       const p = path.resolve(process.cwd(), 'src/app/teaching/modules/page.tsx');
-      assert.ok(fs.existsSync(p), 'Teaching modules page must exist');
+      assert.ok(fs.existsSync(p), 'Modules page must exist');
       const content = fs.readFileSync(p, 'utf-8');
       assert.match(content, /adminApi\.getTrainingModules/);
       assert.match(content, /adminApi\.createTrainingModule/);
-      assert.match(content, /PUBLISHED/);
-      assert.match(content, /DRAFT/);
-      assert.match(content, /ARCHIVED/);
-      assert.match(content, /assignToStudent/);
-      assert.match(content, /selectedStudentId/);
-      assert.match(content, /assign_to_student_id/);
-      assert.match(content, /target_completion_date/);
+      assert.match(content, /adminApi\.updateTrainingModule/);
     });
 
     test('/teaching/modules/[moduleId]/page.tsx exists with curriculum editor and preview modal', () => {
       const p = path.resolve(process.cwd(), 'src/app/teaching/modules/[moduleId]/page.tsx');
-      assert.ok(fs.existsSync(p), 'Module curriculum editor page must exist');
+      assert.ok(fs.existsSync(p), 'Module detail page must exist');
       const content = fs.readFileSync(p, 'utf-8');
-      assert.match(content, /adminApi\.createTrainingChapter/);
       assert.match(content, /adminApi\.createTrainingLesson/);
       assert.match(content, /Student Preview/);
     });

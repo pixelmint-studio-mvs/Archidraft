@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Shield, RefreshCw, PanelLeft } from 'lucide-react';
+import Link from 'next/link';
+import { Shield, RefreshCw, PanelLeft, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
 interface HeaderProps {
@@ -11,6 +12,8 @@ interface HeaderProps {
   isRefreshing?: boolean;
   onToggleSidebar?: () => void;
   isSidebarCollapsed?: boolean;
+  backHref?: string;
+  backLabel?: string;
 }
 
 export function Header({
@@ -20,11 +23,13 @@ export function Header({
   isRefreshing = false,
   onToggleSidebar,
   isSidebarCollapsed = false,
+  backHref,
+  backLabel = 'Back',
 }: HeaderProps) {
   const { user } = useAuth();
 
   return (
-    <header className="h-16 px-4 sm:px-6 md:px-8 border-b border-slate-200 bg-white/85 backdrop-blur-md flex items-center justify-between gap-2.5 sm:gap-3 shrink-0 z-10 shadow-xs">
+    <header className={`${backHref ? 'min-h-16 py-2.5' : 'h-16'} px-4 sm:px-6 md:px-8 border-b border-slate-200 bg-white/85 backdrop-blur-md flex items-center justify-between gap-2.5 sm:gap-3 shrink-0 z-10 shadow-xs`}>
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         {onToggleSidebar && (
           <button
@@ -37,6 +42,18 @@ export function Header({
           </button>
         )}
         <div className="min-w-0 flex-1">
+          {backHref && (
+            <div className="mb-1">
+              <Link
+                href={backHref}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-blue-50 hover:bg-blue-100 text-[#0453cd] hover:text-blue-800 border border-blue-200/90 hover:border-blue-300 shadow-xs transition-all cursor-pointer group w-fit active:scale-[0.98]"
+                title={(backLabel || 'Back').replace(/^[←\s]+/, '').trim()}
+              >
+                <ArrowLeft className="h-3.5 w-3.5 text-[#0453cd] group-hover:-translate-x-0.5 transition-transform shrink-0" />
+                <span>{(backLabel || 'Back').replace(/^[←\s]+/, '').trim()}</span>
+              </Link>
+            </div>
+          )}
           <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight truncate">
             {title}
           </h2>

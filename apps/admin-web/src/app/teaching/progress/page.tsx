@@ -135,6 +135,8 @@ export default function StudentProgressDashboardPage() {
     <AdminShell
       title="Student Progress"
       subtitle="Monitor individual student training completion, lesson outcomes, practical drawing evaluations, and curriculum milestones."
+      backHref="/students"
+      backLabel="Back"
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >

@@ -39,6 +39,9 @@ import {
   FileText,
   Zap,
   PlusCircle,
+  UserCheck,
+  Compass,
+  ClipboardCheck,
 } from 'lucide-react';
 
 
@@ -243,6 +246,49 @@ export default function StudentsPage() {
         </Card>
       </div>
 
+      {/* Student Management Action Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+        <Link
+          href="/teaching/assignments"
+          className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
+        >
+          <UserCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>Assign Projects</span>
+        </Link>
+
+        <Link
+          href="/teaching/modules"
+          className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
+        >
+          <BookOpen className="h-4 w-4 text-blue-400 shrink-0" />
+          <span>Training Modules</span>
+        </Link>
+
+        <Link
+          href="/teaching/learning-plans"
+          className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
+        >
+          <Compass className="h-4 w-4 text-purple-400 shrink-0" />
+          <span>Learning Plans</span>
+        </Link>
+
+        <Link
+          href="/teaching/progress"
+          className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
+        >
+          <TrendingUp className="h-4 w-4 text-amber-400 shrink-0" />
+          <span>Student Progress</span>
+        </Link>
+
+        <Link
+          href="/students/submissions"
+          className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
+        >
+          <ClipboardCheck className="h-4 w-4 text-teal-400 shrink-0" />
+          <span>Student Submissions</span>
+        </Link>
+      </div>
+
       {/* Control Toolbar & Demo Fixture Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="relative w-full sm:max-w-md flex-1">
@@ -259,22 +305,14 @@ export default function StudentsPage() {
           />
         </div>
 
-        {/* Action Button & Demo Data Toggle */}
+        {/* Demo Data Toggle */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => openAssignProjectModal()}
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98]"
-          >
-            <PlusCircle className="h-4 w-4 text-emerald-400" />
-            <span>ASSIGN PROJECT TO STUDENT</span>
-          </button>
-
           <button
             onClick={() => {
               setShowDemoFixtures(!showDemoFixtures);
               setCurrentPage(1);
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
               showDemoFixtures
                 ? 'bg-amber-50 border-amber-300 text-amber-800 shadow-sm'
                 : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm'

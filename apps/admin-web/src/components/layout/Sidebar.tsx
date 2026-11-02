@@ -17,12 +17,12 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
-  UserCheck,
+
   Clock,
-  ClipboardCheck,
-  BookOpen,
-  Compass,
-  TrendingUp,
+
+
+
+
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -68,28 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Workflow & Pipeline',
-    items: [
-      {
-        name: 'Projects Catalogue',
-        href: '/projects',
-        icon: FolderKanban,
-        badgeKey: 'projects',
-      },
-      {
-        name: 'Student Submissions',
-        href: '/students/submissions',
-        icon: ClipboardCheck,
-      },
-      {
-        name: 'Assignment History',
-        href: '/assignments/history',
-        icon: Clock,
-      },
-    ],
-  },
-  {
-    title: 'Portal Directories',
+    title: 'Quick Access',
     items: [
       {
         name: 'All Users Directory',
@@ -117,32 +96,23 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Teaching Students',
+    title: 'Workflow',
     items: [
       {
-        name: 'Assign Projects',
-        href: '/teaching/assignments',
-        icon: UserCheck,
+        name: 'Projects Catalogue',
+        href: '/projects',
+        icon: FolderKanban,
+        badgeKey: 'projects',
       },
       {
-        name: 'Training Modules',
-        href: '/teaching/modules',
-        icon: BookOpen,
-      },
-      {
-        name: 'Student Learning Plans',
-        href: '/teaching/learning-plans',
-        icon: Compass,
-      },
-      {
-        name: 'Student Progress',
-        href: '/teaching/progress',
-        icon: TrendingUp,
+        name: 'Assignment History',
+        href: '/assignments/history',
+        icon: Clock,
       },
     ],
   },
   {
-    title: 'Studio Governance',
+    title: 'Settings',
     items: [
       {
         name: 'System Settings & SLA',
@@ -273,7 +243,8 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
               const Icon = item.icon;
               const isActive =
                 pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                (item.href !== '/dashboard' && pathname.startsWith(item.href)) ||
+                (item.href === '/students' && pathname.startsWith('/teaching'));
               const badgeCount = item.badgeKey ? counts[item.badgeKey] : 0;
 
               return (
