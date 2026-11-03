@@ -43,8 +43,8 @@ const DEFAULT_SETTINGS: HelpdeskSettingsMap = {
   notification_email: 'pixelmintstudiomvs@gmail.com',
   alert_critical_enabled: true,
   alert_high_enabled: true,
-  alert_medium_enabled: false,
-  alert_low_digest_enabled: false,
+  alert_medium_enabled: true,
+  alert_low_digest_enabled: true,
   suppression_window_minutes: 15,
   incident_retention_days: 90,
   monitoring_enabled: true,
@@ -345,8 +345,8 @@ export async function sendHelpdeskEmail(
   const recipient = (options?.customRecipient || settings.notification_email || 'pixelmintstudiomvs@gmail.com').trim();
   const isTest = options?.isTest ?? false;
 
-  // Check alert thresholds unless forced (e.g. test button or critical incident)
-  if (!options?.force && !isTest) {
+  // Check alert thresholds unless forced (e.g. test button, user inquiry, or critical incident)
+  if (!options?.force && !isTest && !ticket.is_user_submitted) {
     if (ticket.severity === 'CRITICAL' && !settings.alert_critical_enabled) {
       return { success: true, status: 'SUPPRESSED_SETTING' };
     }
@@ -361,8 +361,8 @@ export async function sendHelpdeskEmail(
     }
   }
 
-  // Deduplication suppression window check
-  if (!options?.force && !isTest && ticket.id) {
+  // Deduplication suppression window check (applies to automated server errors, never to genuine user support reports)
+  if (!options?.force && !isTest && !ticket.is_user_submitted && ticket.id) {
     const windowMinutes = settings.suppression_window_minutes || 15;
     try {
       const recentLog = await db
