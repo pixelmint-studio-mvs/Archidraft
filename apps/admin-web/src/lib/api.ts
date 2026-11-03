@@ -205,7 +205,16 @@ async function getAuthToken(forceRefresh = false): Promise<string | null> {
 }
 
 function reportApiFailureSafely(endpoint: string, status: number, message: string) {
-  if (endpoint.includes('/helpdesk/report') || typeof window === 'undefined') return;
+  // Never report client-side network dropouts (HTTP 0), routine auth/not-found (401/404), or helpdesk polling calls
+  if (
+    status === 0 ||
+    status === 401 ||
+    status === 404 ||
+    endpoint.includes('/helpdesk') ||
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
 
   const key = `${endpoint}:${status}`;
   const now = Date.now();

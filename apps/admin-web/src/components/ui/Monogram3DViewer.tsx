@@ -195,7 +195,7 @@ export function Monogram3DViewer({
     resizeObserver.observe(container);
 
     // Frame-rate independent turntable rotation
-    const clock = new THREE.Clock(false);
+    let lastTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
     // Calculate rotation speed in radians per second
     const effectiveRotSpeedRadPerSec = rotationSpeed !== undefined
       ? (rotationSpeed > 0.5 ? rotationSpeed : rotationSpeed * 60)
@@ -236,13 +236,14 @@ export function Monogram3DViewer({
     const animate = () => {
       if (isDisposed) return;
 
-      if (clock.running) {
-        const delta = clock.getDelta();
-        // Policy: brand monogram auto-rotates by default unless respectReducedMotion is explicitly true
-        const shouldRotate = autoRotate && (!respectReducedMotion || !prefersReducedMotion);
-        if (shouldRotate && !isDragging) {
-          turntableGroup.rotation.y += effectiveRotSpeedRadPerSec * delta;
-        }
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      // Policy: brand monogram auto-rotates by default unless respectReducedMotion is explicitly true
+      const shouldRotate = autoRotate && (!respectReducedMotion || !prefersReducedMotion);
+      if (shouldRotate && !isDragging) {
+        turntableGroup.rotation.y += effectiveRotSpeedRadPerSec * delta;
       }
 
       renderer?.render(scene, camera);

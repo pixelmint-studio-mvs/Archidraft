@@ -236,24 +236,51 @@ export default function HelpDeskOverviewPage() {
       </div>
 
       {/* ── 3 Key Summary Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <Card className="p-4 bg-white border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-500">Open Tickets</p>
-            {(stats?.openTickets ?? 0) > 0 && <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs flex items-center justify-between transition-all hover:border-slate-300">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Open Tickets</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-2xl font-extrabold text-amber-600">{stats?.openTickets ?? 0}</span>
+              {(stats?.openTickets ?? 0) > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  Needs Attention
+                </span>
+              )}
+            </div>
           </div>
-          <p className="text-2xl font-bold text-amber-600 mt-1">{stats?.openTickets ?? 0}</p>
-        </Card>
+          <div className="h-11 w-11 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
+            <Clock className="h-5 w-5" />
+          </div>
+        </div>
 
-        <Card className="p-4 bg-white border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-500">Solved Tickets</p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">{stats?.resolvedTickets ?? 0}</p>
-        </Card>
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs flex items-center justify-between transition-all hover:border-slate-300">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Solved Tickets</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-2xl font-extrabold text-emerald-600">{stats?.resolvedTickets ?? 0}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Completed
+              </span>
+            </div>
+          </div>
+          <div className="h-11 w-11 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+        </div>
 
-        <Card className="p-4 bg-white border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-500">Total Tickets</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{stats?.totalReports ?? 0}</p>
-        </Card>
+        <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs flex items-center justify-between transition-all hover:border-slate-300">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Tickets</span>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-2xl font-extrabold text-slate-900">{stats?.totalReports ?? 0}</span>
+              <span className="text-xs text-slate-400 font-medium">lifetime</span>
+            </div>
+          </div>
+          <div className="h-11 w-11 rounded-2xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center shrink-0">
+            <LifeBuoy className="h-5 w-5" />
+          </div>
+        </div>
       </div>
 
       {/* ── Tabs & Search Bar ── */}
@@ -341,7 +368,7 @@ export default function HelpDeskOverviewPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[760px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
                   <th className="py-3 px-4">Ticket</th>
