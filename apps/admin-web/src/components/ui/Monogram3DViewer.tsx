@@ -54,6 +54,7 @@ export function Monogram3DViewer({
     let animationFrameId: number;
     let renderer: THREE.WebGLRenderer | null = null;
     let isDisposed = false;
+    let lastTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     // Check if WebGL is supported
     try {
@@ -167,7 +168,7 @@ export function Monogram3DViewer({
 
         // Initial turntable orientation is at 0 (front-facing reference view)
         turntableGroup.rotation.set(0, 0, 0);
-        clock.start();
+        lastTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
         setIsLoading(false);
       },
@@ -195,7 +196,6 @@ export function Monogram3DViewer({
     resizeObserver.observe(container);
 
     // Frame-rate independent turntable rotation
-    let lastTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
     // Calculate rotation speed in radians per second
     const effectiveRotSpeedRadPerSec = rotationSpeed !== undefined
       ? (rotationSpeed > 0.5 ? rotationSpeed : rotationSpeed * 60)

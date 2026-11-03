@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Shield, RefreshCw, PanelLeft, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { Monogram3DViewer } from '@/components/ui/Monogram3DViewer';
 
 interface HeaderProps {
   title: string;
@@ -40,6 +41,15 @@ export function Header({
           >
             <PanelLeft className="h-4 w-4" />
           </button>
+        )}
+        {isSidebarCollapsed && (
+          <Link
+            href="/dashboard"
+            className="h-8 w-8 rounded-lg overflow-hidden bg-slate-900 border border-slate-700/60 shadow-xs shrink-0 flex items-center justify-center p-0.5 hover:border-blue-500 transition-colors"
+            title="ArchiDraft Studio Dashboard"
+          >
+            <Monogram3DViewer className="w-full h-full" autoRotate={true} rotationSpeed={0.02} />
+          </Link>
         )}
         <div className="min-w-0 flex-1">
           {backHref && (

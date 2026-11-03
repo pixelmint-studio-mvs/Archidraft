@@ -141,6 +141,38 @@ All fixes have been verified against active source code, validated via automated
 
 ---
 
+
+---
+
+### F. 3D Brand Monogram Viewer & Top-Left Admin Panel Branding
+- **File References:**
+  - `apps/admin-web/src/components/ui/Monogram3DViewer.tsx`
+  - `apps/admin-web/src/components/layout/Header.tsx`
+  - `apps/admin-web/src/components/layout/Sidebar.tsx`
+- **Problem Statement:**
+  1. The 3D architectural monogram logo in the top-left corner was throwing `ReferenceError: clock is not defined` (`Cannot find name 'clock'`) upon loading the GLTF model at line 170 (`clock.start()`), following deprecation of `THREE.Clock`.
+  2. When the sidebar was collapsed or viewing responsive viewports, no brand monogram was rendered in the top-left header bar, leaving the brand header blank.
+- **Implementation & Fix:**
+  1. **High-Resolution Frame Timing:** Replaced deprecated `THREE.Clock` with high-precision `performance.now()` delta calculations (`Math.min((now - lastTime) / 1000, 0.1)`). Initialized `lastTime` in component effect scope and updated on GLTF model load completion, eliminating the ReferenceError and all Three.js deprecation warnings.
+  2. **Top-Left Persistent Branding:** Integrated `<Monogram3DViewer />` into `Header.tsx`. When the sidebar is collapsed, a 32×32px graphite 3D monogram viewer automatically anchors into the top-left corner of the header next to the toggle button, guaranteeing continuous brand presence.
+  3. **Verification:** Both expanded sidebar and collapsed header render the smooth, ambiently rotating 3D monogram with zero console errors or TypeScript compile issues.
+
+---
+
+### G. Help Desk & Incident Dispatch System
+- **File References:**
+  - `worker/src/helpdesk.ts`
+  - `worker/src/index.ts`
+  - `apps/admin-web/src/app/helpdesk/page.tsx`
+  - `apps/admin-web/src/lib/api.ts`
+- **Implementation & Fix:**
+  1. **Elimination of Foreign Key Constraint Crash:** Resolved SQLite foreign key failure on `PUT /api/admin/helpdesk/settings` caused by audit logging referencing `'SYSTEM'` instead of a valid project ID.
+  2. **Client Network Error Suppression:** Guarded `reportApiFailureSafely` in `api.ts` so that transient client-side network abortions (`HTTP 0 / Failed to fetch`), 401 token refreshes, and internal helpdesk polling requests never flood the inbox with false incident tickets.
+  3. **High-Clarity Summary Dashboard:** Redesigned the 3 summary metric cards (Open Tickets, Solved Tickets, Total Tickets) with explicit typography, badges, and status icons (`Clock`, `CheckCircle2`, `LifeBuoy`), and enforced a `min-w-[760px]` table width to prevent column clipping.
+  4. **Direct Ticket Deletion:** Implemented `DELETE /api/admin/helpdesk/tickets/:id` and bulk delete (`POST /api/admin/helpdesk/tickets/bulk-delete`) with modal confirmations.
+  5. **Notification Delivery:** Verified real-time email dispatch to `pixelmintstudiomvs@gmail.com` via Resend API key (`re_64uYLU9x...`), logging delivery with status `SENT`.
+
+
 ## 3. Test & Verification Evidence Summary
 
 | Test Harness | Total Suites | Tests Passed | Status |
