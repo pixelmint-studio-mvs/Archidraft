@@ -131,6 +131,8 @@ export default function StudentSubmissionsPage() {
     <AdminShell
       title="Student Submissions Queue"
       subtitle="Authoritative review and rubric evaluation queue for apprentice practical drafting milestones"
+      backHref="/students"
+      backLabel="Back"
       onRefresh={() => fetchSubmissions(true)}
       isRefreshing={refreshing}
     >

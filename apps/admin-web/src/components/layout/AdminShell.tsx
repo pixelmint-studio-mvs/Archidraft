@@ -11,6 +11,8 @@ interface AdminShellProps {
   subtitle?: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  backHref?: string;
+  backLabel?: string;
 }
 
 export function AdminShell({
@@ -19,6 +21,8 @@ export function AdminShell({
   subtitle,
   onRefresh,
   isRefreshing,
+  backHref,
+  backLabel,
 }: AdminShellProps) {
   const { user, loading } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -98,6 +102,8 @@ export function AdminShell({
           isRefreshing={isRefreshing}
           onToggleSidebar={handleToggleSidebar}
           isSidebarCollapsed={isSidebarCollapsed}
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <main
           id="admin-main-content"

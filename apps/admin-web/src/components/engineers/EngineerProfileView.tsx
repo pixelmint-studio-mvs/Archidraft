@@ -14,6 +14,7 @@ import {
   Phone,
   Mail,
   Calendar,
+  FolderPlus,
 } from 'lucide-react';
 
 interface EngineerProfileViewProps {
@@ -21,6 +22,7 @@ interface EngineerProfileViewProps {
   projects: Project[];
   loading?: boolean;
   isStandalone?: boolean;
+  onAssignProject?: (engineer: User) => void;
   onClose?: () => void;
 }
 
@@ -29,6 +31,7 @@ export function EngineerProfileView({
   projects,
   loading = false,
   isStandalone = false,
+  onAssignProject,
   onClose,
 }: EngineerProfileViewProps) {
   const activeProjects = projects.filter(
@@ -101,14 +104,27 @@ export function EngineerProfileView({
               Submitted Projects ({projects.length})
             </h3>
           </div>
-          {isStandalone && (
-            <Link
-              href="/projects"
-              className="text-xs font-mono text-[#0453cd] hover:underline flex items-center gap-1"
-            >
-              All Projects <ChevronRight className="h-3 w-3" />
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {onAssignProject && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAssignProject(engineer)}
+                className="flex items-center gap-1.5 text-xs font-mono border-blue-200 text-[#0453cd] hover:bg-blue-50"
+              >
+                <FolderPlus className="h-3.5 w-3.5 text-[#0453cd]" />
+                <span>Assign Project</span>
+              </Button>
+            )}
+            {isStandalone && (
+              <Link
+                href="/projects"
+                className="text-xs font-mono text-[#0453cd] hover:underline flex items-center gap-1"
+              >
+                All Projects <ChevronRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
         </div>
 
         {loading ? (

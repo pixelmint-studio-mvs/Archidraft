@@ -183,6 +183,8 @@ export default function TeachingAssignmentsPage() {
     <AdminShell
       title="Assign Projects"
       subtitle="Allocate practical architectural project assignments to enrolled students and verified CAD draughtsmen."
+      backHref="/students"
+      backLabel="Back"
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >

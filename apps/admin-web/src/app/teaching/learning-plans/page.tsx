@@ -172,6 +172,8 @@ export default function StudentLearningPlansPage() {
     <AdminShell
       title="Student Learning Plans"
       subtitle="Assign individualized training modules, curriculum paths, and target completion dates to specific students."
+      backHref="/students"
+      backLabel="Back"
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >

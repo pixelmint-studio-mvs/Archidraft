@@ -114,6 +114,36 @@ export interface GlobalAssignment extends Assignment {
   client_name?: string;
 }
 
+// ── Engineer Project Status Item (Isolated status overview) ──
+
+export interface EngineerProjectStatusItem {
+  project_id: string;
+  project_name: string;
+  drawing_name?: string;
+  drawing_type: string;
+  project_area?: string | number;
+  project_address?: string;
+  project_status: ProjectStatus;
+  engineer_id: string;
+  engineer_name: string;
+  engineer_email: string;
+  engineer_company?: string;
+  engineer_mobile?: string;
+  current_assignment_id?: string;
+  assigned_at?: string;
+  submitted_at?: string;
+  approved_at?: string;
+  rejected_at?: string;
+  cancelled_at?: string;
+  created_at: string;
+  correction_round?: number;
+  draughtsman_id?: string;
+  draughtsman_name?: string;
+  last_updated_at?: string;
+  drawing_versions_count?: number;
+  corrections_count?: number;
+}
+
 // ── File ──
 
 export interface ProjectFile {

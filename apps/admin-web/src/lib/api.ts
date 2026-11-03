@@ -24,6 +24,7 @@ import {
   StudentProgressSummary,
   StudentProgressDetail,
   LessonResource,
+  EngineerProjectStatusItem,
 } from './types';
 
 export const API_BASE = (() => {
@@ -653,6 +654,88 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ projectId, actionId, draughtsmanId }),
     });
+  },
+
+  // Admin: Assign an architectural drafting project to a registered Engineer
+  async assignProjectToEngineer(
+    projectId: string,
+    engineerId: string,
+    actionId?: string
+  ): Promise<{ success: boolean; projectId: string; engineerId: string; message?: string }> {
+    const effectiveActionId = actionId || crypto.randomUUID();
+    return fetchApi<{ success: boolean; projectId: string; engineerId: string; message?: string }>(
+      '/api/admin/projects/assign-engineer',
+      {
+        method: 'POST',
+        body: JSON.stringify({ projectId, engineerId, actionId: effectiveActionId }),
+      }
+    );
+  },
+
+  // Admin: Centralized status overview of projects assigned exclusively to Engineers
+  async getEngineerProjectStatuses(filter?: {
+    status?: string;
+    engineerId?: string;
+  }): Promise<EngineerProjectStatusItem[]> {
+    const params = new URLSearchParams();
+    if (filter?.status && filter.status !== 'ALL') params.set('status', filter.status);
+    if (filter?.engineerId) params.set('engineerId', filter.engineerId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
+    try {
+      const res = await fetchApi<EngineerProjectStatusItem[]>(`/api/admin/engineers/project-statuses${qs}`);
+      if (Array.isArray(res)) return res;
+      return [];
+    } catch {
+      // Graceful local aggregation fallback for test environments or offline mode
+      const [allProjects, allUsers] = await Promise.all([
+        this.getProjects().catch(() => []),
+        this.getUsers('CLIENT').catch(() => []),
+      ]);
+      const engineerMap = new Map(allUsers.map((u) => [u.id, u]));
+
+      let engineerProjects = allProjects.filter((p) => {
+        const eng = engineerMap.get(p.client_id);
+        const isNotStudent = !p.is_training_project || p.is_training_project === 0;
+        return !!eng && isNotStudent;
+      });
+
+      if (filter?.status && filter.status !== 'ALL') {
+        engineerProjects = engineerProjects.filter((p) => p.status === filter.status);
+      }
+      if (filter?.engineerId) {
+        engineerProjects = engineerProjects.filter((p) => p.client_id === filter.engineerId);
+      }
+
+      return engineerProjects.map((p) => {
+        const eng = engineerMap.get(p.client_id);
+        return {
+          project_id: p.id,
+          project_name: p.project_name,
+          drawing_name: p.drawing_name,
+          drawing_type: p.drawing_type,
+          project_area: p.project_area,
+          project_address: p.project_address,
+          project_status: p.status,
+          engineer_id: p.client_id,
+          engineer_name: eng?.name || eng?.email || p.client_name || 'Engineer',
+          engineer_email: eng?.email || p.client_email || '',
+          engineer_company: eng?.company_name,
+          engineer_mobile: eng?.mobile,
+          current_assignment_id: p.current_assignment_id,
+          assigned_at: p.assigned_at,
+          submitted_at: p.submitted_at,
+          approved_at: p.approved_at,
+          rejected_at: p.rejected_at,
+          cancelled_at: p.cancelled_at,
+          created_at: p.created_at,
+          correction_round: p.correction_round,
+          draughtsman_id: p.draughtsman_id,
+          draughtsman_name: p.draughtsman_name,
+          last_updated_at: p.approved_at || p.assigned_at || p.submitted_at || p.created_at,
+        };
+      });
+    }
   },
 
   // Admin: Cross-project global assignment history (Stitch Screen 07 ledger)
