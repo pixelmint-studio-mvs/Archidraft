@@ -110,11 +110,11 @@ describe('Admin Portal — Student Management Interface Layout Tests', () => {
     );
   });
 
-  test('Sidebar has exact four required categories in order: Overview, Quick Access, Workflow, Settings', () => {
+  test('Sidebar has exact required categories in order: Overview, Quick Access, Settings (with Workflow removed)', () => {
     assert.match(sidebarContent, /title:\s*'Overview'/);
     assert.match(sidebarContent, /title:\s*'Quick Access'/);
-    assert.match(sidebarContent, /title:\s*'Workflow'/);
     assert.match(sidebarContent, /title:\s*'Settings'/);
+    assert.equal(sidebarContent.includes("title: 'Workflow'"), false);
   });
 
   test('Sidebar does not contain Student Submissions outside in Workflow', () => {

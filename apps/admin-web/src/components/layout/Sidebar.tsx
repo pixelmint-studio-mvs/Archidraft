@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   ChevronRight,
 
-  Clock,
 
 
 
@@ -65,6 +64,17 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/activity',
         icon: Activity,
       },
+      {
+        name: 'Projects Catalogue',
+        href: '/projects',
+        icon: FolderKanban,
+        badgeKey: 'projects',
+      },
+      {
+        name: 'Financials',
+        href: '/financials',
+        icon: DollarSign,
+      },
     ],
   },
   {
@@ -96,33 +106,12 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Workflow',
-    items: [
-      {
-        name: 'Projects Catalogue',
-        href: '/projects',
-        icon: FolderKanban,
-        badgeKey: 'projects',
-      },
-      {
-        name: 'Assignment History',
-        href: '/assignments/history',
-        icon: Clock,
-      },
-    ],
-  },
-  {
     title: 'Settings',
     items: [
       {
         name: 'System Settings & SLA',
         href: '/settings',
         icon: Settings,
-      },
-      {
-        name: 'Financials (Frozen)',
-        href: '/financials',
-        icon: DollarSign,
       },
     ],
   },

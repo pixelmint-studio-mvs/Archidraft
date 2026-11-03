@@ -5462,6 +5462,160 @@ app.post('/api/admin/projects', async (c) => {
 });
 
 // ==========================================
+// ADMIN ENGINEER PROJECT ASSIGNMENT ENDPOINT
+// Narrowly scoped, strictly isolated Admin project assignment to a registered Engineer
+// ==========================================
+
+app.post('/api/admin/projects/assign-engineer', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Only administrators can assign projects to engineers', code: 'FORBIDDEN' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const projectId = (body.projectId || body.project_id || '').trim();
+  const engineerId = (body.engineerId || body.engineer_id || body.clientId || body.client_id || '').trim();
+  const actionId = body.actionId || crypto.randomUUID();
+
+  if (!projectId) {
+    return c.json({ error: 'Project ID is required', code: 'MISSING_PROJECT_ID' }, 400);
+  }
+  if (!engineerId) {
+    return c.json({ error: 'Engineer ID is required', code: 'MISSING_ENGINEER_ID' }, 400);
+  }
+
+  // Verify engineer exists and is a registered Engineer/Client
+  const engineerUser = await getUser(db, engineerId);
+  if (!engineerUser || !['ENGINEER', 'CLIENT'].includes(engineerUser.role as string)) {
+    return c.json({ error: 'Specified user must be a registered Engineer', code: 'INVALID_ENGINEER' }, 400);
+  }
+
+  if (engineerUser.status === 'SUSPENDED') {
+    return c.json({ error: 'Cannot assign project to a suspended Engineer account', code: 'ACCOUNT_SUSPENDED' }, 403);
+  }
+
+  // Verify project exists
+  const project = await db.prepare('SELECT id, project_name, client_id, status FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) {
+    return c.json({ error: 'Project not found', code: 'PROJECT_NOT_FOUND' }, 404);
+  }
+
+  // Idempotency check: if project already has this client_id and last_action_id === actionId
+  if (project.client_id === engineerId && (project as any).last_action_id === actionId) {
+    return c.json({ success: true, projectId, engineerId, idempotent: true });
+  }
+
+  const engineerName = (engineerUser.name as string) || (engineerUser.email as string) || engineerId;
+  const projectName = (project.project_name as string) || projectId;
+
+  const batch = [
+    db.prepare(`
+      UPDATE projects
+      SET client_id = ?, last_action_id = ?
+      WHERE id = ?
+    `).bind(engineerId, actionId, projectId),
+    db.prepare(`
+      INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details)
+      VALUES (?, ?, 'ENGINEER_PROJECT_ASSIGNED', ?, ?, ?)
+    `).bind(
+      actionId, projectId, uid, user.role,
+      `Studio Admin assigned project "${projectName}" to Engineer: ${engineerName}`
+    ),
+    db.prepare(`
+      INSERT INTO notifications (id, user_id, project_id, type, title, message)
+      VALUES (?, ?, ?, 'NEW_PROJECT', 'Project Assigned', ?)
+    `).bind(
+      crypto.randomUUID(), engineerId, projectId,
+      `Project "${projectName}" has been assigned to your engineer account by Studio Admin.`
+    )
+  ];
+
+  await db.batch(batch);
+  return c.json({
+    success: true,
+    projectId,
+    engineerId,
+    engineerName,
+    projectName,
+    message: `Project "${projectName}" successfully assigned to Engineer ${engineerName}.`
+  });
+});
+
+// ==========================================
+// ADMIN ENGINEER PROJECT STATUSES ENDPOINT
+// Centralized, strictly isolated status overview of projects assigned exclusively to Engineers
+// ==========================================
+app.get('/api/admin/engineers/project-statuses', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Only administrators can access engineer project statuses', code: 'FORBIDDEN' }, 403);
+  }
+
+  const status = c.req.query('status');
+  const engineerId = c.req.query('engineerId');
+
+  let query = `
+    SELECT
+      p.id as project_id,
+      p.project_name,
+      p.drawing_name,
+      p.drawing_type,
+      p.project_area,
+      p.project_address,
+      p.status as project_status,
+      p.client_id as engineer_id,
+      u.name as engineer_name,
+      u.email as engineer_email,
+      u.company_name as engineer_company,
+      u.mobile as engineer_mobile,
+      p.current_assignment_id,
+      p.assigned_at,
+      p.submitted_at,
+      p.approved_at,
+      p.rejected_at,
+      p.cancelled_at,
+      p.created_at,
+      p.correction_round,
+      p.draughtsman_id,
+      p.draughtsman_name,
+      COALESCE(
+        (SELECT MAX(al.timestamp) FROM activity_logs al WHERE al.project_id = p.id),
+        p.approved_at,
+        p.assigned_at,
+        p.submitted_at,
+        p.created_at
+      ) as last_updated_at,
+      (SELECT COUNT(*) FROM drawing_versions dv WHERE dv.project_id = p.id) as drawing_versions_count,
+      (SELECT COUNT(*) FROM corrections cor WHERE cor.project_id = p.id) as corrections_count
+    FROM projects p
+    INNER JOIN users u ON p.client_id = u.id
+    WHERE (u.role = 'CLIENT' OR u.role = 'ENGINEER')
+      AND (p.is_training_project IS NULL OR p.is_training_project = 0)
+  `;
+
+  const params: any[] = [];
+  if (status && status !== 'ALL') {
+    query += ' AND p.status = ?';
+    params.push(status);
+  }
+  if (engineerId) {
+    query += ' AND p.client_id = ?';
+    params.push(engineerId);
+  }
+
+  query += ' ORDER BY COALESCE(p.assigned_at, p.submitted_at, p.created_at) DESC';
+
+  const { results } = await db.prepare(query).bind(...params).all();
+  return c.json(results || []);
+});
+
+// ==========================================
 // PROJECT CANCELLATION ENDPOINT
 // ==========================================
 

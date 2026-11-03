@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
@@ -83,5 +85,54 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
     assert.strictEqual(counts.engineers, 0);
     assert.strictEqual(counts.draughtsmen, 14);
     assert.strictEqual(counts.students, 32);
+  });
+
+  describe('Sidebar Navigation Reorganization — Overview & Workflow Elimination', () => {
+    const sidebarPath = fs.existsSync(path.resolve(process.cwd(), 'src/components/layout/Sidebar.tsx'))
+      ? path.resolve(process.cwd(), 'src/components/layout/Sidebar.tsx')
+      : path.resolve(process.cwd(), 'apps/admin-web/src/components/layout/Sidebar.tsx');
+    const content = fs.readFileSync(sidebarPath, 'utf-8');
+
+    it('Overview category contains Dashboard, Activity Feed, Projects Catalogue, and Financials in exact order', () => {
+      const overviewMatch = content.match(/title:\s*'Overview'[\s\S]*?items:\s*\[([\s\S]*?)\]/);
+      assert.ok(overviewMatch, 'Overview section must exist in Sidebar.tsx');
+
+      const itemsBlock = overviewMatch[1];
+      const dashboardIdx = itemsBlock.indexOf("name: 'Dashboard'");
+      const activityIdx = itemsBlock.indexOf("name: 'Activity Feed'");
+      const projectsIdx = itemsBlock.indexOf("name: 'Projects Catalogue'");
+      const financialsIdx = itemsBlock.indexOf("name: 'Financials'");
+
+      assert.ok(dashboardIdx !== -1, 'Dashboard must be in Overview');
+      assert.ok(activityIdx !== -1, 'Activity Feed must be in Overview');
+      assert.ok(projectsIdx !== -1, 'Projects Catalogue must be in Overview');
+      assert.ok(financialsIdx !== -1, 'Financials must be in Overview');
+
+      assert.ok(dashboardIdx < activityIdx, 'Dashboard must appear before Activity Feed');
+      assert.ok(activityIdx < projectsIdx, 'Projects Catalogue must appear directly below Activity Feed');
+      assert.ok(projectsIdx < financialsIdx, 'Financials must appear directly below Projects Catalogue');
+    });
+
+    it('Financials menu item is titled "Financials" without "(Frozen)" and not duplicated in Settings', () => {
+      assert.match(content, /name:\s*'Financials',\s*href:\s*'\/financials',\s*icon:\s*DollarSign/);
+      assert.strictEqual(content.includes("'Financials (Frozen)'"), false);
+      const occurrences = (content.match(/href:\s*'\/financials'/g) || []).length;
+      assert.strictEqual(occurrences, 1, 'Financials route must appear exactly once in sidebar');
+    });
+
+    it('Projects Catalogue retains its icon, route, and badgeKey', () => {
+      assert.match(
+        content,
+        /name:\s*'Projects Catalogue',\s*href:\s*'\/projects',\s*icon:\s*FolderKanban,\s*badgeKey:\s*'projects'/
+      );
+    });
+
+    it('Workflow category is completely removed with no leftover heading or empty section', () => {
+      assert.strictEqual(
+        content.includes("title: 'Workflow'"),
+        false,
+        'Workflow category must not exist in Sidebar.tsx'
+      );
+    });
   });
 });

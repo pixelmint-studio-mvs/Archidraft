@@ -11,6 +11,8 @@ import { adminApi } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { User, Project } from '@/lib/types';
 import { EngineerProfileView } from '@/components/engineers/EngineerProfileView';
+import { AssignEngineerProjectModal } from '@/components/engineers/AssignEngineerProjectModal';
+import { EngineerProjectStatusModal } from '@/components/engineers/EngineerProjectStatusModal';
 import {
   Search,
   HardHat,
@@ -32,6 +34,8 @@ import {
   DollarSign,
   ChevronRight,
   ShieldCheck,
+  FolderPlus,
+  Activity,
 } from 'lucide-react';
 
 
@@ -48,6 +52,18 @@ export default function EngineersPage() {
   const [selectedEngineer, setSelectedEngineer] = useState<User | null>(null);
   const [engineerProjects, setEngineerProjects] = useState<Project[]>([]);
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+
+  // Project Status Overview Modal State
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState<boolean>(false);
+
+  // Assign Project Modal State
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState<boolean>(false);
+  const [preSelectedEngineerForAssign, setPreSelectedEngineerForAssign] = useState<User | null>(null);
+
+  const openAssignModal = (engineer?: User) => {
+    setPreSelectedEngineerForAssign(engineer || null);
+    setIsAssignModalOpen(true);
+  };
 
   const loadData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -166,7 +182,7 @@ export default function EngineersPage() {
         </Card>
       </div>
 
-      {/* Search Toolbar */}
+      {/* Search Toolbar & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="relative w-full sm:max-w-md flex-1">
           <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -178,9 +194,27 @@ export default function EngineersPage() {
             className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0453cd] focus:border-[#0453cd] shadow-xs transition-all"
           />
         </div>
-        <p className="text-xs text-slate-500 font-mono whitespace-nowrap">
-          Showing <span className="text-slate-900 font-bold">{filteredEngineers.length}</span> of {totalEngineers} Engineers
-        </p>
+        <div className="flex items-center gap-3 justify-between sm:justify-end">
+          <p className="text-xs text-slate-500 font-mono whitespace-nowrap">
+            Showing <span className="text-slate-900 font-bold">{filteredEngineers.length}</span> of {totalEngineers} Engineers
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => setIsStatusModalOpen(true)}
+            className="flex items-center gap-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 hover:text-[#0453cd] shadow-2xs text-xs font-mono font-semibold px-3.5 py-2 rounded-xl shrink-0 cursor-pointer transition-all"
+          >
+            <Activity className="h-4 w-4 text-[#0453cd]" />
+            <span>Project Status</span>
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => openAssignModal()}
+            className="flex items-center gap-2 bg-[#0453cd] hover:bg-blue-700 text-white shadow-xs text-xs font-mono font-semibold px-4 py-2 rounded-xl shrink-0 cursor-pointer"
+          >
+            <FolderPlus className="h-4 w-4" />
+            <span>Assign Project</span>
+          </Button>
+        </div>
       </div>
 
       {/* Directory Table */}
@@ -281,15 +315,26 @@ export default function EngineersPage() {
 
                       {/* Actions */}
                       <td className="px-5 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEngineerDetails(engineer)}
-                          className="flex items-center gap-1.5 ml-auto"
-                        >
-                          <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
-                          <span>View Details</span>
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openAssignModal(engineer)}
+                            className="flex items-center gap-1.5 border-blue-200 text-[#0453cd] hover:bg-blue-50"
+                          >
+                            <FolderPlus className="h-3.5 w-3.5 text-[#0453cd]" />
+                            <span>Assign Project</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEngineerDetails(engineer)}
+                            className="flex items-center gap-1.5"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-[#0453cd]" />
+                            <span>View Details</span>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -322,10 +367,37 @@ export default function EngineersPage() {
             engineer={selectedEngineer}
             projects={engineerProjects}
             loading={loadingDetails}
+            onAssignProject={(eng) => {
+              openAssignModal(eng);
+            }}
             onClose={() => setSelectedEngineer(null)}
           />
         </Modal>
       )}
+
+      {/* ─── Engineer Project Status Overview Modal ────────────────────── */}
+      <EngineerProjectStatusModal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+      />
+
+      {/* ─── Engineer Project Assignment Modal ─────────────────────────── */}
+      <AssignEngineerProjectModal
+        isOpen={isAssignModalOpen}
+        onClose={() => {
+          setIsAssignModalOpen(false);
+          setPreSelectedEngineerForAssign(null);
+        }}
+        onSuccess={(assignedProjectId, assignedEngineerId) => {
+          loadData(true);
+          if (selectedEngineer && selectedEngineer.id === assignedEngineerId) {
+            openEngineerDetails(selectedEngineer);
+          }
+        }}
+        preSelectedEngineer={preSelectedEngineerForAssign}
+        engineers={engineers}
+        projects={projects}
+      />
     </AdminShell>
   );
 }

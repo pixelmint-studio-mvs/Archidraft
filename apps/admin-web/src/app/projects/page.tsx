@@ -27,7 +27,6 @@ import {
   Ban,
   Building2,
   Calendar,
-  PlusCircle,
   FolderKanban,
   FileText,
   User,
@@ -152,16 +151,8 @@ function ProjectsContent() {
           />
         </div>
 
-        {/* Action Button & Metric */}
+        {/* Metric */}
         <div className="flex items-center flex-wrap gap-2.5">
-          <button
-            onClick={() => setIsNewProjectModalOpen(true)}
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98]"
-          >
-            <PlusCircle className="h-4 w-4 text-emerald-400" />
-            <span>INITIATE PROJECT</span>
-          </button>
-
           <div className="text-xs font-mono text-slate-500 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-xs whitespace-nowrap">
             <span>SHOWING: </span>
             <span className="font-bold text-slate-900">{filteredProjects.length}</span>
