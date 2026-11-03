@@ -27,7 +27,7 @@ DB_PATH = (
 # Existing local Draughtsman account (from DB inspection — DO NOT CHANGE)
 DRAUGHTSMAN_ID   = 'MZiLaSRIJkQ92H5gZi51LjL7sjh2'
 DRAUGHTSMAN_NAME = 'Draughtsman'
-DRAUGHTSMAN_EMAIL = 'draughtsman@pixelmintstudio.com'
+DRAUGHTSMAN_EMAIL = 'mohdanas53n@gmail.com'
 
 # Engineer/Admin who "approved" (using existing ENGINEER user)
 ENGINEER_ID = 'lN9u4PPtDfOmnn2kyeFQg6dFeBl1'
