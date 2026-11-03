@@ -25,6 +25,13 @@ import {
   StudentProgressDetail,
   LessonResource,
   EngineerProjectStatusItem,
+  HelpdeskTicket,
+  HelpdeskEvent,
+  HelpdeskComment,
+  HelpdeskEmailLog,
+  HelpdeskStats,
+  HelpdeskHealthReport,
+  HelpdeskSettings,
 } from './types';
 
 export const API_BASE = (() => {
@@ -197,6 +204,34 @@ async function getAuthToken(forceRefresh = false): Promise<string | null> {
   }
 }
 
+function reportApiFailureSafely(endpoint: string, status: number, message: string) {
+  if (endpoint.includes('/helpdesk/report') || typeof window === 'undefined') return;
+
+  const key = `${endpoint}:${status}`;
+  const now = Date.now();
+  const cache = (reportApiFailureSafely as any)._debounce || ((reportApiFailureSafely as any)._debounce = {});
+  if (cache[key] && now - cache[key] < 30000) return;
+  cache[key] = now;
+
+  try {
+    fetch(`${API_BASE}/api/helpdesk/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `API Request Failure: HTTP ${status} on ${endpoint.split('?')[0]}`,
+        category: status === 401 || status === 403 ? 'AUTHENTICATION' : 'API',
+        severity: status >= 500 ? 'HIGH' : status === 403 ? 'MEDIUM' : 'LOW',
+        source: 'ADMIN_PANEL',
+        affected_module: endpoint.split('?')[0],
+        error_message: message,
+        error_code: String(status),
+        page_route: window.location?.pathname,
+        browser: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+
 export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit & { _isRetry?: boolean } = {}
@@ -224,6 +259,7 @@ export async function fetchApi<T>(
       netErr?.message?.includes('Failed to fetch') ||
       netErr?.name === 'TypeError' ||
       netErr?.message?.includes('NetworkError');
+    reportApiFailureSafely(endpoint, 0, netErr?.message || 'Network failure');
     throw new ApiError(
       isNetworkError
         ? 'Network failure: Unable to reach backend API. Please check your internet connection or server availability.'
@@ -256,6 +292,7 @@ export async function fetchApi<T>(
       errBody = { error: res.statusText };
     }
     const message = errBody?.error || errBody?.message || `Request failed with status ${res.status}`;
+    reportApiFailureSafely(endpoint, res.status, message);
     throw new ApiError(message, res.status, errBody);
   }
 
@@ -1174,5 +1211,190 @@ export const adminApi = {
 
   async getStudentProgressDetail(studentId: string): Promise<StudentProgressDetail> {
     return fetchApi<StudentProgressDetail>(`/api/admin/students/${studentId}/progress-detail`);
+  },
+
+  // ==========================================
+  // HELPDESK & INCIDENT MANAGEMENT SYSTEM
+  // ==========================================
+
+  // Report technical incident beacon (Client-side, React errors, unhandled rejections)
+  async reportIncident(incident: {
+    title: string;
+    category?: string;
+    severity?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    source?: string;
+    affected_module?: string;
+    error_message: string;
+    error_code?: string;
+    stack_trace?: string;
+    page_route?: string;
+  }): Promise<{ success: boolean; ticketId?: string; isNew?: boolean }> {
+    try {
+      return await fetchApi<{ success: boolean; ticketId?: string; isNew?: boolean }>('/api/helpdesk/report', {
+        method: 'POST',
+        body: JSON.stringify({
+          source: 'ADMIN_PANEL',
+          category: 'FRONTEND',
+          severity: 'MEDIUM',
+          page_route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+          browser: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+          ...incident,
+        }),
+      });
+    } catch {
+      return { success: false };
+    }
+  },
+
+  // Submit manual user support ticket
+  async submitUserTicket(payload: {
+    subject: string;
+    description: string;
+    category?: string;
+    affected_feature?: string;
+    priority_suggestion?: string;
+    screenshot_url?: string;
+    user_email?: string;
+    contact_email?: string;
+    page_route?: string;
+  }): Promise<{ success: boolean; ticketId: string; message: string }> {
+    return fetchApi<{ success: boolean; ticketId: string; message: string }>('/api/helpdesk/tickets', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Get current user's submitted tickets
+  async getMyTickets(): Promise<HelpdeskTicket[]> {
+    return fetchApi<HelpdeskTicket[]>('/api/helpdesk/my-tickets');
+  },
+
+  // Admin: Help Desk telemetry stats
+  async getHelpdeskStats(): Promise<HelpdeskStats> {
+    return fetchApi<HelpdeskStats>('/api/admin/helpdesk/stats');
+  },
+
+  // Admin: List tickets with filtering, search, pagination
+  async getHelpdeskTickets(params?: {
+    status?: string;
+    severity?: string;
+    category?: string;
+    source?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }> {
+    const query = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    if (params?.severity && params.severity !== 'ALL') query.set('severity', params.severity);
+    if (params?.category && params.category !== 'ALL') query.set('category', params.category);
+    if (params?.source && params.source !== 'ALL') query.set('source', params.source);
+    if (params?.search) query.set('search', params.search);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }>(`/api/admin/helpdesk/tickets${qs}`);
+  },
+
+  // Admin: Get single ticket with timeline, comments, and email logs
+  async getHelpdeskTicket(id: string): Promise<{
+    ticket: HelpdeskTicket;
+    events: HelpdeskEvent[];
+    comments: HelpdeskComment[];
+    email_logs: HelpdeskEmailLog[];
+  }> {
+    return fetchApi<{
+      ticket: HelpdeskTicket;
+      events: HelpdeskEvent[];
+      comments: HelpdeskComment[];
+      email_logs: HelpdeskEmailLog[];
+    }>(`/api/admin/helpdesk/tickets/${id}`);
+  },
+
+  // Admin: Update ticket status, severity, assignment, or resolution notes
+  async updateHelpdeskTicket(
+    id: string,
+    updates: {
+      status?: string;
+      severity?: string;
+      assigned_to?: string | null;
+      assigned_to_name?: string | null;
+      resolution_notes?: string;
+    }
+  ): Promise<{ success: boolean; ticket: HelpdeskTicket }> {
+    return fetchApi<{ success: boolean; ticket: HelpdeskTicket }>(`/api/admin/helpdesk/tickets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  // Admin: Post internal note or comment on ticket
+  async addHelpdeskComment(ticketId: string, comment: string, isInternal: boolean = true): Promise<{ success: boolean; commentId: string }> {
+    return fetchApi<{ success: boolean; commentId: string }>(`/api/admin/helpdesk/tickets/${ticketId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ comment, is_internal: isInternal }),
+    });
+  },
+
+  // Admin: Get live system health diagnostics
+  async getHelpdeskHealth(): Promise<HelpdeskHealthReport> {
+    return fetchApi<HelpdeskHealthReport>('/api/admin/helpdesk/health');
+  },
+
+  // Admin: Get email notification logs
+  async getHelpdeskEmailLogs(params?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ logs: HelpdeskEmailLog[]; total: number; limit: number; offset: number }> {
+    const query = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<{ logs: HelpdeskEmailLog[]; total: number; limit: number; offset: number }>(`/api/admin/helpdesk/email-logs${qs}`);
+  },
+
+  // Admin: Retry failed email delivery
+  async retryHelpdeskEmail(logId: string): Promise<{ success: boolean; status: string; error?: string }> {
+    return fetchApi<{ success: boolean; status: string; error?: string }>(`/api/admin/helpdesk/email-logs/${logId}/retry`, {
+      method: 'POST',
+    });
+  },
+
+  // Admin: Retrieve configurable settings
+  async getHelpdeskSettings(): Promise<HelpdeskSettings> {
+    return fetchApi<HelpdeskSettings>('/api/admin/helpdesk/settings');
+  },
+
+  // Admin: Update settings
+  async updateHelpdeskSettings(settings: Partial<HelpdeskSettings>): Promise<{ success: boolean; settings: HelpdeskSettings }> {
+    return fetchApi<{ success: boolean; settings: HelpdeskSettings }>('/api/admin/helpdesk/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  // Admin: Delete a single ticket
+  async deleteHelpdeskTicket(ticketId: string): Promise<{ success: boolean; id: string }> {
+    return fetchApi<{ success: boolean; id: string }>(`/api/admin/helpdesk/tickets/${ticketId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Admin: Bulk delete tickets or clear all
+  async bulkDeleteHelpdeskTickets(payload: { ids?: string[]; clearAll?: boolean }): Promise<{ success: boolean; count?: number; message?: string }> {
+    return fetchApi<{ success: boolean; count?: number; message?: string }>('/api/admin/helpdesk/tickets/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Admin: Trigger test email notification
+  async sendHelpdeskTestEmail(recipient?: string): Promise<{ success: boolean; status: string; error?: string; messageId?: string }> {
+    return fetchApi<{ success: boolean; status: string; error?: string; messageId?: string }>('/api/admin/helpdesk/settings/test-email', {
+      method: 'POST',
+      body: JSON.stringify({ recipient }),
+    });
   },
 };

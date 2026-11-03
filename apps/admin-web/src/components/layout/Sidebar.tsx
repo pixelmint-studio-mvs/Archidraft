@@ -17,11 +17,7 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
-
-
-
-
-
+  LifeBuoy,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -34,6 +30,7 @@ interface NavBadgeCounts {
   engineers: number;
   draughtsmen: number;
   students: number;
+  tickets: number;
 }
 
 interface NavItem {
@@ -106,6 +103,17 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Support',
+    items: [
+      {
+        name: 'Help Desk',
+        href: '/helpdesk',
+        icon: LifeBuoy,
+        badgeKey: 'tickets',
+      },
+    ],
+  },
+  {
     title: 'Settings',
     items: [
       {
@@ -149,6 +157,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
     engineers: 0,
     draughtsmen: 0,
     students: 0,
+    tickets: 0,
   });
 
   // Fetch live counts on mount, then refresh every 30 seconds
@@ -157,7 +166,10 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
 
     async function fetchCounts() {
       try {
-        const stats = await adminApi.getStats();
+        const [stats, helpdeskStats] = await Promise.all([
+          adminApi.getStats(),
+          adminApi.getHelpdeskStats().catch(() => null),
+        ]);
         if (!mounted) return;
         setCounts({
           projects: stats.projects?.total ?? 0,
@@ -166,6 +178,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
             ((stats.users?.byRole?.['CLIENT'] ?? 0) + (stats.users?.byRole?.['ENGINEER'] ?? 0)),
           draughtsmen: stats.users?.byRole?.['DRAUGHTSMAN'] ?? 0,
           students: stats.users?.byRole?.['STUDENT'] ?? 0,
+          tickets: helpdeskStats?.openTickets ?? 0,
         });
       } catch {
         // Silently fail — badge just shows 0

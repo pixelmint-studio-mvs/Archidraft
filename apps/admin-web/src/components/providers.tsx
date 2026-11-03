@@ -2,13 +2,21 @@
 
 import React, { Suspense, ReactNode } from 'react';
 import { AuthProvider } from '@/lib/auth';
+import { ErrorMonitoringProvider } from '@/components/helpdesk/ErrorMonitoringProvider';
+import { ErrorBoundary } from '@/components/helpdesk/ErrorBoundary';
+import { SupportWidget } from '@/components/helpdesk/SupportWidget';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
-      <Suspense fallback={null}>
-        {children}
-      </Suspense>
-    </AuthProvider>
+    <ErrorMonitoringProvider>
+      <ErrorBoundary fallbackTitle="ArchiDraft Studio Console Error">
+        <AuthProvider>
+          <Suspense fallback={null}>
+            {children}
+            <SupportWidget />
+          </Suspense>
+        </AuthProvider>
+      </ErrorBoundary>
+    </ErrorMonitoringProvider>
   );
 }

@@ -516,4 +516,123 @@ export interface StudentProgressDetail {
   };
 }
 
+// ============================================================================
+// HELP DESK & INCIDENT MANAGEMENT SYSTEM TYPES
+// ============================================================================
+
+export type HelpdeskSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type HelpdeskStatus = 'OPEN' | 'INVESTIGATING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type HelpdeskSource = 'MAIN_APP' | 'ADMIN_PANEL' | 'BACKEND' | 'EXTERNAL_SERVICE' | 'USER_SUBMITTED';
+
+export interface HelpdeskTicket {
+  id: string;
+  fingerprint?: string;
+  title: string;
+  category: string;
+  severity: HelpdeskSeverity;
+  status: HelpdeskStatus;
+  source: HelpdeskSource;
+  affected_module: string;
+  error_message: string;
+  error_code?: string | null;
+  stack_trace?: string | null;
+  environment: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  browser?: string | null;
+  device?: string | null;
+  page_route?: string | null;
+  request_id?: string | null;
+  occurrence_count: number;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
+  resolution_notes?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+  screenshot_url?: string | null;
+  is_user_submitted: number;
+  created_at: string;
+  updated_at: string;
+  last_occurred_at: string;
+}
+
+export interface HelpdeskEvent {
+  id: string;
+  ticket_id: string;
+  event_type: string;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+  details?: string | null;
+  metadata?: string | null;
+  created_at: string;
+  ticket_title?: string;
+  ticket_severity?: string;
+}
+
+export interface HelpdeskComment {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  author_name: string;
+  author_role: string;
+  comment: string;
+  is_internal: number;
+  created_at: string;
+}
+
+export interface HelpdeskEmailLog {
+  id: string;
+  ticket_id?: string | null;
+  recipient: string;
+  subject: string;
+  severity: string;
+  status: 'PENDING' | 'SENT' | 'FAILED' | 'SUPPRESSED_DUPLICATE';
+  provider?: string | null;
+  error_message?: string | null;
+  response_body?: string | null;
+  retry_count: number;
+  sent_at?: string | null;
+  created_at: string;
+}
+
+export interface HelpdeskStats {
+  totalReports: number;
+  openTickets: number;
+  criticalIssues: number;
+  highPriority: number;
+  inProgress: number;
+  awaitingResponse: number;
+  resolvedTickets: number;
+  avgResolutionTimeMinutes: number;
+  categoryDistribution: Record<string, number>;
+  severityDistribution: Record<string, number>;
+  recentEvents: HelpdeskEvent[];
+  emailDeliveryStats: Record<string, number>;
+}
+
+export interface HelpdeskHealthReport {
+  status: 'OPERATIONAL' | 'DEGRADED' | 'DOWN';
+  timestamp: string;
+  checks: Record<string, { status: string; latencyMs: number; details?: string }>;
+}
+
+export interface HelpdeskSettings {
+  notification_email: string;
+  alert_critical_enabled: boolean;
+  alert_high_enabled: boolean;
+  alert_medium_enabled: boolean;
+  alert_low_digest_enabled: boolean;
+  suppression_window_minutes: number;
+  incident_retention_days: number;
+  monitoring_enabled: boolean;
+  email_provider: string;
+  resend_api_key?: string;
+  sendgrid_api_key?: string;
+  email_from_address?: string;
+  email_configured?: boolean;
+  email_provider_active?: string;
+}
+
+
 

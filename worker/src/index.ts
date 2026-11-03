@@ -16,6 +16,14 @@ export { assertTermsAccepted };
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { verifyFirebaseToken } from './auth';
+import {
+  recordHelpdeskIncident,
+  sendHelpdeskEmail,
+  getHelpdeskSettings,
+  runSystemHealthDiagnostics,
+  generateTicketId,
+  sanitizeText,
+} from './helpdesk';
 
 type Bindings = {
   DB: D1Database;
@@ -23,6 +31,10 @@ type Bindings = {
   ENVIRONMENT?: string;
   ALLOWED_ORIGINS?: string;
   FIREBASE_PROJECT_ID?: string;
+  RESEND_API_KEY?: string;
+  HELPDESK_EMAIL_API_KEY?: string;
+  SENDGRID_API_KEY?: string;
+  HELPDESK_EMAIL_FROM?: string;
 };
 
 type Variables = {
@@ -91,10 +103,12 @@ app.use('*', async (c, next) => {
 app.use('*', async (c, next) => {
   const isPublicDocRead = c.req.method === 'GET' && c.req.path.startsWith('/api/legal/documents/');
   const isPublicVerify = c.req.method === 'GET' && c.req.path.startsWith('/api/public/');
+  const isPublicHelpdeskReport = c.req.method === 'POST' && c.req.path === '/api/helpdesk/report';
+  const isPublicHelpdeskTicket = c.req.method === 'POST' && c.req.path === '/api/helpdesk/tickets';
 
   const authHeader = c.req.header('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    if (isPublicDocRead || isPublicVerify) {
+    if (isPublicDocRead || isPublicVerify || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
@@ -104,7 +118,7 @@ app.use('*', async (c, next) => {
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
-    if (isPublicDocRead || isPublicVerify) {
+    if (isPublicDocRead || isPublicVerify || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Invalid Firebase token' }, 401);
@@ -120,8 +134,16 @@ app.use('*', async (c, next) => {
   if (uid) {
     const user = await getUser(c.env.DB, uid);
     if (user && user.status === 'SUSPENDED') {
-      const allowedPaths = ['/api/users/me', '/api/users/profile', '/api/legal/documents', '/api/public/'];
-      const isAllowed = c.req.method === 'GET' && allowedPaths.some(p => c.req.path.startsWith(p));
+      const allowedPaths = [
+        '/api/users/me',
+        '/api/users/profile',
+        '/api/legal/documents',
+        '/api/public/',
+        '/api/helpdesk/report',
+        '/api/helpdesk/tickets',
+        '/api/helpdesk/my-tickets',
+      ];
+      const isAllowed = (c.req.method === 'GET' || c.req.path.startsWith('/api/helpdesk/')) && allowedPaths.some(p => c.req.path.startsWith(p));
       if (!isAllowed) {
         return c.json({
           error: 'Account suspended. Contact administrator.',
@@ -4191,7 +4213,7 @@ app.get('/api/admin/students-progress', async (c) => {
   const progressList = [];
   const nowMs = Date.now();
 
-  for (const st of (students || [])) {
+  for (const st of ((students || []) as any[])) {
     // Assigned learning plans
     const { results: plans } = await db.prepare(`
       SELECT slp.id, slp.student_id, slp.module_id, slp.assigned_at, slp.target_completion_date,
@@ -4205,7 +4227,7 @@ app.get('/api/admin/students-progress', async (c) => {
       ORDER BY slp.created_at DESC
     `).bind(st.id).all();
 
-    const assignedPlans = plans || [];
+    const assignedPlans: any[] = (plans || []) as any[];
     const totalAssigned = assignedPlans.length;
 
     const studentAssignedRequiredLessonIds = new Set<string>();
@@ -4233,8 +4255,8 @@ app.get('/api/admin/students-progress', async (c) => {
         ORDER BY l.lesson_order ASC
       `).bind(st.id, pl.module_id).all();
 
-      const allModLessons = lessons || [];
-      const assignedLessonsForPlan = allModLessons.filter((l: any) => isLessonAssignedToPlan(l, pl));
+      const allModLessons: any[] = (lessons || []) as any[];
+      const assignedLessonsForPlan: any[] = allModLessons.filter((l: any) => isLessonAssignedToPlan(l, pl));
 
       let planReqCount = 0;
       let planCompReqCount = 0;
@@ -4242,22 +4264,24 @@ app.get('/api/admin/students-progress', async (c) => {
       let planCompTotalCount = 0;
 
       for (const les of assignedLessonsForPlan) {
-        studentAssignedAllLessonIds.add(les.id);
+        const lessonId = String(les.id);
+        studentAssignedAllLessonIds.add(lessonId);
         const isReq = les.is_required !== 0 && les.is_required !== false;
         if (isReq) {
-          studentAssignedRequiredLessonIds.add(les.id);
+          studentAssignedRequiredLessonIds.add(lessonId);
           planReqCount++;
         }
         if (les.lesson_status === 'COMPLETED') {
-          studentCompletedAllLessonIds.add(les.id);
+          studentCompletedAllLessonIds.add(lessonId);
           planCompTotalCount++;
           if (isReq) {
-            studentCompletedRequiredLessonIds.add(les.id);
+            studentCompletedRequiredLessonIds.add(lessonId);
             planCompReqCount++;
           }
           if (les.completed_at) {
-            if (!latestCompletionDate || new Date(les.completed_at).getTime() > new Date(latestCompletionDate).getTime()) {
-              latestCompletionDate = les.completed_at;
+            const completedAtStr = String(les.completed_at);
+            if (!latestCompletionDate || new Date(completedAtStr).getTime() > new Date(latestCompletionDate).getTime()) {
+              latestCompletionDate = completedAtStr;
             }
           }
         }
@@ -4293,13 +4317,14 @@ app.get('/api/admin/students-progress', async (c) => {
 
       // Check overdue
       if (pl.target_completion_date) {
-        const targetMs = new Date(pl.target_completion_date).getTime();
+        const targetDateStr = String(pl.target_completion_date);
+        const targetMs = new Date(targetDateStr).getTime();
         if (targetMs < nowMs && computedPlanStatus !== 'Completed') {
           overdueCount++;
         }
         if (computedPlanStatus !== 'Completed') {
           if (!earliestTargetDate || targetMs < new Date(earliestTargetDate).getTime()) {
-            earliestTargetDate = pl.target_completion_date;
+            earliestTargetDate = targetDateStr;
           }
         }
       }
@@ -4351,12 +4376,12 @@ app.get('/api/admin/students-progress', async (c) => {
     `).bind(st.id).first();
 
     const summaryItem = {
-      student_id: st.id,
-      student_name: st.name || 'Unnamed Student',
-      student_email: st.email,
-      student_status: st.status || 'ACTIVE',
-      college_name: st.college_name || null,
-      qualification: st.qualification || null,
+      student_id: String(st.id),
+      student_name: String(st.name || 'Unnamed Student'),
+      student_email: String(st.email || ''),
+      student_status: String(st.status || 'ACTIVE'),
+      college_name: st.college_name ? String(st.college_name) : null,
+      qualification: st.qualification ? String(st.qualification) : null,
       assigned_plans_count: totalAssigned,
       assigned_modules_count: totalAssigned,
       completed_plans_count: completedPlansCount,
@@ -4456,7 +4481,7 @@ app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
     ORDER BY slp.created_at DESC
   `).bind(studentId).all();
 
-  const assignedPlans = plans || [];
+  const assignedPlans: any[] = (plans || []) as any[];
   const modulesDetail = [];
   const studentAssignedRequiredLessonIds = new Set<string>();
   const studentCompletedRequiredLessonIds = new Set<string>();
@@ -4574,7 +4599,7 @@ app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
       notStartedModulesCount++;
     }
 
-    if (pl.target_completion_date && new Date(pl.target_completion_date).getTime() < nowMs && modStatus !== 'Completed') {
+    if (pl.target_completion_date && new Date(String(pl.target_completion_date)).getTime() < nowMs && modStatus !== 'Completed') {
       hasOverdue = true;
     }
 
@@ -5656,6 +5681,752 @@ app.post('/api/projects/cancel', async (c) => {
   ];
   await db.batch(batch);
   return c.json({ success: true });
+});
+
+// ============================================================================
+// PIXELMINT STUDIO MVS — CENTRALIZED HELP DESK & INCIDENT MANAGEMENT SYSTEM
+// ============================================================================
+
+// 1. PUBLIC / AUTHENTICATED INCIDENT REPORTING BEACON
+app.post('/api/helpdesk/report', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  let userEmail: string | undefined = undefined;
+
+  if (uid) {
+    try {
+      const u = await getUser(db, uid);
+      if (u) userEmail = (u.email as string) || undefined;
+    } catch {}
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const errorMessage = body.error_message || body.errorMessage || body.message || 'Unknown technical failure';
+  const category = (body.category || 'SYSTEM').toUpperCase();
+  const severity = body.severity || 'MEDIUM';
+  const title = body.title || `${category} Error in ${body.affected_module || body.affectedModule || 'Application'}`;
+
+  try {
+    const result = await recordHelpdeskIncident(db, c.env, {
+      title,
+      category,
+      severity,
+      source: body.source || (uid ? 'ADMIN_PANEL' : 'MAIN_APP'),
+      affected_module: body.affected_module || body.affectedModule || 'General',
+      error_message: errorMessage,
+      error_code: body.error_code || body.errorCode || (body.status ? String(body.status) : undefined),
+      stack_trace: body.stack_trace || body.stackTrace,
+      environment: c.env.ENVIRONMENT || 'production',
+      user_id: uid || body.user_id,
+      user_email: userEmail || body.user_email,
+      browser: body.browser,
+      device: body.device,
+      page_route: body.page_route || body.pageRoute,
+      request_id: body.request_id || body.requestId || crypto.randomUUID(),
+    });
+
+    return c.json({
+      success: true,
+      ticketId: result.ticket.id,
+      isNew: result.isNew,
+      emailStatus: result.emailResult?.status,
+    });
+  } catch (err: any) {
+    console.error('Failed to record helpdesk incident:', err);
+    return c.json({ error: 'Failed to record incident', details: err?.message }, 500);
+  }
+});
+
+// 2. USER-SUBMITTED SUPPORT TICKET ENDPOINT
+app.post('/api/helpdesk/tickets', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+
+  let user: any = null;
+  if (uid) {
+    try {
+      user = await getUser(db, uid);
+    } catch {}
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const subject = (body.subject || body.title || '').trim();
+  const description = (body.description || body.error_message || '').trim();
+  const contactEmail = (body.user_email || body.contact_email || body.email || (user?.email as string) || '').trim();
+
+  if (!subject) {
+    return c.json({ error: 'Subject is required', code: 'MISSING_SUBJECT' }, 400);
+  }
+  if (!description) {
+    return c.json({ error: 'Description is required', code: 'MISSING_DESCRIPTION' }, 400);
+  }
+
+  const category = (body.category || 'USER_REPORT').toUpperCase();
+  const prioritySuggestion = (body.priority_suggestion || body.severity || 'MEDIUM').toUpperCase();
+  const validSeverities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+  const severity = validSeverities.includes(prioritySuggestion) ? (prioritySuggestion as any) : 'MEDIUM';
+
+  const result = await recordHelpdeskIncident(db, c.env, {
+    title: subject,
+    category,
+    severity,
+    source: 'USER_SUBMITTED',
+    affected_module: body.affected_feature || body.affected_module || 'Support Portal',
+    error_message: description,
+    user_id: uid || undefined,
+    user_email: contactEmail || undefined,
+    screenshot_url: body.screenshot_url,
+    is_user_submitted: true,
+    page_route: body.page_route,
+  });
+
+  return c.json({
+    success: true,
+    ticketId: result.ticket.id,
+    message: 'Support ticket successfully submitted. Studio administration has been notified.',
+  }, 201);
+});
+
+// 3. USER SELF-SERVICE TICKET HISTORY
+app.get('/api/helpdesk/my-tickets', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+
+  if (!uid) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const { results } = await db
+    .prepare(`
+      SELECT id, title, category, severity, status, affected_module,
+             created_at, updated_at, resolution_notes, is_user_submitted
+      FROM helpdesk_tickets
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `)
+    .bind(uid)
+    .all();
+
+  return c.json(results || []);
+});
+
+// 4. ADMIN: HELPDESK DASHBOARD STATS
+app.get('/api/admin/helpdesk/stats', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Studio Admin privileges required' }, 403);
+  }
+
+  // Aggregate high-level metrics
+  const countsRow: any = await db
+    .prepare(`
+      SELECT
+        COUNT(*) as total_reports,
+        SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) as open_tickets,
+        SUM(CASE WHEN severity = 'CRITICAL' AND status NOT IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as critical_issues,
+        SUM(CASE WHEN severity = 'HIGH' AND status NOT IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as high_priority,
+        SUM(CASE WHEN status IN ('INVESTIGATING', 'IN_PROGRESS') THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'OPEN' AND is_user_submitted = 1 THEN 1 ELSE 0 END) as awaiting_response,
+        SUM(CASE WHEN status IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as resolved_tickets,
+        AVG(CASE WHEN resolved_at IS NOT NULL THEN (julianday(resolved_at) - julianday(created_at)) * 1440 ELSE NULL END) as avg_resolution_minutes
+      FROM helpdesk_tickets
+    `)
+    .first();
+
+  // Category distribution
+  const { results: categoryRows } = await db
+    .prepare(`
+      SELECT category, COUNT(*) as count
+      FROM helpdesk_tickets
+      GROUP BY category
+      ORDER BY count DESC
+    `)
+    .all();
+
+  // Severity distribution
+  const { results: severityRows } = await db
+    .prepare(`
+      SELECT severity, COUNT(*) as count
+      FROM helpdesk_tickets
+      GROUP BY severity
+    `)
+    .all();
+
+  // Recent timeline events
+  const { results: recentEvents } = await db
+    .prepare(`
+      SELECT e.*, t.title as ticket_title, t.severity as ticket_severity
+      FROM helpdesk_events e
+      JOIN helpdesk_tickets t ON e.ticket_id = t.id
+      ORDER BY e.created_at DESC
+      LIMIT 8
+    `)
+    .all();
+
+  // Email delivery stats
+  const { results: emailStatsRows } = await db
+    .prepare(`
+      SELECT status, COUNT(*) as count
+      FROM helpdesk_email_logs
+      GROUP BY status
+    `)
+    .all();
+
+  const categoryDistribution: Record<string, number> = {};
+  for (const r of (categoryRows || []) as any[]) categoryDistribution[String(r.category)] = Number(r.count);
+
+  const severityDistribution: Record<string, number> = {
+    CRITICAL: 0,
+    HIGH: 0,
+    MEDIUM: 0,
+    LOW: 0,
+  };
+  for (const r of (severityRows || []) as any[]) severityDistribution[String(r.severity)] = Number(r.count);
+
+  const emailDeliveryStats: Record<string, number> = {
+    SENT: 0,
+    FAILED: 0,
+    SUPPRESSED_DUPLICATE: 0,
+  };
+  for (const r of (emailStatsRows || []) as any[]) emailDeliveryStats[String(r.status)] = Number(r.count);
+
+  return c.json({
+    totalReports: Number(countsRow?.total_reports || 0),
+    openTickets: Number(countsRow?.open_tickets || 0),
+    criticalIssues: Number(countsRow?.critical_issues || 0),
+    highPriority: Number(countsRow?.high_priority || 0),
+    inProgress: Number(countsRow?.in_progress || 0),
+    awaitingResponse: Number(countsRow?.awaiting_response || 0),
+    resolvedTickets: Number(countsRow?.resolved_tickets || 0),
+    avgResolutionTimeMinutes: Math.round(Number(countsRow?.avg_resolution_minutes || 0)),
+    categoryDistribution,
+    severityDistribution,
+    recentEvents: recentEvents || [],
+    emailDeliveryStats,
+  });
+});
+
+// 5. ADMIN: LIST INCIDENT TICKETS (WITH SEARCH, FILTER, PAGINATION)
+app.get('/api/admin/helpdesk/tickets', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const status = c.req.query('status');
+  const severity = c.req.query('severity');
+  const category = c.req.query('category');
+  const source = c.req.query('source');
+  const search = (c.req.query('search') || '').trim();
+  const limit = Math.min(parseInt(c.req.query('limit') || '25', 10), 100);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+
+  let whereClauses: string[] = ['1=1'];
+  const params: any[] = [];
+
+  if (status && status !== 'ALL') {
+    whereClauses.push('status = ?');
+    params.push(status);
+  }
+  if (severity && severity !== 'ALL') {
+    whereClauses.push('severity = ?');
+    params.push(severity);
+  }
+  if (category && category !== 'ALL') {
+    whereClauses.push('category = ?');
+    params.push(category);
+  }
+  if (source && source !== 'ALL') {
+    whereClauses.push('source = ?');
+    params.push(source);
+  }
+  if (search) {
+    whereClauses.push('(id LIKE ? OR title LIKE ? OR error_message LIKE ? OR affected_module LIKE ?)');
+    const sTerm = `%${search}%`;
+    params.push(sTerm, sTerm, sTerm, sTerm);
+  }
+
+  const whereSql = whereClauses.join(' AND ');
+
+  const countRow: any = await db
+    .prepare(`SELECT COUNT(*) as total FROM helpdesk_tickets WHERE ${whereSql}`)
+    .bind(...params)
+    .first();
+
+  const total = Number(countRow?.total || 0);
+
+  const queryParams = [...params, limit, offset];
+  const { results: tickets } = await db
+    .prepare(`
+      SELECT * FROM helpdesk_tickets
+      WHERE ${whereSql}
+      ORDER BY
+        CASE severity
+          WHEN 'CRITICAL' THEN 1
+          WHEN 'HIGH' THEN 2
+          WHEN 'MEDIUM' THEN 3
+          WHEN 'LOW' THEN 4
+          ELSE 5
+        END,
+        last_occurred_at DESC
+      LIMIT ? OFFSET ?
+    `)
+    .bind(...queryParams)
+    .all();
+
+  return c.json({
+    tickets: tickets || [],
+    total,
+    limit,
+    offset,
+  });
+});
+
+// 6. ADMIN: TICKET DETAILS (WITH TIMELINE, COMMENTS, EMAIL LOGS)
+app.get('/api/admin/helpdesk/tickets/:id', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const ticket = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+
+  if (!ticket) {
+    return c.json({ error: 'Ticket not found' }, 404);
+  }
+
+  const [eventsRes, commentsRes, emailLogsRes] = await Promise.all([
+    db.prepare('SELECT * FROM helpdesk_events WHERE ticket_id = ? ORDER BY created_at ASC').bind(id).all(),
+    db.prepare('SELECT * FROM helpdesk_comments WHERE ticket_id = ? ORDER BY created_at ASC').bind(id).all(),
+    db.prepare('SELECT * FROM helpdesk_email_logs WHERE ticket_id = ? ORDER BY created_at DESC').bind(id).all(),
+  ]);
+
+  return c.json({
+    ticket,
+    events: eventsRes.results || [],
+    comments: commentsRes.results || [],
+    email_logs: emailLogsRes.results || [],
+  });
+});
+
+// 7. ADMIN: UPDATE TICKET STATUS / TRIAGE
+app.patch('/api/admin/helpdesk/tickets/:id', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const existingTicket = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  if (!existingTicket) return c.json({ error: 'Ticket not found' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const adminName = (user.name as string) || (user.email as string) || 'Administrator';
+  const nowIso = new Date().toISOString();
+
+  const updates: string[] = ['updated_at = ?'];
+  const updateParams: any[] = [nowIso];
+  const auditEvents: Array<{ type: string; details: string }> = [];
+
+  if (body.status && body.status !== existingTicket.status) {
+    updates.push('status = ?');
+    updateParams.push(body.status);
+    auditEvents.push({
+      type: body.status === 'RESOLVED' ? 'RESOLVED' : body.status === 'CLOSED' ? 'CLOSED' : 'STATUS_CHANGED',
+      details: `Status transitioned from ${existingTicket.status} to ${body.status} by ${adminName}.`,
+    });
+
+    if (body.status === 'RESOLVED' || body.status === 'CLOSED') {
+      updates.push('resolved_at = ?', 'resolved_by = ?');
+      updateParams.push(nowIso, uid);
+    }
+  }
+
+  if (body.severity && body.severity !== existingTicket.severity) {
+    updates.push('severity = ?');
+    updateParams.push(body.severity);
+    auditEvents.push({
+      type: 'SEVERITY_CHANGED',
+      details: `Severity adjusted from ${existingTicket.severity} to ${body.severity} by ${adminName}.`,
+    });
+  }
+
+  if (body.assigned_to !== undefined && body.assigned_to !== existingTicket.assigned_to) {
+    updates.push('assigned_to = ?', 'assigned_to_name = ?');
+    updateParams.push(body.assigned_to || null, body.assigned_to_name || null);
+    auditEvents.push({
+      type: 'ASSIGNED',
+      details: body.assigned_to
+        ? `Ticket assigned to ${body.assigned_to_name || body.assigned_to} by ${adminName}.`
+        : `Ticket unassigned by ${adminName}.`,
+    });
+  }
+
+  if (body.resolution_notes !== undefined) {
+    updates.push('resolution_notes = ?');
+    updateParams.push(body.resolution_notes);
+  }
+
+  updateParams.push(id);
+  await db.prepare(`UPDATE helpdesk_tickets SET ${updates.join(', ')} WHERE id = ?`).bind(...updateParams).run();
+
+  // Log all audit events
+  for (const ev of auditEvents) {
+    await db
+      .prepare(`
+        INSERT INTO helpdesk_events (id, ticket_id, event_type, actor_id, actor_name, actor_role, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .bind(crypto.randomUUID(), id, ev.type, uid, adminName, user.role, ev.details)
+      .run();
+  }
+
+  const updated = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  return c.json({ success: true, ticket: updated });
+});
+
+// 8. ADMIN: POST INTERNAL NOTE / COMMENT
+app.post('/api/admin/helpdesk/tickets/:id/comments', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const ticket = await db.prepare('SELECT id FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  if (!ticket) return c.json({ error: 'Ticket not found' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const commentText = (body.comment || '').trim();
+  if (!commentText) return c.json({ error: 'Comment text is required' }, 400);
+
+  const adminName = (user.name as string) || (user.email as string) || 'Administrator';
+  const commentId = crypto.randomUUID();
+
+  await db
+    .prepare(`
+      INSERT INTO helpdesk_comments (id, ticket_id, author_id, author_name, author_role, comment, is_internal)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    .bind(commentId, id, uid, adminName, user.role, sanitizeText(commentText), body.is_internal !== false ? 1 : 0)
+    .run();
+
+  await db
+    .prepare(`
+      INSERT INTO helpdesk_events (id, ticket_id, event_type, actor_id, actor_name, actor_role, details)
+      VALUES (?, ?, 'NOTE_ADDED', ?, ?, ?, ?)
+    `)
+    .bind(crypto.randomUUID(), id, uid, adminName, user.role, `Internal investigation note added by ${adminName}.`)
+    .run();
+
+  return c.json({ success: true, commentId }, 201);
+});
+
+// 8b. ADMIN: DELETE A SINGLE TICKET
+app.delete('/api/admin/helpdesk/tickets/:id', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const ticket = await db.prepare('SELECT id FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  if (!ticket) {
+    return c.json({ error: 'Ticket not found' }, 404);
+  }
+
+  // Delete all related records
+  await Promise.all([
+    db.prepare('DELETE FROM helpdesk_comments WHERE ticket_id = ?').bind(id).run(),
+    db.prepare('DELETE FROM helpdesk_events WHERE ticket_id = ?').bind(id).run(),
+    db.prepare('DELETE FROM helpdesk_email_logs WHERE ticket_id = ?').bind(id).run(),
+  ]);
+
+  await db.prepare('DELETE FROM helpdesk_tickets WHERE id = ?').bind(id).run();
+
+  return c.json({ success: true, message: 'Ticket deleted successfully', id });
+});
+
+// 8c. ADMIN: BULK DELETE TICKETS (OR CLEAR ALL)
+app.post('/api/admin/helpdesk/tickets/bulk-delete', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+  const clearAll: boolean = !!body.clearAll;
+
+  if (clearAll) {
+    await Promise.all([
+      db.prepare('DELETE FROM helpdesk_comments').run(),
+      db.prepare('DELETE FROM helpdesk_events').run(),
+      db.prepare('DELETE FROM helpdesk_email_logs').run(),
+      db.prepare('DELETE FROM helpdesk_tickets').run(),
+    ]);
+    return c.json({ success: true, message: 'All tickets and records cleared successfully' });
+  }
+
+  if (ids.length === 0) {
+    return c.json({ error: 'No ticket IDs provided for deletion' }, 400);
+  }
+
+  for (const tid of ids) {
+    await Promise.all([
+      db.prepare('DELETE FROM helpdesk_comments WHERE ticket_id = ?').bind(tid).run(),
+      db.prepare('DELETE FROM helpdesk_events WHERE ticket_id = ?').bind(tid).run(),
+      db.prepare('DELETE FROM helpdesk_email_logs WHERE ticket_id = ?').bind(tid).run(),
+    ]);
+    await db.prepare('DELETE FROM helpdesk_tickets WHERE id = ?').bind(tid).run();
+  }
+
+  return c.json({ success: true, count: ids.length });
+});
+
+// 9. ADMIN: SYSTEM HEALTH DIAGNOSTICS CONSOLE
+app.get('/api/admin/helpdesk/health', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const diagnostics = await runSystemHealthDiagnostics(db, c.env);
+  return c.json(diagnostics);
+});
+
+// 10. ADMIN: EMAIL NOTIFICATION LOGS
+app.get('/api/admin/helpdesk/email-logs', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const status = c.req.query('status');
+
+  let whereSql = '1=1';
+  const params: any[] = [];
+  if (status && status !== 'ALL') {
+    whereSql += ' AND status = ?';
+    params.push(status);
+  }
+
+  const { results: logs } = await db
+    .prepare(`
+      SELECT * FROM helpdesk_email_logs
+      WHERE ${whereSql}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `)
+    .bind(...params, limit, offset)
+    .all();
+
+  const countRow: any = await db
+    .prepare(`SELECT COUNT(*) as total FROM helpdesk_email_logs WHERE ${whereSql}`)
+    .bind(...params)
+    .first();
+
+  return c.json({
+    logs: logs || [],
+    total: Number(countRow?.total || 0),
+    limit,
+    offset,
+  });
+});
+
+// 11. ADMIN: RETRY EMAIL NOTIFICATION
+app.post('/api/admin/helpdesk/email-logs/:id/retry', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const logId = c.req.param('id');
+  const log: any = await db.prepare('SELECT * FROM helpdesk_email_logs WHERE id = ?').bind(logId).first();
+  if (!log) return c.json({ error: 'Email log not found' }, 404);
+
+  const ticket = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(log.ticket_id).first();
+  if (!ticket) return c.json({ error: 'Associated ticket not found' }, 404);
+
+  const result = await sendHelpdeskEmail(c.env, db, ticket, { force: true, customRecipient: log.recipient });
+
+  // Update retry count
+  await db
+    .prepare('UPDATE helpdesk_email_logs SET retry_count = retry_count + 1 WHERE id = ?')
+    .bind(logId)
+    .run();
+
+  return c.json(result);
+});
+
+// 12. ADMIN: GET HELPDESK SETTINGS
+app.get('/api/admin/helpdesk/settings', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const settings = await getHelpdeskSettings(db, c.env);
+  return c.json(settings);
+});
+
+// 13. ADMIN: UPDATE HELPDESK SETTINGS
+app.put('/api/admin/helpdesk/settings', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const adminName = (user.name as string) || (user.email as string) || 'Administrator';
+  const nowIso = new Date().toISOString();
+
+  const allowedKeys = [
+    'notification_email',
+    'alert_critical_enabled',
+    'alert_high_enabled',
+    'alert_medium_enabled',
+    'alert_low_digest_enabled',
+    'suppression_window_minutes',
+    'incident_retention_days',
+    'monitoring_enabled',
+    'email_provider',
+    'resend_api_key',
+    'sendgrid_api_key',
+    'email_from_address',
+  ];
+
+  for (const key of allowedKeys) {
+    if (body[key] !== undefined) {
+      const valStr = String(body[key]).trim();
+      // Do not overwrite key with empty string or masked placeholder
+      if ((key === 'resend_api_key' || key === 'sendgrid_api_key') && (!valStr || valStr.includes('••••'))) {
+        continue;
+      }
+      await db
+        .prepare(`
+          INSERT INTO helpdesk_settings (key, value, updated_at, updated_by)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by
+        `)
+        .bind(key, valStr, nowIso, uid)
+        .run();
+    }
+  }
+
+  const settings = await getHelpdeskSettings(db, c.env);
+  return c.json({ success: true, settings });
+});
+
+// 14. ADMIN: SEND TEST EMAIL NOTIFICATION TO PIXELMINT STUDIO MVS
+app.post('/api/admin/helpdesk/settings/test-email', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const customRecipient = body.recipient || body.email;
+
+  const mockTicket = {
+    id: `PM-HELP-${new Date().getFullYear()}-TEST01`,
+    title: 'Manual Diagnostic Email Test — Help Desk Alert Engine',
+    category: 'SYSTEM',
+    severity: 'CRITICAL',
+    source: 'ADMIN_PANEL',
+    affected_module: 'Help Desk Notification Engine',
+    error_message: 'This is a verified test notification confirming that email alerts to pixelmintstudiomvs@gmail.com are operational.',
+    environment: c.env.ENVIRONMENT || 'production',
+    occurrence_count: 1,
+    created_at: new Date().toISOString(),
+  };
+
+  const result = await sendHelpdeskEmail(c.env, db, mockTicket, {
+    force: true,
+    isTest: true,
+    customRecipient,
+  });
+
+  return c.json(result);
+});
+
+// ============================================================================
+// GLOBAL WORKER UNHANDLED ERROR HANDLER
+// ============================================================================
+
+app.onError(async (err, c) => {
+  console.error('Unhandled Worker Exception:', err);
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const reqId = crypto.randomUUID();
+
+  try {
+    if (db) {
+      await recordHelpdeskIncident(db, c.env, {
+        title: `Backend Worker Exception: ${err.name || 'Error'}`,
+        category: 'BACKEND',
+        severity: 'CRITICAL',
+        source: 'BACKEND',
+        affected_module: c.req.path || 'Cloudflare Worker Core',
+        error_message: err.message || 'Unhandled worker runtime exception',
+        stack_trace: err.stack,
+        request_id: reqId,
+        user_id: uid,
+        page_route: c.req.url,
+      });
+    }
+  } catch (recErr) {
+    console.error('Failed to log unhandled exception in helpdesk:', recErr);
+  }
+
+  return c.json({
+    error: 'An internal server error occurred',
+    code: 'INTERNAL_ERROR',
+    requestId: reqId,
+  }, 500);
 });
 
 registerLegalRoutes(app);
