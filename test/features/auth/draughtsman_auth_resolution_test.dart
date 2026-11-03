@@ -6,7 +6,7 @@ import 'package:archi_draft/src/features/profile/data/profile_repository.dart';
 void main() {
   group('Existing Draughtsman Auth & Profile Resolution Regression Test', () {
     const draughtsmanUid = 'MZiLaSRIJkQ92H5gZi51LjL7sjh2';
-    const draughtsmanEmail = 'mohdanas53n@gmail.com';
+    const draughtsmanEmail = 'draughtsman@pixelmintstudio.com';
 
     final mockDraughtsmanMap = {
       'id': draughtsmanUid,

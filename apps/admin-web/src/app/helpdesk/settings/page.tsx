@@ -399,32 +399,8 @@ export default function HelpDeskSettingsPage() {
                     className="flex items-center justify-center gap-2 text-xs font-semibold px-5 py-2.5 border-[#0453cd]/30 text-[#0453cd] hover:bg-blue-50 transition-colors whitespace-nowrap"
                   >
                     <Send className={`h-3.5 w-3.5 ${testingEmail ? 'animate-spin' : ''}`} />
-                    <span>{testingEmail ? 'Sending Test...' : 'Send Test Email'}</span>
+                    <span>{testingEmail ? 'Sending Test...' : 'Send Test Alert to pixelmintstudiomvs@gmail.com'}</span>
                   </Button>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
-                  <span className="text-[11px] font-medium">Quick Select Recipient:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTestRecipient('pixelmintstudiomvs@gmail.com');
-                      handleTestEmail('pixelmintstudiomvs@gmail.com');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-mono transition-colors cursor-pointer"
-                  >
-                    pixelmintstudiomvs@gmail.com (Studio MVS)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTestRecipient('mohdanas53n@gmail.com');
-                      handleTestEmail('mohdanas53n@gmail.com');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-mono transition-colors cursor-pointer"
-                  >
-                    mohdanas53n@gmail.com (Resend Account Sandbox)
-                  </button>
                 </div>
 
                 {/* Test Email Result */}
@@ -456,46 +432,6 @@ export default function HelpDeskSettingsPage() {
                         <p className="text-rose-800 text-[11px] leading-relaxed">
                           {testResult.error || 'The email could not be delivered. Please verify your Resend API Key.'}
                         </p>
-
-                        {/* Smart guidance if this is Resend's free tier sandbox 403 limitation */}
-                        {testResult.error?.includes('You can only send testing emails to your own email address') && (
-                          <div className="p-3.5 bg-amber-50/90 border border-amber-300 rounded-xl text-amber-950 space-y-2">
-                            <div className="flex items-center gap-2 font-bold text-xs text-amber-900">
-                              <Info className="h-4 w-4 text-amber-700 shrink-0" />
-                              <span>How to fix this error:</span>
-                            </div>
-                            <p className="text-[11px] text-amber-900 leading-relaxed">
-                              Your Resend key is registered to <strong>mohdanas53n@gmail.com</strong>. On Resend’s free sandbox tier, emails can only be sent to that registered email address.
-                            </p>
-                            <div className="flex flex-wrap items-center gap-2 pt-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => {
-                                  setTestRecipient('mohdanas53n@gmail.com');
-                                  handleTestEmail('mohdanas53n@gmail.com');
-                                }}
-                                disabled={testingEmail}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 flex items-center gap-1.5"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                                <span>Send Test to mohdanas53n@gmail.com (Instant Delivery)</span>
-                              </Button>
-                              <a
-                                href="https://resend.com/domains"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-amber-900 hover:underline flex items-center gap-1 font-semibold px-2 py-1"
-                              >
-                                <span>Verify domain at resend.com/domains</span>
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                            <p className="text-[10px] text-amber-800/90 mt-1">
-                              💡 <strong>To receive emails at pixelmintstudiomvs@gmail.com:</strong> Either verify a custom domain at resend.com/domains, or create a free Resend account using <code className="font-mono">pixelmintstudiomvs@gmail.com</code> and paste that API key above.
-                            </p>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
