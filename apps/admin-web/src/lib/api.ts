@@ -387,7 +387,6 @@ export const adminApi = {
         }),
         this.getRegistrations({ status: 'PENDING' }).catch(() => []),
       ]);
-      ]);
       const byStatus: Record<string, number> = {};
       projects.forEach((p) => {
         byStatus[p.status] = (byStatus[p.status] || 0) + 1;
@@ -1352,29 +1351,43 @@ export const adminApi = {
     return fetchApi<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }>('/api/admin/helpdesk/tickets' + qs);
   },
 
-  // Admin: Get single ticket details
-  async getHelpdeskTicket(ticketId: string): Promise<HelpdeskTicket> {
-    return fetchApi<HelpdeskTicket>('/api/admin/helpdesk/tickets/' + ticketId);
+  // Admin: Get single ticket with timeline, comments, and email logs
+  async getHelpdeskTicket(id: string): Promise<{
+    ticket: HelpdeskTicket;
+    events: HelpdeskEvent[];
+    comments: HelpdeskComment[];
+    email_logs: HelpdeskEmailLog[];
+  }> {
+    return fetchApi<{
+      ticket: HelpdeskTicket;
+      events: HelpdeskEvent[];
+      comments: HelpdeskComment[];
+      email_logs: HelpdeskEmailLog[];
+    }>('/api/admin/helpdesk/tickets/' + id);
   },
 
-  // Admin: Update ticket status or severity
-  async updateHelpdeskTicket(ticketId: string, updates: {
-    status?: string;
-    severity?: string;
-    assigned_admin_id?: string | null;
-    resolution_notes?: string;
-  }): Promise<{ success: boolean; ticket: HelpdeskTicket }> {
-    return fetchApi<{ success: boolean; ticket: HelpdeskTicket }>('/api/admin/helpdesk/tickets/' + ticketId, {
+  // Admin: Update ticket status, severity, assignment, or resolution notes
+  async updateHelpdeskTicket(
+    id: string,
+    updates: {
+      status?: string;
+      severity?: string;
+      assigned_to?: string | null;
+      assigned_to_name?: string | null;
+      resolution_notes?: string;
+    }
+  ): Promise<{ success: boolean; ticket: HelpdeskTicket }> {
+    return fetchApi<{ success: boolean; ticket: HelpdeskTicket }>('/api/admin/helpdesk/tickets/' + id, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
   },
 
-  // Admin: Add comment to ticket
-  async addHelpdeskComment(ticketId: string, message: string, isInternal = false): Promise<{ success: boolean; comment: HelpdeskComment }> {
-    return fetchApi<{ success: boolean; comment: HelpdeskComment }>('/api/admin/helpdesk/tickets/' + ticketId + '/comments', {
+  // Admin: Post internal note or comment on ticket
+  async addHelpdeskComment(ticketId: string, comment: string, isInternal = true): Promise<{ success: boolean; commentId: string }> {
+    return fetchApi<{ success: boolean; commentId: string }>('/api/admin/helpdesk/tickets/' + ticketId + '/comments', {
       method: 'POST',
-      body: JSON.stringify({ message, is_internal: isInternal }),
+      body: JSON.stringify({ comment, is_internal: isInternal }),
     });
   },
 
@@ -1386,9 +1399,13 @@ export const adminApi = {
     });
   },
 
-  // Admin: System health report
-  async getHelpdeskHealthReport(): Promise<HelpdeskHealthReport> {
+  // Admin: Get live system health diagnostics
+  async getHelpdeskHealth(): Promise<HelpdeskHealthReport> {
     return fetchApi<HelpdeskHealthReport>('/api/admin/helpdesk/health');
+  },
+
+  async getHelpdeskHealthReport(): Promise<HelpdeskHealthReport> {
+    return this.getHelpdeskHealth();
   },
 
   // Admin: Get email notification logs
