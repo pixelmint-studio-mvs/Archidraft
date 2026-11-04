@@ -221,6 +221,7 @@ export interface AdminStats {
     registeredEngineers?: number;
   };
   recentActivity: ActivityLog[];
+  pendingRegistrations?: number;
 }
 
 export interface AdminDashboardMetrics {
@@ -636,3 +637,34 @@ export interface HelpdeskSettings {
 
 
 
+
+// ── Registration Verifications ────────────────────────────────────────────────
+export type RegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface RegistrationVerification {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  role: 'ENGINEER' | 'CLIENT' | 'DRAUGHTSMAN' | 'STUDENT' | string;
+  mobile?: string | null;
+  document_type: string;
+  file_id: string;
+  file_name: string;
+  file_size: number;
+  content_type: string;
+  object_key?: string | null;
+  status: RegistrationStatus;
+  reviewed_by?: string | null;
+  reviewer_name?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
+  submitted_at: string;
+  created_at: string;
+  updated_at?: string;
+  company_name?: string | null;
+  college_name?: string | null;
+  qualification?: string | null;
+  date_of_birth?: string | null;
+  address?: string | null;
+}

@@ -51,6 +51,12 @@ class UserProfile {
   /// Proof document URL (DRAUGHTSMAN only, optional).
   /// Upload functionality deferred to Phase 10 (File Storage).
   final String? proofDocument;
+  final String? verificationStatus;
+  final String? rejectionReason;
+
+  bool get isPendingVerification => verificationStatus == 'PENDING';
+  bool get isApprovedVerification => verificationStatus == 'APPROVED' || verificationStatus == null;
+  bool get isRejectedVerification => verificationStatus == 'REJECTED';
 
   /// Timestamp when the profile was last updated.
   final DateTime? updatedAt;
@@ -68,6 +74,8 @@ class UserProfile {
     this.companyName,
     this.collegeName,
     this.proofDocument,
+    this.verificationStatus,
+    this.rejectionReason,
     this.updatedAt,
   });
 
@@ -86,6 +94,8 @@ class UserProfile {
       companyName: data['company_name'] as String?,
       collegeName: data['college_name'] as String?,
       proofDocument: data['proof_document'] as String?,
+      verificationStatus: data['verification_status'] as String?,
+      rejectionReason: data['rejection_reason'] as String?,
       updatedAt: DateParser.parse(data['updated_at']),
     );
   }
@@ -134,6 +144,8 @@ class UserProfile {
     String? companyName,
     String? collegeName,
     String? proofDocument,
+    String? verificationStatus,
+    String? rejectionReason,
   }) {
     return UserProfile(
       id: id,
@@ -148,6 +160,8 @@ class UserProfile {
       companyName: companyName ?? this.companyName,
       collegeName: collegeName ?? this.collegeName,
       proofDocument: proofDocument ?? this.proofDocument,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
       updatedAt: updatedAt,
     );
   }

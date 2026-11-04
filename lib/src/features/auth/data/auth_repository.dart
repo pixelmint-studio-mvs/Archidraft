@@ -20,6 +20,9 @@ class AuthRepository {
     required String name,
     required String mobile,
     required String role,
+    List<int>? proofBytes,
+    String? proofFileName,
+    String? proofDocumentType,
   }) async {
     if (role != 'ENGINEER' && role != 'DRAUGHTSMAN' && role != 'STUDENT') {
       throw FirebaseAuthException(
@@ -28,10 +31,28 @@ class AuthRepository {
       );
     }
 
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    UserCredential credential;
+    try {
+      credential = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+    } on FirebaseAuthException catch (authErr) {
+      if (authErr.code == 'email-already-in-use') {
+        // Safe recovery for existing Firebase accounts created by broken prior attempts:
+        // Sign in with the provided credentials and complete registration persistence.
+        try {
+          credential = await _auth.signInWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          );
+        } catch (_) {
+          rethrow;
+        }
+      } else {
+        rethrow;
+      }
+    }
 
     final user = credential.user;
     if (user == null) {
@@ -42,26 +63,58 @@ class AuthRepository {
     }
 
     try {
-      try {
-        await user.sendEmailVerification();
-      } catch (emailErr) {
-        // Ignored
-      }
 
-      // Call Cloudflare API to save user
-      // Note: the ApiClient automatically includes the Firebase token in the header.
-      // So the API will extract `uid` from the token and create the user in D1.
-      await _apiClient.post('/api/users', body: {
-        'email': email.trim(),
-        'name': name.trim(),
-        'mobile': mobile.trim(),
-        'role': role,
-      });
-      
+      if (proofBytes != null && proofBytes.isNotEmpty) {
+        // Upload proof document securely
+        final ext = (proofFileName != null && proofFileName.contains('.'))
+            ? proofFileName.split('.').last.toLowerCase()
+            : 'pdf';
+        String contentType = 'application/pdf';
+        if (ext == 'png') {
+          contentType = 'image/png';
+        } else if (ext == 'jpg' || ext == 'jpeg') {
+          contentType = 'image/jpeg';
+        }
+
+        final actionId = DateTime.now().millisecondsSinceEpoch.toString();
+        final proofResponse = await _apiClient.postFileStream(
+          '/api/registration/proof',
+          Stream.value(proofBytes),
+          proofBytes.length,
+          fileName: proofFileName ?? 'proof_document.pdf',
+          contentType: contentType,
+          actionId: actionId,
+        );
+
+        final docType = proofDocumentType ??
+            (role == 'STUDENT'
+                ? 'STUDENT_ID'
+                : (role == 'DRAUGHTSMAN'
+                    ? 'QUALIFICATION_CERTIFICATE'
+                    : 'DEGREE_CERTIFICATE'));
+
+        await _apiClient.post('/api/registration/submit', body: {
+          'name': name.trim(),
+          'email': email.trim(),
+          'role': role,
+          'mobile': mobile.trim(),
+          'proof_file_id': proofResponse['file_id'] ?? actionId,
+          'proof_file_name': proofResponse['file_name'] ?? (proofFileName ?? 'proof_document.pdf'),
+          'proof_file_size': proofResponse['file_size'] ?? proofBytes.length,
+          'proof_content_type': proofResponse['content_type'] ?? contentType,
+          'proof_object_key': proofResponse['object_key'],
+          'proof_document_type': docType,
+        });
+      } else {
+        // Fallback for tests or legacy callers without proof
+        await _apiClient.post('/api/users', body: {
+          'email': email.trim(),
+          'name': name.trim(),
+          'mobile': mobile.trim(),
+          'role': role,
+        });
+      }
     } catch (e) {
-      try {
-        await user.delete();
-      } catch (_) {}
       if (e.toString().contains('409') || e.toString().contains('already exists')) {
         throw FirebaseAuthException(
           code: 'email-already-in-use',
@@ -72,6 +125,15 @@ class AuthRepository {
     }
 
     return credential;
+  }
+
+  Future<Map<String, dynamic>?> getRegistrationStatus() async {
+    try {
+      final response = await _apiClient.get('/api/registration/status');
+      return response is Map<String, dynamic> ? response : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<UserCredential> signInWithEmailAndPassword({
@@ -139,5 +201,61 @@ class AuthRepository {
       'role': role,
     });
   }
-}
 
+  Future<void> provisionProfileWithProof({
+    required String name,
+    required String mobile,
+    required String role,
+    required List<int> proofBytes,
+    required String proofFileName,
+    String? proofDocumentType,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Cannot provision profile: No Firebase user is signed in.');
+    }
+
+    final email = user.email ?? 'unknown@example.com';
+
+    // Upload proof document securely
+    final ext = (proofFileName.contains('.'))
+        ? proofFileName.split('.').last.toLowerCase()
+        : 'pdf';
+    String contentType = 'application/pdf';
+    if (ext == 'png') {
+      contentType = 'image/png';
+    } else if (ext == 'jpg' || ext == 'jpeg') {
+      contentType = 'image/jpeg';
+    }
+
+    final actionId = DateTime.now().millisecondsSinceEpoch.toString();
+    final proofResponse = await _apiClient.postFileStream(
+      '/api/registration/proof',
+      Stream.value(proofBytes),
+      proofBytes.length,
+      fileName: proofFileName,
+      contentType: contentType,
+      actionId: actionId,
+    );
+
+    final docType = proofDocumentType ??
+        (role == 'STUDENT'
+            ? 'STUDENT_ID'
+            : (role == 'DRAUGHTSMAN'
+                ? 'QUALIFICATION_CERTIFICATE'
+                : 'DEGREE_CERTIFICATE'));
+
+    await _apiClient.post('/api/registration/submit', body: {
+      'name': name.trim(),
+      'email': email.trim(),
+      'role': role,
+      'mobile': mobile.trim(),
+      'proof_file_id': proofResponse['file_id'] ?? actionId,
+      'proof_file_name': proofResponse['file_name'] ?? proofFileName,
+      'proof_file_size': proofResponse['file_size'] ?? proofBytes.length,
+      'proof_content_type': proofResponse['content_type'] ?? contentType,
+      'proof_object_key': proofResponse['object_key'],
+      'proof_document_type': docType,
+    });
+  }
+}

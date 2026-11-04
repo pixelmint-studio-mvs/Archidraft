@@ -32,6 +32,7 @@ import {
   HelpdeskStats,
   HelpdeskHealthReport,
   HelpdeskSettings,
+  RegistrationVerification,
 } from './types';
 
 export const API_BASE = (() => {
@@ -373,7 +374,7 @@ export const adminApi = {
 
   async getStats(): Promise<AdminStats> {
     try {
-      const [metrics, projects, users, recentActivity] = await Promise.all([
+      const [metrics, projects, users, recentActivity, pendingRegs] = await Promise.all([
         this.getDashboardMetrics().catch((err) => {
           if (err?.status === 404) return null;
           throw err;
@@ -384,6 +385,8 @@ export const adminApi = {
           if (err?.status === 404) return [];
           throw err;
         }),
+        this.getRegistrations({ status: 'PENDING' }).catch(() => []),
+      ]);
       ]);
       const byStatus: Record<string, number> = {};
       projects.forEach((p) => {
@@ -414,6 +417,7 @@ export const adminApi = {
           registeredEngineers,
         },
         recentActivity,
+        pendingRegistrations: (pendingRegs as any[])?.length || 0,
       };
     } catch (err: any) {
       console.error('Error fetching admin statistics:', err);
@@ -1222,6 +1226,49 @@ export const adminApi = {
     return fetchApi<StudentProgressDetail>(`/api/admin/students/${studentId}/progress-detail`);
   },
 
+  // ── Registration Verification Provision ──
+  async getRegistrations(params?: { search?: string; role?: string; status?: string }): Promise<RegistrationVerification[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.role && params.role !== 'ALL') query.set('role', params.role);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<RegistrationVerification[]>(`/api/admin/registrations${qs}`);
+  },
+
+  async getRegistration(id: string): Promise<RegistrationVerification> {
+    return fetchApi<RegistrationVerification>(`/api/admin/registrations/${id}`);
+  },
+
+  async approveRegistration(id: string): Promise<{ success: boolean; registration: RegistrationVerification }> {
+    return fetchApi<{ success: boolean; registration: RegistrationVerification }>(`/api/admin/registrations/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  async rejectRegistration(id: string, reason: string): Promise<{ success: boolean; registration: RegistrationVerification }> {
+    return fetchApi<{ success: boolean; registration: RegistrationVerification }>(`/api/admin/registrations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async getRegistrationProofBlob(id: string): Promise<Blob> {
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const url = `${API_BASE}/api/admin/registrations/${id}/proof`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      throw new ApiError('Failed to download proof document', res.status);
+    }
+    return await res.blob();
+  },
+
+  getRegistrationProofUrl(id: string): string {
+    return `${API_BASE}/api/admin/registrations/${id}/proof`;
+  },
+
   // ==========================================
   // HELPDESK & INCIDENT MANAGEMENT SYSTEM
   // ==========================================
@@ -1301,52 +1348,46 @@ export const adminApi = {
     if (params?.search) query.set('search', params.search);
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.offset) query.set('offset', String(params.offset));
-    const qs = query.toString() ? `?${query.toString()}` : '';
-    return fetchApi<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }>(`/api/admin/helpdesk/tickets${qs}`);
+    const qs = query.toString() ? '?' + query.toString() : '';
+    return fetchApi<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }>('/api/admin/helpdesk/tickets' + qs);
   },
 
-  // Admin: Get single ticket with timeline, comments, and email logs
-  async getHelpdeskTicket(id: string): Promise<{
-    ticket: HelpdeskTicket;
-    events: HelpdeskEvent[];
-    comments: HelpdeskComment[];
-    email_logs: HelpdeskEmailLog[];
-  }> {
-    return fetchApi<{
-      ticket: HelpdeskTicket;
-      events: HelpdeskEvent[];
-      comments: HelpdeskComment[];
-      email_logs: HelpdeskEmailLog[];
-    }>(`/api/admin/helpdesk/tickets/${id}`);
+  // Admin: Get single ticket details
+  async getHelpdeskTicket(ticketId: string): Promise<HelpdeskTicket> {
+    return fetchApi<HelpdeskTicket>('/api/admin/helpdesk/tickets/' + ticketId);
   },
 
-  // Admin: Update ticket status, severity, assignment, or resolution notes
-  async updateHelpdeskTicket(
-    id: string,
-    updates: {
-      status?: string;
-      severity?: string;
-      assigned_to?: string | null;
-      assigned_to_name?: string | null;
-      resolution_notes?: string;
-    }
-  ): Promise<{ success: boolean; ticket: HelpdeskTicket }> {
-    return fetchApi<{ success: boolean; ticket: HelpdeskTicket }>(`/api/admin/helpdesk/tickets/${id}`, {
+  // Admin: Update ticket status or severity
+  async updateHelpdeskTicket(ticketId: string, updates: {
+    status?: string;
+    severity?: string;
+    assigned_admin_id?: string | null;
+    resolution_notes?: string;
+  }): Promise<{ success: boolean; ticket: HelpdeskTicket }> {
+    return fetchApi<{ success: boolean; ticket: HelpdeskTicket }>('/api/admin/helpdesk/tickets/' + ticketId, {
       method: 'PATCH',
       body: JSON.stringify(updates),
     });
   },
 
-  // Admin: Post internal note or comment on ticket
-  async addHelpdeskComment(ticketId: string, comment: string, isInternal: boolean = true): Promise<{ success: boolean; commentId: string }> {
-    return fetchApi<{ success: boolean; commentId: string }>(`/api/admin/helpdesk/tickets/${ticketId}/comments`, {
+  // Admin: Add comment to ticket
+  async addHelpdeskComment(ticketId: string, message: string, isInternal = false): Promise<{ success: boolean; comment: HelpdeskComment }> {
+    return fetchApi<{ success: boolean; comment: HelpdeskComment }>('/api/admin/helpdesk/tickets/' + ticketId + '/comments', {
       method: 'POST',
-      body: JSON.stringify({ comment, is_internal: isInternal }),
+      body: JSON.stringify({ message, is_internal: isInternal }),
     });
   },
 
-  // Admin: Get live system health diagnostics
-  async getHelpdeskHealth(): Promise<HelpdeskHealthReport> {
+  // Admin: Run self-healing diagnostics
+  async runHelpdeskSelfHealing(ticketId?: string): Promise<{ success: boolean; actionsTaken: string[]; recovered: boolean }> {
+    return fetchApi<{ success: boolean; actionsTaken: string[]; recovered: boolean }>('/api/admin/helpdesk/heal', {
+      method: 'POST',
+      body: JSON.stringify({ ticketId }),
+    });
+  },
+
+  // Admin: System health report
+  async getHelpdeskHealthReport(): Promise<HelpdeskHealthReport> {
     return fetchApi<HelpdeskHealthReport>('/api/admin/helpdesk/health');
   },
 
@@ -1360,13 +1401,13 @@ export const adminApi = {
     if (params?.status && params.status !== 'ALL') query.set('status', params.status);
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.offset) query.set('offset', String(params.offset));
-    const qs = query.toString() ? `?${query.toString()}` : '';
-    return fetchApi<{ logs: HelpdeskEmailLog[]; total: number; limit: number; offset: number }>(`/api/admin/helpdesk/email-logs${qs}`);
+    const qs = query.toString() ? '?' + query.toString() : '';
+    return fetchApi<{ logs: HelpdeskEmailLog[]; total: number; limit: number; offset: number }>('/api/admin/helpdesk/email-logs' + qs);
   },
 
   // Admin: Retry failed email delivery
   async retryHelpdeskEmail(logId: string): Promise<{ success: boolean; status: string; error?: string }> {
-    return fetchApi<{ success: boolean; status: string; error?: string }>(`/api/admin/helpdesk/email-logs/${logId}/retry`, {
+    return fetchApi<{ success: boolean; status: string; error?: string }>('/api/admin/helpdesk/email-logs/' + logId + '/retry', {
       method: 'POST',
     });
   },
@@ -1386,7 +1427,7 @@ export const adminApi = {
 
   // Admin: Delete a single ticket
   async deleteHelpdeskTicket(ticketId: string): Promise<{ success: boolean; id: string }> {
-    return fetchApi<{ success: boolean; id: string }>(`/api/admin/helpdesk/tickets/${ticketId}`, {
+    return fetchApi<{ success: boolean; id: string }>('/api/admin/helpdesk/tickets/' + ticketId, {
       method: 'DELETE',
     });
   },

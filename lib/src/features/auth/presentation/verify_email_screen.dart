@@ -24,6 +24,16 @@ class VerifyEmailScreen extends ConsumerStatefulWidget {
 
 class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
   bool _isChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.go('/');
+      }
+    });
+  }
   bool _isResending = false;
 
   /// Cooldown timer for the resend button (60 seconds).
@@ -65,14 +75,21 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
 
     setState(() => _isChecking = false);
 
+    // Force auth state, profile, and legal status refresh
+    ref.invalidate(authStateChangesProvider);
+    ref.invalidate(userProfileProvider);
+    ref.invalidate(userLegalStatusProvider);
+
+    final profile = await ref.read(userProfileProvider.future);
+    if (!mounted) return;
+
+    if (profile != null && (profile.isPendingVerification || profile.isRejectedVerification)) {
+      context.go('/registration-confirmation');
+      return;
+    }
+
     if (isVerified) {
-      // Force auth state, profile, and legal status refresh
-      ref.invalidate(authStateChangesProvider);
-      ref.invalidate(userProfileProvider);
-      ref.invalidate(userLegalStatusProvider);
-      if (mounted) {
-        context.go('/');
-      }
+      context.go('/');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -220,6 +237,13 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                TextButton.icon(
+                  onPressed: () => context.go('/registration-confirmation'),
+                  icon: const Icon(Icons.assignment_outlined, size: 16),
+                  label: const Text('View Registration Status'),
+                ),
+                const SizedBox(height: 8),
 
                 // Log out
                 TextButton(

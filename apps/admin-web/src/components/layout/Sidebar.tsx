@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  FolderKanban,
   HardHat,
   PenTool,
   GraduationCap,
@@ -18,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LifeBuoy,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -31,6 +31,7 @@ interface NavBadgeCounts {
   draughtsmen: number;
   students: number;
   tickets: number;
+  registrations?: number;
 }
 
 interface NavItem {
@@ -62,15 +63,20 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Activity,
       },
       {
-        name: 'Projects Catalogue',
-        href: '/projects',
-        icon: FolderKanban,
-        badgeKey: 'projects',
-      },
-      {
         name: 'Financials',
         href: '/financials',
         icon: DollarSign,
+      },
+    ],
+  },
+  {
+    title: 'Registration',
+    items: [
+      {
+        name: 'Allow Registrations',
+        href: '/registrations',
+        icon: ClipboardCheck,
+        badgeKey: 'registrations',
       },
     ],
   },
@@ -158,6 +164,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
     draughtsmen: 0,
     students: 0,
     tickets: 0,
+    registrations: 0,
   });
 
   // Fetch live counts on mount, then refresh every 30 seconds
@@ -179,6 +186,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
           draughtsmen: stats.users?.byRole?.['DRAUGHTSMAN'] ?? 0,
           students: stats.users?.byRole?.['STUDENT'] ?? 0,
           tickets: helpdeskStats?.openTickets ?? 0,
+          registrations: (stats as any).pendingRegistrations ?? 0,
         });
       } catch {
         // Silently fail — badge just shows 0
@@ -247,7 +255,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href)) ||
                 (item.href === '/students' && pathname.startsWith('/teaching'));
-              const badgeCount = item.badgeKey ? counts[item.badgeKey] : 0;
+              const badgeCount = (item.badgeKey ? counts[item.badgeKey] : 0) ?? 0;
 
               return (
                 <Link
