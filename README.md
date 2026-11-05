@@ -271,6 +271,8 @@ The Studio Admin Web application (`apps/admin-web/`) is directly integrated into
 | **Student Practical Review** | `GET /api/admin/evaluations/queue` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Pending practical submissions awaiting instructor evaluation. |
 | **Submit Evaluation** | `POST /api/admin/evaluations` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Records rubric scores, feedback notes, and updates student achievements. |
 | **PIXMINT Bot Control** | `GET/POST /api/admin/*` (Port 8788) | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Bot health, prompt suggestions, telemetry, maintenance mode, and knowledge sources. |
+| **Unique User IDs System** | `GET /api/users`, `POST /api/admin/users/backfill-ids` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Permanent role-based sequence IDs (`ENG_XX`, `DM_XX`, `ST_XX`), first column across all user tables, profile badges, and assignment selectors. |
+| **Registration & Proof Verification** | `GET /api/admin/registrations`, `GET /api/admin/registrations/:id/proof` | **IMPLEMENTED & VERIFIED** | **WIRED & VERIFIED** | Review and approval/rejection queue, authenticated blob retrieval, and interactive PDF/image document preview. |
 
 ---
 
@@ -319,12 +321,12 @@ flutter pub get
 ### Automated Test Verification Commands
 
 ```powershell
-# 1. Run complete Worker test harness (34 suites, 281 tests)
+# 1. Run complete Worker test harness (13 suites, 367 tests)
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
 npm test
 npm run typecheck
 
-# 2. Run complete Admin Web test harness (36 suites, 151 tests)
+# 2. Run complete Admin Web test harness (82 suites, 312 tests)
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\apps\admin-web"
 npm test
 
@@ -364,6 +366,18 @@ Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace"
 - **Components & Endpoints:** `GET /api/public/credentials/verify/:verificationToken` in `worker/src/index.ts`, `worker/wrangler.toml`, and D1 database migrations `0008`–`0022`.
 - **Implementation:** Deployed public verification route to production Cloudflare Worker (`archi-draft-worker`). Applied missing D1 migrations (`0008` through `0022`) to create `student_credentials` and curriculum tables. Added `https://www.draughtsmanstudio.com` and `https://draughtsmanstudio.com` to `ALLOWED_ORIGINS` and `BASELINE_PRODUCTION_ORIGINS`. Verified unauthenticated read-only resolution, dual lookup (token & cert ID), and strict rejection of unauthorized mutations.
 - **Developer Guide:** See [`CERTIFICATE_VERIFICATION_README.md`](CERTIFICATE_VERIFICATION_README.md) for full integration contracts and code examples.
+
+### G. Role-Based Unique User Identification System (`ENG_XX`, `DM_XX`, `ST_XX`)
+- **Components & Endpoints:** Migration `0024_role_based_user_ids.sql`, `role_id_sequences` table, `worker/src/index.ts`, and Admin Web user directory views.
+- **Implementation:** Sequential, permanent role-based ID sequences (`ENG_XX`, `DM_XX`, `ST_XX`) with atomic concurrency-safe allocation. Backfilled across all existing user accounts in local and remote staging Cloudflare D1. Enforced `ID Number` as the first column before name and email across all Admin Portal user tables, profile views, assignment selectors, and search filters.
+
+### H. Registration Proof Preview & Document Verification
+- **Components & Endpoints:** `apps/admin-web/src/app/registrations/page.tsx`, `GET /api/admin/registrations/:id/proof`.
+- **Implementation:** Fixed broken image preview by fetching proof documents as authenticated client-side blobs (`URL.createObjectURL(blob)`). Implemented dual viewer architecture supporting interactive embedded PDFs (`<object>`/`<iframe>`) and high-resolution images, with complete blob cleanup (`URL.revokeObjectURL`) on close or change.
+
+### I. Navigation & Language Simplification
+- **Components:** `apps/admin-web/src/components/layout/Sidebar.tsx`, `apps/admin-web/src/app/registrations/page.tsx`.
+- **Implementation:** Streamlined portal terminology: renamed "Activity Feed" to "Activity", "Allow Registrations" to "Registrations", and page heading to "Approve Registration" with solid high-contrast black heading typography.
 
 ---
 
