@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "gravitas": {
+      "source": "udaysharmadev/Gravitas",
+      "sourceType": "github",
+      "skillPath": "skills/gravitas/SKILL.md",
+      "computedHash": "68d04b80b741b5e6c004aae0d98109d63abbf45cdf2aa657d11cf0231be050dc"
+    },
+    "gravitas-highstakes": {
+      "source": "udaysharmadev/Gravitas",
+      "sourceType": "github",
+      "skillPath": "skills/gravitas-highstakes/SKILL.md",
+      "computedHash": "d01653faebc884a862e0416153ab7bb04891a02be07c921ed0a876f759e2441d"
+    },
+    "gravitas-perf": {
+      "source": "udaysharmadev/Gravitas",
+      "sourceType": "github",
+      "skillPath": "skills/gravitas-perf/SKILL.md",
+      "computedHash": "50848281718133e938577f9e35e13c9f099f1b60780de9a6bfcdcdf8e1530ace"
+    },
+    "gravitas-python": {
+      "source": "udaysharmadev/Gravitas",
+      "sourceType": "github",
+      "skillPath": "skills/gravitas-python/SKILL.md",
+      "computedHash": "b9358a72ae04e40bf22be3bb433fe01b6bae9ed6be3ef1922b52f30df6904ec9"
+    },
+    "gravitas-security": {
+      "source": "udaysharmadev/Gravitas",
+      "sourceType": "github",
+      "skillPath": "skills/gravitas-security/SKILL.md",
+      "computedHash": "876e2ee3e82b73df7a43b5685c1ef5cfe3c9bc62071aca5ae10afc909a2c6c05"
+    },
+    "gravitas-typescript": {
+      "source": "udaysharmadev/Gravitas",
+      "sourceType": "github",
+      "skillPath": "skills/gravitas-typescript/SKILL.md",
+      "computedHash": "1e986ebd221c6f85100a9018e8b109113ab2efa31ccb7a7474da15a23359aded"
+    }
+  }
+}
