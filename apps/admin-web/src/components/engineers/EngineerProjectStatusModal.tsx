@@ -159,13 +159,20 @@ export function EngineerProjectStatusModal({
 
   // Unique engineers list for dropdown
   const uniqueEngineers = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { name: string; identification_number?: string }>();
     items.forEach((item) => {
       if (item.engineer_id && !map.has(item.engineer_id)) {
-        map.set(item.engineer_id, item.engineer_name || item.engineer_email || item.engineer_id);
+        map.set(item.engineer_id, {
+          name: item.engineer_name || item.engineer_email || item.engineer_id,
+          identification_number: item.engineer_identification_number,
+        });
       }
     });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    return Array.from(map.entries()).map(([id, info]) => ({
+      id,
+      name: info.name,
+      identification_number: info.identification_number,
+    }));
   }, [items]);
 
   // KPI calculations
@@ -209,6 +216,7 @@ export function EngineerProjectStatusModal({
       // Search query filter
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const engIdent = (item.engineer_identification_number || '').toLowerCase();
       const engName = (item.engineer_name || '').toLowerCase();
       const engEmail = (item.engineer_email || '').toLowerCase();
       const engCompany = (item.engineer_company || '').toLowerCase();
@@ -217,6 +225,7 @@ export function EngineerProjectStatusModal({
       const drwType = (item.drawing_type || '').toLowerCase();
 
       return (
+        engIdent.includes(q) ||
         engName.includes(q) ||
         engEmail.includes(q) ||
         engCompany.includes(q) ||
@@ -392,7 +401,7 @@ export function EngineerProjectStatusModal({
                 <option value="ALL">All Registered Engineers ({uniqueEngineers.length})</option>
                 {uniqueEngineers.map((eng) => (
                   <option key={eng.id} value={eng.id}>
-                    {eng.name}
+                    {eng.identification_number ? `${eng.identification_number} — ${eng.name}` : eng.name}
                   </option>
                 ))}
               </select>
@@ -422,6 +431,7 @@ export function EngineerProjectStatusModal({
               <table className="w-full text-left text-xs min-w-[850px]">
                 <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                   <tr>
+                    <th className="px-4 py-3">ID Number</th>
                     <th className="px-4 py-3">Engineer</th>
                     <th className="px-4 py-3">Assigned Project</th>
                     <th className="px-4 py-3">Assignment Date</th>
@@ -438,6 +448,13 @@ export function EngineerProjectStatusModal({
 
                     return (
                       <tr key={item.project_id} className="hover:bg-slate-50/70 transition-colors">
+                        {/* ID Number */}
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-blue-50 text-[#0453cd] border border-blue-200">
+                            {item.engineer_identification_number || 'Pending'}
+                          </span>
+                        </td>
+
                         {/* Engineer Details */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2.5">

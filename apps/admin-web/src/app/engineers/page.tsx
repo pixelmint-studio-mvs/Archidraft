@@ -127,7 +127,8 @@ export default function EngineersPage() {
       const emailMatch = (eng.email || '').toLowerCase().includes(q);
       const companyMatch = (eng.company_name || '').toLowerCase().includes(q);
       const mobileMatch = (eng.mobile || '').toLowerCase().includes(q);
-      return nameMatch || emailMatch || companyMatch || mobileMatch;
+      const idMatch = (eng.identification_number || '').toLowerCase().includes(q);
+      return nameMatch || emailMatch || companyMatch || mobileMatch || idMatch;
     });
   }, [engineers, searchQuery]);
 
@@ -239,6 +240,7 @@ export default function EngineersPage() {
             <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                 <tr>
+                  <th className="px-5 py-3.5">ID Number</th>
                   <th className="px-5 py-3.5">Engineer</th>
                   <th className="px-5 py-3.5">Company / Firm</th>
                   <th className="px-5 py-3.5">Contact</th>
@@ -252,7 +254,14 @@ export default function EngineersPage() {
                   const projectCount = projectCountByEngineer[engineer.id] || 0;
                   return (
                     <tr key={engineer.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Name & ID */}
+                      {/* ID Number */}
+                      <td className="px-5 py-4 font-mono font-bold text-xs text-[#0453cd] whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-blue-50 text-[#0453cd] border border-blue-200">
+                          {engineer.identification_number || 'Pending'}
+                        </span>
+                      </td>
+
+                      {/* Name & Details */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center font-bold text-xs shrink-0">

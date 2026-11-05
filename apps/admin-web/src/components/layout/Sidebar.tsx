@@ -58,7 +58,7 @@ const NAV_SECTIONS: NavSection[] = [
         icon: LayoutDashboard,
       },
       {
-        name: 'Activity Feed',
+        name: 'Activity',
         href: '/activity',
         icon: Activity,
       },
@@ -73,7 +73,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Registration',
     items: [
       {
-        name: 'Allow Registrations',
+        name: 'Registrations',
         href: '/registrations',
         icon: ClipboardCheck,
         badgeKey: 'registrations',

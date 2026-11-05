@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { AdminShell } from '@/components/layout/AdminShell';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { adminApi, ApiError } from '@/lib/api';
+import { adminApi, ApiError, classifyApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { RegistrationVerification, RegistrationStatus } from '@/lib/types';
 import {
@@ -31,6 +31,7 @@ import {
   Phone,
   User,
   Filter,
+  ExternalLink,
 } from 'lucide-react';
 
 const STATUS_FILTERS: { label: string; value: string; color: string }[] = [
@@ -94,7 +95,81 @@ export default function RegistrationsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [previewProofOpen, setPreviewProofOpen] = useState<boolean>(false);
 
+  // Proof preview blob state & lifecycle
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewBlobUrlRef = useRef<string | null>(null);
+
+  const cleanupPreviewBlob = useCallback(() => {
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+    setPreviewBlobUrl(null);
+    setPreviewLoading(false);
+    setPreviewError(null);
+  }, []);
+
+  const loadPreview = useCallback(async (regId: string) => {
+    cleanupPreviewBlob();
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const blob = await adminApi.getRegistrationProofBlob(regId);
+      const url = URL.createObjectURL(blob);
+      previewBlobUrlRef.current = url;
+      setPreviewBlobUrl(url);
+    } catch (err: any) {
+      console.error('Failed to load proof preview:', err);
+      setPreviewError(err?.message || 'Could not retrieve proof document from storage.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [cleanupPreviewBlob]);
+
+  const handleCloseModal = useCallback(() => {
+    cleanupPreviewBlob();
+    setSelectedReg(null);
+    setShowRejectForm(false);
+    setActionError(null);
+  }, [cleanupPreviewBlob]);
+
+  const handleTogglePreview = () => {
+    if (!previewProofOpen) {
+      setPreviewProofOpen(true);
+      if (selectedReg) {
+        loadPreview(selectedReg.id);
+      }
+    } else {
+      setPreviewProofOpen(false);
+      cleanupPreviewBlob();
+    }
+  };
+
+  // Reload preview whenever switching selectedReg if preview is already open
+  useEffect(() => {
+    if (selectedReg && previewProofOpen) {
+      loadPreview(selectedReg.id);
+    } else if (!selectedReg) {
+      cleanupPreviewBlob();
+    }
+  }, [selectedReg?.id, previewProofOpen, loadPreview, cleanupPreviewBlob]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+      }
+    };
+  }, []);
+
+  const inFlightRef = useRef<boolean>(false);
+
   const fetchRegistrations = async (isManualRefresh = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
@@ -103,9 +178,11 @@ export default function RegistrationsPage() {
       const data = await adminApi.getRegistrations();
       setRegistrations(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error('Failed to load registrations:', err);
-      setError(err?.message || 'Failed to load registrations. Ensure backend is running.');
+      console.warn('Registrations fetch notice:', err?.message || err);
+      const classified = classifyApiError(err);
+      setError(classified.message || err?.message || 'Failed to load registrations. Ensure backend is running.');
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
@@ -135,7 +212,8 @@ export default function RegistrationsPage() {
         const nameMatch = (reg.name || '').toLowerCase().includes(query);
         const emailMatch = (reg.email || '').toLowerCase().includes(query);
         const fileNameMatch = (reg.file_name || '').toLowerCase().includes(query);
-        if (!nameMatch && !emailMatch && !fileNameMatch) return false;
+        const idMatch = (reg.identification_number || '').toLowerCase().includes(query);
+        if (!nameMatch && !emailMatch && !fileNameMatch && !idMatch) return false;
       }
 
       return true;
@@ -144,12 +222,15 @@ export default function RegistrationsPage() {
 
   // Metrics summary
   const metrics = useMemo(() => {
+    if (error && registrations.length === 0) {
+      return { total: '—', pending: '—', approved: '—', rejected: '—' };
+    }
     const total = registrations.length;
     const pending = registrations.filter((r) => r.status === 'PENDING').length;
     const approved = registrations.filter((r) => r.status === 'APPROVED').length;
     const rejected = registrations.filter((r) => r.status === 'REJECTED').length;
     return { total, pending, approved, rejected };
-  }, [registrations]);
+  }, [registrations, error]);
 
   const handleApprove = async () => {
     if (!selectedReg) return;
@@ -282,17 +363,17 @@ export default function RegistrationsPage() {
     <AdminShell title="Registration Approvals" subtitle="Review submitted credentials, preview qualification proofs, and approve or reject accounts" onRefresh={() => fetchRegistrations(true)} isRefreshing={loading}>
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         {/* ── Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#1e293b]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
           <div>
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/20 to-blue-500/10 border border-indigo-500/30 text-indigo-400">
+              <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd]">
                 <ClipboardCheck className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white">
-                  Registrations Provision
+                <h1 className="text-2xl font-bold tracking-tight text-black">
+                  Approve Registration
                 </h1>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-600">
                   Review and verify new user qualification proofs and registration submissions.
                 </p>
               </div>
@@ -302,7 +383,7 @@ export default function RegistrationsPage() {
             <button
               onClick={() => fetchRegistrations(true)}
               disabled={loading || refreshing}
-              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 bg-[#15233e] hover:bg-[#1a2c4e] border border-[#22395d] rounded-lg transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors shadow-2xs disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
@@ -312,30 +393,30 @@ export default function RegistrationsPage() {
 
         {/* ── Metric Summary Cards ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="p-4 bg-[#0d1c32]/80 border-[#1e293b]">
-            <p className="text-xs font-medium text-slate-400">Total Submissions</p>
-            <p className="text-2xl font-bold text-white mt-1">{metrics.total}</p>
+          <Card className="p-4 bg-white border-slate-200">
+            <p className="text-xs font-medium text-slate-500">Total Submissions</p>
+            <p className="text-2xl font-bold text-black mt-1">{metrics.total}</p>
           </Card>
-          <Card className="p-4 bg-[#0d1c32]/80 border-amber-500/20">
+          <Card className="p-4 bg-white border-amber-200">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-amber-400">Pending Review</p>
-              <Clock className="w-4 h-4 text-amber-400" />
+              <p className="text-xs font-medium text-amber-600">Pending Review</p>
+              <Clock className="w-4 h-4 text-amber-600" />
             </div>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{metrics.pending}</p>
+            <p className="text-2xl font-bold text-amber-600 mt-1">{metrics.pending}</p>
           </Card>
-          <Card className="p-4 bg-[#0d1c32]/80 border-emerald-500/20">
+          <Card className="p-4 bg-white border-emerald-200">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-emerald-400">Approved</p>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <p className="text-xs font-medium text-emerald-600">Approved</p>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{metrics.approved}</p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">{metrics.approved}</p>
           </Card>
-          <Card className="p-4 bg-[#0d1c32]/80 border-rose-500/20">
+          <Card className="p-4 bg-white border-rose-200">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-rose-400">Rejected</p>
-              <XCircle className="w-4 h-4 text-rose-400" />
+              <p className="text-xs font-medium text-rose-600">Rejected</p>
+              <XCircle className="w-4 h-4 text-rose-600" />
             </div>
-            <p className="text-2xl font-bold text-rose-400 mt-1">{metrics.rejected}</p>
+            <p className="text-2xl font-bold text-rose-600 mt-1">{metrics.rejected}</p>
           </Card>
         </div>
 
@@ -417,6 +498,7 @@ export default function RegistrationsPage() {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="text-xs uppercase bg-[#091526] text-slate-400 border-b border-[#1e293b]">
                 <tr>
+                  <th className="px-6 py-4 font-semibold">ID Number</th>
                   <th className="px-6 py-4 font-semibold">User</th>
                   <th className="px-6 py-4 font-semibold">Role</th>
                   <th className="px-6 py-4 font-semibold">Submitted</th>
@@ -437,8 +519,13 @@ export default function RegistrationsPage() {
                       setActionError(null);
                     }}
                   >
+                    <td className="px-6 py-4 font-mono font-bold text-xs text-indigo-300 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        {reg.identification_number || 'Pending'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-white">{reg.name}</div>
+                      <span className="font-medium text-white block">{reg.name}</span>
                       <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <Mail className="w-3 h-3 text-slate-500" />
                         {reg.email}
@@ -511,7 +598,7 @@ export default function RegistrationsPage() {
         {selectedReg && (
           <Modal
             isOpen={!!selectedReg}
-            onClose={() => setSelectedReg(null)}
+            onClose={handleCloseModal}
             title="Registration Proof Verification"
             maxWidth="3xl"
           >
@@ -523,7 +610,14 @@ export default function RegistrationsPage() {
                     {selectedReg.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-white text-base">{selectedReg.name}</h3>
+                    <div className="flex items-center gap-2">
+                      {selectedReg.identification_number && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          {selectedReg.identification_number}
+                        </span>
+                      )}
+                      <h3 className="font-bold text-white text-base">{selectedReg.name}</h3>
+                    </div>
                     <p className="text-xs text-slate-400">{selectedReg.email}</p>
                   </div>
                 </div>
@@ -543,6 +637,12 @@ export default function RegistrationsPage() {
 
               {/* Applicant Profile Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#0d1c32] p-4 rounded-xl border border-[#1e293b]">
+                <div>
+                  <label className="text-[10px] uppercase font-semibold text-slate-400">
+                    ID Number
+                  </label>
+                  <p className="text-sm font-mono font-bold text-indigo-400">{selectedReg.identification_number || 'Pending Allocation'}</p>
+                </div>
                 <div>
                   <label className="text-[10px] uppercase font-semibold text-slate-400">
                     Full Name
@@ -566,6 +666,14 @@ export default function RegistrationsPage() {
                     Requested Role
                   </label>
                   <div className="mt-0.5">{renderRoleBadge(selectedReg.role)}</div>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-semibold text-slate-400">
+                    Identification Number
+                  </label>
+                  <p className="text-sm font-mono font-semibold text-indigo-400">
+                    {selectedReg.identification_number || 'Pending Allocation'}
+                  </p>
                 </div>
                 {selectedReg.company_name && (
                   <div>
@@ -627,15 +735,15 @@ export default function RegistrationsPage() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setPreviewProofOpen(!previewProofOpen)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#15233e] hover:bg-[#1d3257] text-indigo-300 border border-indigo-500/30 rounded-lg transition-colors"
+                      onClick={handleTogglePreview}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#15233e] hover:bg-[#1d3257] text-indigo-300 border border-indigo-500/30 rounded-lg transition-colors cursor-pointer"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       {previewProofOpen ? 'Hide Preview' : 'Preview Document'}
                     </button>
                     <button
                       onClick={() => handleDownloadProof(selectedReg)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#15233e] hover:bg-[#1d3257] text-slate-200 border border-[#22395d] rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#15233e] hover:bg-[#1d3257] text-slate-200 border border-[#22395d] rounded-lg transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download
@@ -645,20 +753,83 @@ export default function RegistrationsPage() {
 
                 {/* Inline Proof Preview */}
                 {previewProofOpen && (
-                  <div className="mt-3 p-2 bg-[#091526] rounded-lg border border-[#1e293b]">
-                    {selectedReg.content_type?.startsWith('image/') ? (
-                      <img
-                        src={adminApi.getRegistrationProofUrl(selectedReg.id)}
-                        alt="Submitted proof document"
-                        className="max-h-96 mx-auto object-contain rounded"
-                      />
-                    ) : (
-                      <iframe
-                        src={adminApi.getRegistrationProofUrl(selectedReg.id)}
-                        title="Document preview"
-                        className="w-full h-96 rounded border border-slate-700"
-                      />
-                    )}
+                  <div className="mt-3 p-3 bg-[#091526] rounded-lg border border-[#1e293b]">
+                    {previewLoading ? (
+                      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                        <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin mb-2" />
+                        <p className="text-xs text-slate-300 font-mono">Loading proof document preview…</p>
+                        <p className="text-[11px] text-slate-500 font-mono mt-1">{selectedReg.file_name}</p>
+                      </div>
+                    ) : previewError ? (
+                      <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-rose-500/10 border border-rose-500/20 rounded-lg">
+                        <AlertCircle className="w-6 h-6 text-rose-400 mb-2" />
+                        <p className="text-xs text-rose-300 font-semibold mb-1">Failed to load document preview</p>
+                        <p className="text-[11px] text-slate-400 font-mono mb-3 max-w-md">{previewError}</p>
+                        <button
+                          onClick={() => loadPreview(selectedReg.id)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Retry Preview
+                        </button>
+                      </div>
+                    ) : previewBlobUrl ? (
+                      (() => {
+                        const isPdf =
+                          selectedReg.content_type?.toLowerCase() === 'application/pdf' ||
+                          (selectedReg.file_name || '').toLowerCase().endsWith('.pdf');
+
+                        return isPdf ? (
+                          <div className="w-full flex flex-col space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
+                              <span>Interactive PDF Viewer</span>
+                              <a
+                                href={previewBlobUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-400 hover:underline flex items-center gap-1"
+                              >
+                                <span>Open Fullscreen</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                            <object
+                              data={previewBlobUrl}
+                              type="application/pdf"
+                              className="w-full h-[480px] rounded-lg border border-[#1e293b] bg-slate-900"
+                            >
+                              <iframe
+                                src={previewBlobUrl}
+                                title={selectedReg.file_name || 'Proof document PDF'}
+                                className="w-full h-[480px] rounded-lg border-0 bg-slate-900"
+                              />
+                            </object>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 px-1">
+                              <span>Image Preview</span>
+                              <a
+                                href={previewBlobUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-400 hover:underline flex items-center gap-1"
+                              >
+                                <span>Open Original</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                            <div className="overflow-auto max-h-[480px] flex items-center justify-center p-2 bg-slate-950/60 rounded-lg">
+                              <img
+                                src={previewBlobUrl}
+                                alt={selectedReg.file_name || 'Submitted proof document'}
+                                className="max-h-[450px] max-w-full object-contain rounded shadow-sm"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -733,7 +904,7 @@ export default function RegistrationsPage() {
 
               {/* Action Buttons Footer */}
               <div className="flex items-center justify-between pt-4 border-t border-[#1e293b]">
-                <Button variant="secondary" onClick={() => setSelectedReg(null)}>
+                <Button variant="secondary" onClick={handleCloseModal}>
                   Close
                 </Button>
 

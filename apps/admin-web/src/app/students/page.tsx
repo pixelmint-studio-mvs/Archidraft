@@ -179,7 +179,8 @@ export default function StudentsPage() {
       const emailMatch = (stu.email || '').toLowerCase().includes(q);
       const collegeMatch = (stu.college_name || '').toLowerCase().includes(q);
       const qualMatch = (stu.qualification || '').toLowerCase().includes(q);
-      return nameMatch || emailMatch || collegeMatch || qualMatch;
+      const idMatch = (stu.identification_number || '').toLowerCase().includes(q);
+      return nameMatch || emailMatch || collegeMatch || qualMatch || idMatch;
     });
   }, [activeDataset, searchQuery]);
 
@@ -372,6 +373,7 @@ export default function StudentsPage() {
               <table className="w-full text-left text-xs min-w-[720px]">
                 <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                   <tr>
+                    <th className="px-5 py-3.5">ID Number</th>
                     <th className="px-5 py-3.5">Student / Apprentice</th>
                     <th className="px-5 py-3.5">Institution & Program</th>
                     <th className="px-5 py-3.5">Contact</th>
@@ -385,6 +387,13 @@ export default function StudentsPage() {
                     const isFixture = !!(student as any).isFixture;
                     return (
                       <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* ID Number */}
+                        <td className="px-5 py-4 font-mono font-bold text-xs text-emerald-700 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {student.identification_number || 'Pending'}
+                          </span>
+                        </td>
+
                         {/* Student Name */}
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">

@@ -98,11 +98,13 @@ export default function StudentProgressDashboardPage() {
       const name = st.student_name || st.name || '';
       const email = st.student_email || st.email || '';
       const college = st.college_name || '';
+      const id = st.identification_number || '';
       const matchesSearch =
         !searchQuery ||
         name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        college.toLowerCase().includes(searchQuery.toLowerCase());
+        college.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        id.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesSearch;
     });
   }, [summaries, searchQuery]);
@@ -249,6 +251,7 @@ export default function StudentProgressDashboardPage() {
               <table className="w-full text-left text-xs font-mono border-collapse">
                 <thead>
                   <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                    <th className="py-3 px-4">ID Number</th>
                     <th className="py-3 px-4">Student</th>
                     <th className="py-3 px-4">Assigned Modules</th>
                     <th className="py-3 px-4">Required Lessons Progress</th>
@@ -284,6 +287,13 @@ export default function StudentProgressDashboardPage() {
 
                     return (
                       <tr key={st.student_id} className="hover:bg-slate-50/70 transition-colors">
+                        {/* ID Number */}
+                        <td className="py-3.5 px-4 font-mono font-bold text-xs whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {st.identification_number || 'Pending'}
+                          </span>
+                        </td>
+
                         <td className="py-3.5 px-4 min-w-[200px]">
                           <div className="space-y-0.5">
                             <p className="font-bold text-slate-900 font-sans text-xs">{studentDisplayName}</p>

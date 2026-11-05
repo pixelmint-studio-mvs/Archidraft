@@ -44,6 +44,7 @@ type Bindings = {
 
 type Variables = {
   uid: string;
+  tokenPayload?: any;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -112,14 +113,20 @@ app.use('*', async (c, next) => {
   const isPublicHelpdeskTicket = c.req.method === 'POST' && c.req.path === '/api/helpdesk/tickets';
 
   const authHeader = c.req.header('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token: string | undefined;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split('Bearer ')[1];
+  } else if (c.req.query('token')) {
+    token = c.req.query('token');
+  }
+
+  if (!token) {
     if (isPublicDocRead || isPublicVerify || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
   }
 
-  const token = authHeader.split('Bearer ')[1];
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
@@ -242,9 +249,189 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// Helper: Role prefix and sequential ID generator
+export function getRolePrefix(role?: string): 'ENG' | 'DM' | 'ST' | null {
+  const normalized = (role || '').toUpperCase();
+  if (normalized === 'ENGINEER' || normalized === 'CLIENT') return 'ENG';
+  if (normalized === 'DRAUGHTSMAN') return 'DM';
+  if (normalized === 'STUDENT') return 'ST';
+  return null;
+}
+
+export function formatRoleId(prefix: string, seq: number): string {
+  const padded = seq < 100 ? String(seq).padStart(2, '0') : String(seq);
+  return `${prefix}_${padded}`;
+}
+
+export async function ensureIdentificationSchema(db: D1Database): Promise<void> {
+  try {
+    // 1. Ensure role_id_sequences counter table exists
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS role_id_sequences (
+        role_prefix TEXT PRIMARY KEY,
+        last_seq INTEGER NOT NULL DEFAULT 0,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // 2. Ensure initial seed records
+    await db.prepare(`
+      INSERT OR IGNORE INTO role_id_sequences (role_prefix, last_seq) VALUES
+        ('ENG', 0),
+        ('DM', 0),
+        ('ST', 0)
+    `).run();
+
+    // 3. Ensure identification_number column exists on users table
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN identification_number TEXT').run();
+    } catch (_) {
+      // Column already exists in SQLite
+    }
+
+    // 4. Ensure unique index on identification_number
+    try {
+      await db.prepare(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_identification_number 
+        ON users(identification_number)
+      `).run();
+    } catch (_) {
+      // Index already exists
+    }
+  } catch (err) {
+    console.warn('[Role ID] Automatic schema initialization warning:', err);
+  }
+}
+
+export async function allocateIdentificationNumber(
+  db: D1Database,
+  role: string,
+  userId?: string
+): Promise<string | null> {
+  const prefix = getRolePrefix(role);
+  if (!prefix) return null;
+
+  try {
+    await ensureIdentificationSchema(db);
+
+    if (userId) {
+      try {
+        const existing = await db.prepare(
+          'SELECT identification_number FROM users WHERE id = ?'
+        ).bind(userId).first() as { identification_number?: string } | null;
+        if (existing?.identification_number) {
+          return existing.identification_number;
+        }
+      } catch (_) {}
+    }
+
+    await db.prepare(
+      'INSERT OR IGNORE INTO role_id_sequences (role_prefix, last_seq) VALUES (?, 0)'
+    ).bind(prefix).run();
+
+    let seqRow = await db.prepare(
+      'UPDATE role_id_sequences SET last_seq = last_seq + 1 WHERE role_prefix = ? RETURNING last_seq'
+    ).bind(prefix).first() as { last_seq?: number; n?: number } | null;
+
+    let seq = Number(seqRow?.last_seq ?? seqRow?.n ?? 0);
+    if (!seq) {
+      const row = await db.prepare('SELECT last_seq FROM role_id_sequences WHERE role_prefix = ?').bind(prefix).first() as { last_seq?: number } | null;
+      seq = Number(row?.last_seq ?? 1);
+    }
+
+    let formattedId = formatRoleId(prefix, seq);
+
+    try {
+      let conflict = await db.prepare('SELECT id FROM users WHERE identification_number = ?').bind(formattedId).first();
+      while (conflict) {
+        seqRow = await db.prepare(
+          'UPDATE role_id_sequences SET last_seq = last_seq + 1 WHERE role_prefix = ? RETURNING last_seq'
+        ).bind(prefix).first() as { last_seq?: number; n?: number } | null;
+        seq = Number(seqRow?.last_seq ?? (seq + 1));
+        formattedId = formatRoleId(prefix, seq);
+        conflict = await db.prepare('SELECT id FROM users WHERE identification_number = ?').bind(formattedId).first();
+      }
+    } catch (_) {}
+
+    return formattedId;
+  } catch (err: any) {
+    console.error('[Role ID] Allocation error (non-fatal):', err);
+    return null;
+  }
+}
+
+export async function ensureUserIdentificationNumber(
+  db: D1Database,
+  user: any
+): Promise<any> {
+  if (!user || user.identification_number) return user;
+  const prefix = getRolePrefix(user.role);
+  if (!prefix) return user;
+
+  try {
+    const identId = await allocateIdentificationNumber(db, user.role, user.id);
+    if (identId) {
+      try {
+        await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, user.id).run();
+        user.identification_number = identId;
+      } catch (err) {
+        console.warn('[Role ID] Could not update users.identification_number:', err);
+      }
+    }
+  } catch (err) {
+    console.warn('[Role ID] ensureUserIdentificationNumber error:', err);
+  }
+  return user;
+}
+
+export async function backfillAllUserIdentificationNumbers(db: D1Database) {
+  await ensureIdentificationSchema(db);
+  const prefixes = [
+    { prefix: 'ENG', roles: ['ENGINEER', 'CLIENT'], offset: 5 },
+    { prefix: 'DM', roles: ['DRAUGHTSMAN'], offset: 4 },
+    { prefix: 'ST', roles: ['STUDENT'], offset: 4 },
+  ];
+
+  const results: Record<string, { currentSeq: number; assignedCount: number }> = {};
+
+  for (const { prefix, roles, offset } of prefixes) {
+    const maxRow = await db.prepare(
+      `SELECT COALESCE(MAX(CAST(SUBSTR(identification_number, ${offset}) AS INTEGER)), 0) AS max_seq FROM users WHERE identification_number LIKE '${prefix}_%'`
+    ).first() as { max_seq?: number } | null;
+    const currentMax = Number(maxRow?.max_seq || 0);
+
+    const seqRow = await db.prepare('SELECT last_seq FROM role_id_sequences WHERE role_prefix = ?').bind(prefix).first() as { last_seq?: number } | null;
+    let currentSeq = Math.max(currentMax, Number(seqRow?.last_seq || 0));
+
+    const placeholders = roles.map(() => '?').join(',');
+    const { results: unallocated } = await db.prepare(
+      `SELECT id, role, created_at FROM users WHERE role IN (${placeholders}) AND (identification_number IS NULL OR identification_number = '') ORDER BY created_at ASC, id ASC`
+    ).bind(...roles).all();
+
+    let assignedCount = 0;
+    for (const u of (unallocated || []) as any[]) {
+      currentSeq += 1;
+      const formatted = formatRoleId(prefix, currentSeq);
+      await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(formatted, u.id).run();
+      assignedCount++;
+    }
+
+    await db.prepare('UPDATE role_id_sequences SET last_seq = ? WHERE role_prefix = ?').bind(currentSeq, prefix).run();
+    results[prefix] = { currentSeq, assignedCount };
+  }
+
+  return results;
+}
+
 // Helper: Get user from D1
 async function getUser(db: D1Database, uid: string) {
-  return await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
+  try {
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
+    return user ? await ensureUserIdentificationNumber(db, user) : null;
+  } catch (err) {
+    console.error('[getUser] Query error:', err);
+    return null;
+  }
 }
 
 // User Profile sync
@@ -274,10 +461,21 @@ app.post('/api/users', async (c) => {
 
     const hasProof = !!(body.proof_file_id || body.proof_file_name);
     const verificationStatus = hasProof ? 'PENDING' : (isTest ? 'APPROVED' : 'PENDING');
+    let identId: string | null = null;
+    try {
+      identId = await allocateIdentificationNumber(db, role, uid);
+    } catch (_) {}
 
-    await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification, verification_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, verificationStatus)
-      .run();
+    try {
+      await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification, verification_status, identification_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, verificationStatus, identId)
+        .run();
+    } catch (insertErr: any) {
+      console.warn('Fallback insert without identification_number in /api/users:', insertErr?.message);
+      await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification, verification_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, verificationStatus)
+        .run();
+    }
 
     if (hasProof) {
       const regId = crypto.randomUUID();
@@ -305,6 +503,12 @@ app.post('/api/users', async (c) => {
       await sendRegistrationAcknowledgementEmail(db, { name, email });
     }
   } else {
+    if (!existing.identification_number && getRolePrefix(existing.role as string)) {
+      const identId = await allocateIdentificationNumber(db, existing.role as string, uid);
+      if (identId) {
+        await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, uid).run();
+      }
+    }
     // Only update allowed fields, not role (role is privileged)
     await db.prepare(`
       UPDATE users SET 
@@ -376,9 +580,20 @@ app.get('/api/users/me', async (c) => {
     const isKnownAdmin = email.toLowerCase() === 'contact@draughtsmanstudio.com' || email.toLowerCase() === 'zedsuo125@gmail.com' || email.toLowerCase().endsWith('@draughtsmanstudio.com');
     const role = (priorReg?.role as string) || (isKnownAdmin ? 'STUDIO_ADMIN' : 'STUDENT');
     const status = (priorReg?.status as string) || (isKnownAdmin ? 'APPROVED' : 'PENDING');
-    await c.env.DB.prepare(
-      'INSERT INTO users (id, email, name, role, verification_status) VALUES (?, ?, ?, ?, ?)'
-    ).bind(uid, email, name, role, status).run();
+    let identId: string | null = null;
+    try {
+      identId = getRolePrefix(role) ? await allocateIdentificationNumber(c.env.DB, role, uid) : null;
+    } catch (_) {}
+    try {
+      await c.env.DB.prepare(
+        'INSERT INTO users (id, email, name, role, verification_status, identification_number) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(uid, email, name, role, status, identId).run();
+    } catch (insertErr: any) {
+      console.warn('Fallback inserting user without identification_number in /api/users/me:', insertErr?.message);
+      await c.env.DB.prepare(
+        'INSERT INTO users (id, email, name, role, verification_status) VALUES (?, ?, ?, ?, ?)'
+      ).bind(uid, email, name, role, status).run();
+    }
     user = await getUser(c.env.DB, uid);
   }
   if (!user) return c.json({ error: 'User not found' }, 404);
@@ -560,16 +775,46 @@ app.post('/api/registration/submit', async (c) => {
   // Upsert user with verification_status = 'PENDING'
   const existingUser = await getUser(db, uid);
   if (!existingUser) {
-    await db.prepare(`
-      INSERT INTO users (
-        id, email, name, role, mobile, date_of_birth, address,
-        company_name, college_name, qualification, verification_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
-    `).bind(
-      uid, email.trim(), name.trim(), role, mobile || null, date_of_birth || null, address || null,
-      company_name || null, college_name || null, qualification || null
-    ).run();
+    let identId: string | null = null;
+    try {
+      identId = await allocateIdentificationNumber(db, role, uid);
+    } catch (allocErr) {
+      console.warn('[Registration] allocateIdentificationNumber warning:', allocErr);
+    }
+
+    try {
+      await db.prepare(`
+        INSERT INTO users (
+          id, email, name, role, mobile, date_of_birth, address,
+          company_name, college_name, qualification, verification_status, identification_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
+      `).bind(
+        uid, email.trim(), name.trim(), role, mobile || null, date_of_birth || null, address || null,
+        company_name || null, college_name || null, qualification || null, identId
+      ).run();
+    } catch (insertErr: any) {
+      console.warn('[Registration] Fallback user insert without identification_number:', insertErr?.message);
+      await db.prepare(`
+        INSERT INTO users (
+          id, email, name, role, mobile, date_of_birth, address,
+          company_name, college_name, qualification, verification_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+      `).bind(
+        uid, email.trim(), name.trim(), role, mobile || null, date_of_birth || null, address || null,
+        company_name || null, college_name || null, qualification || null
+      ).run();
+    }
   } else {
+    if (!existingUser.identification_number && getRolePrefix(existingUser.role || role)) {
+      try {
+        const identId = await allocateIdentificationNumber(db, existingUser.role || role, uid);
+        if (identId) {
+          await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, uid).run();
+        }
+      } catch (updateErr) {
+        console.warn('[Registration] Could not update existing user identification_number:', updateErr);
+      }
+    }
     await db.prepare(`
       UPDATE users SET
         name = ?,
@@ -617,6 +862,7 @@ app.get('/api/registration/status', async (c) => {
 
   return c.json({
     user_id: uid,
+    identification_number: user.identification_number || null,
     name: user.name,
     email: user.email,
     role: user.role,
@@ -679,6 +925,7 @@ app.get('/api/registration/proof', async (c) => {
 
 // ── Admin Registration Review Endpoints ──
 app.get('/api/admin/registrations', async (c) => {
+  await ensureIdentificationSchema(c.env.DB);
   const uid = c.get('uid');
   const user = await getUser(c.env.DB, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
@@ -692,6 +939,7 @@ app.get('/api/admin/registrations', async (c) => {
   let query = `
     SELECT 
       rv.*,
+      u.identification_number,
       u.college_name,
       u.company_name,
       u.qualification,
@@ -718,17 +966,26 @@ app.get('/api/admin/registrations', async (c) => {
   }
 
   if (search) {
-    query += ` AND (LOWER(rv.name) LIKE ? OR LOWER(rv.email) LIKE ?)`;
-    binds.push(`%${search}%`, `%${search}%`);
+    query += ` AND (LOWER(rv.name) LIKE ? OR LOWER(rv.email) LIKE ? OR LOWER(COALESCE(rv.file_name, '')) LIKE ? OR LOWER(COALESCE(u.identification_number, '')) LIKE ?)`;
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
   }
 
   query += ` ORDER BY rv.created_at DESC`;
 
-  const { results } = await c.env.DB.prepare(query).bind(...binds).all();
-  return c.json(results || []);
+  try {
+    const { results } = await c.env.DB.prepare(query).bind(...binds).all();
+    return c.json(results || []);
+  } catch (err: any) {
+    console.warn('[Admin Registrations] Fallback query without identification_number:', err?.message);
+    const fallbackQuery = query.replace('u.identification_number,', '').replace('OR LOWER(COALESCE(u.identification_number, \'\')) LIKE ?', '');
+    const fallbackBinds = search ? binds.slice(0, binds.length - 1) : binds;
+    const { results } = await c.env.DB.prepare(fallbackQuery).bind(...fallbackBinds).all();
+    return c.json(results || []);
+  }
 });
 
 app.get('/api/admin/registrations/:id', async (c) => {
+  await ensureIdentificationSchema(c.env.DB);
   const uid = c.get('uid');
   const user = await getUser(c.env.DB, uid);
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
@@ -736,21 +993,41 @@ app.get('/api/admin/registrations/:id', async (c) => {
   }
 
   const regId = c.req.param('id');
-  const reg = await c.env.DB.prepare(`
-    SELECT 
-      rv.*,
-      u.college_name,
-      u.company_name,
-      u.qualification,
-      u.date_of_birth,
-      u.address
-    FROM registration_verifications rv
-    LEFT JOIN users u ON rv.user_id = u.id
-    WHERE rv.id = ? OR rv.user_id = ?
-  `).bind(regId, regId).first();
+  try {
+    const reg = await c.env.DB.prepare(`
+      SELECT 
+        rv.*,
+        u.identification_number,
+        u.college_name,
+        u.company_name,
+        u.qualification,
+        u.date_of_birth,
+        u.address
+      FROM registration_verifications rv
+      LEFT JOIN users u ON rv.user_id = u.id
+      WHERE rv.id = ? OR rv.user_id = ?
+    `).bind(regId, regId).first();
 
-  if (!reg) return c.json({ error: 'Registration not found' }, 404);
-  return c.json(reg);
+    if (!reg) return c.json({ error: 'Registration not found' }, 404);
+    return c.json(reg);
+  } catch (err: any) {
+    console.warn('[Admin Registrations by ID] Fallback query without identification_number:', err?.message);
+    const reg = await c.env.DB.prepare(`
+      SELECT 
+        rv.*,
+        u.college_name,
+        u.company_name,
+        u.qualification,
+        u.date_of_birth,
+        u.address
+      FROM registration_verifications rv
+      LEFT JOIN users u ON rv.user_id = u.id
+      WHERE rv.id = ? OR rv.user_id = ?
+    `).bind(regId, regId).first();
+
+    if (!reg) return c.json({ error: 'Registration not found' }, 404);
+    return c.json(reg);
+  }
 });
 
 app.post('/api/admin/registrations/:id/approve', async (c) => {
@@ -1201,13 +1478,19 @@ app.get('/api/users', async (c) => {
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
 
   const role = c.req.query('role');
+  let usersList: any[] = [];
   if (role) {
     const { results } = await db.prepare('SELECT * FROM users WHERE role = ?').bind(role).all();
-    return c.json(results);
+    usersList = results || [];
+  } else {
+    const { results } = await db.prepare('SELECT * FROM users').all();
+    usersList = results || [];
   }
 
-  const { results } = await db.prepare('SELECT * FROM users').all();
-  return c.json(results);
+  const ensuredUsers = await Promise.all(
+    usersList.map((u) => ensureUserIdentificationNumber(db, u))
+  );
+  return c.json(ensuredUsers);
 });
 
 app.get('/api/users/:id', async (c) => {
@@ -1217,9 +1500,24 @@ app.get('/api/users/:id', async (c) => {
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
 
   const targetId = c.req.param('id');
-  const targetUser = await getUser(db, targetId);
+  let targetUser = await getUser(db, targetId);
+  if (!targetUser) {
+    const byIdent = await db.prepare('SELECT * FROM users WHERE identification_number = ?').bind(targetId).first();
+    if (byIdent) {
+      targetUser = await ensureUserIdentificationNumber(db, byIdent);
+    }
+  }
   if (!targetUser) return c.json({ error: 'User not found' }, 404);
   return c.json(targetUser);
+});
+
+app.post('/api/admin/users/backfill-ids', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
+  const result = await backfillAllUserIdentificationNumbers(db);
+  return c.json({ success: true, result });
 });
 
 app.patch('/api/users/:id/status', async (c) => {
@@ -1339,13 +1637,22 @@ app.get('/api/projects', async (c) => {
   }
 
   if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
-    let query = 'SELECT * FROM projects WHERE 1=1';
+    let query = `
+      SELECT 
+        p.*,
+        u_client.identification_number AS client_identification_number,
+        u_dm.identification_number AS draughtsman_identification_number
+      FROM projects p
+      LEFT JOIN users u_client ON p.client_id = u_client.id
+      LEFT JOIN users u_dm ON p.draughtsman_id = u_dm.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
     if (status && status !== 'ALL') {
-      query += ' AND status = ?';
+      query += ' AND p.status = ?';
       params.push(status);
     }
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY p.created_at DESC';
     const { results } = await db.prepare(query).bind(...params).all();
     return c.json(results);
   }
@@ -2210,6 +2517,7 @@ app.get('/api/admin/student-submissions', async (c) => {
       sa.student_id,
       u.name as student_name,
       u.email as student_email,
+      u.identification_number as student_identification_number,
       tm.title as module_title,
       (SELECT id FROM drawing_versions WHERE project_id = p.id ORDER BY version_number DESC LIMIT 1) as latest_drawing_version_id,
       (SELECT version_number FROM drawing_versions WHERE project_id = p.id ORDER BY version_number DESC LIMIT 1) as latest_version_number,
@@ -2249,6 +2557,7 @@ app.get('/api/admin/students/:studentId', async (c) => {
 
   const safeProfile = {
     id: student.id,
+    identification_number: student.identification_number || null,
     name: student.name,
     email: student.email,
     role: student.role,
@@ -4845,7 +5154,7 @@ app.get('/api/admin/students-progress', async (c) => {
 
   // Get all registered students
   const { results: students } = await db.prepare(`
-    SELECT id, name, email, mobile, status, college_name, qualification, created_at
+    SELECT id, identification_number, name, email, mobile, status, college_name, qualification, created_at
     FROM users
     WHERE role = 'STUDENT'
     ORDER BY name ASC, email ASC
@@ -5018,6 +5327,7 @@ app.get('/api/admin/students-progress', async (c) => {
 
     const summaryItem = {
       student_id: String(st.id),
+      identification_number: st.identification_number || null,
       student_name: String(st.name || 'Unnamed Student'),
       student_email: String(st.email || ''),
       student_status: String(st.status || 'ACTIVE'),
@@ -5070,7 +5380,8 @@ app.get('/api/admin/students-progress', async (c) => {
       const nameMatch = summaryItem.student_name.toLowerCase().includes(searchParam);
       const emailMatch = summaryItem.student_email.toLowerCase().includes(searchParam);
       const collegeMatch = summaryItem.college_name?.toLowerCase().includes(searchParam);
-      if (!nameMatch && !emailMatch && !collegeMatch) continue;
+      const idMatch = (st.identification_number || '').toLowerCase().includes(searchParam);
+      if (!nameMatch && !emailMatch && !collegeMatch && !idMatch) continue;
     }
 
     progressList.push(summaryItem);
@@ -5414,6 +5725,7 @@ app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
   return c.json({
     student: {
       id: student.id,
+      identification_number: student.identification_number || null,
       name: student.name,
       email: student.email,
       mobile: student.mobile,
@@ -5965,7 +6277,8 @@ app.get('/api/admin/assignments', async (c) => {
       p.drawing_type,
       p.status AS project_status,
       u.name AS draughtsman_name,
-      u.email AS draughtsman_email
+      u.email AS draughtsman_email,
+      u.identification_number AS draughtsman_identification_number
     FROM assignments a
     JOIN projects p ON a.project_id = p.id
     LEFT JOIN users u ON a.draughtsman_id = u.id
@@ -6243,6 +6556,7 @@ app.get('/api/admin/engineers/project-statuses', async (c) => {
       p.project_address,
       p.status as project_status,
       p.client_id as engineer_id,
+      u.identification_number as engineer_identification_number,
       u.name as engineer_name,
       u.email as engineer_email,
       u.company_name as engineer_company,
@@ -7063,10 +7377,12 @@ app.onError(async (err, c) => {
     console.error('Failed to log unhandled exception in helpdesk:', recErr);
   }
 
+  const isDevOrStaging = c.env?.ENVIRONMENT !== 'production';
   return c.json({
-    error: 'An internal server error occurred',
+    error: isDevOrStaging && err?.message ? err.message : 'An internal server error occurred',
     code: 'INTERNAL_ERROR',
     requestId: reqId,
+    ...(isDevOrStaging && err?.stack ? { details: err.stack } : {}),
   }, 500);
 });
 

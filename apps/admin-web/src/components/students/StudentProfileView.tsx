@@ -82,9 +82,16 @@ export function StudentProfileView({
             {(student.name || 'S').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-slate-900 truncate" title={student.name || 'Unnamed Student'}>
-              {student.name || 'Unnamed Student'}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              {student.identification_number && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-emerald-600 text-white shadow-xs">
+                  {student.identification_number}
+                </span>
+              )}
+              <h2 className="text-lg font-bold text-slate-900 truncate" title={student.name || 'Unnamed Student'}>
+                {student.name || 'Unnamed Student'}
+              </h2>
+            </div>
             <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5" title={student.email}>
               <Mail className="h-3 w-3 text-slate-400 shrink-0" />
               <span className="truncate">{student.email}</span>
@@ -118,6 +125,12 @@ export function StudentProfileView({
                 <span className="text-xs font-mono font-bold uppercase tracking-wider">STUDENT</span>
               </div>
             )}
+            {student.identification_number && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 whitespace-nowrap">
+                <span className="text-[10px] font-mono text-emerald-600 font-semibold">ID:</span>
+                <span className="text-xs font-mono font-bold">{student.identification_number}</span>
+              </div>
+            )}
             {onAssignProject && !isFixture && (
               <Button
                 size="sm"
@@ -130,7 +143,7 @@ export function StudentProfileView({
             )}
           </div>
           <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap" title={`Canonical UID: ${student.id}`}>
-            UID: {student.id ? `${student.id.substring(0, 10)}…` : '—'}
+            {student.identification_number ? `User ID: ${student.identification_number} • ` : ''}UID: {student.id ? `${student.id.substring(0, 10)}…` : '—'}
           </span>
         </div>
       </div>

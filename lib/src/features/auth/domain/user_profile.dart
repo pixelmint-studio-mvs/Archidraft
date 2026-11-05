@@ -58,6 +58,9 @@ class UserProfile {
   bool get isApprovedVerification => verificationStatus == 'APPROVED' || verificationStatus == null;
   bool get isRejectedVerification => verificationStatus == 'REJECTED';
 
+  /// Permanent role-based user identification number (e.g. ENG_01, DM_01, ST_01).
+  final String? identificationNumber;
+
   /// Timestamp when the profile was last updated.
   final DateTime? updatedAt;
 
@@ -76,6 +79,7 @@ class UserProfile {
     this.proofDocument,
     this.verificationStatus,
     this.rejectionReason,
+    this.identificationNumber,
     this.updatedAt,
   });
 
@@ -96,6 +100,7 @@ class UserProfile {
       proofDocument: data['proof_document'] as String?,
       verificationStatus: data['verification_status'] as String?,
       rejectionReason: data['rejection_reason'] as String?,
+      identificationNumber: (data['identification_number'] ?? data['user_number']) as String?,
       updatedAt: DateParser.parse(data['updated_at']),
     );
   }
@@ -108,6 +113,7 @@ class UserProfile {
       'email': email,
       'mobile': mobile,
       'role': role,
+      'identification_number': identificationNumber,
     };
   }
 
@@ -146,6 +152,7 @@ class UserProfile {
     String? proofDocument,
     String? verificationStatus,
     String? rejectionReason,
+    String? identificationNumber,
   }) {
     return UserProfile(
       id: id,
@@ -162,6 +169,7 @@ class UserProfile {
       proofDocument: proofDocument ?? this.proofDocument,
       verificationStatus: verificationStatus ?? this.verificationStatus,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      identificationNumber: identificationNumber ?? this.identificationNumber,
       updatedAt: updatedAt,
     );
   }

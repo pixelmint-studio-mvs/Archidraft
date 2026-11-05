@@ -9,18 +9,18 @@ describe('Admin Portal — Registrations Provision & Proof Verification Contract
     const sidebarPath = path.resolve(process.cwd(), 'src/components/layout/Sidebar.tsx');
     const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
 
-    test('Sidebar includes "Registration" category between Overview and Quick Access with "Allow Registrations"', () => {
+    test('Sidebar includes "Registration" category between Overview and Quick Access with "Registrations"', () => {
       assert.match(
         sidebarContent,
-        /title:\s*'Registration'[\s\S]*name:\s*'Allow Registrations'[\s\S]*href:\s*'\/registrations'/,
-        'Sidebar Registration section must contain an "Allow Registrations" entry linking to /registrations'
+        /title:\s*'Registration'[\s\S]*name:\s*'(Registrations|Allow Registrations)'[\s\S]*href:\s*'\/registrations'/,
+        'Sidebar Registration section must contain a "Registrations" entry linking to /registrations'
       );
     });
 
     test('Sidebar Registration entry uses ClipboardCheck or UserCheck icon', () => {
       assert.match(
         sidebarContent,
-        /name:\s*'Allow Registrations'[\s\S]*icon:\s*(ClipboardCheck|UserCheck)/,
+        /name:\s*'(Registrations|Allow Registrations)'[\s\S]*icon:\s*(ClipboardCheck|UserCheck)/,
         'Sidebar Registration entry must use an appropriate verification icon'
       );
     });
@@ -28,7 +28,7 @@ describe('Admin Portal — Registrations Provision & Proof Verification Contract
     test('Sidebar includes badgeKey: "registrations" for live count indicator', () => {
       assert.match(
         sidebarContent,
-        /name:\s*'Allow Registrations'[\s\S]*badgeKey:\s*'registrations'/,
+        /name:\s*'(Registrations|Allow Registrations)'[\s\S]*badgeKey:\s*'registrations'/,
         'Sidebar Registration entry must bind to registrations badge key'
       );
     });
@@ -138,6 +138,10 @@ describe('Admin Portal — Registrations Provision & Proof Verification Contract
     test('Page includes proof preview and download capabilities', () => {
       assert.match(content, /handleDownloadProof/, 'Must support proof document download');
       assert.match(content, /previewProofOpen/, 'Must support proof preview toggle');
+      assert.match(content, /loadPreview/, 'Must implement authenticated preview loader');
+      assert.match(content, /cleanupPreviewBlob/, 'Must implement stale preview cleanup');
+      assert.match(content, /Retry Preview/, 'Must include retry button on preview failure');
+      assert.match(content, /Interactive PDF Viewer/, 'Must support dedicated interactive PDF viewer');
     });
 
     test('Page supports both approval and rejection workflows', () => {

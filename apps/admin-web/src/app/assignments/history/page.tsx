@@ -83,7 +83,8 @@ export default function AssignmentHistoryPage() {
       const matchDraughtsman =
         a.draughtsman_name?.toLowerCase().includes(query) ||
         a.draughtsman_email?.toLowerCase().includes(query) ||
-        a.draughtsman_id.toLowerCase().includes(query);
+        a.draughtsman_id.toLowerCase().includes(query) ||
+        (a.draughtsman_identification_number || '').toLowerCase().includes(query);
       const matchClient = a.client_name?.toLowerCase().includes(query);
       const matchId = a.id.toLowerCase().includes(query);
       return matchProject || matchDraughtsman || matchClient || matchId;
@@ -308,9 +309,10 @@ export default function AssignmentHistoryPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-mono text-[10px] uppercase tracking-wider">
                     <tr>
-                      <th className="py-3 px-4">Assignment ID</th>
-                      <th className="py-3 px-4">Project</th>
+                      <th className="py-3 px-4">ID Number</th>
                       <th className="py-3 px-4">Assigned Draughtsman</th>
+                      <th className="py-3 px-4">Project</th>
+                      <th className="py-3 px-4">Assignment ID</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Dispatched At</th>
                       <th className="py-3 px-4">Updated At</th>
@@ -320,9 +322,23 @@ export default function AssignmentHistoryPage() {
                   <tbody className="divide-y divide-slate-100 font-sans">
                     {paginatedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Assignment ID */}
-                        <td className="py-3 px-4 font-mono text-[11px] text-slate-700">
-                          {record.id.substring(0, 10)}…
+                        {/* ID Number */}
+                        <td className="py-3 px-4 font-mono font-bold text-xs whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                            {record.draughtsman_identification_number || 'Pending'}
+                          </span>
+                        </td>
+
+                        {/* Draughtsman Details */}
+                        <td className="py-3 px-4">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">
+                              {record.draughtsman_name || 'Draughtsman'}
+                            </p>
+                            <p className="text-[10px] font-mono text-slate-500 truncate">
+                              {record.draughtsman_email || record.draughtsman_id.substring(0, 10)}
+                            </p>
+                          </div>
                         </td>
 
                         {/* Project Details */}
@@ -342,16 +358,9 @@ export default function AssignmentHistoryPage() {
                           </div>
                         </td>
 
-                        {/* Draughtsman Details */}
-                        <td className="py-3 px-4">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-slate-900 truncate">
-                              {record.draughtsman_name || 'Draughtsman'}
-                            </p>
-                            <p className="text-[10px] font-mono text-slate-500 truncate">
-                              {record.draughtsman_email || record.draughtsman_id.substring(0, 10)}
-                            </p>
-                          </div>
+                        {/* Assignment ID */}
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-700">
+                          {record.id.substring(0, 10)}…
                         </td>
 
                         {/* Status Badge */}

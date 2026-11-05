@@ -48,9 +48,16 @@ export function EngineerProfileView({
             {(engineer.name || 'E').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-slate-900 truncate" title={engineer.name || 'Unnamed Engineer'}>
-              {engineer.name || 'Unnamed Engineer'}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              {engineer.identification_number && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-[#0453cd] text-white shadow-xs">
+                  {engineer.identification_number}
+                </span>
+              )}
+              <h2 className="text-lg font-bold text-slate-900 truncate" title={engineer.name || 'Unnamed Engineer'}>
+                {engineer.name || 'Unnamed Engineer'}
+              </h2>
+            </div>
             <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5" title={engineer.email}>
               <Mail className="h-3 w-3 text-slate-400 shrink-0" />
               <span className="truncate">{engineer.email}</span>
@@ -71,12 +78,20 @@ export function EngineerProfileView({
         </div>
 
         <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] whitespace-nowrap">
-            <ShieldCheck className="h-4 w-4 shrink-0" />
-            <span className="text-xs font-mono font-bold uppercase tracking-wider">ENGINEER</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] whitespace-nowrap">
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              <span className="text-xs font-mono font-bold uppercase tracking-wider">ENGINEER</span>
+            </div>
+            {engineer.identification_number && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 whitespace-nowrap">
+                <span className="text-[10px] font-mono text-indigo-500 font-semibold">ID:</span>
+                <span className="text-xs font-mono font-bold">{engineer.identification_number}</span>
+              </div>
+            )}
           </div>
           <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap" title={`Canonical UID: ${engineer.id}`}>
-            UID: {engineer.id ? `${engineer.id.substring(0, 10)}…` : '—'}
+            {engineer.identification_number ? `User ID: ${engineer.identification_number} • ` : ''}UID: {engineer.id ? `${engineer.id.substring(0, 10)}…` : '—'}
           </span>
         </div>
       </div>

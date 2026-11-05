@@ -94,7 +94,8 @@ export default function StudentSubmissionsPage() {
         const matchesStudent = sub.student_name?.toLowerCase().includes(q);
         const matchesEmail = sub.student_email?.toLowerCase().includes(q);
         const matchesModule = sub.module_title?.toLowerCase().includes(q);
-        if (!matchesProject && !matchesDrawing && !matchesStudent && !matchesEmail && !matchesModule) {
+        const matchesId = (sub.student_identification_number || '').toLowerCase().includes(q);
+        if (!matchesProject && !matchesDrawing && !matchesStudent && !matchesEmail && !matchesModule && !matchesId) {
           return false;
         }
       }
@@ -290,8 +291,9 @@ export default function StudentSubmissionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-mono text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 px-4 font-semibold">Practical Milestone & Target</th>
+                    <th className="py-3 px-4 font-semibold">ID Number</th>
                     <th className="py-3 px-4 font-semibold">Student Apprentice</th>
+                    <th className="py-3 px-4 font-semibold">Practical Milestone & Target</th>
                     <th className="py-3 px-4 font-semibold">Version & Cycle</th>
                     <th className="py-3 px-4 font-semibold">Submitted Date</th>
                     <th className="py-3 px-4 font-semibold">Workflow Status</th>
@@ -305,15 +307,11 @@ export default function StudentSubmissionsPage() {
 
                     return (
                       <tr key={sub.id} className="hover:bg-slate-50/70 transition-colors">
-                        {/* Project & Drawing */}
-                        <td className="py-3 px-4 max-w-[260px]">
-                          <div className="font-semibold text-slate-900 truncate">
-                            {sub.project_name}
-                          </div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
-                            <GraduationCap className="h-3 w-3 text-[#0453cd] shrink-0" />
-                            <span className="truncate">{sub.module_title || sub.drawing_name || sub.drawing_type}</span>
-                          </div>
+                        {/* ID Number */}
+                        <td className="py-3 px-4 font-mono font-bold text-xs whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {sub.student_identification_number || 'Pending'}
+                          </span>
                         </td>
 
                         {/* Student Info */}
@@ -327,6 +325,17 @@ export default function StudentSubmissionsPage() {
                           </Link>
                           <div className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
                             {sub.student_email || 'No email registered'}
+                          </div>
+                        </td>
+
+                        {/* Project & Drawing */}
+                        <td className="py-3 px-4 max-w-[260px]">
+                          <div className="font-semibold text-slate-900 truncate">
+                            {sub.project_name}
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+                            <GraduationCap className="h-3 w-3 text-[#0453cd] shrink-0" />
+                            <span className="truncate">{sub.module_title || sub.drawing_name || sub.drawing_type}</span>
                           </div>
                         </td>
 

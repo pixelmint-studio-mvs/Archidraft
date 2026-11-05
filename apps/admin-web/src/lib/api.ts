@@ -36,13 +36,20 @@ import {
 } from './types';
 
 export const API_BASE = (() => {
+  if (process.env.NEXT_PUBLIC_WORKER_API_URL) {
+    return process.env.NEXT_PUBLIC_WORKER_API_URL;
+  }
   if (typeof window !== 'undefined') {
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isLocalhost && (window.location.hostname.endsWith('.vercel.app') || window.location.protocol === 'https:')) {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+    if (isLocalhost) {
+      return 'http://localhost:8787';
+    }
+    if (hostname.endsWith('.vercel.app') || window.location.protocol === 'https:') {
       return 'https://archi-draft-worker-staging.imserratex.workers.dev';
     }
   }
-  return process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://archi-draft-worker-staging.imserratex.workers.dev';
+  return 'http://localhost:8787';
 })();
 
 export class ApiError extends Error {
@@ -767,6 +774,7 @@ export const adminApi = {
           project_address: p.project_address,
           project_status: p.status,
           engineer_id: p.client_id,
+          engineer_identification_number: eng?.identification_number,
           engineer_name: eng?.name || eng?.email || p.client_name || 'Engineer',
           engineer_email: eng?.email || p.client_email || '',
           engineer_company: eng?.company_name,
@@ -1264,8 +1272,9 @@ export const adminApi = {
     return await res.blob();
   },
 
-  getRegistrationProofUrl(id: string): string {
-    return `${API_BASE}/api/admin/registrations/${id}/proof`;
+  getRegistrationProofUrl(id: string, token?: string): string {
+    const base = `${API_BASE}/api/admin/registrations/${id}/proof`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
   },
 
   // ==========================================

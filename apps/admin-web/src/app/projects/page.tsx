@@ -285,10 +285,19 @@ function ProjectsContent() {
                               {(p.draughtsman_name || 'D').charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <span className="font-semibold text-slate-800 text-xs block">
-                                {p.draughtsman_name || 'Assigned Draughtsman'}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {p.draughtsman_identification_number && (
+                                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                    {p.draughtsman_identification_number}
+                                  </span>
+                                )}
+                                <span className="font-semibold text-slate-800 text-xs block">
+                                  {p.draughtsman_name || 'Assigned Draughtsman'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400">
+                                {p.draughtsman_identification_number ? `ID: ${p.draughtsman_identification_number}` : `ID: ${p.draughtsman_id.substring(0, 6)}`}
                               </span>
-                              <span className="text-[10px] font-mono text-slate-400">ID: {p.draughtsman_id.substring(0, 6)}</span>
                             </div>
                           </div>
                         ) : (

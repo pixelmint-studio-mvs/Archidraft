@@ -36,6 +36,7 @@ export function getDisplayRole(role?: string): string {
 
 export interface User {
   id: string;
+  identification_number?: string;
   email: string;
   name: string;
   role: UserRole;
@@ -77,8 +78,10 @@ export interface Project {
   is_training_project?: number;
   training_module_id?: string;
   last_action_id?: string;
+  client_identification_number?: string;
   draughtsman_id?: string;
   draughtsman_name?: string;
+  draughtsman_identification_number?: string;
   rejection_reason?: string;
   current_assignment_id?: string;
   correction_round: number;
@@ -98,6 +101,7 @@ export interface Assignment {
   id: string;
   project_id: string;
   draughtsman_id: string;
+  draughtsman_identification_number?: string;
   status: AssignmentStatus;
   created_at: string;
   updated_at: string;
@@ -112,6 +116,7 @@ export interface GlobalAssignment extends Assignment {
   project_area?: string;
   client_id?: string;
   client_name?: string;
+  client_identification_number?: string;
 }
 
 // ── Engineer Project Status Item (Isolated status overview) ──
@@ -125,6 +130,7 @@ export interface EngineerProjectStatusItem {
   project_address?: string;
   project_status: ProjectStatus;
   engineer_id: string;
+  engineer_identification_number?: string;
   engineer_name: string;
   engineer_email: string;
   engineer_company?: string;
@@ -282,6 +288,7 @@ export interface StudentSubmission {
   training_module_id: string | null;
   rejection_reason: string | null;
   student_id: string;
+  student_identification_number?: string | null;
   student_name: string | null;
   student_email: string | null;
   module_title: string | null;
@@ -390,6 +397,7 @@ export interface StudentLearningPlan {
 
 export interface StudentProgressSummary {
   student_id: string;
+  identification_number?: string;
   student_name: string;
   student_email: string;
   student_status: string;
@@ -644,6 +652,7 @@ export type RegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export interface RegistrationVerification {
   id: string;
   user_id: string;
+  identification_number?: string;
   name: string;
   email: string;
   role: 'ENGINEER' | 'CLIENT' | 'DRAUGHTSMAN' | 'STUDENT' | string;

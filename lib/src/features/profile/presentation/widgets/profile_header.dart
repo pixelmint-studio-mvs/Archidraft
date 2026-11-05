@@ -206,6 +206,28 @@ class ProfileHeader extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (profile.identificationNumber != null && profile.identificationNumber!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0E7FF),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                              border: Border.all(
+                                color: const Color(0xFF818CF8),
+                              ),
+                            ),
+                            child: Text(
+                              'ID: ${profile.identificationNumber}',
+                              style: AppTypography.labelMono.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF3730A3),
+                              ),
+                            ),
+                          ),
                         if (isDraughtsman)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -253,6 +275,12 @@ class ProfileHeader extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
+          _buildSpecRow(
+            'Identification Number',
+            profile.identificationNumber?.isNotEmpty == true
+                ? profile.identificationNumber!
+                : 'Pending Allocation',
+          ),
           _buildSpecRow('Account Status', 'Active & Verified'),
           _buildSpecRow(
             'Access Level',
