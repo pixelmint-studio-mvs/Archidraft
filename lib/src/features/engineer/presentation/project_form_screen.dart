@@ -37,6 +37,10 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadExistingDraft();
       });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(projectFormControllerProvider.notifier).updateDrawingType('ARCHITECTURAL');
+      });
     }
   }
 
@@ -208,13 +212,24 @@ class _ProjectFormScreenState extends ConsumerState<ProjectFormScreen> {
 
                   _StitchDropdownField(
                     label: 'TECHNICAL_CATEGORY',
-                    value: DrawingType.fromString(formState.drawingType)?.toFirestoreString(),
-                    items: DrawingType.values.map((type) {
-                      return DropdownMenuItem(
-                        value: type.toFirestoreString(),
-                        child: Text(type.displayName),
-                      );
-                    }).toList(),
+                    value: (formState.drawingType.isNotEmpty &&
+                            DrawingType.fromString(formState.drawingType) != null &&
+                            DrawingType.fromString(formState.drawingType) != DrawingType.architectural)
+                        ? DrawingType.fromString(formState.drawingType)!.toFirestoreString()
+                        : 'ARCHITECTURAL',
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'ARCHITECTURAL',
+                        child: Text('Architectural'),
+                      ),
+                      if (formState.drawingType.isNotEmpty &&
+                          DrawingType.fromString(formState.drawingType) != null &&
+                          DrawingType.fromString(formState.drawingType) != DrawingType.architectural)
+                        DropdownMenuItem(
+                          value: DrawingType.fromString(formState.drawingType)!.toFirestoreString(),
+                          child: Text(DrawingType.fromString(formState.drawingType)!.displayName),
+                        ),
+                    ],
                     onChanged: (value) {
                       if (value != null) controller.updateDrawingType(value);
                     },

@@ -59,10 +59,12 @@ class MockAssignmentRepository extends _i1.Mock
   @override
   _i4.Future<void> acceptAssignment({
     required String? assignmentId,
+    String? projectId,
     String? actionId,
   }) => (super.noSuchMethod(
     Invocation.method(#acceptAssignment, [], {
       #assignmentId: assignmentId,
+      #projectId: projectId,
       #actionId: actionId,
     }),
     returnValue: _i4.Future<void>.value(),
@@ -72,11 +74,13 @@ class MockAssignmentRepository extends _i1.Mock
   @override
   _i4.Future<void> rejectAssignment({
     required String? assignmentId,
+    String? projectId,
     String? actionId,
     String? reason = '',
   }) => (super.noSuchMethod(
     Invocation.method(#rejectAssignment, [], {
       #assignmentId: assignmentId,
+      #projectId: projectId,
       #actionId: actionId,
       #reason: reason,
     }),

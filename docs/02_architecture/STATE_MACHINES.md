@@ -78,4 +78,4 @@ The approved assignment statuses are:
 - `IN_PROGRESS`: Draughtsman is actively working on the correction.
 - `RESOLVED`: Draughtsman completed the correction and re-uploaded drawings.
 
-**Maximum corrections:** 3
+**Maximum corrections:** Unlimited revision rounds until client/engineer satisfaction

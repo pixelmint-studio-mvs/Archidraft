@@ -12,6 +12,15 @@ class DrawingVersion {
   final String? sanitizedName;
   final int? size;
   final DateTime? createdAt;
+  final String? approvalStatus;
+  final String? approvalSource;
+  final String? reviewedBy;
+  final DateTime? reviewedAt;
+  final String? reviewFeedback;
+
+  bool get isPending => approvalStatus == 'PENDING';
+  bool get isApproved => approvalStatus == 'APPROVED';
+  bool get isRejected => approvalStatus == 'REJECTED';
 
   const DrawingVersion({
     required this.id,
@@ -25,6 +34,11 @@ class DrawingVersion {
     this.sanitizedName,
     this.size,
     this.createdAt,
+    this.approvalStatus,
+    this.approvalSource,
+    this.reviewedBy,
+    this.reviewedAt,
+    this.reviewFeedback,
   });
 
   factory DrawingVersion.fromMap(Map<String, dynamic> data) {
@@ -40,6 +54,11 @@ class DrawingVersion {
       sanitizedName: data['sanitized_name'] as String?,
       size: data['size'] as int?,
       createdAt: DateParser.parse(data['created_at']),
+      approvalStatus: data['approval_status'] as String?,
+      approvalSource: data['approval_source'] as String?,
+      reviewedBy: data['reviewed_by'] as String?,
+      reviewedAt: DateParser.parse(data['reviewed_at']),
+      reviewFeedback: data['review_feedback'] as String?,
     );
   }
 

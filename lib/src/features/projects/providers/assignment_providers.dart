@@ -27,11 +27,11 @@ final draughtsmanAssignmentsProvider = FutureProvider<List<Assignment>>((
 ) async {
   final repository = ref.watch(assignmentRepositoryProvider);
 
-  // 5-second polling interval while active/watched
-  final timer = Timer(const Duration(seconds: 5), () {
+  // 4-second continuous polling interval while active/watched
+  final timer = Timer.periodic(const Duration(seconds: 4), (_) {
     ref.invalidateSelf();
   });
-  ref.onDispose(() => timer.cancel());
+  ref.onDispose(timer.cancel);
 
   try {
     final assignments = await repository.getAssignments();
@@ -132,6 +132,7 @@ class DraughtsmanActionsController extends Notifier<AsyncValue<void>> {
 
       ref.invalidate(draughtsmanAssignmentsProvider);
       ref.invalidate(projectProvider(projectId));
+      ref.invalidate(projectDrawingVersionsProvider(projectId));
       state = const AsyncData(null);
       return true;
     } catch (e, st) {

@@ -13,12 +13,14 @@ import { RejectModal } from '@/components/projects/RejectModal';
 import { CancelModal } from '@/components/projects/CancelModal';
 import { EvaluateModal } from '@/components/projects/EvaluateModal';
 import { CadDrawingRenderer } from '@/components/cad/CadDrawingRenderer';
+import { AdminDrawingReviewSection } from '@/components/projects/AdminDrawingReviewSection';
 import { adminApi } from '@/lib/api';
 import { formatDateTime, formatDate, formatTime, parseUtcDate } from '@/lib/dateUtils';
 import {
   Project,
   ProjectFile,
   DrawingVersion,
+  DrawingVersionReview,
   Correction,
   Assignment,
   ActivityLog,
@@ -38,7 +40,9 @@ import {
   AlertTriangle,
   Clock,
   Compass,
+  RotateCcw,
   FileCheck2,
+  ShieldCheck,
   Calendar,
   User,
   Shield,
@@ -219,8 +223,14 @@ const WORKFLOW_STAGES = [
     detail: 'CAD work in progress. Correction rounds still available.',
   },
   {
+    key: 'UNDER_ADMIN_REVIEW',
+    label: '5. Studio QC Review',
+    desc: 'Drawing undergoing Studio Admin quality control.',
+    detail: 'Deliverable must pass studio verification before release to client.',
+  },
+  {
     key: 'UNDER_CLIENT_REVIEW',
-    label: '5. Engineer Review',
+    label: '6. Engineer Review',
     desc: 'Drawings submitted for engineer approval.',
     detail: 'Engineer reviewing final deliverables. Corrections possible.',
   },
@@ -238,6 +248,7 @@ const STATUS_ORDER = [
   'WAITING_ASSIGNMENT',
   'WAITING_ACCEPTANCE',
   'IN_PROGRESS',
+  'UNDER_ADMIN_REVIEW',
   'UNDER_CLIENT_REVIEW',
   'COMPLETED',
 ];
@@ -248,8 +259,9 @@ function getStageState(
   isCancelled: boolean
 ): 'completed' | 'active' | 'pending' | 'cancelled' {
   if (isCancelled) return 'cancelled';
+  const normalizedStatus = currentStatus === 'UNDER_ENGINEER_REVIEW' ? 'UNDER_CLIENT_REVIEW' : currentStatus;
   const stageIdx = STATUS_ORDER.indexOf(stageKey);
-  const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+  const currentIdx = STATUS_ORDER.indexOf(normalizedStatus);
   if (currentIdx > stageIdx) return 'completed';
   if (currentIdx === stageIdx) return 'active';
   return 'pending';
@@ -257,9 +269,213 @@ function getStageState(
 
 function getProgressPercent(status: string, isCancelled: boolean): number {
   if (isCancelled) return 0;
-  const idx = STATUS_ORDER.indexOf(status);
+  const normalizedStatus = status === 'UNDER_ENGINEER_REVIEW' ? 'UNDER_CLIENT_REVIEW' : status;
+  const idx = STATUS_ORDER.indexOf(normalizedStatus);
   if (idx <= 0) return 0;
   return Math.round(((idx - 1) / (WORKFLOW_STAGES.length - 1)) * 100);
+}
+
+
+// ── Compact Workflow Timeline Component (Improvements 5 & 8) ───────────────────
+
+interface TimelineEvent {
+  id: string;
+  title: string;
+  timestamp: string;
+  actor?: string | null;
+  role?: string | null;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: 'emerald' | 'blue' | 'amber' | 'purple' | 'rose' | 'slate';
+}
+
+function CompactWorkflowTimeline({
+  project,
+  drawingVersions,
+  reviews,
+  corrections,
+}: {
+  project: Project;
+  drawingVersions: DrawingVersion[];
+  reviews: DrawingVersionReview[];
+  corrections: Correction[];
+}) {
+  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+
+  // Build ordered milestones
+  const events: TimelineEvent[] = [];
+
+  // 1. Project Submitted
+  if (project.created_at) {
+    events.push({
+      id: 'project-created',
+      title: 'Project Brief Submitted',
+      timestamp: project.created_at,
+      actor: project.client_name?.trim() || null,
+      role: null,
+      description: 'Initial specifications and reference files submitted.',
+      icon: FileText,
+      tone: 'blue',
+    });
+  }
+
+  // 2. Draughtsman Assigned
+  if (project.draughtsman_id) {
+    events.push({
+      id: 'draughtsman-assigned',
+      title: 'Draughtsman Allocated',
+      timestamp: project.assigned_at || project.created_at,
+      actor: null,
+      role: null,
+      description: project.draughtsman_name
+        ? `Allocated to ${project.draughtsman_name} for drafting.`
+        : 'Allocated to draughtsman for drafting.',
+      icon: User,
+      tone: 'amber',
+    });
+  }
+
+  // 3. Drawing Deliverables & QC Reviews
+  drawingVersions.forEach((dv) => {
+    events.push({
+      id: `drawing-v${dv.version_number}`,
+      title: `Drawing Deliverable v${dv.version_number} Uploaded`,
+      timestamp: dv.created_at,
+      actor: project.draughtsman_name?.trim() || null,
+      role: null,
+      description: `Uploaded CAD package: ${dv.original_name || `drawing_v${dv.version_number}.dwg`}.`,
+      icon: Layers,
+      tone: 'purple',
+    });
+
+    const rev = reviews.find((r) => r.version_number === dv.version_number);
+    if (rev || dv.reviewed_at) {
+      const isApproved = rev?.decision === 'APPROVED' || dv.approval_status === 'APPROVED';
+      events.push({
+        id: `review-v${dv.version_number}`,
+        title: `Studio QC: v${dv.version_number} ${isApproved ? 'Approved' : 'Revision Requested'}`,
+        timestamp: rev?.created_at || dv.reviewed_at || dv.created_at,
+        actor: rev?.reviewer_name?.trim() || null,
+        role: rev?.reviewer_role?.trim() || null,
+        description: isApproved
+          ? 'Studio QC verified deliverable and released to Engineer for review.'
+          : `Internal revision requested: "${rev?.feedback || 'Drafting corrections requested.'}"`,
+        icon: ShieldCheck,
+        tone: isApproved ? 'emerald' : 'rose',
+      });
+    }
+  });
+
+  // 4. Corrections
+  corrections.forEach((c) => {
+    events.push({
+      id: `correction-r${c.round_number}`,
+      title: `Engineer Correction Round ${c.round_number}`,
+      timestamp: c.created_at,
+      actor: project.client_name?.trim() || null,
+      role: null,
+      description: `Correction requested: "${c.description}". Status: ${c.status}.`,
+      icon: RotateCcw,
+      tone: 'amber',
+    });
+  });
+
+  // 5. Completion
+  if (project.status === 'COMPLETED') {
+    events.push({
+      id: 'project-completed',
+      title: 'Project Delivered & Accepted',
+      timestamp: project.approved_at || project.created_at,
+      actor: project.client_name?.trim() || null,
+      role: null,
+      description: 'All technical deliverables final approved. Project marked COMPLETED.',
+      icon: CheckCircle,
+      tone: 'emerald',
+    });
+  }
+
+  // Sort chronological
+  events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  if (events.length === 0) return null;
+
+  return (
+    <Card technicalCorners className="bg-white border-slate-200 soft-elevation">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-[#0453cd]" />
+          <div>
+            <h4 className="text-xs font-bold font-mono text-slate-900 uppercase tracking-wider">
+              Workflow Milestone Timeline
+            </h4>
+            <p className="text-[10px] text-slate-500 font-mono">
+              Verifiable event progression with actor attribution ({events.length} milestones)
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="text-xs font-mono text-slate-500 hover:text-slate-800 cursor-pointer"
+        >
+          {isExpanded ? 'Collapse' : 'Expand'}
+        </button>
+      </div>
+
+      {isExpanded && (
+        <div className="mt-4 space-y-3">
+          <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+            {events.map((ev) => {
+              const IconComp = ev.icon;
+              const toneClasses = {
+                emerald: 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-emerald-100',
+                blue: 'bg-blue-50 text-[#0453cd] border-blue-300 ring-blue-100',
+                amber: 'bg-amber-50 text-amber-700 border-amber-300 ring-amber-100',
+                purple: 'bg-purple-50 text-purple-700 border-purple-300 ring-purple-100',
+                rose: 'bg-rose-50 text-rose-700 border-rose-300 ring-rose-100',
+                slate: 'bg-slate-50 text-slate-700 border-slate-300 ring-slate-100',
+              }[ev.tone];
+
+              return (
+                <div key={ev.id} className="relative group">
+                  {/* Timeline Node Icon */}
+                  <div className={`absolute -left-6 mt-0.5 w-5 h-5 rounded-full border ring-4 flex items-center justify-center shrink-0 ${toneClasses}`}>
+                    <IconComp className="h-2.5 w-2.5" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 pb-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-900 font-mono">
+                        {ev.title}
+                      </span>
+                      {ev.actor ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-700 border border-slate-200 font-medium">
+                          <User className="h-2.5 w-2.5 text-slate-400" />
+                          Actor: {ev.actor}{ev.role ? ` (${ev.role})` : ''}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-500 border border-slate-200 font-normal">
+                          <User className="h-2.5 w-2.5 text-slate-400" />
+                          Actor unavailable
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                      {formatDateTime(ev.timestamp)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-sans leading-relaxed">
+                    {ev.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 export default function ProjectDetailPage({
@@ -273,6 +489,7 @@ export default function ProjectDetailPage({
   const [project, setProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<ProjectFile[]>([]);
   const [drawingVersions, setDrawingVersions] = useState<DrawingVersion[]>([]);
+  const [reviews, setReviews] = useState<DrawingVersionReview[]>([]);
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [activity, setActivity] = useState<ActivityLog[]>([]);
@@ -281,6 +498,7 @@ export default function ProjectDetailPage({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   // CAD Comparison state
   const [cadViewMode, setCadViewMode] = useState<CADViewMode>('split');
@@ -340,13 +558,13 @@ export default function ProjectDetailPage({
     }
   };
 
-  const fetchProjectData = async (isManual = false) => {
+  const fetchProjectData = async (isManual = false, isSilent = false) => {
     if (isManual) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+    else if (!isSilent) setLoading(true);
+    if (!isSilent) setError(null);
 
     try {
-      const [proj, fileList, dvList, corrList, assignList, actList, commentList] = await Promise.all([
+      const [proj, fileList, dvList, corrList, assignList, actList, commentList, reviewList] = await Promise.all([
         adminApi.getProject(projectId),
         adminApi.getProjectFiles(projectId).catch(() => []),
         adminApi.getProjectDrawingVersions(projectId).catch(() => []),
@@ -354,26 +572,58 @@ export default function ProjectDetailPage({
         adminApi.getProjectAssignments(projectId).catch(() => []),
         adminApi.getProjectActivity(projectId).catch(() => []),
         adminApi.getProjectComments(projectId).catch(() => []),
+        adminApi.getDrawingVersionReviews(projectId).catch(() => []),
       ]);
 
       setProject(proj);
       setFiles(fileList || []);
       setDrawingVersions(dvList || []);
+      setReviews(reviewList || []);
       setCorrections(corrList || []);
       setAssignments(assignList || []);
       setActivity(actList || []);
       setCollabMessages((commentList || []).map(toCollabMessage));
+      setLastSyncedAt(new Date());
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Failed to load project details');
+      if (!isSilent) {
+        setError(err.message || 'Failed to load project details');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
     fetchProjectData();
+
+    // Auto-refresh when tab gains focus or returns to visibility
+    const handleFocus = () => {
+      fetchProjectData(false, true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchProjectData(false, true);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Silent background poll every 15 seconds while tab is active
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchProjectData(false, true);
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
   }, [projectId]);
 
   // Keyboard navigation for CAD comparison workspace
@@ -443,6 +693,8 @@ export default function ProjectDetailPage({
       subtitle={project ? `ID: ${project.id}` : 'Loading...'}
       onRefresh={() => fetchProjectData(true)}
       isRefreshing={refreshing}
+      lastSyncedAt={lastSyncedAt}
+      syncError={error}
     >
       {/* Back button */}
       <div className="mb-6">
@@ -506,7 +758,7 @@ export default function ProjectDetailPage({
                   <Badge status={project.status} size="md" />
                   {project.correction_round > 0 && (
                     <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-mono font-semibold">
-                      Correction Round {project.correction_round} of 3
+                      Correction Round {project.correction_round}
                     </span>
                   )}
                 </div>
@@ -608,15 +860,38 @@ export default function ProjectDetailPage({
                   </Button>
                 )}
 
-                {/* Review States: Interactive Evaluation Modal Trigger */}
-                {(project.status === 'UNDER_ENGINEER_REVIEW' || project.status === 'UNDER_CLIENT_REVIEW') &&
+                {/* Completed State: Unambiguous Completion Status */}
+                {project.status === 'COMPLETED' && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold font-mono">
+                    <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    PROJECT DELIVERED & COMPLETED
+                  </div>
+                )}
+
+                {/* Studio Review State: Direct Action Trigger */}
+                {project.status === 'UNDER_ADMIN_REVIEW' && (
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      const el = document.getElementById('admin-drawing-review-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    icon={<ShieldCheck className="h-4 w-4" />}
+                  >
+                    Review Deliverable
+                  </Button>
+                )}
+
+                {/* Review States: Interactive Evaluation Modal Trigger (Apprentice Training Only) */}
+                {Boolean(project.is_training_project) &&
+                  (project.status === 'UNDER_ENGINEER_REVIEW' || project.status === 'UNDER_CLIENT_REVIEW') &&
                   drawingVersions.length > 0 && (
                     <Button
                       variant="primary"
                       onClick={() => setIsEvaluateOpen(true)}
                       icon={<FileCheck2 className="h-4 w-4" />}
                     >
-                      Evaluate Submission
+                      Evaluate Practical Submission
                     </Button>
                   )}
 
@@ -636,6 +911,33 @@ export default function ProjectDetailPage({
               </div>
             </div>
           </Card>
+
+          {/* Admin Drawing Quality Review Section */}
+          <div id="admin-drawing-review-section">
+            <AdminDrawingReviewSection
+              project={project}
+              pendingVersion={drawingVersions.find((dv) => dv.approval_status === 'PENDING') || null}
+              allVersions={drawingVersions}
+              referenceFiles={files}
+              reviews={reviews}
+              onDecisionSuccess={() => fetchProjectData(true)}
+              onOpenCadViewer={(vNum) => {
+                setActiveTab('cad');
+                const vIdx = drawingVersions.findIndex((v) => v.version_number === vNum);
+                if (vIdx >= 0) setCadVersionA(vIdx);
+              }}
+              onDownloadFile={handleDownloadFile}
+              downloadingFileId={downloadingFileId}
+            />
+          </div>
+
+          {/* Compact Workflow Milestone Timeline (Improvements 5 & 8) */}
+          <CompactWorkflowTimeline
+            project={project}
+            drawingVersions={drawingVersions}
+            reviews={reviews}
+            corrections={corrections}
+          />
 
           {/* Navigation Tabs */}
           <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto w-full max-w-full scrollbar-none">
@@ -783,7 +1085,7 @@ export default function ProjectDetailPage({
                       )}
                       <div className="flex justify-between">
                         <span className="text-slate-500 font-mono">Corrections</span>
-                        <span className="font-semibold text-slate-900 font-mono">{project.correction_round} / 3</span>
+                        <span className="font-semibold text-slate-900 font-mono">Round {project.correction_round}</span>
                       </div>
                       {project.submitted_at && (
                         <div className="flex justify-between">
@@ -2016,7 +2318,7 @@ export default function ProjectDetailPage({
                       {project.correction_round > 0 && (
                         <div className="border-t border-slate-100 pt-3">
                           <p className="text-[10px] font-mono text-slate-500 mb-0.5">CORRECTION ROUND</p>
-                          <p className="text-xs font-semibold text-[#0453cd] font-mono">{project.correction_round} / 3</p>
+                          <p className="text-xs font-semibold text-[#0453cd] font-mono">Round {project.correction_round}</p>
                         </div>
                       )}
                     </div>
@@ -2140,7 +2442,7 @@ export default function ProjectDetailPage({
                   </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Correction Round</span>
-                    <span className="font-semibold font-mono text-[#0453cd]">{project.correction_round} of 3</span>
+                    <span className="font-semibold font-mono text-[#0453cd]">Round {project.correction_round}</span>
                   </div>
                   <div className="pt-2 flex justify-between">
                     <span className="text-slate-500 font-mono">Submitted At</span>
@@ -2255,14 +2557,23 @@ export default function ProjectDetailPage({
                         <div className="h-9 w-9 rounded-xl bg-blue-50 text-[#0453cd] border border-blue-200 flex items-center justify-center font-bold text-xs font-mono shrink-0">
                           v{dv.version_number}
                         </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-900">
-                            Version {dv.version_number}: {dv.original_name || 'CAD Drawing Deliverable'}
-                          </p>
-                          <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs font-semibold text-slate-900">
+                              Version {dv.version_number}: {dv.original_name || 'CAD Drawing Deliverable'}
+                            </p>
+                            <Badge status={dv.approval_status || 'PENDING'} />
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-mono">
                             Uploaded by Draughtsman ID: <code className="font-mono bg-slate-100 px-1 py-0.5 rounded border border-slate-200">{dv.uploaded_by.substring(0, 8)}</code>
                             {dv.size ? ` • ${formatFileSize(dv.size)}` : ''}
+                            {dv.reviewed_at ? ` • Reviewed: ${formatDateTime(dv.reviewed_at)}` : ''}
                           </p>
+                          {dv.review_feedback && (
+                            <p className="text-[11px] text-slate-600 bg-slate-100/90 p-2 rounded-lg border border-slate-200 mt-1 font-mono">
+                              <span className="font-semibold text-slate-800">Studio Review Feedback:</span> {dv.review_feedback}
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -2298,7 +2609,7 @@ export default function ProjectDetailPage({
             <Card className="bg-white border-slate-200 soft-elevation">
               <CardHeader
                 title="Engineer Revision & Correction Rounds"
-                subtitle="Maximum limit of 3 rounds enforced strictly by the Cloudflare Worker"
+                subtitle="Unlimited revision rounds supported until final Engineer approval"
               />
 
               {corrections.length === 0 ? (
@@ -2315,7 +2626,7 @@ export default function ProjectDetailPage({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold font-mono text-[#0453cd]">
-                            Round {corr.round_number} of 3
+                            Round {corr.round_number}
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold border ${

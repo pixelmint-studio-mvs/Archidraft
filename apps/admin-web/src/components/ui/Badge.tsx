@@ -29,6 +29,18 @@ export function Badge({ children, variant, status, role, size = 'sm' }: BadgePro
       case 'IN_PROGRESS':
         style = 'bg-cyan-50 text-cyan-800 border-cyan-200';
         break;
+      case 'UNDER_ADMIN_REVIEW':
+        style = 'bg-amber-50 text-amber-900 border-amber-300 font-semibold';
+        break;
+      case 'APPROVED':
+        style = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        break;
+      case 'REJECTED':
+        style = 'bg-rose-50 text-rose-800 border-rose-200';
+        break;
+      case 'PENDING':
+        style = 'bg-amber-50 text-amber-800 border-amber-200';
+        break;
       case 'UNDER_CLIENT_REVIEW':
       case 'UNDER_ENGINEER_REVIEW':
         style = 'bg-teal-50 text-teal-800 border-teal-200';
@@ -106,8 +118,20 @@ function formatRole(role?: string): string {
 }
 
 function formatStatus(status: string): string {
+  if (status === 'UNDER_ADMIN_REVIEW') {
+    return 'Studio Review';
+  }
   if (status === 'UNDER_CLIENT_REVIEW' || status === 'UNDER_ENGINEER_REVIEW') {
     return 'Under Review';
+  }
+  if (status === 'PENDING') {
+    return 'Pending Review';
+  }
+  if (status === 'APPROVED') {
+    return 'Approved';
+  }
+  if (status === 'REJECTED') {
+    return 'Revision Requested';
   }
   return status
     .split('_')

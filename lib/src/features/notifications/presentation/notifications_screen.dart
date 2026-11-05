@@ -221,6 +221,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               }
                             }
                           : null,
+                      onDismiss: () async {
+                        try {
+                          await ref.read(clearSingleNotificationProvider(n.id).future);
+                        } catch (_) {}
+                      },
                     );
                   },
                 ),

@@ -30,15 +30,7 @@ describe('Assignment Management & Backend Capacity Enforcement Contracts', () =>
     });
 
     const activeCount = activeAssignments.length;
-    if (activeCount >= MAX_DRAUGHTSMAN_CAPACITY) {
-      return {
-        allowed: false,
-        activeCount,
-        error: `Draughtsman is at maximum capacity (${MAX_DRAUGHTSMAN_CAPACITY}/${MAX_DRAUGHTSMAN_CAPACITY} active projects)`,
-        code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED',
-      };
-    }
-
+    // Multi-project allocation enabled: capacity limit check removed
     return { allowed: true, activeCount };
   }
 
@@ -87,7 +79,7 @@ describe('Assignment Management & Backend Capacity Enforcement Contracts', () =>
     assert.equal(res.status, 200);
   });
 
-  test('Direct API call cannot bypass limit: Rejected when draughtsman is at capacity (4 active)', () => {
+  test('Multi-project allocation: Allowed when draughtsman has 4 or more active assignments (5th active assignment)', () => {
     const existing: AssignmentRecord[] = [
       { id: 'a1', project_id: 'p1', draughtsman_id: 'dm-01', status: 'ACCEPTED', project_status: 'IN_PROGRESS' },
       { id: 'a2', project_id: 'p2', draughtsman_id: 'dm-01', status: 'ACCEPTED', project_status: 'IN_PROGRESS' },
@@ -98,13 +90,11 @@ describe('Assignment Management & Backend Capacity Enforcement Contracts', () =>
     const draughtsman = { id: 'dm-01', role: 'DRAUGHTSMAN' };
 
     const res = serverAssignProject('ADMIN', project, draughtsman, existing, 'act-bypass-test');
-    assert.equal(res.success, false);
-    assert.equal(res.status, 400);
-    assert.equal(res.code, 'DRAUGHTSMAN_CAPACITY_EXCEEDED');
-    assert.match(res.error!, /maximum capacity/);
+    assert.equal(res.success, true);
+    assert.equal(res.status, 200);
   });
 
-  test('Reassignment respects destination draughtsman capacity', () => {
+  test('Reassignment allows multi-project allocation on destination draughtsman', () => {
     const existing: AssignmentRecord[] = [
       { id: 'a1', project_id: 'p1', draughtsman_id: 'dm-busy', status: 'ACCEPTED', project_status: 'IN_PROGRESS' },
       { id: 'a2', project_id: 'p2', draughtsman_id: 'dm-busy', status: 'ACCEPTED', project_status: 'IN_PROGRESS' },
@@ -112,8 +102,8 @@ describe('Assignment Management & Backend Capacity Enforcement Contracts', () =>
       { id: 'a4', project_id: 'p4', draughtsman_id: 'dm-busy', status: 'ACCEPTED', project_status: 'IN_PROGRESS' },
     ];
     const capacity = checkDraughtsmanCapacity(existing, 'dm-busy', 'p-reassign-target');
-    assert.equal(capacity.allowed, false);
-    assert.equal(capacity.code, 'DRAUGHTSMAN_CAPACITY_EXCEEDED');
+    assert.equal(capacity.allowed, true);
+    assert.equal(capacity.activeCount, 4);
   });
 
   test('Inactive assignments (REPLACED, REJECTED, COMPLETED project) do NOT count toward capacity', () => {

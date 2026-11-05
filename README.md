@@ -60,7 +60,7 @@ Archidraft-integration-workspace/
 |       |   |-- app/                      # Next.js App Router (dashboard, projects, activity, settings)
 |       |   |-- components/               # Admin UI components, layout, and PixmintBotControlCenter
 |       |   -- lib/                      # api.ts (normalized client) and firebase.ts configuration
-|       -- test/                         # Node.js automated test suites (151 passed across 36 suites)
+|       -- test/                         # Node.js automated test suites (311 passed across 43 suites)
 |-- lib/                                  # Flutter Client Application Source (Port 8080)
 |   |-- main.dart                         # Application entrypoint & Riverpod initialization
 |   |-- firebase_options.dart             # Compile-time Firebase config (STAGING=true: staging, default: prod)
@@ -75,14 +75,14 @@ Archidraft-integration-workspace/
 |       |   -- legal/                    # DPDP Act & IT SPDI legal onboarding, center & privacy
 |-- scratch/
 |   -- pixmint-bot/                      # PIXMINT BOT Flutter Package (Floating sheet & dark chat input)
-|-- test/                                 # Flutter Automated Test Suites (304 tests verified)
+|-- test/                                 # Flutter Automated Test Suites (473 tests verified)
 |-- worker/                               # Cloudflare Worker Backend Source (Port 8787)
 |   |-- src/
 |   |   |-- index.ts                      # Hono API router, business logic, activity logging & middleware
 |   |   |-- auth.ts                       # Firebase JWKS token verification
 |   |   -- legal.ts                      # DPDP legal routes, terms assertion gate & consent ledger
 |   |-- migrations/                       # D1 SQLite relational migrations (0001 through 0017)
-|   -- test/                             # Node.js backend integration test harness (281 passed across 34 suites)
+|   -- test/                             # Node.js backend integration test harness (411 passed across 38 suites)
 -- docs/                                 # Architectural specifications, contracts & handover reports
 ```
 
@@ -127,7 +127,7 @@ Archidraft-integration-workspace/
   2. Accepts via `POST /api/assignments/accept` (transitions project to `IN_PROGRESS`) or rejects via `POST /api/assignments/reject`.
   3. Draughtsman uploads working drafts via `POST /api/projects/:id/files?category=workspace_draft`.
   4. Draughtsman can delete their own drafts via `DELETE /api/projects/:id/files/:fileId`.
-  5. Submitting formal delivery via `POST /api/projects/submit-drawing` creates a new entry in `drawing_versions` (`version_number` incremented) and sets project to `UNDER_ENGINEER_REVIEW`. Submitted versions cannot be deleted by non-admins.
+  5. Submitting formal delivery via `POST /api/projects/submit-drawing` creates a new entry in `drawing_versions` (`version_number` incremented) and sets project to `WAITING_FOR_STUDIO_REVIEW` (Studio Admin QC gate). Upon Admin QC approval, the deliverable transitions to `UNDER_ENGINEER_REVIEW`. Submitted versions cannot be deleted by non-admins.
 
 ---
 
@@ -319,12 +319,12 @@ flutter pub get
 ### Automated Test Verification Commands
 
 ```powershell
-# 1. Run complete Worker test harness (34 suites, 281 tests)
+# 1. Run complete Worker test harness (38 suites, 411+ tests)
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\worker"
 npm test
 npm run typecheck
 
-# 2. Run complete Admin Web test harness (36 suites, 151 tests)
+# 2. Run complete Admin Web test harness (43 suites, 311+ tests)
 Set-Location -Path "D:\PROJECT\Archidraft-integration-workspace\apps\admin-web"
 npm test
 

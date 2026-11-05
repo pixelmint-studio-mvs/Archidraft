@@ -40,6 +40,7 @@ This table documents the contract for all critical backend actions executed via 
 | `listNotifications` | `GET /api/notifications` | Any Authenticated | `user_id = uid` | Returns notifications scoped strictly to the authenticated user |
 | `markAllRead` | `PATCH /api/notifications/read-all` | Any Authenticated | `user_id = uid` | Marks all notifications for user as read |
 | `markRead` | `PATCH /api/notifications/:id/read` | Any Authenticated | `user_id = uid` | Marks specific notification as read |
+| `clearAll` | `DELETE /api/notifications` | Any Authenticated | `user_id = uid` | Clears all notifications for the authenticated user |
 
 ---
 

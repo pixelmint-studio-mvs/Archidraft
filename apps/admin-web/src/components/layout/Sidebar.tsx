@@ -65,12 +65,6 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Activity,
       },
       {
-        name: 'Projects Catalogue',
-        href: '/projects',
-        icon: FolderKanban,
-        badgeKey: 'projects',
-      },
-      {
         name: 'Financials',
         href: '/financials',
         icon: DollarSign,
@@ -233,7 +227,8 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href)) ||
-                (item.href === '/students' && pathname.startsWith('/teaching'));
+                (item.href === '/students' && pathname.startsWith('/teaching')) ||
+                (item.href === '/engineers' && pathname.startsWith('/projects'));
               const badgeCount = item.badgeKey ? counts[item.badgeKey] : 0;
 
               return (

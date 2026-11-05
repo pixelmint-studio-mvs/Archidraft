@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../domain/evaluation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,13 +29,29 @@ final projectRepositoryProvider = Provider<ProjectRepository>((ref) {
 /// Backward compatibility alias
 final clientProjectsProvider = engineerProjectsProvider;
 
+List<Project>? _lastKnownEngineerProjects;
+
 final engineerProjectsProvider = FutureProvider<List<Project>>((ref) async {
   final authState = ref.watch(authStateChangesProvider);
   final user = authState.value;
   if (user == null) return [];
 
+  final timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+
   final repository = ref.watch(projectRepositoryProvider);
-  return repository.getEngineerProjects();
+  try {
+    final list = await repository.getEngineerProjects();
+    _lastKnownEngineerProjects = list;
+    return list;
+  } catch (e) {
+    if (_lastKnownEngineerProjects != null) {
+      return _lastKnownEngineerProjects!;
+    }
+    rethrow;
+  }
 });
 
 // ──────────────────────────────────────────
@@ -85,6 +102,11 @@ final projectProvider = FutureProvider.family<Project?, String>((
   ref,
   projectId,
 ) {
+  final timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getProject(projectId);
 });
@@ -93,6 +115,11 @@ final projectDrawingVersionsProvider = FutureProvider.family<List<DrawingVersion
   ref,
   projectId,
 ) {
+  final timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getDrawingVersions(projectId);
 });
@@ -101,6 +128,11 @@ final projectCorrectionsProvider = FutureProvider.family<List<Correction>, Strin
   ref,
   projectId,
 ) {
+  final timer = Timer.periodic(const Duration(seconds: 4), (_) {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+
   final repository = ref.watch(projectRepositoryProvider);
   return repository.getCorrections(projectId);
 });

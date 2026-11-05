@@ -9,7 +9,7 @@ To prevent misinterpretation, all developers and AI agents must use the followin
 - **Assignment:** A sub-record linking a Project to a specific Draughtsman. It tracks the micro status of that specific worker (e.g., PENDING, ACCEPTED).
 - **Drawing Version:** A file uploaded by a Draughtsman during the execution phase.
 - **Correction:** An explicit, tracked request by a Client asking the Draughtsman to revise a submitted drawing.
-- **Correction Round:** A counter tracking how many times the Client has requested revisions. The absolute maximum is 3.
+- **Correction Round:** A counter tracking how many times the Client or Engineer has requested revisions. Increments indefinitely without an arbitrary limit until final drawing approval.
 - **Activity Log:** An immutable, server-generated record of a critical event (e.g., `PROJECT_SUBMITTED`).
 - **Project Status:** The current state of the main Project (see `STATE_MACHINES.md`).
 - **Assignment Status:** The current state of the Draughtsman's assignment (see `STATE_MACHINES.md`).

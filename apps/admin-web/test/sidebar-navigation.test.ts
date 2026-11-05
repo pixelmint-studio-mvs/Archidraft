@@ -93,24 +93,22 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
       : path.resolve(process.cwd(), 'apps/admin-web/src/components/layout/Sidebar.tsx');
     const content = fs.readFileSync(sidebarPath, 'utf-8');
 
-    it('Overview category contains Dashboard, Activity Feed, Projects Catalogue, and Financials in exact order', () => {
+    it('Overview category contains Dashboard, Activity Feed, and Financials with Projects Catalogue integrated into Engineers', () => {
       const overviewMatch = content.match(/title:\s*'Overview'[\s\S]*?items:\s*\[([\s\S]*?)\]/);
       assert.ok(overviewMatch, 'Overview section must exist in Sidebar.tsx');
 
       const itemsBlock = overviewMatch[1];
       const dashboardIdx = itemsBlock.indexOf("name: 'Dashboard'");
       const activityIdx = itemsBlock.indexOf("name: 'Activity Feed'");
-      const projectsIdx = itemsBlock.indexOf("name: 'Projects Catalogue'");
       const financialsIdx = itemsBlock.indexOf("name: 'Financials'");
 
       assert.ok(dashboardIdx !== -1, 'Dashboard must be in Overview');
       assert.ok(activityIdx !== -1, 'Activity Feed must be in Overview');
-      assert.ok(projectsIdx !== -1, 'Projects Catalogue must be in Overview');
       assert.ok(financialsIdx !== -1, 'Financials must be in Overview');
 
       assert.ok(dashboardIdx < activityIdx, 'Dashboard must appear before Activity Feed');
-      assert.ok(activityIdx < projectsIdx, 'Projects Catalogue must appear directly below Activity Feed');
-      assert.ok(projectsIdx < financialsIdx, 'Financials must appear directly below Projects Catalogue');
+      assert.ok(activityIdx < financialsIdx, 'Financials must appear directly below Activity Feed');
+      assert.strictEqual(itemsBlock.includes("Projects Catalogue"), false, 'Projects Catalogue must be removed from Overview');
     });
 
     it('Financials menu item is titled "Financials" without "(Frozen)" and not duplicated in Settings', () => {
@@ -120,10 +118,14 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
       assert.strictEqual(occurrences, 1, 'Financials route must appear exactly once in sidebar');
     });
 
-    it('Projects Catalogue retains its icon, route, and badgeKey', () => {
+    it('Engineers item exists in Quick Access and activates on /projects routes', () => {
       assert.match(
         content,
-        /name:\s*'Projects Catalogue',\s*href:\s*'\/projects',\s*icon:\s*FolderKanban,\s*badgeKey:\s*'projects'/
+        /name:\s*'Engineers',\s*href:\s*'\/engineers',\s*icon:\s*HardHat,\s*badgeKey:\s*'engineers'/
+      );
+      assert.ok(
+        content.includes("(item.href === '/engineers' && pathname.startsWith('/projects'))"),
+        'Sidebar must highlight Engineers when navigating to /projects'
       );
     });
 

@@ -575,6 +575,7 @@ Color _getStatusColor(ProjectStatus status) {
     case ProjectStatus.inProgress:
       return AppColors.secondary;
     case ProjectStatus.submitted:
+    case ProjectStatus.underAdminReview:
     case ProjectStatus.underClientReview:
       return AppColors.warning;
     case ProjectStatus.draft:
@@ -591,6 +592,7 @@ String _getStatusDisplay(ProjectStatus status) {
     case ProjectStatus.waitingAcceptance: return 'PENDING ACCEPT';
     case ProjectStatus.inProgress: return 'IN PROGRESS';
     case ProjectStatus.submitted: return 'SUBMITTED';
+    case ProjectStatus.underAdminReview: return 'STUDIO REVIEW';
     case ProjectStatus.underClientReview: return 'AWAITING REVIEW';
     case ProjectStatus.completed: return 'COMPLETED';
     case ProjectStatus.draft: return 'DRAFT';

@@ -174,6 +174,45 @@ class _WorkspaceScaffold extends ConsumerStatefulWidget {
 class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _isRefreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      ref.invalidate(assignmentProvider(widget.assignmentId));
+      ref.invalidate(projectProvider(widget.projectId));
+      ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
+      ref.invalidate(projectFilesProvider(widget.projectId));
+      ref.invalidate(projectCorrectionsProvider(widget.projectId));
+      ref.invalidate(projectActivityLogsProvider(widget.projectId));
+      await ref.read(projectProvider(widget.projectId).future);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Workspace refreshed'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh workspace: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -238,7 +277,9 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
     Color statusTextColor = AppColors.secondary;
     String statusText = 'STATUS: ${status.displayName.toUpperCase()}';
 
-    final isUnderReview = status == ProjectStatus.underEngineerReview;
+    final isUnderAdminReview = status == ProjectStatus.underAdminReview;
+    final isUnderEngineerReview = status == ProjectStatus.underEngineerReview;
+    final isUnderReview = isUnderAdminReview || isUnderEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
     final hasCorrections = (assignment.correctionRound != null && assignment.correctionRound! > 0) ||
         assignment.isRevision;
@@ -246,15 +287,21 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
     if (isCompleted) {
       statusBgColor = AppColors.success.withValues(alpha: 0.12);
       statusTextColor = AppColors.success;
-      statusText = 'STATUS: COMPLETED';
+      statusText = 'STATUS: APPROVED & COMPLETED';
     } else if (hasCorrections && !isUnderReview) {
       statusBgColor = AppColors.error.withValues(alpha: 0.12);
       statusTextColor = AppColors.error;
-      statusText = 'STATUS: CORRECTION (ROUND ${assignment.correctionRound ?? 1})';
-    } else if (isUnderReview) {
-      statusBgColor = const Color(0xFF002114);
-      statusTextColor = const Color(0xFF85F8C4);
-      statusText = 'STATUS: REVIEW';
+      statusText = 'STATUS: CORRECTION ROUND ${assignment.correctionRound ?? 1}';
+    } else if (isUnderAdminReview) {
+      statusBgColor = const Color(0xFFFEF3C7);
+      statusTextColor = const Color(0xFFB45309);
+      statusText = (hasCorrections || assignment.isRevision)
+          ? 'STATUS: RESUBMITTED — WAITING FOR STUDIO REVIEW'
+          : 'STATUS: WAITING FOR STUDIO REVIEW';
+    } else if (isUnderEngineerReview) {
+      statusBgColor = const Color(0xFFE0F2FE);
+      statusTextColor = const Color(0xFF0369A1);
+      statusText = 'STATUS: WAITING FOR ENGINEER REVIEW';
     }
 
     return Scaffold(
@@ -353,16 +400,18 @@ class _WorkspaceScaffoldState extends ConsumerState<_WorkspaceScaffold>
             onPressed: () => context.push('/draughtsman/assignments/${widget.assignmentId}'),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.secondary,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh Workspace',
-            onPressed: () {
-              ref.invalidate(assignmentProvider(widget.assignmentId));
-              ref.invalidate(projectProvider(widget.projectId));
-              ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
-              ref.invalidate(projectFilesProvider(widget.projectId));
-              ref.invalidate(projectCorrectionsProvider(widget.projectId));
-              ref.invalidate(projectActivityLogsProvider(widget.projectId));
-            },
+            onPressed: _isRefreshing ? null : _handleRefresh,
           ),
           const SizedBox(width: AppSpacing.sm),
         ],
@@ -1293,27 +1342,41 @@ class _WorkspaceCanvasTab extends ConsumerStatefulWidget {
 class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
   bool _isOverlayMode = false;
   bool _isCadMode = false;
-  double _zoomScale = 1.0;
   final TransformationController _transformationController = TransformationController();
 
   void _zoomIn() {
-    setState(() {
-      _zoomScale = (_zoomScale * 1.25).clamp(0.5, 4.0);
-      _transformationController.value = Matrix4.diagonal3Values(_zoomScale, _zoomScale, 1.0);
-    });
+    _zoomAroundCenter(1.25);
   }
 
   void _zoomOut() {
-    setState(() {
-      _zoomScale = (_zoomScale / 1.25).clamp(0.5, 4.0);
-      _transformationController.value = Matrix4.diagonal3Values(_zoomScale, _zoomScale, 1.0);
-    });
+    _zoomAroundCenter(0.8);
   }
 
   void _fitScreen() {
     setState(() {
-      _zoomScale = 1.0;
       _transformationController.value = Matrix4.identity();
+    });
+  }
+
+  void _zoomAroundCenter(double factor) {
+    final currentMatrix = _transformationController.value;
+    final currentScale = currentMatrix.storage[0].abs() > 0.0001
+        ? currentMatrix.storage[0].abs()
+        : currentMatrix.getMaxScaleOnAxis();
+    final targetScale = (currentScale * factor).clamp(0.1, 25.0);
+    final actualFactor = targetScale / currentScale;
+    if ((actualFactor - 1.0).abs() < 0.001) return;
+
+    // Viewport center
+    const cx = 350.0;
+    const cy = 240.0;
+
+    final translationToCenter = Matrix4.translationValues(cx, cy, 0);
+    final scaleMatrix = Matrix4.diagonal3Values(actualFactor, actualFactor, 1.0);
+    final translationBack = Matrix4.translationValues(-cx, -cy, 0);
+
+    setState(() {
+      _transformationController.value = translationToCenter * scaleMatrix * translationBack * currentMatrix;
     });
   }
 
@@ -1387,7 +1450,9 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     final status = project.projectStatus ?? ProjectStatus.draft;
     final isLoadingAction = ref.watch(draughtsmanActionsControllerProvider).isLoading;
 
-    final isUnderReview = status == ProjectStatus.underEngineerReview;
+    final isUnderAdminReview = status == ProjectStatus.underAdminReview;
+    final isUnderEngineerReview = status == ProjectStatus.underEngineerReview;
+    final isUnderReview = isUnderAdminReview || isUnderEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
 
     return correctionsAsync.maybeWhen(
@@ -1417,7 +1482,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                         runSpacing: 4,
                         children: [
                           Text(
-                            'CORRECTION REQUIRED — ROUND #${openCorrection.roundNumber}',
+                            'CORRECTION ROUND ${openCorrection.roundNumber}',
                             style: const TextStyle(
                               fontFamily: 'JetBrains Mono',
                               fontSize: 12,
@@ -1475,7 +1540,201 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
           );
         }
 
-        if (isUnderReview) {
+        if (isUnderAdminReview) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.0),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.hourglass_top_rounded, color: Color(0xFFB45309), size: 24),
+                SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SUBMITTED FOR STUDIO QC REVIEW',
+                        style: TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB45309),
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Your drawing has been submitted for Studio Admin quality review. It is currently locked while technical standards and layer specs are verified before release to the client.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Studio Review In-Progress Banner (Initial or Resubmission)
+        final versionsAsync = ref.watch(projectDrawingVersionsProvider(widget.projectId));
+        final versionsList = versionsAsync.value ?? [];
+        final latestVersion = versionsList.isNotEmpty ? versionsList.first : null;
+        final assignment = widget.assignment;
+        final isResubmission = (assignment.correctionRound != null && assignment.correctionRound! > 0) ||
+            assignment.isRevision ||
+            versionsList.length > 1;
+
+        if (isUnderAdminReview) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.0),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.hourglass_top_rounded, color: Color(0xFFB45309), size: 24),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            isResubmission
+                                ? 'RESUBMITTED — WAITING FOR STUDIO REVIEW'
+                                : 'WAITING FOR STUDIO REVIEW',
+                            style: const TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFB45309),
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFB45309).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'UNDER QC REVIEW',
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isResubmission
+                            ? 'Your corrected drawing (v${latestVersion?.versionNumber ?? 2}.0) has been submitted. Studio Admin is verifying quality before client release.'
+                            : 'Drawing draft submitted for Studio review. Drawing submission is locked while under review.',
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Studio QC Rework Banner (Admin requested revision)
+        if (status == ProjectStatus.inProgress && latestVersion != null && latestVersion.isRejected && openCorrection == null) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.errorContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.4), width: 1.0),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.assignment_late_outlined, color: AppColors.error, size: 24),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          const Text(
+                            'CHANGES REQUESTED BY STUDIO',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.error,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'STUDIO REWORK',
+                              style: TextStyle(
+                                fontFamily: 'JetBrains Mono',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        latestVersion.reviewFeedback?.isNotEmpty == true
+                            ? 'Admin Feedback: "${latestVersion.reviewFeedback}"'
+                            : 'Studio Admin requested technical revisions on Rev ${latestVersion.versionNumber}. Please update your drawing and submit a new draft.',
+                        style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Note: Studio QC revisions do NOT consume client correction rounds.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (isUnderEngineerReview) {
           return Container(
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
@@ -1486,14 +1745,14 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(Icons.pending_actions_outlined, color: Color(0xFF069669), size: 24),
+                Icon(Icons.verified_outlined, color: Color(0xFF069669), size: 24),
                 SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'UNDER CLIENT & LEAD ARCHITECT REVIEW',
+                        'APPROVED BY STUDIO',
                         style: TextStyle(
                           fontFamily: 'JetBrains Mono',
                           fontSize: 12,
@@ -1504,7 +1763,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Submitted drawing is currently locked while the Engineering Lead and Client inspect vectors.',
+                        'Drawing passed Studio QC and is currently under review by the Client / Lead Engineer.',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -1718,6 +1977,12 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                     tooltip: 'Fit to Screen',
                     onPressed: _fitScreen,
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.fullscreen_rounded, size: 20),
+                    color: AppColors.outline,
+                    tooltip: 'Expand Fullscreen',
+                    onPressed: () => _openFullscreenComparison(context, versionsAsync),
+                  ),
                 ],
               ),
             ],
@@ -1740,44 +2005,49 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
-              child: versionsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error loading drawing: $e')),
-                data: (versions) {
-                  final sorted = [...versions]..sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
-                  final current = sorted.isNotEmpty ? sorted.first : null;
-                  final previous = sorted.length > 1 ? sorted[1] : null;
-
-                  if (_isCadMode) {
-                    if (current != null && current.fileId.isNotEmpty) {
-                      return CadDrawingViewer(
-                        key: ValueKey('cad_workspace_cad_${current.fileId}_v${current.versionNumber}'),
-                        fileId: current.fileId,
-                        fileName: current.originalName ?? current.sanitizedName ?? 'drawing_v${current.versionNumber}.dwg',
-                        fileSize: current.size,
-                        versionNumber: current.versionNumber,
-                        height: 480,
-                      );
-                    } else {
-                      return _buildNoRevisionPlaceholder(
-                        title: 'No CAD Drawing File Uploaded',
-                        subtitle: 'Upload a draft drawing (.dxf, .dwg, .png, .jpg) to inspect in CAD view.',
-                        icon: Icons.architecture_rounded,
-                      );
-                    }
-                  }
-
-                  if (_isOverlayMode) {
-                    return _buildOverlayViewer(current, previous);
-                  }
-
-                  return _buildSplitViewer(current, previous);
-                },
-              ),
+              child: _buildComparisonContent(versionsAsync),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildComparisonContent(AsyncValue<List<DrawingVersion>> versionsAsync, {bool isFullscreen = false}) {
+    return versionsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error loading drawing: $e')),
+      data: (versions) {
+        final sorted = [...versions]..sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
+        final current = sorted.isNotEmpty ? sorted.first : null;
+        final previous = sorted.length > 1 ? sorted[1] : null;
+
+        if (_isCadMode) {
+          if (current != null && current.fileId.isNotEmpty) {
+            return CadDrawingViewer(
+              key: ValueKey('cad_workspace_cad_${current.fileId}_v${current.versionNumber}'),
+              fileId: current.fileId,
+              fileName: current.originalName ?? current.sanitizedName ?? 'drawing_v${current.versionNumber}.dwg',
+              fileSize: current.size,
+              versionNumber: current.versionNumber,
+              height: isFullscreen ? double.infinity : 480,
+              controller: _transformationController,
+            );
+          } else {
+            return _buildNoRevisionPlaceholder(
+              title: 'No CAD Drawing File Uploaded',
+              subtitle: 'Upload a draft drawing (.dxf, .dwg, .png, .jpg) to inspect in CAD view.',
+              icon: Icons.architecture_rounded,
+            );
+          }
+        }
+
+        if (_isOverlayMode) {
+          return _buildOverlayViewer(current, previous, isFullscreen: isFullscreen);
+        }
+
+        return _buildSplitViewer(current, previous, isFullscreen: isFullscreen);
+      },
     );
   }
 
@@ -1831,10 +2101,10 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     );
   }
 
-  Widget _buildSplitViewer(DrawingVersion? current, DrawingVersion? previous) {
+  Widget _buildSplitViewer(DrawingVersion? current, DrawingVersion? previous, {bool isFullscreen = false}) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 600;
+        final isNarrow = constraints.maxWidth < 600 && !isFullscreen;
 
         if (isNarrow) {
           // Stacked on narrow screens to guarantee ZERO RenderFlex overflow
@@ -1846,6 +2116,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                   version: previous,
                   isCurrent: false,
                   height: 235,
+                  controller: _transformationController,
                 ),
                 Container(height: 1, color: AppColors.outlineVariant.withValues(alpha: 0.4)),
                 _buildViewerHalf(
@@ -1853,6 +2124,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                   version: current,
                   isCurrent: true,
                   height: 235,
+                  controller: _transformationController,
                 ),
               ],
             ),
@@ -1867,6 +2139,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                 label: previous != null ? 'Previous: Rev ${previous.versionNumber}' : 'Initial State',
                 version: previous,
                 isCurrent: false,
+                height: isFullscreen ? double.infinity : null,
+                controller: _transformationController,
               ),
             ),
             // Center Divider with slider handle
@@ -1880,6 +2154,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                 label: current != null ? 'Current: Rev ${current.versionNumber}' : 'Current Draft',
                 version: current,
                 isCurrent: true,
+                height: isFullscreen ? double.infinity : null,
+                controller: _transformationController,
               ),
             ),
           ],
@@ -1893,6 +2169,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     required DrawingVersion? version,
     required bool isCurrent,
     double? height,
+    TransformationController? controller,
   }) {
     return Container(
       height: height,
@@ -1908,6 +2185,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                     fileSize: version.size,
                     versionNumber: version.versionNumber,
                     height: height ?? 480,
+                    controller: controller,
                   )
                 : _buildNoRevisionPlaceholder(
                     title: isCurrent ? 'No Drawing Uploaded' : 'Initial State (Rev 1)',
@@ -1954,7 +2232,7 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     );
   }
 
-  Widget _buildOverlayViewer(DrawingVersion? current, DrawingVersion? previous) {
+  Widget _buildOverlayViewer(DrawingVersion? current, DrawingVersion? previous, {bool isFullscreen = false}) {
     if (current == null && previous == null) {
       return _buildNoRevisionPlaceholder(
         title: 'No Drawing Uploaded',
@@ -1991,7 +2269,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
               fileName: previous.originalName ?? previous.sanitizedName ?? 'drawing_v${previous.versionNumber}.dwg',
               fileSize: previous.size,
               versionNumber: previous.versionNumber,
-              height: 480,
+              height: isFullscreen ? double.infinity : 480,
+              controller: _transformationController,
             ),
           ),
         ),
@@ -2005,7 +2284,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
               fileName: current.originalName ?? current.sanitizedName ?? 'drawing_v${current.versionNumber}.dwg',
               fileSize: current.size,
               versionNumber: current.versionNumber,
-              height: 480,
+              height: isFullscreen ? double.infinity : 480,
+              controller: _transformationController,
             ),
           ),
         ),
@@ -2040,15 +2320,205 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
     );
   }
 
+  Widget _buildFullscreenControlButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFF0B192C),
+      borderRadius: BorderRadius.circular(6),
+      elevation: 2,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: onTap,
+          child: Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3)),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, color: const Color(0xFF00E5FF), size: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openFullscreenComparison(BuildContext context, AsyncValue<List<DrawingVersion>> versionsAsync) {
+    showDialog(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: const Color(0xFF07111E),
+        child: StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return Scaffold(
+              backgroundColor: const Color(0xFF07111E),
+              appBar: AppBar(
+                backgroundColor: const Color(0xFF0B192C),
+                elevation: 2,
+                leading: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  tooltip: 'Close fullscreen comparison',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+                title: Row(
+                  children: [
+                    const Icon(Icons.compare_arrows_rounded, color: Color(0xFF00E5FF), size: 22),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Comparison Workspace',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 16),
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF07111E),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF00E5FF).withValues(alpha: 0.3), width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ToolbarSegment(
+                            label: 'Split View',
+                            isSelected: !_isOverlayMode && !_isCadMode,
+                            onTap: () {
+                              setState(() {
+                                _isOverlayMode = false;
+                                _isCadMode = false;
+                              });
+                              setDialogState(() {});
+                            },
+                          ),
+                          _ToolbarSegment(
+                            label: 'Overlay',
+                            isSelected: _isOverlayMode && !_isCadMode,
+                            onTap: () {
+                              setState(() {
+                                _isOverlayMode = true;
+                                _isCadMode = false;
+                              });
+                              setDialogState(() {});
+                            },
+                          ),
+                          _ToolbarSegment(
+                            label: 'CAD View',
+                            isSelected: _isCadMode,
+                            onTap: () {
+                              setState(() {
+                                _isCadMode = true;
+                              });
+                              setDialogState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.zoom_in_rounded, color: Color(0xFF00E5FF)),
+                    tooltip: 'Zoom In',
+                    onPressed: () {
+                      _zoomIn();
+                      setDialogState(() {});
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.zoom_out_rounded, color: Color(0xFF00E5FF)),
+                    tooltip: 'Zoom Out',
+                    onPressed: () {
+                      _zoomOut();
+                      setDialogState(() {});
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.fit_screen_rounded, color: Colors.white),
+                    tooltip: 'Fit to Screen',
+                    onPressed: () {
+                      _fitScreen();
+                      setDialogState(() {});
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: _buildComparisonContent(versionsAsync, isFullscreen: true),
+                  ),
+                  Positioned(
+                    bottom: 24,
+                    right: 24,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildFullscreenControlButton(
+                          icon: Icons.add_rounded,
+                          tooltip: 'Zoom In',
+                          onTap: () {
+                            _zoomIn();
+                            setDialogState(() {});
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFullscreenControlButton(
+                          icon: Icons.remove_rounded,
+                          tooltip: 'Zoom Out',
+                          onTap: () {
+                            _zoomOut();
+                            setDialogState(() {});
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFullscreenControlButton(
+                          icon: Icons.fit_screen_rounded,
+                          tooltip: 'Fit to View',
+                          onTap: () {
+                            _fitScreen();
+                            setDialogState(() {});
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _buildFullscreenControlButton(
+                          icon: Icons.fullscreen_exit_rounded,
+                          tooltip: 'Exit Fullscreen',
+                          onTap: () => Navigator.of(dialogContext).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildSideControls(
     AsyncValue<List<DrawingVersion>> versionsAsync,
     AsyncValue<List<ProjectFile>> filesAsync,
     AsyncValue<List<Correction>> correctionsAsync,
   ) {
-    final project = widget.project;
-    final assignment = widget.assignment;
-    final status = project.projectStatus ?? ProjectStatus.draft;
-    final isUnderReview = status == ProjectStatus.underEngineerReview;
+    final liveProject = ref.watch(projectProvider(widget.projectId)).value ?? widget.project;
+    final liveAssignment = ref.watch(assignmentProvider(widget.assignmentId)).value ?? widget.assignment;
+    final project = liveProject;
+    final assignment = liveAssignment;
+    final status = liveProject.projectStatus ?? ProjectStatus.draft;
+    final isUnderAdminReview = status == ProjectStatus.underAdminReview;
+    final isUnderEngineerReview = status == ProjectStatus.underEngineerReview;
+    final isUnderReview = isUnderAdminReview || isUnderEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
 
     return Column(
@@ -2214,6 +2684,13 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
                       _StyledWorkspaceUploadButton(
                         projectId: widget.projectId,
                         category: 'draughtsman_version',
+                        assignmentId: widget.assignmentId,
+                        onUploadSuccess: () {
+                          ref.invalidate(projectProvider(widget.projectId));
+                          ref.invalidate(assignmentProvider(widget.assignmentId));
+                          ref.invalidate(draughtsmanAssignmentsProvider);
+                          ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
+                        },
                       ),
                   ],
                 ),
@@ -2224,8 +2701,8 @@ class _WorkspaceCanvasTabState extends ConsumerState<_WorkspaceCanvasTab> {
               // Primary Action: Submit for Review
               _SubmitWorkspaceButton(
                 projectId: widget.projectId,
-                project: widget.project,
-                assignment: widget.assignment,
+                project: liveProject,
+                assignment: liveAssignment,
               ),
             ],
           ),
@@ -2308,11 +2785,14 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final liveProject = ref.watch(projectProvider(projectId)).value ?? project;
+    final liveAssignment = ref.watch(assignmentProvider(assignment.id)).value ?? assignment;
     final filesAsync = ref.watch(projectFilesProvider(projectId));
     final isLoadingAction = ref.watch(draughtsmanActionsControllerProvider).isLoading;
-    final status = project.projectStatus ?? ProjectStatus.draft;
+    final status = liveProject.projectStatus ?? ProjectStatus.draft;
 
-    final isUnderReview = status == ProjectStatus.underEngineerReview;
+    final isUnderAdminReview = status == ProjectStatus.underAdminReview;
+    final isUnderEngineerReview = status == ProjectStatus.underEngineerReview;
     final isCompleted = status == ProjectStatus.completed;
 
     final hasCompletedDrawing = filesAsync.maybeWhen(
@@ -2334,21 +2814,39 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
       );
     }
 
-    if (isUnderReview) {
+    if (isUnderAdminReview) {
       return OutlinedButton.icon(
         onPressed: null,
-        icon: const Icon(Icons.pending_actions, size: 16),
-        label: const Text('Under Review (Locked)'),
+        icon: const Icon(Icons.hourglass_top, size: 16, color: Color(0xFFB45309)),
+        label: Text(
+          (liveAssignment.correctionRound != null && liveAssignment.correctionRound! > 0) || liveAssignment.isRevision
+              ? 'Resubmitted — Waiting for Studio Review'
+              : 'Waiting for Studio Review',
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFB45309),
+        ),
+      );
+    }
+
+    if (isUnderEngineerReview) {
+      return OutlinedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.verified_outlined, size: 16, color: Color(0xFF069669)),
+        label: const Text('Approved by Studio — Waiting for Engineer Review'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF069669),
+        ),
       );
     }
 
     return FilledButton.icon(
-      onPressed: hasCompletedDrawing ? () => _showSubmitDialog(context, ref) : null,
+      onPressed: hasCompletedDrawing ? () => _showSubmitDialog(context, ref, liveProject) : null,
       icon: const Icon(Icons.send_rounded, size: 16),
       label: Text(
-        assignment.correctionRound != null && assignment.correctionRound! > 0
-            ? 'Resubmit Corrected Draft'
-            : 'Submit for Review',
+        (liveAssignment.correctionRound != null && liveAssignment.correctionRound! > 0) || liveAssignment.isRevision
+            ? 'Submit Corrected Drawing'
+            : 'Submit for Studio Review',
       ),
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.primaryContainer,
@@ -2358,12 +2856,23 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
     );
   }
 
-  void _showSubmitDialog(BuildContext context, WidgetRef ref) {
+  void _showSubmitDialog(BuildContext context, WidgetRef ref, Project currentProject) {
+    final status = currentProject.projectStatus ?? ProjectStatus.draft;
+    if (status == ProjectStatus.underAdminReview || status == ProjectStatus.underEngineerReview) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Drawing has already been submitted for Studio Admin review.'),
+          backgroundColor: AppColors.secondary,
+        ),
+      );
+      return;
+    }
+
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Submit Drawing for Review'),
-        content: Text('Submit "${project.projectName}" for client & lead architect review?'),
+        title: const Text('Submit Drawing for Studio Review'),
+        content: Text('Submit "${currentProject.projectName}" for Studio Admin quality review? Once approved, it will be released to the client.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Submit')),
@@ -2373,6 +2882,18 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
       if (confirmed != true) return;
       if (!context.mounted) return;
 
+      final latestProject = ref.read(projectProvider(projectId)).value ?? currentProject;
+      if (latestProject.projectStatus == ProjectStatus.underAdminReview ||
+          latestProject.projectStatus == ProjectStatus.underEngineerReview) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Drawing has already been submitted for Studio Admin review.'),
+            backgroundColor: AppColors.secondary,
+          ),
+        );
+        return;
+      }
+
       final success = await ref
           .read(draughtsmanActionsControllerProvider.notifier)
           .submitDrawing(projectId: projectId);
@@ -2381,7 +2902,7 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Drawing submitted successfully for Review!')),
+          const SnackBar(content: Text('Drawing submitted successfully for Studio Admin review!')),
         );
         ref.invalidate(projectProvider(projectId));
         ref.invalidate(draughtsmanAssignmentsProvider);
@@ -2398,10 +2919,14 @@ class _SubmitWorkspaceButton extends ConsumerWidget {
 class _StyledWorkspaceUploadButton extends ConsumerWidget {
   final String projectId;
   final String category;
+  final String? assignmentId;
+  final VoidCallback? onUploadSuccess;
 
   const _StyledWorkspaceUploadButton({
     required this.projectId,
     required this.category,
+    this.assignmentId,
+    this.onUploadSuccess,
   });
 
   @override
@@ -2409,6 +2934,8 @@ class _StyledWorkspaceUploadButton extends ConsumerWidget {
     return FileUploadButton(
       projectId: projectId,
       category: category,
+      assignmentId: assignmentId,
+      onUploadSuccess: onUploadSuccess,
     );
   }
 }
@@ -2533,14 +3060,49 @@ class _VersionLogItem extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'v${version.versionNumber}.0 ${isCurrent ? '(Current)' : ''}',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 12,
-                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                    color: isCurrent ? AppColors.primary : AppColors.onSurfaceVariant,
-                  ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      'v${version.versionNumber}.0 ${isCurrent ? '(Current)' : ''}',
+                      style: TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 12,
+                        fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                        color: isCurrent ? AppColors.primary : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    if (version.approvalStatus != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: version.isApproved
+                              ? const Color(0xFFE8F5E9)
+                              : version.isRejected
+                                  ? AppColors.errorContainer
+                                  : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          version.isApproved
+                              ? 'APPROVED'
+                              : version.isRejected
+                                  ? 'REVISION'
+                                  : 'PENDING QC',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: version.isApproved
+                                ? AppColors.success
+                                : version.isRejected
+                                    ? AppColors.error
+                                    : const Color(0xFFB45309),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 Text(
                   DateFormat('MMM d, HH:mm').format(version.createdAt ?? DateTime.now()),
@@ -2550,6 +3112,21 @@ class _VersionLogItem extends ConsumerWidget {
                     color: AppColors.outline,
                   ),
                 ),
+                if (version.reviewFeedback != null && version.reviewFeedback!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      'Feedback: "${version.reviewFeedback}"',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.error,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
               ],
             ),
           ),

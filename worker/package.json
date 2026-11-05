@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/backend_authorization.test.mjs test/cross_user_isolation_f1.test.mjs test/admin_student_contract.test.mjs test/legal_privacy_authorization.test.mjs test/phase_b_security_remediation.test.mjs test/phase_c_remediation.test.mjs test/phase_d_remediation.test.mjs test/phase_d10_staging_legal_gate.test.mjs test/teaching_students_curriculum.test.mjs test/student_lesson_certificates.test.mjs",
+    "test": "node --test test/backend_authorization.test.mjs test/cross_user_isolation_f1.test.mjs test/admin_student_contract.test.mjs test/legal_privacy_authorization.test.mjs test/phase_b_security_remediation.test.mjs test/phase_c_remediation.test.mjs test/phase_d_remediation.test.mjs test/phase_d10_staging_legal_gate.test.mjs test/teaching_students_curriculum.test.mjs test/student_lesson_certificates.test.mjs test/admin_drawing_approval.test.mjs test/master_qol_live_notifications.test.mjs test/engineer_activity_isolation.test.mjs test/draughtsman_unlimited_capacity.test.mjs test/unlimited_correction_rounds.test.mjs",
     "preflight:staging": "node scripts/preflight_guard.mjs --env staging",
     "preflight:prod": "node scripts/preflight_guard.mjs --env production",
     "dev": "wrangler dev",

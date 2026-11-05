@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
@@ -184,6 +186,100 @@ describe('Phase FINAL — Admin Dashboard Metrics & Collaboration Regression Tes
       assert.strictEqual(nested.client_name, 'Engineer Charlie');
       assert.strictEqual(nested.draughtsman_name, 'Draughtsman David');
       assert.strictEqual(nested.draughtsman_id, 'd-2');
+    });
+  });
+
+  describe('Simplified Project Pipeline Overview — 5 Business Groups & Reconciliation', () => {
+    function computeGroupedPipeline(byStatus: Record<string, number>) {
+      const draftCount = byStatus['DRAFT'] || 0;
+      const submittedCount = byStatus['SUBMITTED'] || 0;
+      const waitingAssignmentCount = byStatus['WAITING_ASSIGNMENT'] || 0;
+      const waitingAcceptanceCount = byStatus['WAITING_ACCEPTANCE'] || 0;
+      const inProgressCount = byStatus['IN_PROGRESS'] || 0;
+      const adminReviewCount = byStatus['UNDER_ADMIN_REVIEW'] || 0;
+      const engineerReviewCount =
+        (byStatus['UNDER_CLIENT_REVIEW'] || 0) + (byStatus['UNDER_ENGINEER_REVIEW'] || 0);
+      const completedCount = byStatus['COMPLETED'] || 0;
+      const cancelledCount = byStatus['CANCELLED'] || 0;
+
+      const setupGroupCount = draftCount + submittedCount + waitingAssignmentCount;
+      const inProductionGroupCount = inProgressCount;
+      const reviewGroupCount = waitingAcceptanceCount + adminReviewCount + engineerReviewCount;
+      const completedGroupCount = completedCount;
+      const cancelledGroupCount = cancelledCount;
+
+      const totalReconciled =
+        setupGroupCount + inProductionGroupCount + reviewGroupCount + completedGroupCount + cancelledGroupCount;
+
+      return {
+        setup: setupGroupCount,
+        inProduction: inProductionGroupCount,
+        review: reviewGroupCount,
+        completed: completedGroupCount,
+        cancelled: cancelledGroupCount,
+        totalReconciled,
+      };
+    }
+
+    it('Correctly groups raw statuses into 5 business-friendly categories without double-counting', () => {
+      const liveD1StatusMap = {
+        DRAFT: 4,
+        SUBMITTED: 0,
+        WAITING_ASSIGNMENT: 6,
+        WAITING_ACCEPTANCE: 2,
+        IN_PROGRESS: 0,
+        UNDER_ADMIN_REVIEW: 0,
+        UNDER_CLIENT_REVIEW: 0,
+        COMPLETED: 13,
+        CANCELLED: 1,
+      };
+
+      const groups = computeGroupedPipeline(liveD1StatusMap);
+      assert.strictEqual(groups.setup, 10, 'Setup must group DRAFT (4) + SUBMITTED (0) + WAITING_ASSIGNMENT (6)');
+      assert.strictEqual(groups.inProduction, 0, 'In Production must be IN_PROGRESS (0)');
+      assert.strictEqual(groups.review, 2, 'Review must group WAITING_ACCEPTANCE (2) + UNDER_ADMIN_REVIEW (0) + UNDER_CLIENT_REVIEW (0)');
+      assert.strictEqual(groups.completed, 13, 'Completed must be COMPLETED (13)');
+      assert.strictEqual(groups.cancelled, 1, 'Cancelled must be CANCELLED (1)');
+      assert.strictEqual(groups.totalReconciled, 26, 'Total must reconcile precisely to 26 projects');
+    });
+
+    it('Reconciles when studio has active production, studio QC, and engineer reviews', () => {
+      const activeStudioMap = {
+        DRAFT: 2,
+        SUBMITTED: 3,
+        WAITING_ASSIGNMENT: 1,
+        WAITING_ACCEPTANCE: 2,
+        IN_PROGRESS: 5,
+        UNDER_ADMIN_REVIEW: 4,
+        UNDER_CLIENT_REVIEW: 3,
+        UNDER_ENGINEER_REVIEW: 1,
+        COMPLETED: 20,
+        CANCELLED: 2,
+      };
+
+      const groups = computeGroupedPipeline(activeStudioMap);
+      assert.strictEqual(groups.setup, 6, '2 + 3 + 1 = 6');
+      assert.strictEqual(groups.inProduction, 5, '5 in progress');
+      assert.strictEqual(groups.review, 10, '2 + 4 + 3 + 1 = 10 in review');
+      assert.strictEqual(groups.completed, 20, '20 completed');
+      assert.strictEqual(groups.cancelled, 2, '2 cancelled');
+      assert.strictEqual(groups.totalReconciled, 43, '6 + 5 + 10 + 20 + 2 = 43');
+    });
+
+    it('Dashboard page source renders "Project Pipeline Overview" and references all 5 business groups', () => {
+      const dashboardPath = fs.existsSync(path.resolve(process.cwd(), 'src/app/dashboard/page.tsx'))
+        ? path.resolve(process.cwd(), 'src/app/dashboard/page.tsx')
+        : path.resolve(process.cwd(), 'apps/admin-web/src/app/dashboard/page.tsx');
+      const pageCode = fs.readFileSync(dashboardPath, 'utf8');
+
+      assert.ok(pageCode.includes('Project Pipeline Overview'), 'Must have Project Pipeline Overview title');
+      assert.ok(pageCode.includes('1. Setup'), 'Must display Setup group');
+      assert.ok(pageCode.includes('2. In Production'), 'Must display In Production group');
+      assert.ok(pageCode.includes('3. Review'), 'Must display Review group');
+      assert.ok(pageCode.includes('4. Completed'), 'Must display Completed group');
+      assert.ok(pageCode.includes('5. Cancelled'), 'Must display Cancelled group');
+      assert.ok(pageCode.includes('Manage Projects'), 'Must offer navigation to Manage Projects');
+      assert.strictEqual(pageCode.includes('Ecosystem State Machine Distribution'), false, 'Must replace legacy title');
     });
   });
 });

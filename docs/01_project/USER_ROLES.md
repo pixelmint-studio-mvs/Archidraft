@@ -27,7 +27,7 @@ The Client is the project owner.
 - Upload client reference files
 - View own project progress
 - Review submitted drawings
-- Request corrections (Max 3 rounds)
+- Request corrections (unlimited rounds until satisfaction)
 - Approve final drawings
 - Cancel eligible projects (in `DRAFT` or `SUBMITTED` state)
 - View activity logs and project messages for own projects

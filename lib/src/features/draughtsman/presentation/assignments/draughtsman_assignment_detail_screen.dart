@@ -127,13 +127,7 @@ class _DraughtsmanAssignmentDetailScreenState
         ? const AsyncValue<List<ActivityLog>>.data([])
         : ref.watch(projectActivityLogsProvider(assignment.projectId));
 
-    final projectStatusValue = assignment.projectStatus;
-    final projectStatus = projectStatusValue != null
-        ? ProjectStatus.values.firstWhere(
-            (e) => e.name.toUpperCase() == projectStatusValue.toUpperCase(),
-            orElse: () => ProjectStatus.draft,
-          )
-        : null;
+    final projectStatus = ProjectStatus.fromString(assignment.projectStatus);
 
     final prjCode = assignment.id.length > 12
         ? 'PRJ-${assignment.id.substring(0, 8).toUpperCase()}'
@@ -534,8 +528,12 @@ class _DraughtsmanAssignmentDetailScreenState
     Color fg;
 
     final rawStatus = assignment.projectStatus ?? 'PENDING';
-    if (rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
-      text = 'STATUS: REVIEW';
+    if (rawStatus == 'UNDER_ADMIN_REVIEW') {
+      text = 'STATUS: STUDIO QC REVIEW';
+      bg = const Color(0xFFFEF3C7);
+      fg = const Color(0xFFB45309);
+    } else if (rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
+      text = 'STATUS: CLIENT REVIEW';
       bg = const Color(0xFF85F8C4);
       fg = const Color(0xFF069669);
     } else if (rawStatus == 'IN_PROGRESS') {

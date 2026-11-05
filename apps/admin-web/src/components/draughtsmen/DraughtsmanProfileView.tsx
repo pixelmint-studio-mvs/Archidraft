@@ -153,7 +153,7 @@ export function DraughtsmanProfileView({
           <span className="font-semibold text-slate-700 flex items-center gap-1.5">
             <Activity className="h-4 w-4 text-[#0453cd]" /> Workload Capacity
           </span>
-          <span className="font-mono font-bold text-slate-900">{activeCount} of 4 Max Active Drawings</span>
+          <span className="font-mono font-bold text-slate-900">{activeCount} Active Drawing{activeCount === 1 ? '' : 's'} (Multi-Project Allocation)</span>
         </div>
         <div className="w-full h-2.5 rounded-full overflow-hidden bg-slate-100">
           <div
@@ -172,7 +172,7 @@ export function DraughtsmanProfileView({
             ? 'Optimal availability for high-priority architectural drafting allocation.'
             : workloadCapacity < 100
             ? 'Moderate workload. Can take 1-2 standard drafting scopes.'
-            : 'Capacity limit reached. Avoid additional assignment dispatch.'}
+            : 'Active on multiple projects. Multi-project allocation enabled.'}
         </p>
       </div>
 

@@ -18,5 +18,5 @@ Architectural drafting involves large files (CAD, DWG, PDF), multiple correction
 2. **Review & Assignment:** The Admin reviews submitted projects for feasibility and assigns them to an available Draughtsman.
 3. **Execution:** The Draughtsman accepts the assignment and completes the drawing work iteratively.
 4. **Review & Corrections:** The Client reviews the uploaded drawing. If changes are needed, the Client can request corrections.
-5. **Correction Limits:** To prevent scope creep, projects have a strict maximum of **3 correction rounds**.
+5. **Iterative Corrections:** Projects support auditable revision rounds that increment with each Engineer/Client request until full satisfaction and final approval, alongside an independent Studio QC review gate.
 6. **Completion:** Once approved by the Client, the project is officially marked as COMPLETED.

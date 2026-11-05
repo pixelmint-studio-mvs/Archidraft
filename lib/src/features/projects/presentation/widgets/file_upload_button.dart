@@ -6,16 +6,22 @@ import 'package:uuid/uuid.dart';
 
 import '../../data/file_repository.dart';
 import '../../providers/file_providers.dart';
+import '../../providers/project_providers.dart';
+import '../../providers/assignment_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class FileUploadButton extends ConsumerStatefulWidget {
   final String projectId;
   final String category;
+  final String? assignmentId;
+  final VoidCallback? onUploadSuccess;
 
   const FileUploadButton({
     super.key,
     required this.projectId,
     required this.category,
+    this.assignmentId,
+    this.onUploadSuccess,
   });
 
   @override
@@ -31,31 +37,42 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
   final Map<String, String> _actionIdCache = {};
 
   Future<void> _pickAndUpload() async {
+    if (_isUploading) return;
+    setState(() {
+      _isUploading = true;
+    });
+
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'dwg', 'dxf', 'png', 'jpg', 'jpeg', 'zip'],
     );
 
-    if (result.isEmpty) return;
+    if (result.isEmpty) {
+      if (mounted) setState(() => _isUploading = false);
+      return;
+    }
 
     final file = result.first;
 
     final fileSize = file.lengthSync() ?? 0;
     if (fileSize > 50 * 1024 * 1024) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('File must be less than 50MB.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('File must be less than 50MB.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
       return;
     }
 
-    setState(() {
-      _isUploading = true;
-      _fileSize = fileSize;
-    });
+    if (mounted) {
+      setState(() {
+        _fileSize = fileSize;
+      });
+    }
 
     try {
       final repository = ref.read(fileRepositoryProvider);
@@ -90,7 +107,11 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('File uploaded successfully.'),
+            content: Text(
+              widget.category == 'draughtsman_version'
+                  ? 'Drawing uploaded and submitted for Studio Admin review.'
+                  : 'File uploaded successfully.',
+            ),
             backgroundColor: AppColors.secondary,
           ),
         );
@@ -99,8 +120,15 @@ class _FileUploadButtonState extends ConsumerState<FileUploadButton> {
       // Remove from cache on success so a future identical upload gets a new ID
       _actionIdCache.remove(cacheKey);
 
-      // Refresh the list of files
+      // Refresh all related providers immediately so UI transitions to WAITING FOR STUDIO REVIEW
       ref.invalidate(projectFilesProvider(widget.projectId));
+      ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
+      ref.invalidate(projectProvider(widget.projectId));
+      ref.invalidate(draughtsmanAssignmentsProvider);
+      if (widget.assignmentId != null && widget.assignmentId!.isNotEmpty) {
+        ref.invalidate(assignmentProvider(widget.assignmentId!));
+      }
+      widget.onUploadSuccess?.call();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -103,6 +103,7 @@ class CadDrawingViewer extends ConsumerStatefulWidget {
   final int versionNumber;
   final VoidCallback? onDownload;
   final double height;
+  final TransformationController? controller;
 
   const CadDrawingViewer({
     super.key,
@@ -112,6 +113,7 @@ class CadDrawingViewer extends ConsumerStatefulWidget {
     this.versionNumber = 1,
     this.onDownload,
     this.height = 440,
+    this.controller,
   });
 
   static void clearCache() => _CadDrawingViewerState.clearCache();
@@ -139,7 +141,10 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   bool _isPdf = false;
   String _formatBadge = '';
   String _formatDetails = '';
-  final TransformationController _transController = TransformationController();
+  TransformationController? _internalController;
+  TransformationController get _transController =>
+      widget.controller ?? (_internalController ??= TransformationController());
+  Size _lastKnownSize = const Size(600, 440);
 
   @override
   void initState() {
@@ -151,13 +156,14 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   void didUpdateWidget(covariant CadDrawingViewer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.fileId != widget.fileId) {
+      _transController.value = Matrix4.identity();
       _loadDrawing();
     }
   }
 
   @override
   void dispose() {
-    _transController.dispose();
+    _internalController?.dispose();
     super.dispose();
   }
 
@@ -305,17 +311,31 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
   }
 
   void _zoomAroundCenter(double factor) {
-    final matrix = _transController.value.clone();
-    final scaleMatrix = Matrix4.diagonal3Values(factor, factor, 1.0);
+    final currentMatrix = _transController.value;
+    final currentScale = currentMatrix.storage[0].abs() > 0.0001
+        ? currentMatrix.storage[0].abs()
+        : currentMatrix.getMaxScaleOnAxis();
+    final targetScale = (currentScale * factor).clamp(0.1, 25.0);
+    final actualFactor = targetScale / currentScale;
+    if ((actualFactor - 1.0).abs() < 0.001) return;
+
+    final cx = _lastKnownSize.width / 2.0;
+    final cy = _lastKnownSize.height / 2.0;
+
+    final translationToCenter = Matrix4.translationValues(cx, cy, 0);
+    final scaleMatrix = Matrix4.diagonal3Values(actualFactor, actualFactor, 1.0);
+    final translationBack = Matrix4.translationValues(-cx, -cy, 0);
+
     setState(() {
-      _transController.value = matrix * scaleMatrix;
+      _transController.value = translationToCenter * scaleMatrix * translationBack * currentMatrix;
     });
   }
 
   void _openFullscreen(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => Dialog.fullscreen(
+      useRootNavigator: true,
+      builder: (dialogContext) => Dialog.fullscreen(
         backgroundColor: const Color(0xFF07111E),
         child: Scaffold(
           backgroundColor: const Color(0xFF07111E),
@@ -325,7 +345,7 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
             leading: IconButton(
               icon: const Icon(Icons.close_rounded, color: Colors.white),
               tooltip: 'Close fullscreen',
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             title: Row(
               children: [
@@ -354,6 +374,16 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
             ),
             actions: [
               IconButton(
+                icon: const Icon(Icons.add_rounded, color: Color(0xFF00E5FF)),
+                tooltip: 'Zoom In',
+                onPressed: _zoomIn,
+              ),
+              IconButton(
+                icon: const Icon(Icons.remove_rounded, color: Color(0xFF00E5FF)),
+                tooltip: 'Zoom Out',
+                onPressed: _zoomOut,
+              ),
+              IconButton(
                 icon: const Icon(Icons.fit_screen_rounded, color: Colors.white),
                 tooltip: 'Fit to drawing',
                 onPressed: _resetZoom,
@@ -367,7 +397,46 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
               ),
             ],
           ),
-          body: _buildViewerContent(context),
+          body: LayoutBuilder(
+            builder: (ctx, constraints) {
+              if (constraints.maxWidth.isFinite && constraints.maxHeight.isFinite && constraints.maxWidth > 0 && constraints.maxHeight > 0) {
+                _lastKnownSize = Size(constraints.maxWidth, constraints.maxHeight);
+              }
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _CadGridPainter(),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: _buildViewerContent(dialogContext),
+                  ),
+                  // Floating controls in fullscreen mode
+                  Positioned(
+                    bottom: 24,
+                    right: 24,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildControlButton(icon: Icons.add_rounded, tooltip: 'Zoom In', onTap: _zoomIn),
+                        const SizedBox(width: 8),
+                        _buildControlButton(icon: Icons.remove_rounded, tooltip: 'Zoom Out', onTap: _zoomOut),
+                        const SizedBox(width: 8),
+                        _buildControlButton(icon: Icons.fit_screen_rounded, tooltip: 'Fit to View', onTap: _resetZoom),
+                        const SizedBox(width: 8),
+                        _buildControlButton(
+                          icon: Icons.fullscreen_exit_rounded,
+                          tooltip: 'Exit Fullscreen',
+                          onTap: () => Navigator.of(dialogContext).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -375,7 +444,14 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth.isFinite && constraints.maxHeight.isFinite && constraints.maxWidth > 0 && constraints.maxHeight > 0) {
+          _lastKnownSize = Size(constraints.maxWidth, constraints.maxHeight);
+        } else if (constraints.maxWidth.isFinite && constraints.maxWidth > 0) {
+          _lastKnownSize = Size(constraints.maxWidth, widget.height);
+        }
+        return Container(
       height: widget.height,
       width: double.infinity,
       decoration: BoxDecoration(
@@ -473,8 +549,9 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
 
           // Bottom Floating Details & Controls
           if (!_isLoading && _error == null) ...[
-            // Format details badge
-            Positioned(
+            // Format details badge (hidden on narrow screens < 280px to prevent control overlap)
+            if (constraints.maxWidth > 280)
+              Positioned(
               bottom: 12,
               left: 12,
               child: Container(
@@ -509,6 +586,8 @@ class _CadDrawingViewerState extends ConsumerState<CadDrawingViewer> {
           ],
         ],
       ),
+    );
+      },
     );
   }
 

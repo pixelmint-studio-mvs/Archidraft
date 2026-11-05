@@ -34,6 +34,14 @@ class NotificationRepository {
     await _apiClient.patch('/api/notifications/read-all');
   }
 
+  Future<void> clearNotification(String id) async {
+    try {
+      await _apiClient.delete('/api/notifications/$id');
+    } catch (_) {
+      await _apiClient.post('/api/notifications/$id/dismiss');
+    }
+  }
+
   Future<void> clearAll() async {
     try {
       await _apiClient.delete('/api/notifications');

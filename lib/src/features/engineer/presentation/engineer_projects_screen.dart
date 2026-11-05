@@ -39,6 +39,41 @@ class EngineerProjectsScreen extends ConsumerStatefulWidget {
 
 class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen> {
   _FilterOption _selectedFilter = _FilterOption.all;
+  bool _isRefreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      ref.invalidate(engineerProjectsProvider);
+      ref.invalidate(engineerDashboardStatsProvider);
+      await ref.read(engineerProjectsProvider.future);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Projects refreshed successfully'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to refresh projects: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,12 +99,7 @@ class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen>
           final filtered = _applyFilter(projects, _selectedFilter);
           return RefreshIndicator(
             color: AppColors.secondary,
-            onRefresh: () async {
-              ref.invalidate(engineerProjectsProvider);
-              try {
-                await ref.read(engineerProjectsProvider.future);
-              } catch (_) {}
-            },
+            onRefresh: _handleRefresh,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -179,9 +209,11 @@ class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen>
         AppSpacing.marginMobile,
         0,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        spacing: AppSpacing.md,
+        runSpacing: AppSpacing.sm,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,12 +249,45 @@ class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen>
               ),
             ],
           ),
-          // Stitch: small mono version label
-          Text(
-            'REV v4.2',
-            style: AppTypography.labelMonoSm.copyWith(
-              color: AppColors.outlineVariant,
-            ),
+          // Prominent Manual Refresh / Sync Action Button
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _isRefreshing ? null : _handleRefresh,
+                icon: _isRefreshing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 16),
+                label: Text(
+                  _isRefreshing ? 'Syncing...' : 'Sync Projects',
+                  style: AppTypography.buttonText.copyWith(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'REV v4.2',
+                style: AppTypography.labelMonoSm.copyWith(
+                  color: AppColors.outlineVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -664,7 +729,11 @@ class _StitchProjectCard extends StatelessWidget {
                           letterSpacing: 0.1 * 10,
                         ),
                       ),
-                      ProjectStatusChip(status: status),
+                      ProjectStatusChip(
+                        status: status,
+                        correctionRound: project.correctionRound,
+                        useHumanLabel: true,
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -743,6 +812,7 @@ class _StitchProjectCard extends StatelessWidget {
       case ProjectStatus.waitingAcceptance:
         return AppColors.secondary; // blue
       case ProjectStatus.underEngineerReview:
+      case ProjectStatus.underAdminReview:
         return const Color(0xFF38BDF8); // cyan
       case ProjectStatus.completed:
         return AppColors.success; // green
