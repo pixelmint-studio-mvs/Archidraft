@@ -36,6 +36,7 @@ export function getDisplayRole(role?: string): string {
 
 export interface User {
   id: string;
+  identification_number?: string;
   email: string;
   name: string;
   role: UserRole;
@@ -78,8 +79,10 @@ export interface Project {
   is_training_project?: number;
   training_module_id?: string;
   last_action_id?: string;
+  client_identification_number?: string;
   draughtsman_id?: string;
   draughtsman_name?: string;
+  draughtsman_identification_number?: string;
   rejection_reason?: string;
   current_assignment_id?: string;
   correction_round: number;
@@ -99,6 +102,7 @@ export interface Assignment {
   id: string;
   project_id: string;
   draughtsman_id: string;
+  draughtsman_identification_number?: string;
   status: AssignmentStatus;
   created_at: string;
   updated_at: string;
@@ -113,6 +117,7 @@ export interface GlobalAssignment extends Assignment {
   project_area?: string;
   client_id?: string;
   client_name?: string;
+  client_identification_number?: string;
 }
 
 // ── Engineer Project Status Item (Isolated status overview) ──
@@ -126,6 +131,7 @@ export interface EngineerProjectStatusItem {
   project_address?: string;
   project_status: ProjectStatus;
   engineer_id: string;
+  engineer_identification_number?: string;
   engineer_name: string;
   engineer_email: string;
   engineer_company?: string;
@@ -254,6 +260,7 @@ export interface AdminStats {
     registeredEngineers?: number;
   };
   recentActivity: ActivityLog[];
+  pendingRegistrations?: number;
 }
 
 export interface AdminDashboardMetrics {
@@ -314,6 +321,7 @@ export interface StudentSubmission {
   training_module_id: string | null;
   rejection_reason: string | null;
   student_id: string;
+  student_identification_number?: string | null;
   student_name: string | null;
   student_email: string | null;
   module_title: string | null;
@@ -422,6 +430,7 @@ export interface StudentLearningPlan {
 
 export interface StudentProgressSummary {
   student_id: string;
+  identification_number?: string;
   student_name: string;
   student_email: string;
   student_status: string;
@@ -549,4 +558,155 @@ export interface StudentProgressDetail {
   };
 }
 
+// ============================================================================
+// HELP DESK & INCIDENT MANAGEMENT SYSTEM TYPES
+// ============================================================================
 
+export type HelpdeskSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type HelpdeskStatus = 'OPEN' | 'INVESTIGATING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type HelpdeskSource = 'MAIN_APP' | 'ADMIN_PANEL' | 'BACKEND' | 'EXTERNAL_SERVICE' | 'USER_SUBMITTED';
+
+export interface HelpdeskTicket {
+  id: string;
+  fingerprint?: string;
+  title: string;
+  category: string;
+  severity: HelpdeskSeverity;
+  status: HelpdeskStatus;
+  source: HelpdeskSource;
+  affected_module: string;
+  error_message: string;
+  error_code?: string | null;
+  stack_trace?: string | null;
+  environment: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  browser?: string | null;
+  device?: string | null;
+  page_route?: string | null;
+  request_id?: string | null;
+  occurrence_count: number;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
+  resolution_notes?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+  screenshot_url?: string | null;
+  is_user_submitted: number;
+  created_at: string;
+  updated_at: string;
+  last_occurred_at: string;
+}
+
+export interface HelpdeskEvent {
+  id: string;
+  ticket_id: string;
+  event_type: string;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  actor_role?: string | null;
+  details?: string | null;
+  metadata?: string | null;
+  created_at: string;
+  ticket_title?: string;
+  ticket_severity?: string;
+}
+
+export interface HelpdeskComment {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  author_name: string;
+  author_role: string;
+  comment: string;
+  is_internal: number;
+  created_at: string;
+}
+
+export interface HelpdeskEmailLog {
+  id: string;
+  ticket_id?: string | null;
+  recipient: string;
+  subject: string;
+  severity: string;
+  status: 'PENDING' | 'SENT' | 'FAILED' | 'SUPPRESSED_DUPLICATE';
+  provider?: string | null;
+  error_message?: string | null;
+  response_body?: string | null;
+  retry_count: number;
+  sent_at?: string | null;
+  created_at: string;
+}
+
+export interface HelpdeskStats {
+  totalReports: number;
+  openTickets: number;
+  criticalIssues: number;
+  highPriority: number;
+  inProgress: number;
+  awaitingResponse: number;
+  resolvedTickets: number;
+  avgResolutionTimeMinutes: number;
+  categoryDistribution: Record<string, number>;
+  severityDistribution: Record<string, number>;
+  recentEvents: HelpdeskEvent[];
+  emailDeliveryStats: Record<string, number>;
+}
+
+export interface HelpdeskHealthReport {
+  status: 'OPERATIONAL' | 'DEGRADED' | 'DOWN';
+  timestamp: string;
+  checks: Record<string, { status: string; latencyMs: number; details?: string }>;
+}
+
+export interface HelpdeskSettings {
+  notification_email: string;
+  alert_critical_enabled: boolean;
+  alert_high_enabled: boolean;
+  alert_medium_enabled: boolean;
+  alert_low_digest_enabled: boolean;
+  suppression_window_minutes: number;
+  incident_retention_days: number;
+  monitoring_enabled: boolean;
+  email_provider: string;
+  resend_api_key?: string;
+  sendgrid_api_key?: string;
+  email_from_address?: string;
+  email_configured?: boolean;
+  email_provider_active?: string;
+}
+
+
+
+
+// ── Registration Verifications ────────────────────────────────────────────────
+export type RegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface RegistrationVerification {
+  id: string;
+  user_id: string;
+  identification_number?: string;
+  name: string;
+  email: string;
+  role: 'ENGINEER' | 'CLIENT' | 'DRAUGHTSMAN' | 'STUDENT' | string;
+  mobile?: string | null;
+  document_type: string;
+  file_id: string;
+  file_name: string;
+  file_size: number;
+  content_type: string;
+  object_key?: string | null;
+  status: RegistrationStatus;
+  reviewed_by?: string | null;
+  reviewer_name?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
+  submitted_at: string;
+  created_at: string;
+  updated_at?: string;
+  company_name?: string | null;
+  college_name?: string | null;
+  qualification?: string | null;
+  date_of_birth?: string | null;
+  address?: string | null;
+}

@@ -52,6 +52,9 @@ class AuthController extends Notifier<AsyncValue<void>> {
     required String name,
     required String mobile,
     required String role,
+    List<int>? proofBytes,
+    String? proofFileName,
+    String? proofDocumentType,
   }) async {
     state = const AsyncLoading();
     try {
@@ -61,8 +64,12 @@ class AuthController extends Notifier<AsyncValue<void>> {
         name: name,
         mobile: mobile,
         role: role,
+        proofBytes: proofBytes,
+        proofFileName: proofFileName,
+        proofDocumentType: proofDocumentType,
       );
       ref.invalidate(userProfileProvider);
+      ref.invalidate(registrationStatusProvider);
       ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
       return true;
@@ -83,6 +90,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
         password: password,
       );
       ref.invalidate(userProfileProvider);
+      ref.invalidate(registrationStatusProvider);
       ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
       return true;
@@ -98,6 +106,7 @@ class AuthController extends Notifier<AsyncValue<void>> {
       ref.read(preLoginTermsProvider.notifier).reset();
       await ref.read(authRepositoryProvider).signOut();
       ref.invalidate(userProfileProvider);
+      ref.invalidate(registrationStatusProvider);
       ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
     } catch (e, st) {
@@ -153,6 +162,38 @@ class AuthController extends Notifier<AsyncValue<void>> {
         mobile: mobile,
         role: role,
       );
+      ref.invalidate(userProfileProvider);
+      ref.invalidate(registrationStatusProvider);
+      ref.invalidate(userLegalStatusProvider);
+      state = const AsyncData(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> provisionProfileWithProof({
+    required String name,
+    required String mobile,
+    required String role,
+    required List<int> proofBytes,
+    required String proofFileName,
+    String? proofDocumentType,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(authRepositoryProvider).provisionProfileWithProof(
+        name: name,
+        mobile: mobile,
+        role: role,
+        proofBytes: proofBytes,
+        proofFileName: proofFileName,
+        proofDocumentType: proofDocumentType,
+      );
+      ref.invalidate(userProfileProvider);
+      ref.invalidate(registrationStatusProvider);
+      ref.invalidate(userLegalStatusProvider);
       state = const AsyncData(null);
       return true;
     } catch (e, st) {
@@ -173,4 +214,17 @@ final userProfileProvider = FutureProvider<UserProfile?>((ref) async {
 
   final repository = ref.watch(authRepositoryProvider);
   return repository.getUserProfile(user.uid);
+});
+
+// ──────────────────────────────────────────
+// REGISTRATION STATUS PROVIDER
+// ──────────────────────────────────────────
+
+final registrationStatusProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  final user = authState.value;
+  if (user == null) return null;
+
+  final repository = ref.watch(authRepositoryProvider);
+  return repository.getRegistrationStatus();
 });

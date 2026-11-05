@@ -93,9 +93,16 @@ export function DraughtsmanProfileView({
             {(draughtsman.name || 'D').charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-slate-900 truncate" title={draughtsman.name || 'Unnamed Draughtsman'}>
-              {draughtsman.name || 'Unnamed Draughtsman'}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              {draughtsman.identification_number && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-[#0453cd] text-white shadow-xs">
+                  {draughtsman.identification_number}
+                </span>
+              )}
+              <h2 className="text-lg font-bold text-slate-900 truncate" title={draughtsman.name || 'Unnamed Draughtsman'}>
+                {draughtsman.name || 'Unnamed Draughtsman'}
+              </h2>
+            </div>
             <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5" title={draughtsman.email}>
               <Mail className="h-3 w-3 text-slate-400 shrink-0" />
               <span className="truncate">{draughtsman.email}</span>
@@ -122,8 +129,14 @@ export function DraughtsmanProfileView({
               <PenTool className="h-4 w-4 shrink-0" />
               <span className="text-xs font-mono font-bold uppercase tracking-wider">DRAUGHTSMAN</span>
             </div>
+            {draughtsman.identification_number && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-700 whitespace-nowrap">
+                <span className="text-[10px] font-mono text-cyan-500 font-semibold">ID:</span>
+                <span className="text-xs font-mono font-bold">{draughtsman.identification_number}</span>
+              </div>
+            )}
             <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap" title={`Canonical UID: ${draughtsman.id}`}>
-              UID: {draughtsman.id ? `${draughtsman.id.substring(0, 10)}…` : '—'}
+              {draughtsman.identification_number ? `User ID: ${draughtsman.identification_number} • ` : ''}UID: {draughtsman.id ? `${draughtsman.id.substring(0, 10)}…` : '—'}
             </span>
           </div>
 

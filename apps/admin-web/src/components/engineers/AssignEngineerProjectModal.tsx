@@ -165,12 +165,13 @@ export function AssignEngineerProjectModal({
     return engineersList.filter((eng) => {
       if (!engineerSearch.trim()) return true;
       const q = engineerSearch.toLowerCase();
+      const idNum = (eng.identification_number || '').toLowerCase();
       const name = (eng.name || '').toLowerCase();
       const email = (eng.email || '').toLowerCase();
       const company = (eng.company_name || '').toLowerCase();
       const mobile = (eng.mobile || '').toLowerCase();
       const uid = (eng.id || '').toLowerCase();
-      return name.includes(q) || email.includes(q) || company.includes(q) || mobile.includes(q) || uid.includes(q);
+      return idNum.includes(q) || name.includes(q) || email.includes(q) || company.includes(q) || mobile.includes(q) || uid.includes(q);
     });
   }, [engineersList, engineerSearch]);
 
@@ -380,7 +381,7 @@ export function AssignEngineerProjectModal({
                     type="text"
                     value={engineerSearch}
                     onChange={(e) => setEngineerSearch(e.target.value)}
-                    placeholder="Search engineers by name, email, company, or UID..."
+                    placeholder="Search engineers by ID number, name, email, company, or UID..."
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0453cd] focus:border-[#0453cd]"
                   />
                 </div>
@@ -430,7 +431,12 @@ export function AssignEngineerProjectModal({
                             {(engineer.name || 'E').charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {engineer.identification_number && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-100/80 text-[#0453cd] font-bold border border-blue-200">
+                                  {engineer.identification_number}
+                                </span>
+                              )}
                               <p className="font-bold text-slate-900 text-xs truncate">{engineer.name || 'Unnamed Engineer'}</p>
                               <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-100/80 text-[#0453cd] font-semibold">
                                 ENGINEER
@@ -780,9 +786,16 @@ export function AssignEngineerProjectModal({
                       {(selectedEngineer.name || 'E').charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-slate-900 text-xs truncate">
-                        {selectedEngineer.name || 'Unnamed Engineer'}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {selectedEngineer.identification_number && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-100 text-[#0453cd] font-bold border border-blue-200">
+                            {selectedEngineer.identification_number}
+                          </span>
+                        )}
+                        <p className="font-bold text-slate-900 text-xs truncate">
+                          {selectedEngineer.name || 'Unnamed Engineer'}
+                        </p>
+                      </div>
                       <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">
                         {selectedEngineer.email}
                       </p>

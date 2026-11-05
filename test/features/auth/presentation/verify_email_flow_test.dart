@@ -6,7 +6,6 @@ import 'package:mockito/mockito.dart';
 
 import 'package:archi_draft/src/core/router/app_router.dart';
 import 'package:archi_draft/src/features/auth/domain/user_profile.dart';
-import 'package:archi_draft/src/features/auth/presentation/verify_email_screen.dart';
 import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
 import 'package:archi_draft/src/features/legal/domain/legal_document.dart';
 import 'package:archi_draft/src/features/legal/domain/user_legal_status.dart';
@@ -118,7 +117,7 @@ void main() {
   );
 
   group('Shared Authentication, Registration & Email Verification Flow Suite', () {
-    testWidgets('1. An unverified authenticated user is routed to /verify-email', (tester) async {
+    testWidgets('1. An approved user routes directly to workspace without requiring email verification', (tester) async {
       tester.view.physicalSize = const Size(1920, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -146,11 +145,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(router.state.matchedLocation, equals('/verify-email'));
-      expect(find.byType(VerifyEmailScreen), findsOneWidget);
+      expect(router.state.matchedLocation, equals('/engineer/projects'));
     });
 
-    testWidgets('2. An unverified user cannot bypass verification to protected screens', (tester) async {
+    testWidgets('2. An approved user can access protected workspace directly', (tester) async {
       tester.view.physicalSize = const Size(1920, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -178,23 +176,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Attempt to access engineer projects directly
       router.go('/engineer/projects');
       await tester.pumpAndSettle();
 
-      // Must be kept on /verify-email
-      expect(router.state.matchedLocation, equals('/verify-email'));
+      expect(router.state.matchedLocation, equals('/engineer/projects'));
     });
 
-    testWidgets('3. Refresh and session restoration while on /verify-email does not bounce to landing', (tester) async {
+    testWidgets('3. Legacy navigation to /verify-email redirects to default flow', (tester) async {
       tester.view.physicalSize = const Size(1920, 2400);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      // In Flutter Web during reload, authState may start as loading or temporary unauthenticated
       final container = ProviderContainer(
         overrides: [
-          // Simulate unauthenticated during initial token retrieval from IndexedDB
           authStateChangesProvider.overrideWithValue(const AsyncValue.data(null)),
           userProfileProvider.overrideWithValue(const AsyncValue.data(null)),
           userLegalStatusProvider.overrideWithValue(const AsyncValue.data(emptyLegalStatus)),
@@ -213,12 +207,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Navigate to /verify-email (as in browser reload of /#/verify-email)
       router.go('/verify-email');
       await tester.pumpAndSettle();
 
-      // Since /verify-email is in publicPaths, it does NOT get redirected to /landing
-      expect(router.state.matchedLocation, equals('/verify-email'));
+      expect(router.state.matchedLocation, equals('/landing'));
     });
 
     testWidgets('4. Engineer: Once email is verified and terms accepted, routes to /engineer/projects', (tester) async {

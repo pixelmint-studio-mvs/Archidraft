@@ -280,6 +280,7 @@ export default function UsersPage() {
         return (
           (u.name || '').toLowerCase().includes(q) ||
           (u.email || '').toLowerCase().includes(q) ||
+          (u.identification_number || '').toLowerCase().includes(q) ||
           (u.college_name || '').toLowerCase().includes(q) ||
           (u.company_name || '').toLowerCase().includes(q) ||
           (u.mobile || '').toLowerCase().includes(q)
@@ -398,108 +399,129 @@ export default function UsersPage() {
               </div>
             ) : (
               <>
-                <div className="divide-y divide-slate-100">
-                  {pageUsers.map((u) => {
-                    const initials = (u.name || 'U').charAt(0).toUpperCase();
-                    const profileHref =
-                      u.role === 'CLIENT' || (u.role as string) === 'ENGINEER'
-                        ? `/engineers/${encodeURIComponent(u.id)}`
-                        : u.role === 'DRAUGHTSMAN'
-                        ? `/draughtsmen/${encodeURIComponent(u.id)}`
-                        : u.role === 'STUDENT'
-                        ? `/students/${encodeURIComponent(u.id)}`
-                        : `/users`;
-                    return (
-                      <div key={u.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 hover:bg-slate-50/80 transition-colors"
-                      >
-                        {/* Avatar + Name */}
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 border"
-                            style={{
-                              background: `${activeTabMeta.color}15`,
-                              borderColor: `${activeTabMeta.color}30`,
-                              color: activeTabMeta.color,
-                            }}
-                          >
-                            {initials}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-sm text-slate-900 truncate">{u.name || 'Anonymous'}</p>
-                            <p className="text-[10px] font-mono text-slate-500 truncate">{u.email}</p>
-                          </div>
-                        </div>
+                <div className="overflow-x-auto w-full max-w-full">
+                  <table className="w-full text-left text-xs min-w-[700px]">
+                    <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
+                      <tr>
+                        <th className="px-4 py-3.5">ID Number</th>
+                        <th className="px-4 py-3.5">Name</th>
+                        <th className="px-4 py-3.5">Email</th>
+                        <th className="px-4 py-3.5">Role</th>
+                        <th className="px-4 py-3.5">Status</th>
+                        <th className="px-4 py-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {pageUsers.map((u) => {
+                        const initials = (u.name || 'U').charAt(0).toUpperCase();
+                        const profileHref =
+                          u.role === 'CLIENT' || (u.role as string) === 'ENGINEER'
+                            ? `/engineers/${encodeURIComponent(u.id)}`
+                            : u.role === 'DRAUGHTSMAN'
+                            ? `/draughtsmen/${encodeURIComponent(u.id)}`
+                            : u.role === 'STUDENT'
+                            ? `/students/${encodeURIComponent(u.id)}`
+                            : `/users`;
+                        return (
+                          <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                            {/* ID Number */}
+                            <td className="px-4 py-3.5 font-mono font-bold text-xs whitespace-nowrap">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {u.identification_number || 'Pending'}
+                              </span>
+                            </td>
 
-                        {/* Background */}
-                        <div className="hidden md:block flex-1 min-w-0 px-2 lg:px-4">
-                          {u.college_name && (
-                            <p className="text-xs text-slate-600 truncate flex items-center gap-1">
-                              <GraduationCap className="h-3.5 w-3.5 text-slate-400 shrink-0" /> {u.college_name}
-                            </p>
-                          )}
-                          {u.company_name && (
-                            <p className="text-xs text-slate-600 truncate flex items-center gap-1">
-                              <Building className="h-3.5 w-3.5 text-slate-400 shrink-0" /> {u.company_name}
-                            </p>
-                          )}
-                          {u.qualification && (
-                            <p className="text-[10px] text-slate-500 font-mono truncate">{u.qualification}</p>
-                          )}
-                        </div>
-
-                        {/* Role + Status + Actions */}
-                        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                          <Badge role={u.role} />
-                          <span
-                            className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
-                              u.status === 'SUSPENDED'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}
-                          >
-                            {u.status || 'ACTIVE'}
-                          </span>
-
-                          <div className="flex items-center gap-1">
-                            {/* Suspend / Reactivate action button */}
-                            {u.id !== currentUser?.id && (
-                              u.status === 'SUSPENDED' ? (
-                                <button
-                                  onClick={() => handleOpenGovernanceModal(u, 'ACTIVE')}
-                                  className="p-1.5 rounded-lg hover:bg-emerald-50 transition-colors text-slate-400 hover:text-emerald-600 cursor-pointer"
-                                  title="Reactivate User Account"
+                            {/* Name */}
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className="h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border"
+                                  style={{
+                                    background: `${activeTabMeta.color}15`,
+                                    borderColor: `${activeTabMeta.color}30`,
+                                    color: activeTabMeta.color,
+                                  }}
                                 >
-                                  <UserCheck className="h-3.5 w-3.5" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleOpenGovernanceModal(u, 'SUSPENDED')}
-                                  className="p-1.5 rounded-lg hover:bg-rose-50 transition-colors text-slate-400 hover:text-rose-600 cursor-pointer"
-                                  title="Suspend User Account"
-                                >
-                                  <UserX className="h-3.5 w-3.5" />
-                                </button>
-                              )
-                            )}
+                                  {initials}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-sm text-slate-900 truncate max-w-[160px]">{u.name || 'Anonymous'}</p>
+                                  {(u.company_name || u.college_name || u.qualification) && (
+                                    <p className="text-[10px] text-slate-500 font-mono truncate max-w-[160px]">
+                                      {u.company_name || u.college_name || u.qualification}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
 
-                            <button
-                              onClick={() => openUserDetails(u)}
-                              className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors text-slate-400 hover:text-[#0453cd] cursor-pointer"
-                              title="Inspect User Dossier"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </button>
-                            <Link href={profileHref}
-                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-800"
-                              title="View in dedicated module"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                            {/* Email */}
+                            <td className="px-4 py-3.5 font-mono text-[11px] text-slate-600 truncate max-w-[180px]">
+                              {u.email}
+                            </td>
+
+                            {/* Role */}
+                            <td className="px-4 py-3.5 whitespace-nowrap">
+                              <Badge role={u.role} />
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3.5 whitespace-nowrap">
+                              <span
+                                className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
+                                  u.status === 'SUSPENDED'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}
+                              >
+                                {u.status || 'ACTIVE'}
+                              </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1">
+                                {u.id !== currentUser?.id && (
+                                  u.status === 'SUSPENDED' ? (
+                                    <button
+                                      onClick={() => handleOpenGovernanceModal(u, 'ACTIVE')}
+                                      className="p-1.5 rounded-lg hover:bg-emerald-50 transition-colors text-slate-400 hover:text-emerald-600 cursor-pointer"
+                                      title="Reactivate User Account"
+                                    >
+                                      <UserCheck className="h-3.5 w-3.5" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleOpenGovernanceModal(u, 'SUSPENDED')}
+                                      className="p-1.5 rounded-lg hover:bg-rose-50 transition-colors text-slate-400 hover:text-rose-600 cursor-pointer"
+                                      title="Suspend User Account"
+                                    >
+                                      <UserX className="h-3.5 w-3.5" />
+                                    </button>
+                                  )
+                                )}
+
+                                <button
+                                  onClick={() => openUserDetails(u)}
+                                  className="p-1.5 rounded-lg hover:bg-blue-50 transition-colors text-slate-400 hover:text-[#0453cd] cursor-pointer"
+                                  title="Inspect User Dossier"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+                                <Link
+                                  href={profileHref}
+                                  className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-800"
+                                  title="View in dedicated module"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Pagination */}
@@ -693,7 +715,7 @@ export default function UsersPage() {
           isOpen={!!selectedUser}
           onClose={() => { setSelectedUser(null); setUserDetails(null); }}
           title={`User Dossier: ${selectedUser.name || 'User'}`}
-          description={`UID ${selectedUser.id.substring(0, 12)}… • ROLE: ${selectedUser.role}`}
+          description={`${selectedUser.identification_number ? `ID: ${selectedUser.identification_number} • ` : ''}UID ${selectedUser.id.substring(0, 12)}… • ROLE: ${selectedUser.role}`}
           maxWidth="2xl"
         >
           <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
@@ -710,7 +732,14 @@ export default function UsersPage() {
                 {(selectedUser.name || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 truncate">{selectedUser.name || 'Unnamed User'}</p>
+                <div className="flex items-center gap-2">
+                  {selectedUser.identification_number && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {selectedUser.identification_number}
+                    </span>
+                  )}
+                  <p className="font-semibold text-slate-900 truncate">{selectedUser.name || 'Unnamed User'}</p>
+                </div>
                 <p className="text-xs font-mono text-slate-500 truncate">{selectedUser.email}</p>
                 {selectedUser.company_name && (
                   <p className="text-[11px] text-slate-600 mt-0.5 flex items-center gap-1">
@@ -729,7 +758,11 @@ export default function UsersPage() {
             </div>
 
             {/* Profile Attributes Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl border border-slate-200 bg-white">
+                <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wider mb-0.5">IDENTIFICATION NUMBER</p>
+                <p className="text-xs font-mono font-bold text-indigo-700">{selectedUser.identification_number || 'None'}</p>
+              </div>
               <div className="p-3 rounded-xl border border-slate-200 bg-white">
                 <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wider mb-0.5">TELEPHONE</p>
                 <p className="text-xs font-mono font-semibold text-slate-800">{selectedUser.mobile || 'Not specified'}</p>

@@ -241,6 +241,19 @@ class _ProfileFormState extends ConsumerState<ProfileForm> {
             subtitle:
                 'Primary identity details used for architectural communication and team collaboration.',
             children: [
+              // Read-only Identification Number Field
+              _buildReadOnlyField(
+                label: 'USER IDENTIFICATION NUMBER',
+                value: widget.profile.identificationNumber?.isNotEmpty == true
+                    ? widget.profile.identificationNumber!
+                    : 'Pending Allocation',
+                icon: Icons.badge_outlined,
+                badgeText: widget.profile.identificationNumber?.isNotEmpty == true
+                    ? 'PERMANENT ID'
+                    : 'PENDING',
+              ),
+              const SizedBox(height: AppSpacing.md),
+
               // Read-only Email Field
               _buildReadOnlyField(
                 label: 'REGISTERED EMAIL ADDRESS',

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,10 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/landing_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
-import '../../features/auth/presentation/provision_profile_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/registration_confirmation_screen.dart';
 import '../../features/auth/presentation/role_selection_screen.dart';
-import '../../features/auth/presentation/verify_email_screen.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -69,7 +67,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final user = authState.value;
       final isLoggedIn = user != null;
-      final isEmailVerified = (user?.emailVerified ?? false) || (kDebugMode && ((user?.email?.endsWith('.test') ?? false) || (user?.email?.endsWith('.studio') ?? false)));
 
       // Public routes that don't require authentication
       const publicPaths = [
@@ -79,7 +76,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         '/login',
         '/register',
         '/forgot-password',
-        '/verify-email',
         '/verify',
       ];
       final isPublicRoute = publicPaths.contains(currentPath) || currentPath.startsWith('/verify/') || currentPath.startsWith('/verify?');
@@ -110,26 +106,54 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/landing';
       }
 
-      // Logged in but email not verified
-      if (!isEmailVerified) {
-        if (currentPath == '/verify-email') return null;
-        return '/verify-email';
-      }
-
-      // For logged in & verified users, wait until profile is loaded
+      // For logged in users, wait until profile is loaded
       final profileAsync = ref.read(userProfileProvider);
       if (profileAsync.isLoading) {
         return null; // Wait for profile to load
       }
 
-      // If user profile is missing in the database, direct them to provision their profile
       if (profileAsync.value == null) {
-        if (currentPath == '/provision-profile') return null;
-        return '/provision-profile';
+        return null;
       }
 
+      final profile = profileAsync.value!;
       final role = ref.read(currentUserRoleProvider);
       final isProfileComplete = ref.read(isProfileCompleteProvider);
+
+      // 1. Enforce registration verification governance:
+      // Non-admin pending or rejected users MUST be on /registration-confirmation.
+      // Their application access is restricted until explicit Admin approval.
+      if (role != UserRole.admin && (profile.isPendingVerification || profile.isRejectedVerification)) {
+        if (currentPath != '/registration-confirmation') {
+          return '/registration-confirmation';
+        }
+        return null; // Stay on /registration-confirmation
+      }
+
+      // 2. If approved user or admin is on /registration-confirmation, redirect them to workspace
+      if (currentPath == '/registration-confirmation') {
+        if (role == UserRole.engineer || role == UserRole.client) return '/engineer/projects';
+        if (role == UserRole.draughtsman) {
+          return isProfileComplete ? '/draughtsman/studio' : '/draughtsman/onboarding';
+        }
+        if (role == UserRole.student) return '/student/dashboard';
+        if (role == UserRole.admin) return '/admin/dashboard';
+        return '/';
+      }
+
+      // Legacy paths redirect cleanly to workspace or confirmation
+      if (currentPath == '/verify-email' || currentPath == '/provision-profile') {
+        if (role != UserRole.admin && (profile.isPendingVerification || profile.isRejectedVerification)) {
+          return '/registration-confirmation';
+        }
+        if (role == UserRole.engineer || role == UserRole.client) return '/engineer/projects';
+        if (role == UserRole.draughtsman) {
+          return isProfileComplete ? '/draughtsman/studio' : '/draughtsman/onboarding';
+        }
+        if (role == UserRole.student) return '/student/dashboard';
+        if (role == UserRole.admin) return '/admin/dashboard';
+        return '/';
+      }
 
       // Enforce legal policy acceptance (Terms & Conditions)
       final legalStatusAsync = ref.read(userLegalStatusProvider);
@@ -270,7 +294,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/verify-email',
-        builder: (context, state) => const VerifyEmailScreen(),
+        redirect: (context, state) => '/',
+      ),
+      GoRoute(
+        path: '/registration-confirmation',
+        builder: (context, state) => const RegistrationConfirmationScreen(),
       ),
       // Root route for initial loading or fallback error display
       GoRoute(
@@ -526,9 +554,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/provision-profile',
-        builder: (context, state) => ProvisionProfileScreen(
-          onProvisioned: () => context.go('/'),
-        ),
+        redirect: (context, state) => '/',
       ),
     ],
   );

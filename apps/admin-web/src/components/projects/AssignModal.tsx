@@ -126,7 +126,14 @@ export function AssignModal({
                       className="text-[#0453cd] focus:ring-[#0453cd] border-slate-300"
                     />
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{d.name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {d.identification_number && (
+                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100/70 text-blue-800 border border-blue-200">
+                            {d.identification_number}
+                          </span>
+                        )}
+                        <p className="text-sm font-semibold text-slate-900">{d.name}</p>
+                      </div>
                       <p className="text-xs text-slate-500 font-mono">{d.email}</p>
                     </div>
                   </div>

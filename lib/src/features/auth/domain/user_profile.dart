@@ -51,6 +51,15 @@ class UserProfile {
   /// Proof document URL (DRAUGHTSMAN only, optional).
   /// Upload functionality deferred to Phase 10 (File Storage).
   final String? proofDocument;
+  final String? verificationStatus;
+  final String? rejectionReason;
+
+  bool get isPendingVerification => verificationStatus == 'PENDING';
+  bool get isApprovedVerification => verificationStatus == 'APPROVED' || verificationStatus == null;
+  bool get isRejectedVerification => verificationStatus == 'REJECTED';
+
+  /// Permanent role-based user identification number (e.g. ENG_01, DM_01, ST_01).
+  final String? identificationNumber;
 
   /// Timestamp when the profile was last updated.
   final DateTime? updatedAt;
@@ -68,6 +77,9 @@ class UserProfile {
     this.companyName,
     this.collegeName,
     this.proofDocument,
+    this.verificationStatus,
+    this.rejectionReason,
+    this.identificationNumber,
     this.updatedAt,
   });
 
@@ -86,6 +98,9 @@ class UserProfile {
       companyName: data['company_name'] as String?,
       collegeName: data['college_name'] as String?,
       proofDocument: data['proof_document'] as String?,
+      verificationStatus: data['verification_status'] as String?,
+      rejectionReason: data['rejection_reason'] as String?,
+      identificationNumber: (data['identification_number'] ?? data['user_number']) as String?,
       updatedAt: DateParser.parse(data['updated_at']),
     );
   }
@@ -98,6 +113,7 @@ class UserProfile {
       'email': email,
       'mobile': mobile,
       'role': role,
+      'identification_number': identificationNumber,
     };
   }
 
@@ -134,6 +150,9 @@ class UserProfile {
     String? companyName,
     String? collegeName,
     String? proofDocument,
+    String? verificationStatus,
+    String? rejectionReason,
+    String? identificationNumber,
   }) {
     return UserProfile(
       id: id,
@@ -148,6 +167,9 @@ class UserProfile {
       companyName: companyName ?? this.companyName,
       collegeName: collegeName ?? this.collegeName,
       proofDocument: proofDocument ?? this.proofDocument,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
+      identificationNumber: identificationNumber ?? this.identificationNumber,
       updatedAt: updatedAt,
     );
   }

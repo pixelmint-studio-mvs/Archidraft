@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createRemoteJWKSet, jwtVerify, decodeJwt } from 'jose';
 
 const FIREBASE_PROJECT_ID = 'archi-draft'; // Hardcoded for now based on firebase.json
 const JWKS_URI = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
@@ -33,16 +33,48 @@ export async function verifyFirebaseToken(token: string, env?: any) {
   }
 
   try {
-    const projectId = env?.FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
-    const issuer = `https://securetoken.google.com/${projectId}`;
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer,
-      audience: projectId,
-    });
-    return payload; // Contains uid in payload.sub
+    const configuredProjectId = env?.FIREBASE_PROJECT_ID || FIREBASE_PROJECT_ID;
+    const isProduction = env?.ENVIRONMENT === 'production';
+
+    // In production, strictly enforce the configured project ID.
+    // In staging or development, allow both 'archi-draft' and 'archi-draft-staging'
+    // so clients connecting with default config or staging config authenticate cleanly.
+    const allowedProjectIds: string[] = [configuredProjectId];
+    if (!isProduction) {
+      if (!allowedProjectIds.includes('archi-draft')) allowedProjectIds.push('archi-draft');
+      if (!allowedProjectIds.includes('archi-draft-staging')) allowedProjectIds.push('archi-draft-staging');
+    }
+
+    let targetProjectId = configuredProjectId;
+    try {
+      const unverified = decodeJwt(token);
+      if (typeof unverified.aud === 'string' && allowedProjectIds.includes(unverified.aud)) {
+        targetProjectId = unverified.aud;
+      }
+    } catch {
+      // Ignore decode error and fall back to candidates
+    }
+
+    const projectsToTry = [targetProjectId, ...allowedProjectIds.filter(id => id !== targetProjectId)];
+    let lastError: any = null;
+
+    for (const projId of projectsToTry) {
+      try {
+        const issuer = `https://securetoken.google.com/${projId}`;
+        const { payload } = await jwtVerify(token, JWKS, {
+          issuer,
+          audience: projId,
+        });
+        return payload; // Contains uid in payload.sub
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    console.error('Token verification failed for candidates', projectsToTry, lastError);
+    return null;
   } catch (error) {
     console.error('Token verification failed:', error);
     return null;
   }
 }
-

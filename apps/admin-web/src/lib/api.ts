@@ -27,9 +27,32 @@ import {
   StudentProgressDetail,
   LessonResource,
   EngineerProjectStatusItem,
+  HelpdeskTicket,
+  HelpdeskEvent,
+  HelpdeskComment,
+  HelpdeskEmailLog,
+  HelpdeskStats,
+  HelpdeskHealthReport,
+  HelpdeskSettings,
+  RegistrationVerification,
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_WORKER_API_URL || 'http://localhost:8787';
+export const API_BASE = (() => {
+  if (process.env.NEXT_PUBLIC_WORKER_API_URL) {
+    return process.env.NEXT_PUBLIC_WORKER_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+    if (isLocalhost) {
+      return 'http://localhost:8787';
+    }
+    if (hostname.endsWith('.vercel.app') || window.location.protocol === 'https:') {
+      return 'https://archi-draft-worker-staging.imserratex.workers.dev';
+    }
+  }
+  return 'http://localhost:8787';
+})();
 
 export class ApiError extends Error {
   status: number;
@@ -41,6 +64,118 @@ export class ApiError extends Error {
     this.status = status;
     this.data = data;
   }
+}
+
+export type ApiErrorKind =
+  | 'AUTH_FAILED'        // 401: Authentication failure (expired / invalid token)
+  | 'AUTH_FORBIDDEN'     // 403: Authorization failure (insufficient privileges / role)
+  | 'BACKEND_DOWN'       // 502, 503, 504: Cloudflare Worker backend unavailable
+  | 'NETWORK_FAILURE'    // 0: Network / DNS / offline / connection drop
+  | 'INVALID_RESPONSE'   // Malformed JSON / unexpected schema
+  | 'SERVER_ERROR'       // 500: Worker unhandled runtime error
+  | 'NOT_FOUND'          // 404: Resource not found
+  | 'UNKNOWN';
+
+export interface ClassifiedError {
+  kind: ApiErrorKind;
+  title: string;
+  message: string;
+  status: number;
+  canRetry: boolean;
+  actionText?: string;
+}
+
+export function classifyApiError(err: unknown): ClassifiedError {
+  if (err instanceof ApiError) {
+    if (err.data?.invalidResponse || err.message.toLowerCase().includes('invalid response')) {
+      return {
+        kind: 'INVALID_RESPONSE',
+        title: 'Invalid Response',
+        message: 'The server returned an invalid or malformed data payload.',
+        status: err.status,
+        canRetry: true,
+        actionText: 'Retry Request',
+      };
+    }
+    if (err.status === 401) {
+      return {
+        kind: 'AUTH_FAILED',
+        title: 'Authentication Failure',
+        message: 'Your authentication session has expired or is invalid. Please sign in again to continue.',
+        status: 401,
+        canRetry: true,
+        actionText: 'Sign In Again',
+      };
+    }
+    if (err.status === 403) {
+      return {
+        kind: 'AUTH_FORBIDDEN',
+        title: 'Authorization Failure',
+        message: 'Access Denied: Your account does not possess administrator privileges to access this console.',
+        status: 403,
+        canRetry: false,
+        actionText: 'Check Permissions',
+      };
+    }
+    if (err.status === 502 || err.status === 503 || err.status === 504) {
+      return {
+        kind: 'BACKEND_DOWN',
+        title: 'Backend Unavailable',
+        message: `The Cloudflare Worker backend service is currently unreachable (HTTP ${err.status}). Please verify service status and retry.`,
+        status: err.status,
+        canRetry: true,
+        actionText: 'Retry Connection',
+      };
+    }
+    if (err.status === 0 || err.data?.isNetworkError) {
+      return {
+        kind: 'NETWORK_FAILURE',
+        title: 'Network Failure',
+        message: 'Unable to connect to the backend server. Please verify your internet connection.',
+        status: 0,
+        canRetry: true,
+        actionText: 'Retry Request',
+      };
+    }
+    if (err.status >= 500) {
+      return {
+        kind: 'SERVER_ERROR',
+        title: 'Backend Service Error',
+        message: err.message || `An internal server error occurred (HTTP ${err.status}).`,
+        status: err.status,
+        canRetry: true,
+        actionText: 'Retry Request',
+      };
+    }
+    return {
+      kind: 'UNKNOWN',
+      title: 'API Request Failed',
+      message: err.message || `Request failed with status ${err.status}`,
+      status: err.status,
+      canRetry: true,
+      actionText: 'Retry Request',
+    };
+  }
+
+  if (err instanceof TypeError || (err as any)?.message?.includes('fetch')) {
+    return {
+      kind: 'NETWORK_FAILURE',
+      title: 'Network Failure',
+      message: 'Failed to communicate with the backend API. Please check your internet connection.',
+      status: 0,
+      canRetry: true,
+      actionText: 'Retry Request',
+    };
+  }
+
+  return {
+    kind: 'UNKNOWN',
+    title: 'Unexpected Error',
+    message: (err as any)?.message || 'An unexpected error occurred while communicating with the server.',
+    status: -1,
+    canRetry: true,
+    actionText: 'Retry Request',
+  };
 }
 
 async function getAuthToken(forceRefresh = false): Promise<string | null> {
@@ -79,6 +214,43 @@ async function getAuthToken(forceRefresh = false): Promise<string | null> {
   }
 }
 
+function reportApiFailureSafely(endpoint: string, status: number, message: string) {
+  // Never report client-side network dropouts (HTTP 0), routine auth/not-found (401/404), or helpdesk polling calls
+  if (
+    status === 0 ||
+    status === 401 ||
+    status === 404 ||
+    endpoint.includes('/helpdesk') ||
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  const key = `${endpoint}:${status}`;
+  const now = Date.now();
+  const cache = (reportApiFailureSafely as any)._debounce || ((reportApiFailureSafely as any)._debounce = {});
+  if (cache[key] && now - cache[key] < 30000) return;
+  cache[key] = now;
+
+  try {
+    fetch(`${API_BASE}/api/helpdesk/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `API Request Failure: HTTP ${status} on ${endpoint.split('?')[0]}`,
+        category: status === 401 || status === 403 ? 'AUTHENTICATION' : 'API',
+        severity: status >= 500 ? 'HIGH' : status === 403 ? 'MEDIUM' : 'LOW',
+        source: 'ADMIN_PANEL',
+        affected_module: endpoint.split('?')[0],
+        error_message: message,
+        error_code: String(status),
+        page_route: window.location?.pathname,
+        browser: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+
 export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit & { _isRetry?: boolean } = {}
@@ -95,10 +267,26 @@ export async function fetchApi<T>(
 
   const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (netErr: any) {
+    const isNetworkError =
+      netErr?.message?.includes('Failed to fetch') ||
+      netErr?.name === 'TypeError' ||
+      netErr?.message?.includes('NetworkError');
+    reportApiFailureSafely(endpoint, 0, netErr?.message || 'Network failure');
+    throw new ApiError(
+      isNetworkError
+        ? 'Network failure: Unable to reach backend API. Please check your internet connection or server availability.'
+        : `Network connection error: ${netErr?.message || 'Failed to fetch'}`,
+      0,
+      { isNetworkError: true, originalError: netErr }
+    );
+  }
 
   if (!res.ok) {
     // If request failed with 401 Unauthorized and we haven't retried yet, force refresh ID token and retry once
@@ -123,13 +311,22 @@ export async function fetchApi<T>(
       errBody = { error: res.statusText };
     }
     const message = errBody?.error || errBody?.message || `Request failed with status ${res.status}`;
+    reportApiFailureSafely(endpoint, res.status, message);
     throw new ApiError(message, res.status, errBody);
   }
 
-  // Handle empty responses
+  // Handle empty or JSON responses
   const contentType = res.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
-    return (await res.json()) as T;
+    try {
+      return (await res.json()) as T;
+    } catch (parseErr: any) {
+      throw new ApiError(
+        'Invalid response: Expected JSON from backend but received malformed data.',
+        502,
+        { invalidResponse: true, parseErr }
+      );
+    }
   }
   return {} as T;
 }
@@ -186,11 +383,18 @@ export const adminApi = {
 
   async getStats(): Promise<AdminStats> {
     try {
-      const [metrics, projects, users, recentActivity] = await Promise.all([
-        this.getDashboardMetrics().catch(() => null),
-        this.getProjects().catch(() => []),
-        this.getUsers().catch(() => []),
-        this.getActivityLogs(10).catch(() => []),
+      const [metrics, projects, users, recentActivity, pendingRegs] = await Promise.all([
+        this.getDashboardMetrics().catch((err) => {
+          if (err?.status === 404) return null;
+          throw err;
+        }),
+        this.getProjects(),
+        this.getUsers(),
+        this.getActivityLogs(10).catch((err) => {
+          if (err?.status === 404) return [];
+          throw err;
+        }),
+        this.getRegistrations({ status: 'PENDING' }).catch(() => []),
       ]);
       const byStatus: Record<string, number> = {};
       projects.forEach((p) => {
@@ -221,6 +425,7 @@ export const adminApi = {
           registeredEngineers,
         },
         recentActivity,
+        pendingRegistrations: (pendingRegs as any[])?.length || 0,
       };
     } catch (err: any) {
       console.error('Error fetching admin statistics:', err);
@@ -262,7 +467,7 @@ export const adminApi = {
     // Populate projects / assignments if not returned by the direct lookup
     if (!projects || projects.length === 0) {
       if (user.role === 'CLIENT' || (user.role as string) === 'ENGINEER') {
-        const allProjects = await this.getProjects().catch(() => []);
+        const allProjects = await this.getProjects();
         projects = allProjects.filter((p) => p.client_id === userId);
       } else if (user.role === 'DRAUGHTSMAN') {
         try {
@@ -270,12 +475,16 @@ export const adminApi = {
           if (assignments && assignments.length > 0) {
             projects = assignments;
           } else {
-            const allProjects = await this.getProjects().catch(() => []);
+            const allProjects = await this.getProjects();
             projects = allProjects.filter((p) => p.draughtsman_id === userId);
           }
-        } catch {
-          const allProjects = await this.getProjects().catch(() => []);
-          projects = allProjects.filter((p) => p.draughtsman_id === userId);
+        } catch (err: any) {
+          if (err?.status === 404) {
+            const allProjects = await this.getProjects();
+            projects = allProjects.filter((p) => p.draughtsman_id === userId);
+          } else {
+            throw err;
+          }
         }
       } else if (user.role === 'STUDENT') {
         try {
@@ -283,8 +492,12 @@ export const adminApi = {
           if (studentData?.assignments && Array.isArray(studentData.assignments)) {
             projects = studentData.assignments;
           }
-        } catch {
-          projects = [];
+        } catch (err: any) {
+          if (err?.status === 404) {
+            projects = [];
+          } else {
+            throw err;
+          }
         }
       }
     }
@@ -299,7 +512,7 @@ export const adminApi = {
       params.set('status', status);
     }
     const query = params.toString() ? `?${params.toString()}` : '';
-    const remoteProjects = await fetchApi<Project[]>(`/api/projects${query}`).catch(() => []);
+    const remoteProjects = await fetchApi<Project[]>(`/api/projects${query}`);
 
     if (status && status !== 'ALL') {
       return remoteProjects.filter((p) => p.status === status);
@@ -330,32 +543,36 @@ export const adminApi = {
   async getProjectActivity(projectId: string): Promise<ActivityLog[]> {
     try {
       return await fetchApi<ActivityLog[]>(`/api/projects/${projectId}/activity`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectAssignments(projectId: string): Promise<Assignment[]> {
     try {
       return await fetchApi<Assignment[]>(`/api/projects/${projectId}/assignments`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
     try {
       return await fetchApi<ProjectFile[]>(`/api/projects/${projectId}/files`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
   async getProjectDrawingVersions(projectId: string): Promise<DrawingVersion[]> {
     try {
       return await fetchApi<DrawingVersion[]>(`/api/projects/${projectId}/drawing_versions`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
@@ -428,8 +645,9 @@ export const adminApi = {
   async getProjectCorrections(projectId: string): Promise<Correction[]> {
     try {
       return await fetchApi<Correction[]>(`/api/projects/${projectId}/corrections`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
@@ -437,8 +655,9 @@ export const adminApi = {
   async getProjectComments(projectId: string): Promise<ProjectComment[]> {
     try {
       return await fetchApi<ProjectComment[]>(`/api/projects/${projectId}/comments`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
@@ -471,12 +690,12 @@ export const adminApi = {
       // In staging/prod D1 database, engineers may have role 'ENGINEER' or legacy 'CLIENT'
       const [clients, engineers] = await Promise.all([
         fetchApi<User[]>('/api/users?role=CLIENT').catch((err) => {
-          if (err?.status === 401 || err?.status === 403) throw err;
-          return [];
+          if (err?.status === 404) return [];
+          throw err;
         }),
         fetchApi<User[]>('/api/users?role=ENGINEER').catch((err) => {
-          if (err?.status === 401 || err?.status === 403) throw err;
-          return [];
+          if (err?.status === 404) return [];
+          throw err;
         }),
       ]);
       const map = new Map<string, User>();
@@ -623,6 +842,7 @@ export const adminApi = {
           project_address: p.project_address,
           project_status: p.status,
           engineer_id: p.client_id,
+          engineer_identification_number: eng?.identification_number,
           engineer_name: eng?.name || eng?.email || p.client_name || 'Engineer',
           engineer_email: eng?.email || p.client_email || '',
           engineer_company: eng?.company_name,
@@ -657,8 +877,9 @@ export const adminApi = {
 
     try {
       return await fetchApi<GlobalAssignment[]>(`/api/admin/assignments${qs}`);
-    } catch {
-      return [];
+    } catch (err: any) {
+      if (err?.status === 404) return [];
+      throw err;
     }
   },
 
@@ -1108,6 +1329,232 @@ export const adminApi = {
     });
   },
 
+  // ── Registration Verification Provision ──
+  async getRegistrations(params?: { search?: string; role?: string; status?: string }): Promise<RegistrationVerification[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.role && params.role !== 'ALL') query.set('role', params.role);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return fetchApi<RegistrationVerification[]>(`/api/admin/registrations${qs}`);
+  },
+
+  async getRegistration(id: string): Promise<RegistrationVerification> {
+    return fetchApi<RegistrationVerification>(`/api/admin/registrations/${id}`);
+  },
+
+  async approveRegistration(id: string): Promise<{ success: boolean; registration: RegistrationVerification }> {
+    return fetchApi<{ success: boolean; registration: RegistrationVerification }>(`/api/admin/registrations/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  async rejectRegistration(id: string, reason: string): Promise<{ success: boolean; registration: RegistrationVerification }> {
+    return fetchApi<{ success: boolean; registration: RegistrationVerification }>(`/api/admin/registrations/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async getRegistrationProofBlob(id: string): Promise<Blob> {
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const url = `${API_BASE}/api/admin/registrations/${id}/proof`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      throw new ApiError('Failed to download proof document', res.status);
+    }
+    return await res.blob();
+  },
+
+  getRegistrationProofUrl(id: string, token?: string): string {
+    const base = `${API_BASE}/api/admin/registrations/${id}/proof`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  },
+
+  // ==========================================
+  // HELPDESK & INCIDENT MANAGEMENT SYSTEM
+  // ==========================================
+
+  // Report technical incident beacon (Client-side, React errors, unhandled rejections)
+  async reportIncident(incident: {
+    title: string;
+    category?: string;
+    severity?: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    source?: string;
+    affected_module?: string;
+    error_message: string;
+    error_code?: string;
+    stack_trace?: string;
+    page_route?: string;
+  }): Promise<{ success: boolean; ticketId?: string; isNew?: boolean }> {
+    try {
+      return await fetchApi<{ success: boolean; ticketId?: string; isNew?: boolean }>('/api/helpdesk/report', {
+        method: 'POST',
+        body: JSON.stringify({
+          source: 'ADMIN_PANEL',
+          category: 'FRONTEND',
+          severity: 'MEDIUM',
+          page_route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+          browser: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+          ...incident,
+        }),
+      });
+    } catch {
+      return { success: false };
+    }
+  },
+
+  // Submit manual user support ticket
+  async submitUserTicket(payload: {
+    subject: string;
+    description: string;
+    category?: string;
+    affected_feature?: string;
+    priority_suggestion?: string;
+    screenshot_url?: string;
+    user_email?: string;
+    contact_email?: string;
+    page_route?: string;
+  }): Promise<{ success: boolean; ticketId: string; message: string }> {
+    return fetchApi<{ success: boolean; ticketId: string; message: string }>('/api/helpdesk/tickets', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Get current user's submitted tickets
+  async getMyTickets(): Promise<HelpdeskTicket[]> {
+    return fetchApi<HelpdeskTicket[]>('/api/helpdesk/my-tickets');
+  },
+
+  // Admin: Help Desk telemetry stats
+  async getHelpdeskStats(): Promise<HelpdeskStats> {
+    return fetchApi<HelpdeskStats>('/api/admin/helpdesk/stats');
+  },
+
+  // Admin: List tickets with filtering, search, pagination
+  async getHelpdeskTickets(params?: {
+    status?: string;
+    severity?: string;
+    category?: string;
+    source?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }> {
+    const query = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    if (params?.severity && params.severity !== 'ALL') query.set('severity', params.severity);
+    if (params?.category && params.category !== 'ALL') query.set('category', params.category);
+    if (params?.source && params.source !== 'ALL') query.set('source', params.source);
+    if (params?.search) query.set('search', params.search);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString() ? '?' + query.toString() : '';
+    return fetchApi<{ tickets: HelpdeskTicket[]; total: number; limit: number; offset: number }>('/api/admin/helpdesk/tickets' + qs);
+  },
+
+  // Admin: Get single ticket with timeline, comments, and email logs
+  async getHelpdeskTicket(id: string): Promise<{
+    ticket: HelpdeskTicket;
+    events: HelpdeskEvent[];
+    comments: HelpdeskComment[];
+    email_logs: HelpdeskEmailLog[];
+  }> {
+    return fetchApi<{
+      ticket: HelpdeskTicket;
+      events: HelpdeskEvent[];
+      comments: HelpdeskComment[];
+      email_logs: HelpdeskEmailLog[];
+    }>('/api/admin/helpdesk/tickets/' + id);
+  },
+
+  // Admin: Update ticket status, severity, assignment, or resolution notes
+  async updateHelpdeskTicket(
+    id: string,
+    updates: {
+      status?: string;
+      severity?: string;
+      assigned_to?: string | null;
+      assigned_to_name?: string | null;
+      resolution_notes?: string;
+    }
+  ): Promise<{ success: boolean; ticket: HelpdeskTicket }> {
+    return fetchApi<{ success: boolean; ticket: HelpdeskTicket }>('/api/admin/helpdesk/tickets/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  // Admin: Post internal note or comment on ticket
+  async addHelpdeskComment(ticketId: string, comment: string, isInternal = true): Promise<{ success: boolean; commentId: string }> {
+    return fetchApi<{ success: boolean; commentId: string }>('/api/admin/helpdesk/tickets/' + ticketId + '/comments', {
+      method: 'POST',
+      body: JSON.stringify({ comment, is_internal: isInternal }),
+    });
+  },
+
+  // Admin: Run self-healing diagnostics
+  async runHelpdeskSelfHealing(ticketId?: string): Promise<{ success: boolean; actionsTaken: string[]; recovered: boolean }> {
+    return fetchApi<{ success: boolean; actionsTaken: string[]; recovered: boolean }>('/api/admin/helpdesk/heal', {
+      method: 'POST',
+      body: JSON.stringify({ ticketId }),
+    });
+  },
+
+  // Admin: Get live system health diagnostics
+  async getHelpdeskHealth(): Promise<HelpdeskHealthReport> {
+    return fetchApi<HelpdeskHealthReport>('/api/admin/helpdesk/health');
+  },
+
+  async getHelpdeskHealthReport(): Promise<HelpdeskHealthReport> {
+    return this.getHelpdeskHealth();
+  },
+
+  // Admin: Get email notification logs
+  async getHelpdeskEmailLogs(params?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ logs: HelpdeskEmailLog[]; total: number; limit: number; offset: number }> {
+    const query = new URLSearchParams();
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString() ? '?' + query.toString() : '';
+    return fetchApi<{ logs: HelpdeskEmailLog[]; total: number; limit: number; offset: number }>('/api/admin/helpdesk/email-logs' + qs);
+  },
+
+  // Admin: Retry failed email delivery
+  async retryHelpdeskEmail(logId: string): Promise<{ success: boolean; status: string; error?: string }> {
+    return fetchApi<{ success: boolean; status: string; error?: string }>('/api/admin/helpdesk/email-logs/' + logId + '/retry', {
+      method: 'POST',
+    });
+  },
+
+  // Admin: Retrieve configurable settings
+  async getHelpdeskSettings(): Promise<HelpdeskSettings> {
+    return fetchApi<HelpdeskSettings>('/api/admin/helpdesk/settings');
+  },
+
+  // Admin: Update settings
+  async updateHelpdeskSettings(settings: Partial<HelpdeskSettings>): Promise<{ success: boolean; settings: HelpdeskSettings }> {
+    return fetchApi<{ success: boolean; settings: HelpdeskSettings }>('/api/admin/helpdesk/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  // Admin: Delete a single ticket
+    // Admin: Delete a single ticket
+  async deleteHelpdeskTicket(ticketId: string): Promise<{ success: boolean; id: string }> {
+    return fetchApi<{ success: boolean; id: string }>('/api/admin/helpdesk/tickets/' + ticketId, {
+      method: 'DELETE',
+    });
+  },
+
   async clearAllNotifications(): Promise<{ success: boolean }> {
     try {
       return await fetchApi<{ success: boolean }>('/api/notifications', {
@@ -1118,5 +1565,22 @@ export const adminApi = {
         method: 'POST',
       });
     }
+
+  },
+// Admin: Bulk delete tickets or clear all
+  async bulkDeleteHelpdeskTickets(payload: { ids?: string[]; clearAll?: boolean }): Promise<{ success: boolean; count?: number; message?: string }> {
+    return fetchApi<{ success: boolean; count?: number; message?: string }>('/api/admin/helpdesk/tickets/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Admin: Trigger test email notification
+  async sendHelpdeskTestEmail(recipient?: string): Promise<{ success: boolean; status: string; error?: string; messageId?: string }> {
+    return fetchApi<{ success: boolean; status: string; error?: string; messageId?: string }>('/api/admin/helpdesk/settings/test-email', {
+      method: 'POST',
+      body: JSON.stringify({ recipient }),
+    });
+
   },
 };

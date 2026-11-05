@@ -163,7 +163,8 @@ export default function DraughtsmenPage() {
       const qualMatch = (dm.qualification || '').toLowerCase().includes(q);
       const collegeMatch = (dm.college_name || '').toLowerCase().includes(q);
       const mobileMatch = (dm.mobile || '').toLowerCase().includes(q);
-      return nameMatch || emailMatch || qualMatch || collegeMatch || mobileMatch;
+      const idMatch = (dm.identification_number || '').toLowerCase().includes(q);
+      return nameMatch || emailMatch || qualMatch || collegeMatch || mobileMatch || idMatch;
     });
   }, [draughtsmen, searchQuery]);
 
@@ -259,6 +260,7 @@ export default function DraughtsmenPage() {
             <table className="w-full text-left text-xs min-w-[740px]">
               <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                 <tr>
+                  <th className="px-5 py-3.5">ID Number</th>
                   <th className="px-5 py-3.5">Draughtsman</th>
                   <th className="px-5 py-3.5">Qualification & Institution</th>
                   <th className="px-5 py-3.5">Contact</th>
@@ -273,7 +275,14 @@ export default function DraughtsmenPage() {
                   const isBusy = stat.active > 0;
                   return (
                     <tr key={dm.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Name & ID */}
+                      {/* ID Number */}
+                      <td className="px-5 py-4 font-mono font-bold text-xs text-cyan-700 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                          {dm.identification_number || 'Pending'}
+                        </span>
+                      </td>
+
+                      {/* Name & Details */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] flex items-center justify-center font-bold text-xs shrink-0">

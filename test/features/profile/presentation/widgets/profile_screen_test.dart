@@ -390,5 +390,71 @@ void main() {
       expect(find.textContaining('Firebase Auth'), findsNothing);
       expect(find.textContaining('Cloudflare D1'), findsNothing);
     });
+
+    testWidgets('13. Engineer Profile displays role-based identification number prominently', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final engineerWithId = UserProfile(
+        id: 'uid-engineer-eng-01',
+        email: 'engineer@archidraft.com',
+        name: 'Sarah Connor',
+        role: 'ENGINEER',
+        mobile: '+15551234567',
+        identificationNumber: 'ENG_01',
+        createdAt: DateTime(2026, 1, 15),
+      );
+
+      await tester.pumpWidget(createTestWidget(profileOverride: engineerWithId));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ID: ENG_01'), findsOneWidget);
+      expect(find.text('ENG_01'), findsWidgets);
+      expect(find.text('USER IDENTIFICATION NUMBER'), findsOneWidget);
+      expect(find.text('PERMANENT ID'), findsOneWidget);
+    });
+
+    testWidgets('14. Draughtsman Profile displays role-based identification number prominently', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final draughtsmanWithId = testDraughtsman.copyWith(
+        identificationNumber: 'DM_05',
+      );
+
+      await tester.pumpWidget(createTestWidget(profileOverride: draughtsmanWithId));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ID: DM_05'), findsOneWidget);
+      expect(find.text('DM_05'), findsWidgets);
+      expect(find.text('USER IDENTIFICATION NUMBER'), findsOneWidget);
+      expect(find.text('PERMANENT ID'), findsOneWidget);
+    });
+
+    testWidgets('15. Student Profile displays role-based identification number prominently', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      final studentWithId = UserProfile(
+        id: 'uid-student-st-42',
+        email: 'student@archidraft.test',
+        name: 'Alex Rivera',
+        role: 'STUDENT',
+        mobile: '+919876543210',
+        identificationNumber: 'ST_42',
+        createdAt: DateTime(2026, 3, 1),
+      );
+
+      await tester.pumpWidget(createTestWidget(profileOverride: studentWithId));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ID: ST_42'), findsOneWidget);
+      expect(find.text('ST_42'), findsWidgets);
+      expect(find.text('USER IDENTIFICATION NUMBER'), findsOneWidget);
+      expect(find.text('PERMANENT ID'), findsOneWidget);
+    });
   });
 }

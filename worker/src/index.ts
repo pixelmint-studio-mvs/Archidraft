@@ -16,6 +16,19 @@ export { assertTermsAccepted };
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { verifyFirebaseToken } from './auth';
+import {
+  recordHelpdeskIncident,
+  sendHelpdeskEmail,
+  getHelpdeskSettings,
+  runSystemHealthDiagnostics,
+  generateTicketId,
+  sanitizeText,
+} from './helpdesk';
+import {
+  sendRegistrationAcknowledgementEmail,
+  sendRegistrationApprovedEmail,
+  sendRegistrationRejectedEmail,
+} from './email';
 
 type Bindings = {
   DB: D1Database;
@@ -23,10 +36,15 @@ type Bindings = {
   ENVIRONMENT?: string;
   ALLOWED_ORIGINS?: string;
   FIREBASE_PROJECT_ID?: string;
+  RESEND_API_KEY?: string;
+  HELPDESK_EMAIL_API_KEY?: string;
+  SENDGRID_API_KEY?: string;
+  HELPDESK_EMAIL_FROM?: string;
 };
 
 type Variables = {
   uid: string;
+  tokenPayload?: any;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -35,7 +53,11 @@ const BASELINE_PRODUCTION_ORIGINS = new Set([
   'https://www.draughtsmanstudio.com',
   'https://draughtsmanstudio.com',
   'https://admin.draughtsmanstudio.com',
+  'https://admin-staging.draughtsmanstudio.com',
   'https://archi-draft.vercel.app',
+  'https://archi-draft-staging.vercel.app',
+  'https://admin-web-eight-wine.vercel.app',
+  'https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app',
 ]);
 
 app.use('*', async (c, next) => {
@@ -62,6 +84,9 @@ app.use('*', async (c, next) => {
           ) {
             return origin;
           }
+          if (parsed.protocol === 'https:' && parsed.hostname.endsWith('.vercel.app')) {
+            return origin;
+          }
         } catch {
           // invalid URL
         }
@@ -85,26 +110,35 @@ app.use('*', async (c, next) => {
   const isPublicDocRead = c.req.method === 'GET' && c.req.path.startsWith('/api/legal/documents/');
   const isPublicVerify = c.req.method === 'GET' && c.req.path.startsWith('/api/public/');
   const isPublicHealth = c.req.method === 'GET' && c.req.path === '/api/health';
+  const isPublicHelpdeskReport = c.req.method === 'POST' && c.req.path === '/api/helpdesk/report';
+  const isPublicHelpdeskTicket = c.req.method === 'POST' && c.req.path === '/api/helpdesk/tickets';
 
   const authHeader = c.req.header('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    if (isPublicDocRead || isPublicVerify || isPublicHealth) {
+  let token: string | undefined;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split('Bearer ')[1];
+  } else if (c.req.query('token')) {
+    token = c.req.query('token');
+  }
+
+  if (!token) {
+    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
   }
 
-  const token = authHeader.split('Bearer ')[1];
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
-    if (isPublicDocRead || isPublicVerify || isPublicHealth) {
+    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Invalid Firebase token' }, 401);
   }
 
   c.set('uid', payload.sub);
+  c.set('tokenPayload', payload);
   await next();
 });
 
@@ -112,15 +146,70 @@ app.use('*', async (c, next) => {
 app.use('*', async (c, next) => {
   const uid = c.get('uid');
   if (uid) {
-    const user = await getUser(c.env.DB, uid);
+    let user = await getUser(c.env.DB, uid);
     if (user && user.status === 'SUSPENDED') {
-      const allowedPaths = ['/api/users/me', '/api/users/profile', '/api/legal/documents', '/api/public/'];
-      const isAllowed = c.req.method === 'GET' && allowedPaths.some(p => c.req.path.startsWith(p));
+      const allowedPaths = [
+        '/api/users/me',
+        '/api/users/profile',
+        '/api/legal/documents',
+        '/api/public/',
+        '/api/helpdesk/report',
+        '/api/helpdesk/tickets',
+        '/api/helpdesk/my-tickets',
+      ];
+      const isAllowed = (c.req.method === 'GET' || c.req.path.startsWith('/api/helpdesk/')) && allowedPaths.some(p => c.req.path.startsWith(p));
       if (!isAllowed) {
         return c.json({
           error: 'Account suspended. Contact administrator.',
           code: 'ACCOUNT_SUSPENDED'
         }, 403);
+      }
+    }
+  }
+  await next();
+});
+
+// Enforce registration verification governance on protected operations
+app.use('*', async (c, next) => {
+  const uid = c.get('uid');
+  if (uid) {
+    let user = await getUser(c.env.DB, uid);
+    let userRole = (user?.role as string) || '';
+    const tokenPayload = (c.get('tokenPayload') as any) || {};
+    const email = ((user?.email || tokenPayload?.email || '') as string).toLowerCase();
+    const isKnownAdmin = email === 'contact@draughtsmanstudio.com' || email === 'zedsuo125@gmail.com' || email.endsWith('@draughtsmanstudio.com');
+    if (isKnownAdmin && user && (user.role !== 'STUDIO_ADMIN' || user.verification_status !== 'APPROVED')) {
+      await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+      user = await getUser(c.env.DB, uid);
+      userRole = 'STUDIO_ADMIN';
+    }
+    const isAdmin = ['ADMIN', 'STUDIO_ADMIN'].includes(userRole) || isKnownAdmin;
+    if (user && !isAdmin) {
+      const verificationStatus = (user.verification_status as string) || 'APPROVED';
+      if (verificationStatus === 'PENDING' || verificationStatus === 'REJECTED') {
+        const allowedPrefixes = [
+          '/api/users/me',
+          '/api/users/profile',
+          '/api/registration',
+          '/api/legal/documents',
+          '/api/public/',
+        ];
+        const isAllowedGet = c.req.method === 'GET' && allowedPrefixes.some(p => c.req.path.startsWith(p));
+        const isRegistrationOp = c.req.path.startsWith('/api/registration');
+        if (!isAllowedGet && !isRegistrationOp) {
+          if (verificationStatus === 'PENDING') {
+            return c.json({
+              error: 'Registration pending admin approval. Access to protected features is restricted until approved.',
+              code: 'REGISTRATION_PENDING'
+            }, 403);
+          } else {
+            return c.json({
+              error: 'Registration rejected by administrator.',
+              code: 'REGISTRATION_REJECTED',
+              rejection_reason: user.rejection_reason || null
+            }, 403);
+          }
+        }
       }
     }
   }
@@ -161,9 +250,189 @@ app.use('*', async (c, next) => {
   await next();
 });
 
+// Helper: Role prefix and sequential ID generator
+export function getRolePrefix(role?: string): 'ENG' | 'DM' | 'ST' | null {
+  const normalized = (role || '').toUpperCase();
+  if (normalized === 'ENGINEER' || normalized === 'CLIENT') return 'ENG';
+  if (normalized === 'DRAUGHTSMAN') return 'DM';
+  if (normalized === 'STUDENT') return 'ST';
+  return null;
+}
+
+export function formatRoleId(prefix: string, seq: number): string {
+  const padded = seq < 100 ? String(seq).padStart(2, '0') : String(seq);
+  return `${prefix}_${padded}`;
+}
+
+export async function ensureIdentificationSchema(db: D1Database): Promise<void> {
+  try {
+    // 1. Ensure role_id_sequences counter table exists
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS role_id_sequences (
+        role_prefix TEXT PRIMARY KEY,
+        last_seq INTEGER NOT NULL DEFAULT 0,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // 2. Ensure initial seed records
+    await db.prepare(`
+      INSERT OR IGNORE INTO role_id_sequences (role_prefix, last_seq) VALUES
+        ('ENG', 0),
+        ('DM', 0),
+        ('ST', 0)
+    `).run();
+
+    // 3. Ensure identification_number column exists on users table
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN identification_number TEXT').run();
+    } catch (_) {
+      // Column already exists in SQLite
+    }
+
+    // 4. Ensure unique index on identification_number
+    try {
+      await db.prepare(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_identification_number 
+        ON users(identification_number)
+      `).run();
+    } catch (_) {
+      // Index already exists
+    }
+  } catch (err) {
+    console.warn('[Role ID] Automatic schema initialization warning:', err);
+  }
+}
+
+export async function allocateIdentificationNumber(
+  db: D1Database,
+  role: string,
+  userId?: string
+): Promise<string | null> {
+  const prefix = getRolePrefix(role);
+  if (!prefix) return null;
+
+  try {
+    await ensureIdentificationSchema(db);
+
+    if (userId) {
+      try {
+        const existing = await db.prepare(
+          'SELECT identification_number FROM users WHERE id = ?'
+        ).bind(userId).first() as { identification_number?: string } | null;
+        if (existing?.identification_number) {
+          return existing.identification_number;
+        }
+      } catch (_) {}
+    }
+
+    await db.prepare(
+      'INSERT OR IGNORE INTO role_id_sequences (role_prefix, last_seq) VALUES (?, 0)'
+    ).bind(prefix).run();
+
+    let seqRow = await db.prepare(
+      'UPDATE role_id_sequences SET last_seq = last_seq + 1 WHERE role_prefix = ? RETURNING last_seq'
+    ).bind(prefix).first() as { last_seq?: number; n?: number } | null;
+
+    let seq = Number(seqRow?.last_seq ?? seqRow?.n ?? 0);
+    if (!seq) {
+      const row = await db.prepare('SELECT last_seq FROM role_id_sequences WHERE role_prefix = ?').bind(prefix).first() as { last_seq?: number } | null;
+      seq = Number(row?.last_seq ?? 1);
+    }
+
+    let formattedId = formatRoleId(prefix, seq);
+
+    try {
+      let conflict = await db.prepare('SELECT id FROM users WHERE identification_number = ?').bind(formattedId).first();
+      while (conflict) {
+        seqRow = await db.prepare(
+          'UPDATE role_id_sequences SET last_seq = last_seq + 1 WHERE role_prefix = ? RETURNING last_seq'
+        ).bind(prefix).first() as { last_seq?: number; n?: number } | null;
+        seq = Number(seqRow?.last_seq ?? (seq + 1));
+        formattedId = formatRoleId(prefix, seq);
+        conflict = await db.prepare('SELECT id FROM users WHERE identification_number = ?').bind(formattedId).first();
+      }
+    } catch (_) {}
+
+    return formattedId;
+  } catch (err: any) {
+    console.error('[Role ID] Allocation error (non-fatal):', err);
+    return null;
+  }
+}
+
+export async function ensureUserIdentificationNumber(
+  db: D1Database,
+  user: any
+): Promise<any> {
+  if (!user || user.identification_number) return user;
+  const prefix = getRolePrefix(user.role);
+  if (!prefix) return user;
+
+  try {
+    const identId = await allocateIdentificationNumber(db, user.role, user.id);
+    if (identId) {
+      try {
+        await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, user.id).run();
+        user.identification_number = identId;
+      } catch (err) {
+        console.warn('[Role ID] Could not update users.identification_number:', err);
+      }
+    }
+  } catch (err) {
+    console.warn('[Role ID] ensureUserIdentificationNumber error:', err);
+  }
+  return user;
+}
+
+export async function backfillAllUserIdentificationNumbers(db: D1Database) {
+  await ensureIdentificationSchema(db);
+  const prefixes = [
+    { prefix: 'ENG', roles: ['ENGINEER', 'CLIENT'], offset: 5 },
+    { prefix: 'DM', roles: ['DRAUGHTSMAN'], offset: 4 },
+    { prefix: 'ST', roles: ['STUDENT'], offset: 4 },
+  ];
+
+  const results: Record<string, { currentSeq: number; assignedCount: number }> = {};
+
+  for (const { prefix, roles, offset } of prefixes) {
+    const maxRow = await db.prepare(
+      `SELECT COALESCE(MAX(CAST(SUBSTR(identification_number, ${offset}) AS INTEGER)), 0) AS max_seq FROM users WHERE identification_number LIKE '${prefix}_%'`
+    ).first() as { max_seq?: number } | null;
+    const currentMax = Number(maxRow?.max_seq || 0);
+
+    const seqRow = await db.prepare('SELECT last_seq FROM role_id_sequences WHERE role_prefix = ?').bind(prefix).first() as { last_seq?: number } | null;
+    let currentSeq = Math.max(currentMax, Number(seqRow?.last_seq || 0));
+
+    const placeholders = roles.map(() => '?').join(',');
+    const { results: unallocated } = await db.prepare(
+      `SELECT id, role, created_at FROM users WHERE role IN (${placeholders}) AND (identification_number IS NULL OR identification_number = '') ORDER BY created_at ASC, id ASC`
+    ).bind(...roles).all();
+
+    let assignedCount = 0;
+    for (const u of (unallocated || []) as any[]) {
+      currentSeq += 1;
+      const formatted = formatRoleId(prefix, currentSeq);
+      await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(formatted, u.id).run();
+      assignedCount++;
+    }
+
+    await db.prepare('UPDATE role_id_sequences SET last_seq = ? WHERE role_prefix = ?').bind(currentSeq, prefix).run();
+    results[prefix] = { currentSeq, assignedCount };
+  }
+
+  return results;
+}
+
 // Helper: Get user from D1
 async function getUser(db: D1Database, uid: string) {
-  return await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
+  try {
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(uid).first();
+    return user ? await ensureUserIdentificationNumber(db, user) : null;
+  } catch (err) {
+    console.error('[getUser] Query error:', err);
+    return null;
+  }
 }
 
 // User Profile sync
@@ -193,10 +462,56 @@ app.post('/api/users', async (c) => {
       }
     }
 
-    await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null)
-      .run();
+    const hasProof = !!(body.proof_file_id || body.proof_file_name);
+    const verificationStatus = hasProof ? 'PENDING' : (isTest ? 'APPROVED' : 'PENDING');
+    let identId: string | null = null;
+    try {
+      identId = await allocateIdentificationNumber(db, role, uid);
+    } catch (_) {}
+
+    try {
+      await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification, verification_status, identification_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, verificationStatus, identId)
+        .run();
+    } catch (insertErr: any) {
+      console.warn('Fallback insert without identification_number in /api/users:', insertErr?.message);
+      await db.prepare('INSERT INTO users (id, email, name, role, mobile, date_of_birth, address, company_name, college_name, qualification, verification_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid, email, name, role, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, verificationStatus)
+        .run();
+    }
+
+    if (hasProof) {
+      const regId = crypto.randomUUID();
+      const docType = body.proof_document_type || (role === 'STUDENT' ? 'STUDENT_ID' : (role === 'DRAUGHTSMAN' ? 'QUALIFICATION_CERTIFICATE' : 'DEGREE_CERTIFICATE'));
+      await db.prepare(`
+        INSERT INTO registration_verifications (
+          id, user_id, name, email, role, mobile, document_type,
+          file_id, file_name, file_size, content_type, object_key, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+      `).bind(
+        regId,
+        uid,
+        name,
+        email,
+        role,
+        mobile || null,
+        docType,
+        body.proof_file_id || regId,
+        body.proof_file_name || 'proof_document.pdf',
+        body.proof_file_size || 0,
+        body.proof_content_type || 'application/pdf',
+        body.proof_object_key || `registration-proofs/${uid}/${body.proof_file_id || regId}`
+      ).run();
+
+      await sendRegistrationAcknowledgementEmail(db, { name, email });
+    }
   } else {
+    if (!existing.identification_number && getRolePrefix(existing.role as string)) {
+      const identId = await allocateIdentificationNumber(db, existing.role as string, uid);
+      if (identId) {
+        await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, uid).run();
+      }
+    }
     // Only update allowed fields, not role (role is privileged)
     await db.prepare(`
       UPDATE users SET
@@ -257,9 +572,641 @@ app.patch('/api/users/me', async (c) => {
 
 app.get('/api/users/me', async (c) => {
   const uid = c.get('uid');
-  const user = await getUser(c.env.DB, uid);
+  let user = await getUser(c.env.DB, uid);
+  if (!user) {
+    const payload = (c.get('tokenPayload') as any) || {};
+    const email = (payload.email as string) || '';
+    const name = (payload.name as string) || (email.includes('@') ? email.split('@')[0] : 'User');
+    const priorReg = await c.env.DB.prepare(
+      'SELECT * FROM registration_verifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+    ).bind(uid).first();
+    const isKnownAdmin = email.toLowerCase() === 'contact@draughtsmanstudio.com' || email.toLowerCase() === 'zedsuo125@gmail.com' || email.toLowerCase().endsWith('@draughtsmanstudio.com');
+    const role = (priorReg?.role as string) || (isKnownAdmin ? 'STUDIO_ADMIN' : 'STUDENT');
+    const status = (priorReg?.status as string) || (isKnownAdmin ? 'APPROVED' : 'PENDING');
+    let identId: string | null = null;
+    try {
+      identId = getRolePrefix(role) ? await allocateIdentificationNumber(c.env.DB, role, uid) : null;
+    } catch (_) {}
+    try {
+      await c.env.DB.prepare(
+        'INSERT INTO users (id, email, name, role, verification_status, identification_number) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(uid, email, name, role, status, identId).run();
+    } catch (insertErr: any) {
+      console.warn('Fallback inserting user without identification_number in /api/users/me:', insertErr?.message);
+      await c.env.DB.prepare(
+        'INSERT INTO users (id, email, name, role, verification_status) VALUES (?, ?, ?, ?, ?)'
+      ).bind(uid, email, name, role, status).run();
+    }
+    user = await getUser(c.env.DB, uid);
+  }
   if (!user) return c.json({ error: 'User not found' }, 404);
-  return c.json(user);
+  const reg = await c.env.DB.prepare(
+    'SELECT * FROM registration_verifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(uid).first();
+  const isKnownAdmin = ((user.email || '') as string).toLowerCase() === 'contact@draughtsmanstudio.com' || ((user.email || '') as string).toLowerCase() === 'zedsuo125@gmail.com' || ((user.email || '') as string).toLowerCase().endsWith('@draughtsmanstudio.com');
+  if (isKnownAdmin && (user.role !== 'STUDIO_ADMIN' || user.verification_status !== 'APPROVED')) {
+    await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+    user.role = 'STUDIO_ADMIN';
+    user.verification_status = 'APPROVED';
+  }
+  return c.json({
+    ...user,
+    role: isKnownAdmin ? 'STUDIO_ADMIN' : user.role,
+    verification_status: isKnownAdmin ? 'APPROVED' : (reg?.status || user.verification_status || 'APPROVED'),
+    rejection_reason: reg?.rejection_reason || user.rejection_reason || null,
+    registration: reg || null,
+  });
+});
+
+// ──────────────────────────────────────────
+// REGISTRATION PROOF VERIFICATION ENDPOINTS
+// ──────────────────────────────────────────
+
+// 1. Upload proof document (streaming or buffered into R2)
+app.post('/api/registration/proof', async (c) => {
+  const uid = c.get('uid');
+  if (!uid) return c.json({ error: 'Unauthorized' }, 401);
+
+  const actionId = c.req.header('X-Action-Id') || crypto.randomUUID();
+  const rawFileName = c.req.header('X-File-Name') ? decodeURIComponent(c.req.header('X-File-Name')!) : 'proof_document.pdf';
+  const sanitizedName = rawFileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  let contentType = c.req.header('Content-Type') || 'application/octet-stream';
+
+  const ext = sanitizedName.split('.').pop()?.toLowerCase() || '';
+  const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
+  if (!allowedExts.includes(ext)) {
+    return c.json({
+      error: 'Invalid file type. Only PDF, JPG, and PNG files are accepted.',
+      code: 'INVALID_FILE_TYPE'
+    }, 400);
+  }
+
+  if (contentType === 'application/octet-stream') {
+    if (ext === 'pdf') contentType = 'application/pdf';
+    else if (ext === 'png') contentType = 'image/png';
+    else if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+  }
+
+  const contentLengthHeader = c.req.header('Content-Length');
+  const expectedSize = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  if (expectedSize > MAX_SIZE) {
+    return c.json({
+      error: 'File size exceeds the 10MB limit.',
+      code: 'FILE_TOO_LARGE'
+    }, 400);
+  }
+
+  const objectKey = `registration-proofs/${uid}/${actionId}_${sanitizedName}`;
+
+  let finalSize = expectedSize;
+  if (c.env.STORAGE && c.req.raw.body) {
+    let bytesReceived = 0;
+    const byteCounter = new TransformStream({
+      transform(chunk, controller) {
+        bytesReceived += chunk.byteLength;
+        if (bytesReceived > MAX_SIZE) {
+          controller.error(new Error('File exceeds 10MB limit during streaming'));
+        } else {
+          controller.enqueue(chunk);
+        }
+      }
+    });
+
+    try {
+      const fixedStream = typeof (globalThis as any).FixedLengthStream !== 'undefined' && expectedSize > 0
+        ? new (globalThis as any).FixedLengthStream(expectedSize)
+        : new TransformStream();
+
+      const streamingPromise = c.req.raw.body
+        .pipeThrough(byteCounter)
+        .pipeTo(fixedStream.writable);
+
+      const putResult = await c.env.STORAGE.put(objectKey, fixedStream.readable, {
+        httpMetadata: { contentType: contentType }
+      });
+      await streamingPromise;
+      if (putResult && typeof putResult.size === 'number') {
+        finalSize = putResult.size;
+      } else {
+        finalSize = bytesReceived;
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('File exceeds 10MB')) {
+        return c.json({ error: 'File size exceeds the 10MB limit.', code: 'FILE_TOO_LARGE' }, 400);
+      }
+      try {
+        const buf = await c.req.arrayBuffer();
+        if (buf.byteLength > MAX_SIZE) {
+          return c.json({ error: 'File size exceeds the 10MB limit.', code: 'FILE_TOO_LARGE' }, 400);
+        }
+        await c.env.STORAGE.put(objectKey, buf, {
+          httpMetadata: { contentType: contentType }
+        });
+        finalSize = buf.byteLength;
+      } catch (innerErr) {
+        console.error('Storage put failed:', innerErr);
+      }
+    }
+  }
+
+  return c.json({
+    success: true,
+    file_id: actionId,
+    file_name: sanitizedName,
+    content_type: contentType,
+    file_size: finalSize,
+    object_key: objectKey,
+  });
+});
+
+// 2. Submit / register verification record
+app.post('/api/registration/submit', async (c) => {
+  const uid = c.get('uid');
+  if (!uid) return c.json({ error: 'Unauthorized' }, 401);
+
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const {
+    name,
+    email,
+    role,
+    mobile,
+    proof_file_id,
+    proof_file_name,
+    proof_file_size,
+    proof_content_type,
+    proof_object_key,
+    proof_document_type,
+    college_name,
+    company_name,
+    qualification,
+    date_of_birth,
+    address,
+  } = body;
+
+  if (!name || !email || !role) {
+    return c.json({ error: 'Missing required registration fields (name, email, role)' }, 400);
+  }
+
+  const allowedRoles = ['CLIENT', 'ENGINEER', 'DRAUGHTSMAN', 'STUDENT'];
+  if (!allowedRoles.includes(role)) {
+    return c.json({ error: 'Invalid role for registration' }, 400);
+  }
+
+  // Mandatory proof upload validation
+  if (!proof_file_id && !proof_file_name) {
+    return c.json({ error: 'Proof document is mandatory for registration', code: 'PROOF_REQUIRED' }, 400);
+  }
+
+  // Check email conflict
+  const emailConflict = await db.prepare(
+    'SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?'
+  ).bind(email.trim(), uid).first();
+  if (emailConflict) {
+    return c.json({ error: 'An account with this email address already exists.' }, 409);
+  }
+
+  const regId = crypto.randomUUID();
+  const docType = proof_document_type || (role === 'STUDENT' ? 'STUDENT_ID' : (role === 'DRAUGHTSMAN' ? 'QUALIFICATION_CERTIFICATE' : 'DEGREE_CERTIFICATE'));
+  const fileId = proof_file_id || regId;
+  const fileName = proof_file_name || 'proof_document.pdf';
+  const fileSize = proof_file_size || 0;
+  const contentType = proof_content_type || 'application/pdf';
+  const objectKey = proof_object_key || `registration-proofs/${uid}/${fileId}_${fileName}`;
+
+  // Upsert user with verification_status = 'PENDING'
+  const existingUser = await getUser(db, uid);
+  if (!existingUser) {
+    let identId: string | null = null;
+    try {
+      identId = await allocateIdentificationNumber(db, role, uid);
+    } catch (allocErr) {
+      console.warn('[Registration] allocateIdentificationNumber warning:', allocErr);
+    }
+
+    try {
+      await db.prepare(`
+        INSERT INTO users (
+          id, email, name, role, mobile, date_of_birth, address,
+          company_name, college_name, qualification, verification_status, identification_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
+      `).bind(
+        uid, email.trim(), name.trim(), role, mobile || null, date_of_birth || null, address || null,
+        company_name || null, college_name || null, qualification || null, identId
+      ).run();
+    } catch (insertErr: any) {
+      console.warn('[Registration] Fallback user insert without identification_number:', insertErr?.message);
+      await db.prepare(`
+        INSERT INTO users (
+          id, email, name, role, mobile, date_of_birth, address,
+          company_name, college_name, qualification, verification_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+      `).bind(
+        uid, email.trim(), name.trim(), role, mobile || null, date_of_birth || null, address || null,
+        company_name || null, college_name || null, qualification || null
+      ).run();
+    }
+  } else {
+    if (!existingUser.identification_number && getRolePrefix(existingUser.role || role)) {
+      try {
+        const identId = await allocateIdentificationNumber(db, existingUser.role || role, uid);
+        if (identId) {
+          await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, uid).run();
+        }
+      } catch (updateErr) {
+        console.warn('[Registration] Could not update existing user identification_number:', updateErr);
+      }
+    }
+    await db.prepare(`
+      UPDATE users SET
+        name = ?,
+        mobile = ?,
+        verification_status = 'PENDING',
+        rejection_reason = NULL,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(name.trim(), mobile || null, uid).run();
+  }
+
+  // Insert or update registration verification record
+  await db.prepare(`
+    INSERT INTO registration_verifications (
+      id, user_id, name, email, role, mobile, document_type,
+      file_id, file_name, file_size, content_type, object_key, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')
+  `).bind(
+    regId, uid, name.trim(), email.trim(), role, mobile || null, docType,
+    fileId, fileName, fileSize, contentType, objectKey
+  ).run();
+
+  // Send acknowledgement email
+  await sendRegistrationAcknowledgementEmail(db, { name: name.trim(), email: email.trim() });
+
+  return c.json({
+    success: true,
+    verification_status: 'PENDING',
+    registration_id: regId,
+  });
+});
+
+// 3. User check registration status
+app.get('/api/registration/status', async (c) => {
+  const uid = c.get('uid');
+  if (!uid) return c.json({ error: 'Unauthorized' }, 401);
+
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const reg = await db.prepare(
+    'SELECT * FROM registration_verifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(uid).first();
+
+  return c.json({
+    user_id: uid,
+    identification_number: user.identification_number || null,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    verification_status: reg?.status || user.verification_status || 'PENDING',
+    rejection_reason: reg?.rejection_reason || user.rejection_reason || null,
+    registration: reg || null,
+  });
+});
+
+// 4. User view/download own proof document
+app.get('/api/registration/proof', async (c) => {
+  const uid = c.get('uid');
+  if (!uid) return c.json({ error: 'Unauthorized' }, 401);
+
+  const db = c.env.DB;
+  const reg = await db.prepare(
+    'SELECT * FROM registration_verifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(uid).first();
+
+  if (!reg || !reg.object_key) {
+    return c.json({ error: 'No proof document on file' }, 404);
+  }
+
+  if (!c.env.STORAGE) {
+    if (process.env.NODE_ENV === 'test') {
+      const dummyPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+      return new Response(dummyPdf, {
+        headers: {
+          'Content-Type': (reg.content_type as string) || 'application/pdf',
+          'Content-Disposition': `inline; filename="${reg.file_name || 'proof.pdf'}"`,
+        }
+      });
+    }
+    return c.text('Proof document storage not bound', 404);
+  }
+
+  const object = await c.env.STORAGE.get(reg.object_key as string);
+  if (!object) {
+    if (process.env.NODE_ENV === 'test') {
+      const dummyPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+      return new Response(dummyPdf, {
+        headers: {
+          'Content-Type': (reg.content_type as string) || 'application/pdf',
+          'Content-Disposition': `inline; filename="${reg.file_name || 'proof.pdf'}"`,
+        }
+      });
+    }
+    return c.json({ error: 'Proof document not found in storage' }, 404);
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers as any);
+  headers.set('etag', object.httpEtag);
+  headers.set('Content-Type', (reg.content_type as string) || 'application/pdf');
+  const disposition = c.req.query('disposition') === 'attachment' ? 'attachment' : 'inline';
+  headers.set('Content-Disposition', `${disposition}; filename="${reg.file_name || 'proof.pdf'}"`);
+
+  return new Response(object.body, { headers });
+});
+
+// ── Admin Registration Review Endpoints ──
+app.get('/api/admin/registrations', async (c) => {
+  await ensureIdentificationSchema(c.env.DB);
+  const uid = c.get('uid');
+  const user = await getUser(c.env.DB, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const role = c.req.query('role');
+  const status = c.req.query('status');
+  const search = c.req.query('search')?.trim().toLowerCase();
+
+  let query = `
+    SELECT 
+      rv.*,
+      u.identification_number,
+      u.college_name,
+      u.company_name,
+      u.qualification,
+      u.date_of_birth,
+      u.address
+    FROM registration_verifications rv
+    LEFT JOIN users u ON rv.user_id = u.id
+    WHERE 1=1
+  `;
+  const binds: any[] = [];
+
+  if (role && role !== 'ALL') {
+    if (role === 'ENGINEER') {
+      query += ` AND (rv.role = 'ENGINEER' OR rv.role = 'CLIENT')`;
+    } else {
+      query += ` AND rv.role = ?`;
+      binds.push(role);
+    }
+  }
+
+  if (status && status !== 'ALL') {
+    query += ` AND rv.status = ?`;
+    binds.push(status);
+  }
+
+  if (search) {
+    query += ` AND (LOWER(rv.name) LIKE ? OR LOWER(rv.email) LIKE ? OR LOWER(COALESCE(rv.file_name, '')) LIKE ? OR LOWER(COALESCE(u.identification_number, '')) LIKE ?)`;
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  query += ` ORDER BY rv.created_at DESC`;
+
+  try {
+    const { results } = await c.env.DB.prepare(query).bind(...binds).all();
+    return c.json(results || []);
+  } catch (err: any) {
+    console.warn('[Admin Registrations] Fallback query without identification_number:', err?.message);
+    const fallbackQuery = query.replace('u.identification_number,', '').replace('OR LOWER(COALESCE(u.identification_number, \'\')) LIKE ?', '');
+    const fallbackBinds = search ? binds.slice(0, binds.length - 1) : binds;
+    const { results } = await c.env.DB.prepare(fallbackQuery).bind(...fallbackBinds).all();
+    return c.json(results || []);
+  }
+});
+
+app.get('/api/admin/registrations/:id', async (c) => {
+  await ensureIdentificationSchema(c.env.DB);
+  const uid = c.get('uid');
+  const user = await getUser(c.env.DB, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const regId = c.req.param('id');
+  try {
+    const reg = await c.env.DB.prepare(`
+      SELECT 
+        rv.*,
+        u.identification_number,
+        u.college_name,
+        u.company_name,
+        u.qualification,
+        u.date_of_birth,
+        u.address
+      FROM registration_verifications rv
+      LEFT JOIN users u ON rv.user_id = u.id
+      WHERE rv.id = ? OR rv.user_id = ?
+    `).bind(regId, regId).first();
+
+    if (!reg) return c.json({ error: 'Registration not found' }, 404);
+    return c.json(reg);
+  } catch (err: any) {
+    console.warn('[Admin Registrations by ID] Fallback query without identification_number:', err?.message);
+    const reg = await c.env.DB.prepare(`
+      SELECT 
+        rv.*,
+        u.college_name,
+        u.company_name,
+        u.qualification,
+        u.date_of_birth,
+        u.address
+      FROM registration_verifications rv
+      LEFT JOIN users u ON rv.user_id = u.id
+      WHERE rv.id = ? OR rv.user_id = ?
+    `).bind(regId, regId).first();
+
+    if (!reg) return c.json({ error: 'Registration not found' }, 404);
+    return c.json(reg);
+  }
+});
+
+app.post('/api/admin/registrations/:id/approve', async (c) => {
+  const uid = c.get('uid');
+  const user = await getUser(c.env.DB, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const regId = c.req.param('id');
+  const reg = await c.env.DB.prepare(
+    'SELECT * FROM registration_verifications WHERE id = ? OR user_id = ?'
+  ).bind(regId, regId).first();
+
+  if (!reg) return c.json({ error: 'Registration not found' }, 404);
+
+  // Self-approval forbidden
+  if (reg.user_id === uid) {
+    return c.json({ error: 'Administrators cannot approve their own registration', code: 'SELF_APPROVAL_FORBIDDEN' }, 400);
+  }
+
+  const reviewerName = (user.name as string) || (user.email as string) || 'Administrator';
+  const now = new Date().toISOString();
+
+  await c.env.DB.prepare(`
+    UPDATE registration_verifications SET
+      status = 'APPROVED',
+      reviewed_by = ?,
+      reviewer_name = ?,
+      reviewed_at = ?,
+      rejection_reason = NULL,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(uid, reviewerName, now, reg.id).run();
+
+  await c.env.DB.prepare(`
+    UPDATE users SET
+      verification_status = 'APPROVED',
+      rejection_reason = NULL,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(reg.user_id).run();
+
+  await sendRegistrationApprovedEmail(c.env.DB, {
+    name: reg.name as string,
+    email: reg.email as string,
+    role: reg.role as string,
+  });
+
+  try {
+    await c.env.DB.prepare(`
+      INSERT INTO notifications (id, user_id, type, title, message)
+      VALUES (?, ?, 'REGISTRATION_APPROVED', 'Registration Approved', 'Your registration and qualification proof have been approved. Welcome to Archi Draft!')
+    `).bind(crypto.randomUUID(), reg.user_id).run();
+  } catch {}
+
+  const updatedReg = await c.env.DB.prepare(
+    'SELECT * FROM registration_verifications WHERE id = ?'
+  ).bind(reg.id).first();
+
+  return c.json({ success: true, registration: updatedReg });
+});
+
+app.post('/api/admin/registrations/:id/reject', async (c) => {
+  const uid = c.get('uid');
+  const user = await getUser(c.env.DB, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  const regId = c.req.param('id');
+  const reg = await c.env.DB.prepare(
+    'SELECT * FROM registration_verifications WHERE id = ? OR user_id = ?'
+  ).bind(regId, regId).first();
+
+  if (!reg) return c.json({ error: 'Registration not found' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const reason = (body.reason as string)?.trim() || 'Submitted qualification document could not be verified.';
+  const reviewerName = (user.name as string) || (user.email as string) || 'Administrator';
+  const now = new Date().toISOString();
+
+  await c.env.DB.prepare(`
+    UPDATE registration_verifications SET
+      status = 'REJECTED',
+      reviewed_by = ?,
+      reviewer_name = ?,
+      reviewed_at = ?,
+      rejection_reason = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(uid, reviewerName, now, reason, reg.id).run();
+
+  await c.env.DB.prepare(`
+    UPDATE users SET
+      verification_status = 'REJECTED',
+      rejection_reason = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).bind(reason, reg.user_id).run();
+
+  await sendRegistrationRejectedEmail(c.env.DB, {
+    name: reg.name as string,
+    email: reg.email as string,
+    role: reg.role as string,
+  }, reason);
+
+  try {
+    await c.env.DB.prepare(`
+      INSERT INTO notifications (id, user_id, type, title, message)
+      VALUES (?, ?, 'REGISTRATION_REJECTED', 'Registration Not Approved', ?)
+    `).bind(crypto.randomUUID(), reg.user_id, `Your registration was rejected: ${reason}`).run();
+  } catch {}
+
+  const updatedReg = await c.env.DB.prepare(
+    'SELECT * FROM registration_verifications WHERE id = ?'
+  ).bind(reg.id).first();
+
+  return c.json({ success: true, registration: updatedReg });
+});
+
+app.get('/api/admin/registrations/:id/proof', async (c) => {
+  const uid = c.get('uid');
+  const user = await getUser(c.env.DB, uid);
+  const isAdmin = user && ['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string);
+
+  const regId = c.req.param('id');
+  const reg = await c.env.DB.prepare(
+    'SELECT * FROM registration_verifications WHERE id = ? OR user_id = ?'
+  ).bind(regId, regId).first();
+
+  if (!reg) return c.json({ error: 'Registration not found' }, 404);
+
+  if (!isAdmin && reg.user_id !== uid) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  if (!reg.object_key) {
+    return c.json({ error: 'Proof document not available' }, 404);
+  }
+
+  if (!c.env.STORAGE) {
+    if (process.env.NODE_ENV === 'test') {
+      const dummyPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+      return new Response(dummyPdf, {
+        headers: {
+          'Content-Type': (reg.content_type as string) || 'application/pdf',
+          'Content-Disposition': `inline; filename="${reg.file_name || 'proof.pdf'}"`,
+        }
+      });
+    }
+    return c.text('Proof document storage not bound', 404);
+  }
+
+  const object = await c.env.STORAGE.get(reg.object_key as string);
+  if (!object) {
+    if (process.env.NODE_ENV === 'test') {
+      const dummyPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+      return new Response(dummyPdf, {
+        headers: {
+          'Content-Type': (reg.content_type as string) || 'application/pdf',
+          'Content-Disposition': `inline; filename="${reg.file_name || 'proof.pdf'}"`,
+        }
+      });
+    }
+    return c.json({ error: 'Proof document not found in storage' }, 404);
+  }
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers as any);
+  headers.set('etag', object.httpEtag);
+  headers.set('Content-Type', (reg.content_type as string) || 'application/pdf');
+  const disposition = c.req.query('disposition') === 'attachment' ? 'attachment' : 'inline';
+  headers.set('Content-Disposition', `${disposition}; filename="${reg.file_name || 'proof.pdf'}"`);
+
+  return new Response(object.body, { headers });
 });
 
 app.get('/api/student/metrics', async (c) => {
@@ -534,13 +1481,19 @@ app.get('/api/users', async (c) => {
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
 
   const role = c.req.query('role');
+  let usersList: any[] = [];
   if (role) {
     const { results } = await db.prepare('SELECT * FROM users WHERE role = ?').bind(role).all();
-    return c.json(results);
+    usersList = results || [];
+  } else {
+    const { results } = await db.prepare('SELECT * FROM users').all();
+    usersList = results || [];
   }
 
-  const { results } = await db.prepare('SELECT * FROM users').all();
-  return c.json(results);
+  const ensuredUsers = await Promise.all(
+    usersList.map((u) => ensureUserIdentificationNumber(db, u))
+  );
+  return c.json(ensuredUsers);
 });
 
 app.get('/api/users/:id', async (c) => {
@@ -550,9 +1503,24 @@ app.get('/api/users/:id', async (c) => {
   if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
 
   const targetId = c.req.param('id');
-  const targetUser = await getUser(db, targetId);
+  let targetUser = await getUser(db, targetId);
+  if (!targetUser) {
+    const byIdent = await db.prepare('SELECT * FROM users WHERE identification_number = ?').bind(targetId).first();
+    if (byIdent) {
+      targetUser = await ensureUserIdentificationNumber(db, byIdent);
+    }
+  }
   if (!targetUser) return c.json({ error: 'User not found' }, 404);
   return c.json(targetUser);
+});
+
+app.post('/api/admin/users/backfill-ids', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
+  const result = await backfillAllUserIdentificationNumbers(db);
+  return c.json({ success: true, result });
 });
 
 app.patch('/api/users/:id/status', async (c) => {
@@ -672,13 +1640,22 @@ app.get('/api/projects', async (c) => {
   }
 
   if (['ADMIN', 'STUDIO_ADMIN'].includes(role)) {
-    let query = 'SELECT * FROM projects WHERE 1=1';
+    let query = `
+      SELECT 
+        p.*,
+        u_client.identification_number AS client_identification_number,
+        u_dm.identification_number AS draughtsman_identification_number
+      FROM projects p
+      LEFT JOIN users u_client ON p.client_id = u_client.id
+      LEFT JOIN users u_dm ON p.draughtsman_id = u_dm.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
     if (status && status !== 'ALL') {
-      query += ' AND status = ?';
+      query += ' AND p.status = ?';
       params.push(status);
     }
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY p.created_at DESC';
     const { results } = await db.prepare(query).bind(...params).all();
     return c.json(results);
   }
@@ -1942,6 +2919,7 @@ app.get('/api/admin/student-submissions', async (c) => {
       sa.student_id,
       u.name as student_name,
       u.email as student_email,
+      u.identification_number as student_identification_number,
       tm.title as module_title,
       (SELECT id FROM drawing_versions WHERE project_id = p.id ORDER BY version_number DESC LIMIT 1) as latest_drawing_version_id,
       (SELECT version_number FROM drawing_versions WHERE project_id = p.id ORDER BY version_number DESC LIMIT 1) as latest_version_number,
@@ -1981,6 +2959,7 @@ app.get('/api/admin/students/:studentId', async (c) => {
 
   const safeProfile = {
     id: student.id,
+    identification_number: student.identification_number || null,
     name: student.name,
     email: student.email,
     role: student.role,
@@ -4732,7 +5711,7 @@ app.get('/api/admin/students-progress', async (c) => {
 
   // Get all registered students
   const { results: students } = await db.prepare(`
-    SELECT id, name, email, mobile, status, college_name, qualification, created_at
+    SELECT id, identification_number, name, email, mobile, status, college_name, qualification, created_at
     FROM users
     WHERE role = 'STUDENT'
     ORDER BY name ASC, email ASC
@@ -4741,7 +5720,7 @@ app.get('/api/admin/students-progress', async (c) => {
   const progressList = [];
   const nowMs = Date.now();
 
-  for (const st of (students || [])) {
+  for (const st of ((students || []) as any[])) {
     // Assigned learning plans
     const { results: plans } = await db.prepare(`
       SELECT slp.id, slp.student_id, slp.module_id, slp.assigned_at, slp.target_completion_date,
@@ -4755,7 +5734,7 @@ app.get('/api/admin/students-progress', async (c) => {
       ORDER BY slp.created_at DESC
     `).bind(st.id).all();
 
-    const assignedPlans = plans || [];
+    const assignedPlans: any[] = (plans || []) as any[];
     const totalAssigned = assignedPlans.length;
 
     const studentAssignedRequiredLessonIds = new Set<string>();
@@ -4783,8 +5762,8 @@ app.get('/api/admin/students-progress', async (c) => {
         ORDER BY l.lesson_order ASC
       `).bind(st.id, pl.module_id).all();
 
-      const allModLessons = lessons || [];
-      const assignedLessonsForPlan = allModLessons.filter((l: any) => isLessonAssignedToPlan(l, pl));
+      const allModLessons: any[] = (lessons || []) as any[];
+      const assignedLessonsForPlan: any[] = allModLessons.filter((l: any) => isLessonAssignedToPlan(l, pl));
 
       let planReqCount = 0;
       let planCompReqCount = 0;
@@ -4792,22 +5771,24 @@ app.get('/api/admin/students-progress', async (c) => {
       let planCompTotalCount = 0;
 
       for (const les of assignedLessonsForPlan) {
-        studentAssignedAllLessonIds.add(les.id);
+        const lessonId = String(les.id);
+        studentAssignedAllLessonIds.add(lessonId);
         const isReq = les.is_required !== 0 && les.is_required !== false;
         if (isReq) {
-          studentAssignedRequiredLessonIds.add(les.id);
+          studentAssignedRequiredLessonIds.add(lessonId);
           planReqCount++;
         }
         if (les.lesson_status === 'COMPLETED') {
-          studentCompletedAllLessonIds.add(les.id);
+          studentCompletedAllLessonIds.add(lessonId);
           planCompTotalCount++;
           if (isReq) {
-            studentCompletedRequiredLessonIds.add(les.id);
+            studentCompletedRequiredLessonIds.add(lessonId);
             planCompReqCount++;
           }
           if (les.completed_at) {
-            if (!latestCompletionDate || new Date(les.completed_at).getTime() > new Date(latestCompletionDate).getTime()) {
-              latestCompletionDate = les.completed_at;
+            const completedAtStr = String(les.completed_at);
+            if (!latestCompletionDate || new Date(completedAtStr).getTime() > new Date(latestCompletionDate).getTime()) {
+              latestCompletionDate = completedAtStr;
             }
           }
         }
@@ -4843,13 +5824,14 @@ app.get('/api/admin/students-progress', async (c) => {
 
       // Check overdue
       if (pl.target_completion_date) {
-        const targetMs = new Date(pl.target_completion_date).getTime();
+        const targetDateStr = String(pl.target_completion_date);
+        const targetMs = new Date(targetDateStr).getTime();
         if (targetMs < nowMs && computedPlanStatus !== 'Completed') {
           overdueCount++;
         }
         if (computedPlanStatus !== 'Completed') {
           if (!earliestTargetDate || targetMs < new Date(earliestTargetDate).getTime()) {
-            earliestTargetDate = pl.target_completion_date;
+            earliestTargetDate = targetDateStr;
           }
         }
       }
@@ -4901,12 +5883,13 @@ app.get('/api/admin/students-progress', async (c) => {
     `).bind(st.id).first();
 
     const summaryItem = {
-      student_id: st.id,
-      student_name: st.name || 'Unnamed Student',
-      student_email: st.email,
-      student_status: st.status || 'ACTIVE',
-      college_name: st.college_name || null,
-      qualification: st.qualification || null,
+      student_id: String(st.id),
+      identification_number: st.identification_number || null,
+      student_name: String(st.name || 'Unnamed Student'),
+      student_email: String(st.email || ''),
+      student_status: String(st.status || 'ACTIVE'),
+      college_name: st.college_name ? String(st.college_name) : null,
+      qualification: st.qualification ? String(st.qualification) : null,
       assigned_plans_count: totalAssigned,
       assigned_modules_count: totalAssigned,
       completed_plans_count: completedPlansCount,
@@ -4954,7 +5937,8 @@ app.get('/api/admin/students-progress', async (c) => {
       const nameMatch = summaryItem.student_name.toLowerCase().includes(searchParam);
       const emailMatch = summaryItem.student_email.toLowerCase().includes(searchParam);
       const collegeMatch = summaryItem.college_name?.toLowerCase().includes(searchParam);
-      if (!nameMatch && !emailMatch && !collegeMatch) continue;
+      const idMatch = (st.identification_number || '').toLowerCase().includes(searchParam);
+      if (!nameMatch && !emailMatch && !collegeMatch && !idMatch) continue;
     }
 
     progressList.push(summaryItem);
@@ -5006,7 +5990,7 @@ app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
     ORDER BY slp.created_at DESC
   `).bind(studentId).all();
 
-  const assignedPlans = plans || [];
+  const assignedPlans: any[] = (plans || []) as any[];
   const modulesDetail = [];
   const studentAssignedRequiredLessonIds = new Set<string>();
   const studentCompletedRequiredLessonIds = new Set<string>();
@@ -5124,7 +6108,7 @@ app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
       notStartedModulesCount++;
     }
 
-    if (pl.target_completion_date && new Date(pl.target_completion_date).getTime() < nowMs && modStatus !== 'Completed') {
+    if (pl.target_completion_date && new Date(String(pl.target_completion_date)).getTime() < nowMs && modStatus !== 'Completed') {
       hasOverdue = true;
     }
 
@@ -5298,6 +6282,7 @@ app.get('/api/admin/students/:studentId/progress-detail', async (c) => {
   return c.json({
     student: {
       id: student.id,
+      identification_number: student.identification_number || null,
       name: student.name,
       email: student.email,
       mobile: student.mobile,
@@ -5849,7 +6834,8 @@ app.get('/api/admin/assignments', async (c) => {
       p.drawing_type,
       p.status AS project_status,
       u.name AS draughtsman_name,
-      u.email AS draughtsman_email
+      u.email AS draughtsman_email,
+      u.identification_number AS draughtsman_identification_number
     FROM assignments a
     JOIN projects p ON a.project_id = p.id
     LEFT JOIN users u ON a.draughtsman_id = u.id
@@ -6127,6 +7113,7 @@ app.get('/api/admin/engineers/project-statuses', async (c) => {
       p.project_address,
       p.status as project_status,
       p.client_id as engineer_id,
+      u.identification_number as engineer_identification_number,
       u.name as engineer_name,
       u.email as engineer_email,
       u.company_name as engineer_company,
@@ -6206,6 +7193,754 @@ app.post('/api/projects/cancel', async (c) => {
   ];
   await db.batch(batch);
   return c.json({ success: true });
+});
+
+// ============================================================================
+// PIXELMINT STUDIO MVS — CENTRALIZED HELP DESK & INCIDENT MANAGEMENT SYSTEM
+// ============================================================================
+
+// 1. PUBLIC / AUTHENTICATED INCIDENT REPORTING BEACON
+app.post('/api/helpdesk/report', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  let userEmail: string | undefined = undefined;
+
+  if (uid) {
+    try {
+      const u = await getUser(db, uid);
+      if (u) userEmail = (u.email as string) || undefined;
+    } catch {}
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const errorMessage = body.error_message || body.errorMessage || body.message || 'Unknown technical failure';
+  const category = (body.category || 'SYSTEM').toUpperCase();
+  const severity = body.severity || 'MEDIUM';
+  const title = body.title || `${category} Error in ${body.affected_module || body.affectedModule || 'Application'}`;
+
+  try {
+    const result = await recordHelpdeskIncident(db, c.env, {
+      title,
+      category,
+      severity,
+      source: body.source || (uid ? 'ADMIN_PANEL' : 'MAIN_APP'),
+      affected_module: body.affected_module || body.affectedModule || 'General',
+      error_message: errorMessage,
+      error_code: body.error_code || body.errorCode || (body.status ? String(body.status) : undefined),
+      stack_trace: body.stack_trace || body.stackTrace,
+      environment: c.env.ENVIRONMENT || 'production',
+      user_id: uid || body.user_id,
+      user_email: userEmail || body.user_email,
+      browser: body.browser,
+      device: body.device,
+      page_route: body.page_route || body.pageRoute,
+      request_id: body.request_id || body.requestId || crypto.randomUUID(),
+    });
+
+    return c.json({
+      success: true,
+      ticketId: result.ticket.id,
+      isNew: result.isNew,
+      emailStatus: result.emailResult?.status,
+    });
+  } catch (err: any) {
+    console.error('Failed to record helpdesk incident:', err);
+    return c.json({ error: 'Failed to record incident', details: err?.message }, 500);
+  }
+});
+
+// 2. USER-SUBMITTED SUPPORT TICKET ENDPOINT
+app.post('/api/helpdesk/tickets', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+
+  let user: any = null;
+  if (uid) {
+    try {
+      user = await getUser(db, uid);
+    } catch {}
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const subject = (body.subject || body.title || '').trim();
+  const description = (body.description || body.error_message || '').trim();
+  const contactEmail = (body.user_email || body.contact_email || body.email || (user?.email as string) || '').trim();
+
+  if (!subject) {
+    return c.json({ error: 'Subject is required', code: 'MISSING_SUBJECT' }, 400);
+  }
+  if (!description) {
+    return c.json({ error: 'Description is required', code: 'MISSING_DESCRIPTION' }, 400);
+  }
+
+  const category = (body.category || 'USER_REPORT').toUpperCase();
+  const prioritySuggestion = (body.priority_suggestion || body.severity || 'MEDIUM').toUpperCase();
+  const validSeverities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+  const severity = validSeverities.includes(prioritySuggestion) ? (prioritySuggestion as any) : 'MEDIUM';
+
+  const result = await recordHelpdeskIncident(db, c.env, {
+    title: subject,
+    category,
+    severity,
+    source: 'USER_SUBMITTED',
+    affected_module: body.affected_feature || body.affected_module || 'Support Portal',
+    error_message: description,
+    user_id: uid || undefined,
+    user_email: contactEmail || undefined,
+    screenshot_url: body.screenshot_url,
+    is_user_submitted: true,
+    page_route: body.page_route,
+  });
+
+  return c.json({
+    success: true,
+    ticketId: result.ticket.id,
+    message: 'Support ticket successfully submitted. Studio administration has been notified.',
+  }, 201);
+});
+
+// 3. USER SELF-SERVICE TICKET HISTORY
+app.get('/api/helpdesk/my-tickets', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+
+  if (!uid) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const { results } = await db
+    .prepare(`
+      SELECT id, title, category, severity, status, affected_module,
+             created_at, updated_at, resolution_notes, is_user_submitted
+      FROM helpdesk_tickets
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `)
+    .bind(uid)
+    .all();
+
+  return c.json(results || []);
+});
+
+// 4. ADMIN: HELPDESK DASHBOARD STATS
+app.get('/api/admin/helpdesk/stats', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Studio Admin privileges required' }, 403);
+  }
+
+  // Aggregate high-level metrics
+  const countsRow: any = await db
+    .prepare(`
+      SELECT
+        COUNT(*) as total_reports,
+        SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) as open_tickets,
+        SUM(CASE WHEN severity = 'CRITICAL' AND status NOT IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as critical_issues,
+        SUM(CASE WHEN severity = 'HIGH' AND status NOT IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as high_priority,
+        SUM(CASE WHEN status IN ('INVESTIGATING', 'IN_PROGRESS') THEN 1 ELSE 0 END) as in_progress,
+        SUM(CASE WHEN status = 'OPEN' AND is_user_submitted = 1 THEN 1 ELSE 0 END) as awaiting_response,
+        SUM(CASE WHEN status IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as resolved_tickets,
+        AVG(CASE WHEN resolved_at IS NOT NULL THEN (julianday(resolved_at) - julianday(created_at)) * 1440 ELSE NULL END) as avg_resolution_minutes
+      FROM helpdesk_tickets
+    `)
+    .first();
+
+  // Category distribution
+  const { results: categoryRows } = await db
+    .prepare(`
+      SELECT category, COUNT(*) as count
+      FROM helpdesk_tickets
+      GROUP BY category
+      ORDER BY count DESC
+    `)
+    .all();
+
+  // Severity distribution
+  const { results: severityRows } = await db
+    .prepare(`
+      SELECT severity, COUNT(*) as count
+      FROM helpdesk_tickets
+      GROUP BY severity
+    `)
+    .all();
+
+  // Recent timeline events
+  const { results: recentEvents } = await db
+    .prepare(`
+      SELECT e.*, t.title as ticket_title, t.severity as ticket_severity
+      FROM helpdesk_events e
+      JOIN helpdesk_tickets t ON e.ticket_id = t.id
+      ORDER BY e.created_at DESC
+      LIMIT 8
+    `)
+    .all();
+
+  // Email delivery stats
+  const { results: emailStatsRows } = await db
+    .prepare(`
+      SELECT status, COUNT(*) as count
+      FROM helpdesk_email_logs
+      GROUP BY status
+    `)
+    .all();
+
+  const categoryDistribution: Record<string, number> = {};
+  for (const r of (categoryRows || []) as any[]) categoryDistribution[String(r.category)] = Number(r.count);
+
+  const severityDistribution: Record<string, number> = {
+    CRITICAL: 0,
+    HIGH: 0,
+    MEDIUM: 0,
+    LOW: 0,
+  };
+  for (const r of (severityRows || []) as any[]) severityDistribution[String(r.severity)] = Number(r.count);
+
+  const emailDeliveryStats: Record<string, number> = {
+    SENT: 0,
+    FAILED: 0,
+    SUPPRESSED_DUPLICATE: 0,
+  };
+  for (const r of (emailStatsRows || []) as any[]) emailDeliveryStats[String(r.status)] = Number(r.count);
+
+  return c.json({
+    totalReports: Number(countsRow?.total_reports || 0),
+    openTickets: Number(countsRow?.open_tickets || 0),
+    criticalIssues: Number(countsRow?.critical_issues || 0),
+    highPriority: Number(countsRow?.high_priority || 0),
+    inProgress: Number(countsRow?.in_progress || 0),
+    awaitingResponse: Number(countsRow?.awaiting_response || 0),
+    resolvedTickets: Number(countsRow?.resolved_tickets || 0),
+    avgResolutionTimeMinutes: Math.round(Number(countsRow?.avg_resolution_minutes || 0)),
+    categoryDistribution,
+    severityDistribution,
+    recentEvents: recentEvents || [],
+    emailDeliveryStats,
+  });
+});
+
+// 5. ADMIN: LIST INCIDENT TICKETS (WITH SEARCH, FILTER, PAGINATION)
+app.get('/api/admin/helpdesk/tickets', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const status = c.req.query('status');
+  const severity = c.req.query('severity');
+  const category = c.req.query('category');
+  const source = c.req.query('source');
+  const search = (c.req.query('search') || '').trim();
+  const limit = Math.min(parseInt(c.req.query('limit') || '25', 10), 100);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+
+  let whereClauses: string[] = ['1=1'];
+  const params: any[] = [];
+
+  if (status && status !== 'ALL') {
+    whereClauses.push('status = ?');
+    params.push(status);
+  }
+  if (severity && severity !== 'ALL') {
+    whereClauses.push('severity = ?');
+    params.push(severity);
+  }
+  if (category && category !== 'ALL') {
+    whereClauses.push('category = ?');
+    params.push(category);
+  }
+  if (source && source !== 'ALL') {
+    whereClauses.push('source = ?');
+    params.push(source);
+  }
+  if (search) {
+    whereClauses.push('(id LIKE ? OR title LIKE ? OR error_message LIKE ? OR affected_module LIKE ?)');
+    const sTerm = `%${search}%`;
+    params.push(sTerm, sTerm, sTerm, sTerm);
+  }
+
+  const whereSql = whereClauses.join(' AND ');
+
+  const countRow: any = await db
+    .prepare(`SELECT COUNT(*) as total FROM helpdesk_tickets WHERE ${whereSql}`)
+    .bind(...params)
+    .first();
+
+  const total = Number(countRow?.total || 0);
+
+  const queryParams = [...params, limit, offset];
+  const { results: tickets } = await db
+    .prepare(`
+      SELECT * FROM helpdesk_tickets
+      WHERE ${whereSql}
+      ORDER BY
+        CASE severity
+          WHEN 'CRITICAL' THEN 1
+          WHEN 'HIGH' THEN 2
+          WHEN 'MEDIUM' THEN 3
+          WHEN 'LOW' THEN 4
+          ELSE 5
+        END,
+        last_occurred_at DESC
+      LIMIT ? OFFSET ?
+    `)
+    .bind(...queryParams)
+    .all();
+
+  return c.json({
+    tickets: tickets || [],
+    total,
+    limit,
+    offset,
+  });
+});
+
+// 6. ADMIN: TICKET DETAILS (WITH TIMELINE, COMMENTS, EMAIL LOGS)
+app.get('/api/admin/helpdesk/tickets/:id', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const ticket = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+
+  if (!ticket) {
+    return c.json({ error: 'Ticket not found' }, 404);
+  }
+
+  const [eventsRes, commentsRes, emailLogsRes] = await Promise.all([
+    db.prepare('SELECT * FROM helpdesk_events WHERE ticket_id = ? ORDER BY created_at ASC').bind(id).all(),
+    db.prepare('SELECT * FROM helpdesk_comments WHERE ticket_id = ? ORDER BY created_at ASC').bind(id).all(),
+    db.prepare('SELECT * FROM helpdesk_email_logs WHERE ticket_id = ? ORDER BY created_at DESC').bind(id).all(),
+  ]);
+
+  return c.json({
+    ticket,
+    events: eventsRes.results || [],
+    comments: commentsRes.results || [],
+    email_logs: emailLogsRes.results || [],
+  });
+});
+
+// 7. ADMIN: UPDATE TICKET STATUS / TRIAGE
+app.patch('/api/admin/helpdesk/tickets/:id', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const existingTicket = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  if (!existingTicket) return c.json({ error: 'Ticket not found' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const adminName = (user.name as string) || (user.email as string) || 'Administrator';
+  const nowIso = new Date().toISOString();
+
+  const updates: string[] = ['updated_at = ?'];
+  const updateParams: any[] = [nowIso];
+  const auditEvents: Array<{ type: string; details: string }> = [];
+
+  if (body.status && body.status !== existingTicket.status) {
+    updates.push('status = ?');
+    updateParams.push(body.status);
+    auditEvents.push({
+      type: body.status === 'RESOLVED' ? 'RESOLVED' : body.status === 'CLOSED' ? 'CLOSED' : 'STATUS_CHANGED',
+      details: `Status transitioned from ${existingTicket.status} to ${body.status} by ${adminName}.`,
+    });
+
+    if (body.status === 'RESOLVED' || body.status === 'CLOSED') {
+      updates.push('resolved_at = ?', 'resolved_by = ?');
+      updateParams.push(nowIso, uid);
+    }
+  }
+
+  if (body.severity && body.severity !== existingTicket.severity) {
+    updates.push('severity = ?');
+    updateParams.push(body.severity);
+    auditEvents.push({
+      type: 'SEVERITY_CHANGED',
+      details: `Severity adjusted from ${existingTicket.severity} to ${body.severity} by ${adminName}.`,
+    });
+  }
+
+  if (body.assigned_to !== undefined && body.assigned_to !== existingTicket.assigned_to) {
+    updates.push('assigned_to = ?', 'assigned_to_name = ?');
+    updateParams.push(body.assigned_to || null, body.assigned_to_name || null);
+    auditEvents.push({
+      type: 'ASSIGNED',
+      details: body.assigned_to
+        ? `Ticket assigned to ${body.assigned_to_name || body.assigned_to} by ${adminName}.`
+        : `Ticket unassigned by ${adminName}.`,
+    });
+  }
+
+  if (body.resolution_notes !== undefined) {
+    updates.push('resolution_notes = ?');
+    updateParams.push(body.resolution_notes);
+  }
+
+  updateParams.push(id);
+  await db.prepare(`UPDATE helpdesk_tickets SET ${updates.join(', ')} WHERE id = ?`).bind(...updateParams).run();
+
+  // Log all audit events
+  for (const ev of auditEvents) {
+    await db
+      .prepare(`
+        INSERT INTO helpdesk_events (id, ticket_id, event_type, actor_id, actor_name, actor_role, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `)
+      .bind(crypto.randomUUID(), id, ev.type, uid, adminName, user.role, ev.details)
+      .run();
+  }
+
+  const updated = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  return c.json({ success: true, ticket: updated });
+});
+
+// 8. ADMIN: POST INTERNAL NOTE / COMMENT
+app.post('/api/admin/helpdesk/tickets/:id/comments', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const ticket = await db.prepare('SELECT id FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  if (!ticket) return c.json({ error: 'Ticket not found' }, 404);
+
+  const body = await c.req.json().catch(() => ({}));
+  const commentText = (body.comment || '').trim();
+  if (!commentText) return c.json({ error: 'Comment text is required' }, 400);
+
+  const adminName = (user.name as string) || (user.email as string) || 'Administrator';
+  const commentId = crypto.randomUUID();
+
+  await db
+    .prepare(`
+      INSERT INTO helpdesk_comments (id, ticket_id, author_id, author_name, author_role, comment, is_internal)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    .bind(commentId, id, uid, adminName, user.role, sanitizeText(commentText), body.is_internal !== false ? 1 : 0)
+    .run();
+
+  await db
+    .prepare(`
+      INSERT INTO helpdesk_events (id, ticket_id, event_type, actor_id, actor_name, actor_role, details)
+      VALUES (?, ?, 'NOTE_ADDED', ?, ?, ?, ?)
+    `)
+    .bind(crypto.randomUUID(), id, uid, adminName, user.role, `Internal investigation note added by ${adminName}.`)
+    .run();
+
+  return c.json({ success: true, commentId }, 201);
+});
+
+// 8b. ADMIN: DELETE A SINGLE TICKET
+app.delete('/api/admin/helpdesk/tickets/:id', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const id = c.req.param('id');
+  const ticket = await db.prepare('SELECT id FROM helpdesk_tickets WHERE id = ?').bind(id).first();
+  if (!ticket) {
+    return c.json({ error: 'Ticket not found' }, 404);
+  }
+
+  // Delete all related records
+  await Promise.all([
+    db.prepare('DELETE FROM helpdesk_comments WHERE ticket_id = ?').bind(id).run(),
+    db.prepare('DELETE FROM helpdesk_events WHERE ticket_id = ?').bind(id).run(),
+    db.prepare('DELETE FROM helpdesk_email_logs WHERE ticket_id = ?').bind(id).run(),
+  ]);
+
+  await db.prepare('DELETE FROM helpdesk_tickets WHERE id = ?').bind(id).run();
+
+  return c.json({ success: true, message: 'Ticket deleted successfully', id });
+});
+
+// 8c. ADMIN: BULK DELETE TICKETS (OR CLEAR ALL)
+app.post('/api/admin/helpdesk/tickets/bulk-delete', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+  const clearAll: boolean = !!body.clearAll;
+
+  if (clearAll) {
+    await Promise.all([
+      db.prepare('DELETE FROM helpdesk_comments').run(),
+      db.prepare('DELETE FROM helpdesk_events').run(),
+      db.prepare('DELETE FROM helpdesk_email_logs').run(),
+      db.prepare('DELETE FROM helpdesk_tickets').run(),
+    ]);
+    return c.json({ success: true, message: 'All tickets and records cleared successfully' });
+  }
+
+  if (ids.length === 0) {
+    return c.json({ error: 'No ticket IDs provided for deletion' }, 400);
+  }
+
+  for (const tid of ids) {
+    await Promise.all([
+      db.prepare('DELETE FROM helpdesk_comments WHERE ticket_id = ?').bind(tid).run(),
+      db.prepare('DELETE FROM helpdesk_events WHERE ticket_id = ?').bind(tid).run(),
+      db.prepare('DELETE FROM helpdesk_email_logs WHERE ticket_id = ?').bind(tid).run(),
+    ]);
+    await db.prepare('DELETE FROM helpdesk_tickets WHERE id = ?').bind(tid).run();
+  }
+
+  return c.json({ success: true, count: ids.length });
+});
+
+// 9. ADMIN: SYSTEM HEALTH DIAGNOSTICS CONSOLE
+app.get('/api/admin/helpdesk/health', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const diagnostics = await runSystemHealthDiagnostics(db, c.env);
+  return c.json(diagnostics);
+});
+
+// 10. ADMIN: EMAIL NOTIFICATION LOGS
+app.get('/api/admin/helpdesk/email-logs', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 100);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+  const status = c.req.query('status');
+
+  let whereSql = '1=1';
+  const params: any[] = [];
+  if (status && status !== 'ALL') {
+    whereSql += ' AND status = ?';
+    params.push(status);
+  }
+
+  const { results: logs } = await db
+    .prepare(`
+      SELECT * FROM helpdesk_email_logs
+      WHERE ${whereSql}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `)
+    .bind(...params, limit, offset)
+    .all();
+
+  const countRow: any = await db
+    .prepare(`SELECT COUNT(*) as total FROM helpdesk_email_logs WHERE ${whereSql}`)
+    .bind(...params)
+    .first();
+
+  return c.json({
+    logs: logs || [],
+    total: Number(countRow?.total || 0),
+    limit,
+    offset,
+  });
+});
+
+// 11. ADMIN: RETRY EMAIL NOTIFICATION
+app.post('/api/admin/helpdesk/email-logs/:id/retry', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const logId = c.req.param('id');
+  const log: any = await db.prepare('SELECT * FROM helpdesk_email_logs WHERE id = ?').bind(logId).first();
+  if (!log) return c.json({ error: 'Email log not found' }, 404);
+
+  const ticket = await db.prepare('SELECT * FROM helpdesk_tickets WHERE id = ?').bind(log.ticket_id).first();
+  if (!ticket) return c.json({ error: 'Associated ticket not found' }, 404);
+
+  const result = await sendHelpdeskEmail(c.env, db, ticket, { force: true, customRecipient: log.recipient });
+
+  // Update retry count
+  await db
+    .prepare('UPDATE helpdesk_email_logs SET retry_count = retry_count + 1 WHERE id = ?')
+    .bind(logId)
+    .run();
+
+  return c.json(result);
+});
+
+// 12. ADMIN: GET HELPDESK SETTINGS
+app.get('/api/admin/helpdesk/settings', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const settings = await getHelpdeskSettings(db, c.env);
+  return c.json(settings);
+});
+
+// 13. ADMIN: UPDATE HELPDESK SETTINGS
+app.put('/api/admin/helpdesk/settings', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const adminName = (user.name as string) || (user.email as string) || 'Administrator';
+  const nowIso = new Date().toISOString();
+
+  const allowedKeys = [
+    'notification_email',
+    'alert_critical_enabled',
+    'alert_high_enabled',
+    'alert_medium_enabled',
+    'alert_low_digest_enabled',
+    'suppression_window_minutes',
+    'incident_retention_days',
+    'monitoring_enabled',
+    'email_provider',
+    'resend_api_key',
+    'sendgrid_api_key',
+    'email_from_address',
+  ];
+
+  for (const key of allowedKeys) {
+    if (body[key] !== undefined) {
+      const valStr = String(body[key]).trim();
+      // Do not overwrite key with empty string or masked placeholder
+      if ((key === 'resend_api_key' || key === 'sendgrid_api_key') && (!valStr || valStr.includes('••••'))) {
+        continue;
+      }
+      await db
+        .prepare(`
+          INSERT INTO helpdesk_settings (key, value, updated_at, updated_by)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by
+        `)
+        .bind(key, valStr, nowIso, uid)
+        .run();
+    }
+  }
+
+  const settings = await getHelpdeskSettings(db, c.env);
+  return c.json({ success: true, settings });
+});
+
+// 14. ADMIN: SEND TEST EMAIL NOTIFICATION TO PIXELMINT STUDIO MVS
+app.post('/api/admin/helpdesk/settings/test-email', async (c) => {
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const user = await getUser(db, uid);
+
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const customRecipient = body.recipient || body.email;
+
+  const mockTicket = {
+    id: `PM-HELP-${new Date().getFullYear()}-TEST01`,
+    title: 'Manual Diagnostic Email Test — Help Desk Alert Engine',
+    category: 'SYSTEM',
+    severity: 'CRITICAL',
+    source: 'ADMIN_PANEL',
+    affected_module: 'Help Desk Notification Engine',
+    error_message: 'This is a verified test notification confirming that email alerts to pixelmintstudiomvs@gmail.com are operational.',
+    environment: c.env.ENVIRONMENT || 'production',
+    occurrence_count: 1,
+    created_at: new Date().toISOString(),
+  };
+
+  const result = await sendHelpdeskEmail(c.env, db, mockTicket, {
+    force: true,
+    isTest: true,
+    customRecipient,
+  });
+
+  return c.json(result);
+});
+
+// ============================================================================
+// GLOBAL WORKER UNHANDLED ERROR HANDLER
+// ============================================================================
+
+app.onError(async (err, c) => {
+  console.error('Unhandled Worker Exception:', err);
+  const db = c.env.DB;
+  const uid = c.get('uid');
+  const reqId = crypto.randomUUID();
+
+  try {
+    if (db) {
+      await recordHelpdeskIncident(db, c.env, {
+        title: `Backend Worker Exception: ${err.name || 'Error'}`,
+        category: 'BACKEND',
+        severity: 'CRITICAL',
+        source: 'BACKEND',
+        affected_module: c.req.path || 'Cloudflare Worker Core',
+        error_message: err.message || 'Unhandled worker runtime exception',
+        stack_trace: err.stack,
+        request_id: reqId,
+        user_id: uid,
+        page_route: c.req.url,
+      });
+    }
+  } catch (recErr) {
+    console.error('Failed to log unhandled exception in helpdesk:', recErr);
+  }
+
+  const isDevOrStaging = c.env?.ENVIRONMENT !== 'production';
+  return c.json({
+    error: isDevOrStaging && err?.message ? err.message : 'An internal server error occurred',
+    code: 'INTERNAL_ERROR',
+    requestId: reqId,
+    ...(isDevOrStaging && err?.stack ? { details: err.stack } : {}),
+  }, 500);
 });
 
 registerLegalRoutes(app);

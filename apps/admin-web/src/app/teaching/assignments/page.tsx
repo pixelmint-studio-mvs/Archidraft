@@ -132,6 +132,7 @@ export default function TeachingAssignmentsPage() {
       const matchesSearch =
         d.name.toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
         d.email.toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
+        (d.identification_number || '').toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
         d.qualification?.toLowerCase().includes(draughtsmanSearch.toLowerCase()) ||
         d.college_name?.toLowerCase().includes(draughtsmanSearch.toLowerCase());
       return matchesSearch;
@@ -519,7 +520,14 @@ export default function TeachingAssignmentsPage() {
                         >
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="min-w-0 flex-1">
-                              <p className="font-bold text-slate-900 truncate">{dm.name}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {dm.identification_number && (
+                                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                    {dm.identification_number}
+                                  </span>
+                                )}
+                                <p className="font-bold text-slate-900 truncate">{dm.name}</p>
+                              </div>
                               <p className="text-[11px] font-mono text-slate-500 truncate">{dm.email}</p>
                               {(dm.college_name || dm.qualification) && (
                                 <p className="text-[10px] text-slate-600 mt-0.5 truncate">
@@ -610,7 +618,14 @@ export default function TeachingAssignmentsPage() {
                 <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
                   {isTargetTraining ? 'Assigned Student' : 'Assigned Draughtsman'}
                 </span>
-                <p className="font-bold text-slate-900">{selectedDraughtsman.name}</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {selectedDraughtsman.identification_number && (
+                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                      {selectedDraughtsman.identification_number}
+                    </span>
+                  )}
+                  <p className="font-bold text-slate-900">{selectedDraughtsman.name}</p>
+                </div>
                 <p className="font-mono text-[11px] text-slate-500">{selectedDraughtsman.email}</p>
                 <p className="text-slate-600 text-[11px]">{selectedDraughtsman.college_name || selectedDraughtsman.qualification || (isTargetTraining ? 'Student Apprentice' : 'CAD Specialist')}</p>
               </div>

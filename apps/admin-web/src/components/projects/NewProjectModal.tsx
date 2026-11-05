@@ -418,7 +418,7 @@ export function NewProjectModal({
                     >
                       {students.map((stu) => (
                         <option key={stu.id} value={stu.id}>
-                          {stu.name} ({stu.email}) {stu.college_name ? `· ${stu.college_name}` : ''}
+                          {stu.identification_number ? `${stu.identification_number} — ` : ''}{stu.name} ({stu.email}) {stu.college_name ? `· ${stu.college_name}` : ''}
                         </option>
                       ))}
                     </select>
@@ -759,9 +759,16 @@ export function NewProjectModal({
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-500 block uppercase">Assigned Student</span>
-                        <span className="font-semibold text-slate-900 truncate block">
-                          {selectedStudent?.name || 'Student Apprentice'}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {selectedStudent?.identification_number && (
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {selectedStudent.identification_number}
+                            </span>
+                          )}
+                          <span className="font-semibold text-slate-900 truncate block">
+                            {selectedStudent?.name || 'Student Apprentice'}
+                          </span>
+                        </div>
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-500 block uppercase">Discipline & Scale</span>

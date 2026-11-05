@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment.dart';
 import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/domain/project_file.dart';
-import 'package:archi_draft/src/features/projects/domain/project_status.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/file_providers.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';

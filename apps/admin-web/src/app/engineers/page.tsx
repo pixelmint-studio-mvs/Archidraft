@@ -138,7 +138,8 @@ function EngineersContent() {
       const emailMatch = (eng.email || '').toLowerCase().includes(q);
       const companyMatch = (eng.company_name || '').toLowerCase().includes(q);
       const mobileMatch = (eng.mobile || '').toLowerCase().includes(q);
-      return nameMatch || emailMatch || companyMatch || mobileMatch;
+      const idMatch = (eng.identification_number || '').toLowerCase().includes(q);
+      return nameMatch || emailMatch || companyMatch || mobileMatch || idMatch;
     });
   }, [engineers, searchQuery]);
 
@@ -286,6 +287,7 @@ function EngineersContent() {
             </div>
           </div>
 
+
           {/* Directory Table */}
           <Card technicalCorners className="bg-white border-slate-200 soft-elevation">
             {loading ? (
@@ -308,6 +310,7 @@ function EngineersContent() {
                 <table className="w-full text-left text-xs min-w-[700px]">
                   <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                     <tr>
+                      <th className="px-5 py-3.5">ID Number</th>
                       <th className="px-5 py-3.5">Engineer</th>
                       <th className="px-5 py-3.5">Company / Firm</th>
                       <th className="px-5 py-3.5">Contact</th>

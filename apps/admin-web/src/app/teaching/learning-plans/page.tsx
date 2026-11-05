@@ -89,6 +89,7 @@ export default function StudentLearningPlansPage() {
       const matchesSearch =
         s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
         s.email.toLowerCase().includes(studentSearch.toLowerCase()) ||
+        (s.identification_number || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
         s.college_name?.toLowerCase().includes(studentSearch.toLowerCase());
       return matchesSearch;
     });
@@ -284,7 +285,14 @@ export default function StudentLearningPlansPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1 space-y-0.5">
-                          <p className="font-bold text-xs text-slate-900 truncate">{st.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {st.identification_number && (
+                              <span className="font-mono font-bold text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                                {st.identification_number}
+                              </span>
+                            )}
+                            <p className="font-bold text-xs text-slate-900 truncate">{st.name}</p>
+                          </div>
                           <p className="text-[11px] font-mono text-slate-500 truncate">{st.email}</p>
                           {st.college_name && (
                             <p className="text-[10px] text-slate-600 truncate flex items-center gap-1">
@@ -323,7 +331,12 @@ export default function StudentLearningPlansPage() {
                       <span className="text-[10px] font-mono font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
                         STUDENT APPRENTICE
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400">ID: {selectedStudent.id}</span>
+                      {selectedStudent.identification_number && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {selectedStudent.identification_number}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-mono text-slate-400">UID: {selectedStudent.id.substring(0, 8)}...</span>
                     </div>
                     <h3 className="text-base font-bold text-slate-900">{selectedStudent.name}</h3>
                     <p className="text-xs text-slate-500 font-mono">{selectedStudent.email}</p>

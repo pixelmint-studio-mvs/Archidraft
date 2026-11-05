@@ -93,22 +93,22 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
       : path.resolve(process.cwd(), 'apps/admin-web/src/components/layout/Sidebar.tsx');
     const content = fs.readFileSync(sidebarPath, 'utf-8');
 
-    it('Overview category contains Dashboard, Activity Feed, and Financials with Projects Catalogue integrated into Engineers', () => {
+    it('Overview category contains Dashboard, Activity, and Financials in exact order', () => {
       const overviewMatch = content.match(/title:\s*'Overview'[\s\S]*?items:\s*\[([\s\S]*?)\]/);
       assert.ok(overviewMatch, 'Overview section must exist in Sidebar.tsx');
 
       const itemsBlock = overviewMatch[1];
       const dashboardIdx = itemsBlock.indexOf("name: 'Dashboard'");
-      const activityIdx = itemsBlock.indexOf("name: 'Activity Feed'");
+      const activityIdx = itemsBlock.indexOf("name: 'Activity'");
       const financialsIdx = itemsBlock.indexOf("name: 'Financials'");
 
       assert.ok(dashboardIdx !== -1, 'Dashboard must be in Overview');
-      assert.ok(activityIdx !== -1, 'Activity Feed must be in Overview');
+      assert.ok(activityIdx !== -1, 'Activity must be in Overview');
+      assert.strictEqual(itemsBlock.includes("name: 'Projects Catalogue'"), false, 'Projects Catalogue must not appear in Overview');
       assert.ok(financialsIdx !== -1, 'Financials must be in Overview');
 
-      assert.ok(dashboardIdx < activityIdx, 'Dashboard must appear before Activity Feed');
-      assert.ok(activityIdx < financialsIdx, 'Financials must appear directly below Activity Feed');
-      assert.strictEqual(itemsBlock.includes("Projects Catalogue"), false, 'Projects Catalogue must be removed from Overview');
+      assert.ok(dashboardIdx < activityIdx, 'Dashboard must appear before Activity');
+      assert.ok(activityIdx < financialsIdx, 'Financials must appear directly below Activity');
     });
 
     it('Financials menu item is titled "Financials" without "(Frozen)" and not duplicated in Settings', () => {
@@ -126,6 +126,14 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
       assert.ok(
         content.includes("(item.href === '/engineers' && pathname.startsWith('/projects'))"),
         'Sidebar must highlight Engineers when navigating to /projects'
+      );
+    });
+
+    it('Projects Catalogue is removed from sidebar menu items', () => {
+      assert.strictEqual(
+        content.includes("name: 'Projects Catalogue'"),
+        false,
+        'Projects Catalogue must not appear in Sidebar.tsx'
       );
     });
 

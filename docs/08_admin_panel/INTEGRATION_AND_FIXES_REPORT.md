@@ -141,12 +141,126 @@ All fixes have been verified against active source code, validated via automated
 
 ---
 
+
+---
+
+### F. 3D Brand Monogram Viewer & Top-Left Admin Panel Branding
+- **File References:**
+  - `apps/admin-web/src/components/ui/Monogram3DViewer.tsx`
+  - `apps/admin-web/src/components/layout/Header.tsx`
+  - `apps/admin-web/src/components/layout/Sidebar.tsx`
+- **Problem Statement:**
+  1. The 3D architectural monogram logo in the top-left corner was throwing `ReferenceError: clock is not defined` (`Cannot find name 'clock'`) upon loading the GLTF model at line 170 (`clock.start()`), following deprecation of `THREE.Clock`.
+  2. When the sidebar was collapsed or viewing responsive viewports, no brand monogram was rendered in the top-left header bar, leaving the brand header blank.
+- **Implementation & Fix:**
+  1. **High-Resolution Frame Timing:** Replaced deprecated `THREE.Clock` with high-precision `performance.now()` delta calculations (`Math.min((now - lastTime) / 1000, 0.1)`). Initialized `lastTime` in component effect scope and updated on GLTF model load completion, eliminating the ReferenceError and all Three.js deprecation warnings.
+  2. **Top-Left Persistent Branding:** Integrated `<Monogram3DViewer />` into `Header.tsx`. When the sidebar is collapsed, a 32×32px graphite 3D monogram viewer automatically anchors into the top-left corner of the header next to the toggle button, guaranteeing continuous brand presence.
+  3. **Verification:** Both expanded sidebar and collapsed header render the smooth, ambiently rotating 3D monogram with zero console errors or TypeScript compile issues.
+
+---
+
+### G. Help Desk & Incident Dispatch System
+- **File References:**
+  - `worker/src/helpdesk.ts`
+  - `worker/src/index.ts`
+  - `apps/admin-web/src/app/helpdesk/page.tsx`
+  - `apps/admin-web/src/lib/api.ts`
+- **Implementation & Fix:**
+  1. **Elimination of Foreign Key Constraint Crash:** Resolved SQLite foreign key failure on `PUT /api/admin/helpdesk/settings` caused by audit logging referencing `'SYSTEM'` instead of a valid project ID.
+  2. **Client Network Error Suppression:** Guarded `reportApiFailureSafely` in `api.ts` so that transient client-side network abortions (`HTTP 0 / Failed to fetch`), 401 token refreshes, and internal helpdesk polling requests never flood the inbox with false incident tickets.
+  3. **High-Clarity Summary Dashboard:** Redesigned the 3 summary metric cards (Open Tickets, Solved Tickets, Total Tickets) with explicit typography, badges, and status icons (`Clock`, `CheckCircle2`, `LifeBuoy`), and enforced a `min-w-[760px]` table width to prevent column clipping.
+  4. **Direct Ticket Deletion:** Implemented `DELETE /api/admin/helpdesk/tickets/:id` and bulk delete (`POST /api/admin/helpdesk/tickets/bulk-delete`) with modal confirmations.
+  5. **Notification Delivery:** Verified real-time email dispatch to `pixelmintstudiomvs@gmail.com` via Resend API key (`re_64uYLU9x...`), logging delivery with status `SENT`.
+
+---
+
+### H. Role-Based Unique User Identification System (`ENG_XX`, `DM_XX`, `ST_XX`)
+- **File References:**
+  - `worker/migrations/0024_role_based_user_ids.sql`
+  - `worker/scripts/migrate_user_ids.mjs`
+  - `worker/src/index.ts`
+  - `apps/admin-web/src/app/engineers/page.tsx`
+  - `apps/admin-web/src/app/draughtsmen/page.tsx`
+  - `apps/admin-web/src/app/students/page.tsx`
+  - `apps/admin-web/src/app/users/page.tsx`
+  - `apps/admin-web/src/app/registrations/page.tsx`
+  - `apps/admin-web/src/app/teaching/progress/page.tsx`
+  - `apps/admin-web/src/app/students/submissions/page.tsx`
+  - `apps/admin-web/src/app/teaching/assignments/page.tsx`
+  - `apps/admin-web/src/app/teaching/learning-plans/page.tsx`
+  - `apps/admin-web/src/components/engineers/EngineerProfileView.tsx`
+  - `apps/admin-web/src/components/draughtsmen/DraughtsmanProfileView.tsx`
+  - `apps/admin-web/src/components/students/StudentProfileView.tsx`
+  - `apps/admin-web/src/components/engineers/AssignEngineerProjectModal.tsx`
+  - `apps/admin-web/src/components/engineers/EngineerProjectStatusModal.tsx`
+  - `lib/src/features/auth/domain/user_profile.dart`
+  - `lib/src/features/profile/presentation/widgets/profile_form.dart`
+  - `lib/src/features/profile/presentation/widgets/profile_header.dart`
+  - `worker/test/role_based_user_id.test.mjs`
+  - `apps/admin-web/test/role-based-user-id.test.ts`
+- **Implementation & Architectural Rules:**
+  1. **Deterministic Role ID Sequences:**
+     - Engineers: `ENG_XX` (e.g., `ENG_01`, `ENG_02`, `ENG_03`, scaling past 99 to `ENG_100`).
+     - Draughtsmen: `DM_XX` (e.g., `DM_01`, `DM_02`, `DM_03`, scaling past 99 to `DM_100`).
+     - Students: `ST_XX` (e.g., `ST_01`, `ST_02`, `ST_03`, scaling past 99 to `ST_100`).
+     - Admins: Excluded from end-user sequence generation; identified by administrative roles (`ADMIN`, `STUDIO_ADMIN`).
+  2. **Database Sequence Engine:**
+     - Created relational tracking table `role_id_sequences` (`prefix TEXT PRIMARY KEY, last_seq INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMP`).
+     - Implemented atomic sequence generation via `allocateRoleId(db, prefix)` using `INSERT INTO role_id_sequences ... ON CONFLICT(prefix) DO UPDATE SET last_seq = last_seq + 1`.
+     - Includes automatic collision loop recovery to ensure uniqueness even if IDs were previously backfilled.
+  3. **Idempotent Data Backfill:**
+     - Created migration `0024_role_based_user_ids.sql` and standalone runner `worker/scripts/migrate_user_ids.mjs`.
+     - Applied safely to both local D1 emulation and remote production/staging D1 database (`archi-draft-db-staging`).
+     - Safely backfilled all existing accounts chronologically by `created_at ASC, id ASC` while preserving existing user data, roles, project assignments, and training progress.
+  4. **Primary Identifier Throughout Admin Portal:**
+     - Re-architected all user tables so that the **very first column** is always `ID Number` before Name, Email, Role, Status, or Actions.
+     - Displays formatted monospace badges (e.g., `ENG_01`).
+     - User dropdown selectors and assignment modals show the composite identifier: `ENG_01 — John Doe`.
+     - Search bars across `/engineers`, `/draughtsmen`, `/students`, `/users`, and `/registrations` support instant filtering by Unique ID.
+  5. **Self-Healing API Guarantee:**
+     - Updated `worker/src/index.ts` (`/api/users`) to wrap returned records in `ensureUserIdentificationNumber(db, u)`. Any user lacking an ID will have one automatically allocated and committed to D1 on retrieval.
+  6. **Client Profile Integration:**
+     - Updated Flutter client `UserProfile` model and profile widgets (`profile_form.dart`, `profile_header.dart`) to surface the read-only permanent ID.
+
+---
+
+### I. Registration Proof Document Preview & Approval Flow
+- **File References:**
+  - `apps/admin-web/src/app/registrations/page.tsx`
+  - `apps/admin-web/src/lib/api.ts` (`getRegistrationProofBlob`, `getRegistrationProofUrl`)
+  - `worker/src/index.ts` (`/api/admin/registrations/:id/proof`)
+  - `apps/admin-web/test/registration-provision.test.ts`
+- **Root Cause & Fix:**
+  1. **Authentication Gate Blocked Browser Media Tags:** Standard HTML `<img>` and `<iframe>` tags do not transmit custom `Authorization: Bearer <token>` headers. Direct URL binding resulted in HTTP 401 Unauthorized responses and broken image icons.
+  2. **Authenticated Client Blob Fetching:** Implemented `adminApi.getRegistrationProofBlob(regId)` which fetches the protected object via authenticated `fetchApi` and instantiates an ephemeral client URL with `URL.createObjectURL(blob)`.
+  3. **Interactive PDF vs. Image Viewer:**
+     - PDFs: Renders dedicated interactive `<object data={blobUrl} type="application/pdf">` (with fallback iframe) and an "Open Fullscreen" action.
+     - Images (JPG/JPEG/PNG): Renders high-resolution responsive `<img>` preview with "Open Original" action.
+  4. **Lifecycle & Memory Management:** Implemented `cleanupPreviewBlob()` utilizing `URL.revokeObjectURL` upon modal close, modal switching between different registrants, and component unmount.
+  5. **Resilient Feedback States:** Added loading spinner (`Loading proof document preview…`) and error card with a direct "Retry Preview" button.
+
+---
+
+### J. Admin Portal Navigation & Language Simplification
+- **File References:**
+  - `apps/admin-web/src/components/layout/Sidebar.tsx`
+  - `apps/admin-web/src/app/registrations/page.tsx`
+  - `apps/admin-web/test/sidebar-navigation.test.ts`
+  - `apps/admin-web/test/registration-provision.test.ts`
+- **Implementation & Clarifications:**
+  1. **Activity Navigation Item:** Renamed from **"Activity Feed"** to **"Activity"** in `Sidebar.tsx` under the `Overview` section.
+  2. **Registrations Navigation Item:** Renamed from **"Allow Registrations"** to **"Registrations"** in `Sidebar.tsx` under the `Registration` section.
+  3. **Approve Registration Page Header:** Renamed page card heading from **"Registrations Provision"** to **"Approve Registration"** in `apps/admin-web/src/app/registrations/page.tsx`.
+  4. **High-Contrast Header Typography:** Corrected page title styling from `text-white` to `text-black font-bold font-heading`, ensuring crystal-clear readability against the architectural grid canvas.
+
+---
+
 ## 3. Test & Verification Evidence Summary
 
 | Test Harness | Total Suites | Tests Passed | Status |
 | :--- | :--- | :--- | :--- |
-| **Cloudflare Worker** | 34 | **281 / 281** | Verified |
-| **Admin Web Portal** | 36 | **151 / 151** | Verified |
+| **Cloudflare Worker** | 13 | **367 / 367** | Verified |
+| **Admin Web Portal** | 82 | **312 / 312** | Verified |
 | **Flutter Analysis** | 1 | **0 issues** | Verified |
 
 ---
