@@ -20,7 +20,7 @@ export function getDisplayRole(role?: string): string {
   switch (role) {
     case 'CLIENT':
     case 'ENGINEER':
-      return 'Engineer';
+      return 'Engineer/Architect';
     case 'DRAUGHTSMAN':
       return 'Draughtsman';
     case 'STUDENT':

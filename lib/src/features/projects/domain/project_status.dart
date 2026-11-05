@@ -80,7 +80,7 @@ enum ProjectStatus {
       case ProjectStatus.inProgress:
         return 'In Progress';
       case ProjectStatus.underEngineerReview:
-        return 'Under Engineer Review';
+        return 'Under Engineer/Architect Review';
       case ProjectStatus.completed:
         return 'Completed';
       case ProjectStatus.cancelled:

@@ -54,8 +54,8 @@ export function EngineerProfileView({
                   {engineer.identification_number}
                 </span>
               )}
-              <h2 className="text-lg font-bold text-slate-900 truncate" title={engineer.name || 'Unnamed Engineer'}>
-                {engineer.name || 'Unnamed Engineer'}
+              <h2 className="text-lg font-bold text-slate-900 truncate" title={engineer.name || 'Unnamed Engineer/Architect'}>
+                {engineer.name || 'Unnamed Engineer/Architect'}
               </h2>
             </div>
             <p className="text-xs font-mono text-slate-500 truncate flex items-center gap-1.5 mt-0.5" title={engineer.email}>
@@ -81,7 +81,7 @@ export function EngineerProfileView({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-[#0453cd] whitespace-nowrap">
               <ShieldCheck className="h-4 w-4 shrink-0" />
-              <span className="text-xs font-mono font-bold uppercase tracking-wider">ENGINEER</span>
+              <span className="text-xs font-mono font-bold uppercase tracking-wider">ENGINEER/ARCHITECT</span>
             </div>
             {engineer.identification_number && (
               <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 whitespace-nowrap">
@@ -149,8 +149,8 @@ export function EngineerProfileView({
           </div>
         ) : projects.length === 0 ? (
           <div className="p-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-500 font-mono space-y-1">
-            <p className="font-semibold text-slate-600">No submissions recorded for this engineer yet.</p>
-            <p className="text-[11px] text-slate-400">When this engineer creates project submissions, their CAD drafting status and revision queues will appear here.</p>
+            <p className="font-semibold text-slate-600">No submissions recorded for this engineer/architect yet.</p>
+            <p className="text-[11px] text-slate-400">When this engineer/architect creates project submissions, their CAD drafting status and revision queues will appear here.</p>
           </div>
         ) : (
           <div className={`space-y-2.5 ${isStandalone ? '' : 'max-h-60 overflow-y-auto pr-0.5'}`}>

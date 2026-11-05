@@ -319,7 +319,7 @@ export async function allocateIdentificationNumber(
         const existing = await db.prepare(
           'SELECT identification_number FROM users WHERE id = ?'
         ).bind(userId).first() as { identification_number?: string } | null;
-        if (existing?.identification_number) {
+        if (existing?.identification_number && existing.identification_number.startsWith(`${prefix}_`)) {
           return existing.identification_number;
         }
       } catch (_) {}
@@ -503,24 +503,44 @@ app.post('/api/users', async (c) => {
       await sendRegistrationAcknowledgementEmail(db, { name, email });
     }
   } else {
-    if (!existing.identification_number && getRolePrefix(existing.role as string)) {
-      const identId = await allocateIdentificationNumber(db, existing.role as string, uid);
-      if (identId) {
-        await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, uid).run();
-      }
+    const expectedPrefix = getRolePrefix(role);
+    let identId: string | null = (existing.identification_number as string) || null;
+    if (!identId || (expectedPrefix && !identId.startsWith(`${expectedPrefix}_`))) {
+      try {
+        identId = await allocateIdentificationNumber(db, role, uid);
+      } catch (_) {}
     }
-    // Only update allowed fields, not role (role is privileged)
-    await db.prepare(`
-      UPDATE users SET 
-        name = ?, 
-        mobile = ?, 
-        date_of_birth = ?, 
-        address = ?, 
-        company_name = ?, 
-        college_name = ?, 
-        qualification = ? 
-      WHERE id = ?
-    `).bind(name, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, uid).run();
+
+    if (existing.verification_status !== 'APPROVED') {
+      await db.prepare(`
+        UPDATE users SET 
+          name = ?, 
+          role = ?,
+          identification_number = COALESCE(?, identification_number),
+          mobile = ?, 
+          date_of_birth = ?, 
+          address = ?, 
+          company_name = ?, 
+          college_name = ?, 
+          qualification = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(name, role, identId, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, uid).run();
+    } else {
+      // Only update allowed fields, not role (role is privileged once approved)
+      await db.prepare(`
+        UPDATE users SET 
+          name = ?, 
+          mobile = ?, 
+          date_of_birth = ?, 
+          address = ?, 
+          company_name = ?, 
+          college_name = ?, 
+          qualification = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(name, mobile || null, date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null, uid).run();
+    }
   }
   return c.json({ success: true });
 });
@@ -578,6 +598,9 @@ app.get('/api/users/me', async (c) => {
       'SELECT * FROM registration_verifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
     ).bind(uid).first();
     const isKnownAdmin = email.toLowerCase() === 'contact@draughtsmanstudio.com' || email.toLowerCase() === 'zedsuo125@gmail.com' || email.toLowerCase().endsWith('@draughtsmanstudio.com');
+    if (!priorReg && !isKnownAdmin) {
+      return c.json({ error: 'User not found' }, 404);
+    }
     const role = (priorReg?.role as string) || (isKnownAdmin ? 'STUDIO_ADMIN' : 'STUDENT');
     const status = (priorReg?.status as string) || (isKnownAdmin ? 'APPROVED' : 'PENDING');
     let identId: string | null = null;
@@ -605,6 +628,24 @@ app.get('/api/users/me', async (c) => {
     await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
     user.role = 'STUDIO_ADMIN';
     user.verification_status = 'APPROVED';
+  } else if (!isKnownAdmin && reg?.role && user.role !== reg.role) {
+    const canonicalRole = reg.role as string;
+    const expectedPrefix = getRolePrefix(canonicalRole);
+    let newIdent = user.identification_number as string | null;
+    if (expectedPrefix && (!newIdent || !newIdent.startsWith(`${expectedPrefix}_`))) {
+      try {
+        newIdent = await allocateIdentificationNumber(c.env.DB, canonicalRole, uid);
+      } catch (_) {}
+    }
+    await c.env.DB.prepare(`
+      UPDATE users SET
+        role = ?,
+        identification_number = COALESCE(?, identification_number),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(canonicalRole, newIdent, uid).run();
+    user.role = canonicalRole;
+    if (newIdent) user.identification_number = newIdent;
   }
   return c.json({
     ...user,
@@ -805,25 +846,36 @@ app.post('/api/registration/submit', async (c) => {
       ).run();
     }
   } else {
-    if (!existingUser.identification_number && getRolePrefix(existingUser.role || role)) {
+    const expectedPrefix = getRolePrefix(role);
+    let identId: string | null = (existingUser.identification_number as string) || null;
+    if (!identId || (expectedPrefix && !identId.startsWith(`${expectedPrefix}_`))) {
       try {
-        const identId = await allocateIdentificationNumber(db, existingUser.role || role, uid);
-        if (identId) {
-          await db.prepare('UPDATE users SET identification_number = ? WHERE id = ?').bind(identId, uid).run();
-        }
-      } catch (updateErr) {
-        console.warn('[Registration] Could not update existing user identification_number:', updateErr);
+        identId = await allocateIdentificationNumber(db, role, uid);
+      } catch (allocErr) {
+        console.warn('[Registration] allocateIdentificationNumber warning:', allocErr);
       }
     }
+
     await db.prepare(`
       UPDATE users SET
         name = ?,
+        role = ?,
         mobile = ?,
+        identification_number = COALESCE(?, identification_number),
+        date_of_birth = COALESCE(?, date_of_birth),
+        address = COALESCE(?, address),
+        company_name = COALESCE(?, company_name),
+        college_name = COALESCE(?, college_name),
+        qualification = COALESCE(?, qualification),
         verification_status = 'PENDING',
         rejection_reason = NULL,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).bind(name.trim(), mobile || null, uid).run();
+    `).bind(
+      name.trim(), role, mobile || null, identId,
+      date_of_birth || null, address || null, company_name || null, college_name || null, qualification || null,
+      uid
+    ).run();
   }
 
   // Insert or update registration verification record
@@ -1063,13 +1115,26 @@ app.post('/api/admin/registrations/:id/approve', async (c) => {
     WHERE id = ?
   `).bind(uid, reviewerName, now, reg.id).run();
 
+  const targetRole = (reg.role as string) || 'STUDENT';
+  const expectedPrefix = getRolePrefix(targetRole);
+  let updatedIdentId: string | null = null;
+  const targetUser = await getUser(c.env.DB, reg.user_id as string);
+  const currentIdent = targetUser?.identification_number as string | null;
+  if (expectedPrefix && (!currentIdent || !currentIdent.startsWith(`${expectedPrefix}_`))) {
+    try {
+      updatedIdentId = await allocateIdentificationNumber(c.env.DB, targetRole, reg.user_id as string);
+    } catch (_) {}
+  }
+
   await c.env.DB.prepare(`
     UPDATE users SET
+      role = ?,
       verification_status = 'APPROVED',
+      identification_number = COALESCE(?, identification_number),
       rejection_reason = NULL,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).bind(reg.user_id).run();
+  `).bind(targetRole, updatedIdentId, reg.user_id).run();
 
   await sendRegistrationApprovedEmail(c.env.DB, {
     name: reg.name as string,

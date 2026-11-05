@@ -79,7 +79,7 @@ export default function EngineersPage() {
       setProjects(projectsData || []);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Failed to load Engineer directory');
+      setError(err.message || 'Failed to load Engineer/Architect directory');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -138,8 +138,8 @@ export default function EngineersPage() {
 
   return (
     <AdminShell
-      title="Engineer Management"
-      subtitle="Directory and active project submissions for registered structural, civil, and architectural engineers"
+      title="Engineer/Architect Management"
+      subtitle="Directory and active project submissions for registered structural, civil, and architectural engineers and architects"
       onRefresh={() => loadData(true)}
       isRefreshing={refreshing}
     >
@@ -157,7 +157,7 @@ export default function EngineersPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 mb-6">
         <Card technicalCorners className="p-4 sm:p-5 bg-white border-slate-200 soft-elevation">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Total Registered Engineers</p>
+            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Total Registered Engineers/Architects</p>
             <HardHat className="h-4 w-4 text-[#0453cd]" />
           </div>
           <p className="text-2xl font-bold font-mono text-slate-900 mt-2">{totalEngineers}</p>
@@ -166,7 +166,7 @@ export default function EngineersPage() {
 
         <Card technicalCorners className="p-4 sm:p-5 bg-white border-slate-200 soft-elevation">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Engineers With Submissions</p>
+            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Engineers/Architects With Submissions</p>
             <FolderKanban className="h-4 w-4 text-[#0453cd]" />
           </div>
           <p className="text-2xl font-bold font-mono text-slate-900 mt-2">{activeEngineersCount}</p>
@@ -175,7 +175,7 @@ export default function EngineersPage() {
 
         <Card technicalCorners className="p-4 sm:p-5 bg-white border-slate-200 soft-elevation sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Total Engineer Projects</p>
+            <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Total Engineer/Architect Projects</p>
             <Layers className="h-4 w-4 text-[#0453cd]" />
           </div>
           <p className="text-2xl font-bold font-mono text-slate-900 mt-2">{totalSubmissions}</p>
@@ -191,13 +191,13 @@ export default function EngineersPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by engineer name, email, company, or phone..."
+            placeholder="Search by engineer/architect name, email, company, or phone..."
             className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0453cd] focus:border-[#0453cd] shadow-xs transition-all"
           />
         </div>
         <div className="flex items-center gap-3 justify-between sm:justify-end">
           <p className="text-xs text-slate-500 font-mono whitespace-nowrap">
-            Showing <span className="text-slate-900 font-bold">{filteredEngineers.length}</span> of {totalEngineers} Engineers
+            Showing <span className="text-slate-900 font-bold">{filteredEngineers.length}</span> of {totalEngineers} Engineers/Architects
           </p>
           <Button
             variant="outline"
@@ -223,16 +223,16 @@ export default function EngineersPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20">
             <div className="h-7 w-7 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
-            <p className="text-xs text-slate-500 mt-3 font-mono">Loading Engineer directory...</p>
+            <p className="text-xs text-slate-500 mt-3 font-mono">Loading Engineer/Architect directory...</p>
           </div>
         ) : filteredEngineers.length === 0 ? (
           <div className="p-16 text-center">
             <HardHat className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-slate-700">No Engineers Found</p>
+            <p className="text-sm font-semibold text-slate-700">No Engineers/Architects Found</p>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-mono">
               {searchQuery
-                ? `No registered engineers match "${searchQuery}". Try adjusting your search query.`
-                : 'No engineers are currently registered on the platform.'}
+                ? `No registered engineers/architects match "${searchQuery}". Try adjusting your search query.`
+                : 'No engineers/architects are currently registered on the platform.'}
             </p>
           </div>
         ) : (
@@ -241,7 +241,7 @@ export default function EngineersPage() {
               <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                 <tr>
                   <th className="px-5 py-3.5">ID Number</th>
-                  <th className="px-5 py-3.5">Engineer</th>
+                  <th className="px-5 py-3.5">Engineer/Architect</th>
                   <th className="px-5 py-3.5">Company / Firm</th>
                   <th className="px-5 py-3.5">Contact</th>
                   <th className="px-5 py-3.5">Registered</th>
@@ -268,7 +268,7 @@ export default function EngineersPage() {
                             {engineer.name ? engineer.name.charAt(0).toUpperCase() : 'E'}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900 text-sm">{engineer.name || 'Unnamed Engineer'}</p>
+                            <p className="font-semibold text-slate-900 text-sm">{engineer.name || 'Unnamed Engineer/Architect'}</p>
                             <p className="text-[10px] font-mono text-slate-400 mt-0.5">
                               UID: {engineer.id.substring(0, 8)}...
                             </p>
@@ -284,7 +284,7 @@ export default function EngineersPage() {
                             <span>{engineer.company_name}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic">Independent Engineer</span>
+                          <span className="text-slate-400 italic">Independent Engineer/Architect</span>
                         )}
                       </td>
 
@@ -359,7 +359,7 @@ export default function EngineersPage() {
         <Modal
           isOpen={!!selectedEngineer}
           onClose={() => setSelectedEngineer(null)}
-          title={`Engineer Dossier: ${selectedEngineer.name || 'Engineer'}`}
+          title={`Engineer/Architect Dossier: ${selectedEngineer.name || 'Engineer/Architect'}`}
           description={`UID ${selectedEngineer.id.substring(0, 12)}… • Complete Project History`}
           maxWidth="2xl"
         >

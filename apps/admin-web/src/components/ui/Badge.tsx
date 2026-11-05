@@ -99,7 +99,7 @@ function formatRole(role?: string): string {
   if (!role) return '';
   const r = role.toUpperCase();
   if (r === 'ADMIN' || r === 'STUDIO_ADMIN') return 'Admin';
-  if (r === 'CLIENT' || r === 'ENGINEER') return 'Engineer';
+  if (r === 'CLIENT' || r === 'ENGINEER') return 'Engineer/Architect';
   if (r === 'DRAUGHTSMAN') return 'Draughtsman';
   if (r === 'STUDENT') return 'Student';
   return role;

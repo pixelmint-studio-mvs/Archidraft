@@ -9,6 +9,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/auth_error_mapper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../legal/providers/legal_providers.dart';
 import '../providers/auth_providers.dart';
 import 'widgets/auth_form_field.dart';
 
@@ -38,14 +39,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedRole = widget.role?.toUpperCase() ?? 'ENGINEER';
+    final fallbackRole = ref.read(preLoginTermsProvider).role;
+    _selectedRole = (widget.role ?? fallbackRole)?.toUpperCase() ?? 'ENGINEER';
     if (_selectedRole == 'CLIENT') _selectedRole = 'ENGINEER';
   }
 
   String get _roleTitle {
     if (_selectedRole == 'STUDENT') return 'Student Registration';
     if (_selectedRole == 'DRAUGHTSMAN') return 'Draughtsman Registration';
-    return 'Engineer Registration';
+    return 'Engineer/Architect Registration';
   }
 
   String get _roleSubtitle {
@@ -55,10 +57,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (_selectedRole == 'DRAUGHTSMAN') {
       return 'Create your draughtsman account to join the studio';
     }
-    return 'Create your engineer account to join the studio';
+    return 'Create your engineer/architect account to join the studio';
   }
 
-  String get _roleLabel => _selectedRole;
+  String get _roleLabel {
+    if (_selectedRole == 'STUDENT') return 'Student';
+    if (_selectedRole == 'DRAUGHTSMAN') return 'Draughtsman';
+    return 'Engineer/Architect';
+  }
 
   String get _requiredProofLabel {
     if (_selectedRole == 'STUDENT') {

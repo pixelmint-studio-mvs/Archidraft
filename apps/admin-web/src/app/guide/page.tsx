@@ -81,13 +81,13 @@ const SECTIONS: GuideSection[] = [
     summary: 'Real-time studio oversight panel tracking live drafting metrics, active workloads, and cloud infrastructure latency.',
     wordings: [
       'The Executive Dashboard is designed for studio coordinators to assess studio capacity and deliverable status within seconds of opening the application.',
-      'The top metric cards continuously query Cloudflare D1 to compute aggregate totals for all projects, active drafting assignments, pending redline reviews, and registered engineers.',
+      'The top metric cards continuously query Cloudflare D1 to compute aggregate totals for all projects, active drafting assignments, pending redline reviews, and registered engineers/architects.',
       'The Cloud System Health widget monitors round-trip ping latency across Cloudflare D1 (Database), Cloudflare R2 (CAD Storage), and Firebase Auth.'
     ],
     buttons: [
       {
         name: 'Total Projects Card',
-        action: 'Displays total project count commissioned across all client engineers and students.',
+        action: 'Displays total project count commissioned across all client engineers/architects and students.',
         result: 'Real-time D1 count query',
         tag: 'KPI Metric'
       },
@@ -134,8 +134,8 @@ const SECTIONS: GuideSection[] = [
     summary: 'Comprehensive projects repository featuring multi-state lifecycle filtering, instant text search, and rapid dispatch initiation.',
     wordings: [
       'The Projects Catalogue visualizes every architectural assignment across its complete lifecycle.',
-      'The lifecycle starts at BRIEF_SUBMITTED (when an engineer submits a brief), moves to READY_TO_ASSIGN (once approved by admin), then ASSIGNED, IN_PROGRESS, UNDER_REVIEW, and finally COMPLETED.',
-      'The instant search input queries project titles, site addresses, and client engineer names in real time without triggering full-page refreshes.'
+      'The lifecycle starts at BRIEF_SUBMITTED (when an engineer/architect submits a brief), moves to READY_TO_ASSIGN (once approved by admin), then ASSIGNED, IN_PROGRESS, UNDER_REVIEW, and finally COMPLETED.',
+      'The instant search input queries project titles, site addresses, and client engineer/architect names in real time without triggering full-page refreshes.'
     ],
     buttons: [
       {
@@ -146,7 +146,7 @@ const SECTIONS: GuideSection[] = [
       },
       {
         name: 'Search Bar (#project-search-input)',
-        action: 'Accepts project name, address, or client engineer name.',
+        action: 'Accepts project name, address, or client engineer/architect name.',
         result: 'Matches substring across all project records',
         tag: 'Search'
       },
@@ -296,8 +296,8 @@ const SECTIONS: GuideSection[] = [
         tag: 'Navigation'
       },
       {
-        name: 'Client Engineer Card',
-        action: 'Displays client engineer contact details, phone number, and firm affiliation.',
+        name: 'Client Engineer/Architect Card',
+        action: 'Displays client engineer/architect contact details, phone number, and firm affiliation.',
         result: 'Provides direct contact access',
         tag: 'Reference'
       },
@@ -372,7 +372,7 @@ const SECTIONS: GuideSection[] = [
     wordings: [
       'All drawing sheets uploaded by draughtsmen and students are securely stored in Cloudflare R2 object storage with zero egress fees.',
       'The SHA-256 checksum validates that CAD files have not been corrupted during upload or download.',
-      'The "Release to Client" toggle ensures that client engineers cannot download final high-resolution DWG files until commercial milestones are satisfied.'
+      'The "Release to Client" toggle ensures that client engineers/architects cannot download final high-resolution DWG files until commercial milestones are satisfied.'
     ],
     buttons: [
       {
@@ -395,7 +395,7 @@ const SECTIONS: GuideSection[] = [
       },
       {
         name: 'Release to Client Toggle',
-        action: 'Permission switch unlocking deliverable download links in the Client Engineer Portal.',
+        action: 'Permission switch unlocking deliverable download links in the Client Engineer/Architect Portal.',
         result: 'Protects studio IP until billing signoff',
         tag: 'Commercial'
       },
@@ -414,7 +414,7 @@ const SECTIONS: GuideSection[] = [
     route: '/users',
     badge: 'User Administration',
     image: '/guide/10-admin-user-directory.png',
-    summary: 'Centralized directory managing Client Engineers, Professional Draughtsmen, Academy Students, and Studio Administrators.',
+    summary: 'Centralized directory managing Client Engineers/Architects, Professional Draughtsmen, Academy Students, and Studio Administrators.',
     wordings: [
       'The User Directory enforces role-based access control across all ArchiDraft web and mobile portals.',
       'Administrators can filter users by role, inspect professional credentials, and monitor account verification status.',
@@ -423,7 +423,7 @@ const SECTIONS: GuideSection[] = [
     buttons: [
       {
         name: 'Role Filter Tabs',
-        action: 'Filters directory by role: All, Studio Admins, Draughtsmen, Client Engineers, and Students.',
+        action: 'Filters directory by role: All, Studio Admins, Draughtsmen, Client Engineers/Architects, and Students.',
         result: 'Segmented directory table',
         tag: 'Filter'
       },

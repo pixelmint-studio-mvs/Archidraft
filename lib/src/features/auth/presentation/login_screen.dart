@@ -11,6 +11,7 @@ import '../../../core/utils/auth_error_mapper.dart';
 import '../../../core/utils/validators.dart';
 import '../../../shared/widgets/blueprint_background.dart';
 import '../../../shared/widgets/hexagonal_monogram_3d_viewer.dart';
+import '../../legal/providers/legal_providers.dart';
 import '../providers/auth_providers.dart';
 import 'widgets/auth_form_field.dart';
 
@@ -444,7 +445,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ? null
                               : () => context.push(
                                   '/register',
-                                  extra: widget.initialRole,
+                                  extra: widget.initialRole ?? ref.read(preLoginTermsProvider).role,
                                 ),
                           child: Text(
                             'REGISTER',

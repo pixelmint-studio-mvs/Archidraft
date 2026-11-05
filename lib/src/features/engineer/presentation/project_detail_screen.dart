@@ -492,7 +492,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         final String statusLabel;
         if (current.versionNumber == latestVersion.versionNumber) {
           if (project.projectStatus == ProjectStatus.underEngineerReview) {
-            statusLabel = 'Under Engineer Review';
+            statusLabel = 'Under Engineer/Architect Review';
           } else if (project.projectStatus == ProjectStatus.inProgress) {
             statusLabel = 'In Revision';
           } else if (project.projectStatus == ProjectStatus.completed) {

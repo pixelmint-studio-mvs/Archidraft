@@ -126,7 +126,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen>
                           _RoleCard(
                             roleKey: 'ENGINEER',
                             icon: Icons.engineering_outlined,
-                            title: 'Engineer',
+                            title: 'Engineer/Architect',
                             description: 'Submit structural drawings and track your project through the review and delivery pipeline.',
                             isSelected: _selectedRole == 'ENGINEER',
                             onTap: () =>

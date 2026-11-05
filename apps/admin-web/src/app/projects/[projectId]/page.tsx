@@ -168,7 +168,7 @@ function toCollabMessage(c: ProjectComment): CollabMessage {
     defaultAuthor = 'Draughtsman';
   } else if (rawRole === 'ENGINEER' || rawRole === 'CLIENT') {
     normalizedRole = 'ENGINEER';
-    defaultAuthor = 'Engineer';
+    defaultAuthor = 'Engineer/Architect';
   } else if (rawRole === 'STUDENT') {
     normalizedRole = 'STUDENT';
     defaultAuthor = 'Student';
@@ -197,7 +197,7 @@ const WORKFLOW_STAGES = [
   {
     key: 'SUBMITTED',
     label: '1. Request Submitted',
-    desc: 'Engineer uploaded files and defined requirements.',
+    desc: 'Engineer/Architect uploaded files and defined requirements.',
     detail: 'Source files accepted and stored securely in Cloudflare R2.',
   },
   {
@@ -220,9 +220,9 @@ const WORKFLOW_STAGES = [
   },
   {
     key: 'UNDER_CLIENT_REVIEW',
-    label: '5. Engineer Review',
-    desc: 'Drawings submitted for engineer approval.',
-    detail: 'Engineer reviewing final deliverables. Corrections possible.',
+    label: '5. Engineer/Architect Review',
+    desc: 'Drawings submitted for engineer/architect approval.',
+    detail: 'Engineer/Architect reviewing final deliverables. Corrections possible.',
   },
   {
     key: 'COMPLETED',
@@ -525,11 +525,11 @@ export default function ProjectDetailPage({
                   <div className="flex items-center gap-1.5">
                     <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span>
-                      Engineer:{' '}
+                      Engineer/Architect:{' '}
                       <Link
                         href={`/engineers/${encodeURIComponent(project.client_id)}`}
                         className="font-medium text-[#0453cd] hover:underline"
-                        title="View Engineer Dossier"
+                        title="View Engineer/Architect Dossier"
                       >
                         {project.client_name ? `${project.client_name} (${project.client_id.substring(0, 8)})` : `ID: ${project.client_id.substring(0, 8)}`}
                       </Link>
@@ -1627,7 +1627,7 @@ export default function ProjectDetailPage({
                   return { bg: 'rgba(6,182,212,0.15)', text: '#0891b2', border: 'rgba(6,182,212,0.3)', label: 'Draughtsman' };
                 case 'CLIENT':
                 case 'ENGINEER':
-                  return { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', border: 'rgba(59,130,246,0.3)', label: 'Engineer' };
+                  return { bg: 'rgba(59,130,246,0.15)', text: '#2563eb', border: 'rgba(59,130,246,0.3)', label: 'Engineer/Architect' };
                 case 'STUDENT':
                   return { bg: 'rgba(16,185,129,0.15)', text: '#059669', border: 'rgba(16,185,129,0.3)', label: 'Student' };
                 default:
@@ -1712,7 +1712,7 @@ export default function ProjectDetailPage({
                         </div>
                         <p className="text-xs font-semibold text-slate-800">No project comments yet</p>
                         <p className="text-[11px] font-mono text-slate-500 max-w-sm mt-1">
-                          Persistent project discussions between Studio Admin, Draughtsman, and Engineer are recorded here and logged to the project audit trail.
+                          Persistent project discussions between Studio Admin, Draughtsman, and Engineer/Architect are recorded here and logged to the project audit trail.
                         </p>
                       </div>
                     ) : (
@@ -1949,7 +1949,7 @@ export default function ProjectDetailPage({
                             href: project.draughtsman_id ? `/draughtsmen/${encodeURIComponent(project.draughtsman_id)}` : undefined,
                           },
                           {
-                            label: project.client_name || 'Engineer',
+                            label: project.client_name || 'Engineer/Architect',
                             role: 'ENGINEER',
                             status: 'online',
                             note: undefined,
@@ -2070,7 +2070,7 @@ export default function ProjectDetailPage({
                     <span className="font-mono bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">{project.id}</span>
                   </div>
                   <div className="pt-2 flex justify-between items-center">
-                    <span className="text-slate-500 font-mono">Ordering Engineer</span>
+                    <span className="text-slate-500 font-mono">Ordering Engineer/Architect</span>
                     <Link
                       href={`/engineers/${encodeURIComponent(project.client_id)}`}
                       className="font-semibold text-[#0453cd] hover:underline"
@@ -2167,7 +2167,7 @@ export default function ProjectDetailPage({
           {activeTab === 'files' && (
             <Card className="bg-white border-slate-200 soft-elevation">
               <CardHeader
-                title="Engineer Reference Materials & Uploads"
+                title="Engineer/Architect Reference Materials & Uploads"
                 subtitle="Documents, sketches, and reference files stored securely in Cloudflare R2"
               />
 
@@ -2183,7 +2183,7 @@ export default function ProjectDetailPage({
 
               {files.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400 font-mono">
-                  No reference files uploaded by engineer yet.
+                  No reference files uploaded by engineer/architect yet.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -2297,7 +2297,7 @@ export default function ProjectDetailPage({
           {activeTab === 'corrections' && (
             <Card className="bg-white border-slate-200 soft-elevation">
               <CardHeader
-                title="Engineer Revision & Correction Rounds"
+                title="Engineer/Architect Revision & Correction Rounds"
                 subtitle="Maximum limit of 3 rounds enforced strictly by the Cloudflare Worker"
               />
 

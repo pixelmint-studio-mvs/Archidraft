@@ -45,7 +45,7 @@ import {
 const PAGE_SIZE = 10;
 
 const ROLE_TABS: { label: string; value: string; color: string }[] = [
-  { label: 'Engineers', value: 'CLIENT', color: '#818cf8' },
+  { label: 'Engineers/Architects', value: 'CLIENT', color: '#818cf8' },
   { label: 'Draughtsmen', value: 'DRAUGHTSMAN', color: '#22d3ee' },
   { label: 'Students', value: 'STUDENT', color: '#34d399' },
   { label: 'Studio Admins', value: 'ADMIN', color: '#fb7185' },
@@ -307,7 +307,7 @@ export default function UsersPage() {
   return (
     <AdminShell
       title="User Management"
-      subtitle="Authoritative directory & account governance across Engineers, Draughtsmen, Students, and Studio Admins"
+      subtitle="Authoritative directory & account governance across Engineers/Architects, Draughtsmen, Students, and Studio Admins"
       onRefresh={() => loadUsers(true)}
       isRefreshing={refreshing}
     >
@@ -544,7 +544,7 @@ export default function UsersPage() {
           {/* Verified Identity Role Counts */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Engineers', count: engineerCount, color: '#0453cd', icon: HardHat },
+              { label: 'Engineers/Architects', count: engineerCount, color: '#0453cd', icon: HardHat },
               { label: 'Draughtsmen', count: draughtsmanCount, color: '#0284c7', icon: PenTool },
               { label: 'Students', count: studentCount, color: '#059669', icon: GraduationCap },
               { label: 'Admins', count: adminCount, color: '#e11d48', icon: ShieldCheck },
@@ -647,7 +647,7 @@ export default function UsersPage() {
               ) : (
                 <div className="space-y-2.5">
                   {[
-                    { label: 'Engineers (Client)', count: engineerCount, color: '#0453cd' },
+                    { label: 'Engineers/Architects (Client)', count: engineerCount, color: '#0453cd' },
                     { label: 'Draughtsmen (Production)', count: draughtsmanCount, color: '#0284c7' },
                     { label: 'Students (Trainees)', count: studentCount, color: '#059669' },
                     { label: 'Studio Administrators', count: adminCount, color: '#e11d48' },
@@ -681,7 +681,7 @@ export default function UsersPage() {
               Studio Quick Access
             </p>
             {[
-              { label: 'Engineer Directory', href: '/engineers', icon: HardHat, color: '#0453cd' },
+              { label: 'Engineer/Architect Directory', href: '/engineers', icon: HardHat, color: '#0453cd' },
               { label: 'Draughtsman Studio', href: '/draughtsmen', icon: PenTool, color: '#0284c7' },
               { label: 'Student Portal', href: '/students', icon: GraduationCap, color: '#059669' },
               { label: 'Assignment History', href: '/assignments/history', icon: Clock, color: '#475569' },

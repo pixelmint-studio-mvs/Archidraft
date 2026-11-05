@@ -18,7 +18,7 @@ const CATEGORY_OPTIONS = [
   { value: 'STUDENT_PORTAL', label: '🎓 Student Training & Lessons' },
   { value: 'CERTIFICATE_GENERATION', label: '📜 Certificates & Verification' },
   { value: 'LOGIN_AND_AUTH', label: '🔑 Login & Access' },
-  { value: 'ENGINEER_PORTAL', label: '👷 Engineer Portal' },
+  { value: 'ENGINEER_PORTAL', label: '👷 Engineer/Architect Portal' },
   { value: 'DRAUGHTSMAN_PORTAL', label: '✏️ Draughtsman Portal' },
   { value: 'PAYMENT_INVOICING', label: '💳 Financials & Billing' },
   { value: 'PERFORMANCE_ISSUE', label: '⚡ Slow Loading / Performance' },

@@ -197,7 +197,7 @@ export function AssignEngineerProjectModal({
   const handleProceedToStep2 = () => {
     setStepError(null);
     if (!selectedEngineerId || !selectedEngineer) {
-      setStepError('Please select a registered Engineer to proceed.');
+      setStepError('Please select a registered Engineer/Architect to proceed.');
       return;
     }
     setStep(2);
@@ -236,7 +236,7 @@ export function AssignEngineerProjectModal({
 
         const result = await adminApi.assignProjectToEngineer(selectedProject.id, selectedEngineer.id);
         if (!result || result.success === false) {
-          throw new Error(result?.message || 'Failed to assign project to Engineer');
+          throw new Error(result?.message || 'Failed to assign project to Engineer/Architect');
         }
 
         const details = {
@@ -261,7 +261,7 @@ export function AssignEngineerProjectModal({
         });
 
         if (!result || !result.id) {
-          throw new Error('Failed to create and assign project to Engineer');
+          throw new Error('Failed to create and assign project to Engineer/Architect');
         }
 
         const details = {
@@ -276,7 +276,7 @@ export function AssignEngineerProjectModal({
       }
     } catch (err: any) {
       console.error('Assignment submission error:', err);
-      setErrorMessage(err.message || 'An error occurred while assigning project to Engineer. Please try again.');
+      setErrorMessage(err.message || 'An error occurred while assigning project to Engineer/Architect. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -286,8 +286,8 @@ export function AssignEngineerProjectModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Engineer Project Assignment"
-      description="Assign and commission architectural drafting projects to verified structural, civil, and consulting engineers"
+      title="Engineer/Architect Project Assignment"
+      description="Assign and commission architectural drafting projects to verified structural, civil, and consulting engineers and architects"
       maxWidth="3xl"
     >
       {/* ─── Success Confirmation Screen ─────────────────────────────── */}
@@ -301,7 +301,7 @@ export function AssignEngineerProjectModal({
             <h3 className="text-xl font-bold text-slate-900 font-mono">Project Successfully Assigned!</h3>
             <p className="text-xs text-slate-500 font-mono max-w-md mx-auto">
               Project <span className="font-semibold text-slate-800">"{completedAssignmentDetails.projectName}"</span> has
-              been assigned to Engineer <span className="font-semibold text-[#0453cd]">{completedAssignmentDetails.engineerName}</span>.
+              been assigned to Engineer/Architect <span className="font-semibold text-[#0453cd]">{completedAssignmentDetails.engineerName}</span>.
             </p>
           </div>
 
@@ -311,18 +311,18 @@ export function AssignEngineerProjectModal({
               <span className="font-bold text-slate-900">{completedAssignmentDetails.projectId}</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono border-b border-slate-200/80 pb-2">
-              <span className="text-slate-500">Assigned Engineer</span>
+              <span className="text-slate-500">Assigned Engineer/Architect</span>
               <span className="font-bold text-[#0453cd]">{completedAssignmentDetails.engineerName}</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono border-b border-slate-200/80 pb-2">
-              <span className="text-slate-500">Engineer UID</span>
+              <span className="text-slate-500">Engineer/Architect UID</span>
               <span className="text-slate-600">{completedAssignmentDetails.engineerId.substring(0, 16)}...</span>
             </div>
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-slate-500">Live Status</span>
               <span className="inline-flex items-center gap-1.5 text-emerald-600 font-bold">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Active in Engineer Directory</span>
+                <span>Active in Engineer/Architect Directory</span>
               </span>
             </div>
           </Card>
@@ -347,7 +347,7 @@ export function AssignEngineerProjectModal({
                   {step}
                 </span>
                 <span className="text-xs font-bold font-mono text-slate-900">
-                  {step === 1 && 'Step 1: Select Registered Engineer'}
+                  {step === 1 && 'Step 1: Select Registered Engineer/Architect'}
                   {step === 2 && 'Step 2: Select Project to Assign'}
                   {step === 3 && 'Step 3: Review & Confirm Assignment'}
                 </span>
@@ -381,24 +381,24 @@ export function AssignEngineerProjectModal({
                     type="text"
                     value={engineerSearch}
                     onChange={(e) => setEngineerSearch(e.target.value)}
-                    placeholder="Search engineers by ID number, name, email, company, or UID..."
+                    placeholder="Search engineers/architects by ID number, name, email, company, or UID..."
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0453cd] focus:border-[#0453cd]"
                   />
                 </div>
                 <span className="text-xs text-slate-500 font-mono whitespace-nowrap">
-                  {filteredEngineers.length} {filteredEngineers.length === 1 ? 'engineer' : 'engineers'} available
+                  {filteredEngineers.length} {filteredEngineers.length === 1 ? 'engineer/architect' : 'engineers/architects'} available
                 </span>
               </div>
 
               {loadingData ? (
                 <div className="p-12 text-center">
                   <RefreshCw className="h-6 w-6 text-[#0453cd] animate-spin mx-auto mb-2" />
-                  <p className="text-xs text-slate-500 font-mono">Loading registered engineers...</p>
+                  <p className="text-xs text-slate-500 font-mono">Loading registered engineers/architects...</p>
                 </div>
               ) : filteredEngineers.length === 0 ? (
                 <div className="p-12 text-center border border-dashed border-slate-200 rounded-xl">
                   <HardHat className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-xs font-bold text-slate-700">No matching Engineers found</p>
+                  <p className="text-xs font-bold text-slate-700">No matching Engineers/Architects found</p>
                   <p className="text-[11px] text-slate-400 font-mono mt-1">Try adjusting your search criteria</p>
                 </div>
               ) : (
@@ -408,7 +408,7 @@ export function AssignEngineerProjectModal({
                     const pCount = projectCountByEngineer[engineer.id] || 0;
 
                     return (
-                      <div
+                        <div
                         key={engineer.id}
                         onClick={() => {
                           setSelectedEngineerId(engineer.id);
@@ -437,9 +437,9 @@ export function AssignEngineerProjectModal({
                                   {engineer.identification_number}
                                 </span>
                               )}
-                              <p className="font-bold text-slate-900 text-xs truncate">{engineer.name || 'Unnamed Engineer'}</p>
+                              <p className="font-bold text-slate-900 text-xs truncate">{engineer.name || 'Unnamed Engineer/Architect'}</p>
                               <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-100/80 text-[#0453cd] font-semibold">
-                                ENGINEER
+                                ENGINEER/ARCHITECT
                               </span>
                             </div>
                             <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono mt-0.5 truncate">
@@ -503,7 +503,7 @@ export function AssignEngineerProjectModal({
               {selectedEngineer && (
                 <div className="p-2.5 rounded-xl bg-blue-50/60 border border-blue-200/80 flex items-center justify-between text-xs font-mono">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500">Target Engineer:</span>
+                    <span className="text-slate-500">Target Engineer/Architect:</span>
                     <strong className="text-slate-900">{selectedEngineer.name || selectedEngineer.email}</strong>
                     {selectedEngineer.company_name && (
                       <span className="text-slate-500">({selectedEngineer.company_name})</span>
@@ -513,7 +513,7 @@ export function AssignEngineerProjectModal({
                     onClick={() => setStep(1)}
                     className="text-[#0453cd] hover:underline text-[11px] font-semibold"
                   >
-                    Change Engineer
+                    Change Engineer/Architect
                   </button>
                 </div>
               )}
@@ -745,7 +745,7 @@ export function AssignEngineerProjectModal({
                   className="font-mono text-xs flex items-center gap-1.5"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Back to Engineers</span>
+                  <span>Back to Engineers/Architects</span>
                 </Button>
                 <Button
                   variant="primary"
@@ -765,7 +765,7 @@ export function AssignEngineerProjectModal({
           {step === 3 && selectedEngineer && (
             <div className="space-y-4">
               <p className="text-xs text-slate-500 font-mono">
-                Review the engineer and project assignment details before confirming.
+                Review the engineer/architect and project assignment details before confirming.
               </p>
 
               {/* Review Cards Grid */}
@@ -774,10 +774,10 @@ export function AssignEngineerProjectModal({
                 <Card technicalCorners className="p-4 bg-slate-50/80 border-slate-200 space-y-2.5">
                   <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                      Assigned Engineer
+                      Assigned Engineer/Architect
                     </span>
                     <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-100 text-[#0453cd] font-bold">
-                      ENGINEER
+                      ENGINEER/ARCHITECT
                     </span>
                   </div>
 
@@ -793,7 +793,7 @@ export function AssignEngineerProjectModal({
                           </span>
                         )}
                         <p className="font-bold text-slate-900 text-xs truncate">
-                          {selectedEngineer.name || 'Unnamed Engineer'}
+                          {selectedEngineer.name || 'Unnamed Engineer/Architect'}
                         </p>
                       </div>
                       <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">
@@ -866,11 +866,11 @@ export function AssignEngineerProjectModal({
               <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/90 text-xs font-mono space-y-1.5">
                 <div className="flex items-center gap-2 text-[#0453cd] font-bold">
                   <UserCheck className="h-4 w-4 shrink-0" />
-                  <span>Engineer Assignment Scope & Verification</span>
+                  <span>Engineer/Architect Assignment Scope & Verification</span>
                 </div>
                 <ul className="text-[11px] text-slate-600 space-y-1 list-disc pl-4">
-                  <li>Project ownership is persisted with Engineer UID association (<code className="text-slate-800">client_id</code>).</li>
-                  <li>The assigned project will immediately appear in this Engineer's active submission queue.</li>
+                  <li>Project ownership is persisted with Engineer/Architect UID association (<code className="text-slate-800">client_id</code>).</li>
+                  <li>The assigned project will immediately appear in this Engineer/Architect's active submission queue.</li>
                   <li>An administrative activity log and in-app notification will be issued.</li>
                   <li>Student portals, apprentice curriculums, and student records remain strictly untouched.</li>
                 </ul>

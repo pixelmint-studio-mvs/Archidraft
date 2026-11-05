@@ -5,14 +5,14 @@ import assert from 'node:assert/strict';
 
 describe('Role Translation & RBAC Integrity', () => {
   const roleDisplayMap: Record<string, string> = {
-    CLIENT: 'Engineer',
+    CLIENT: 'Engineer/Architect',
     DRAUGHTSMAN: 'Draughtsman',
     STUDENT: 'Student',
     ADMIN: 'Studio Admin',
   };
 
-  test('Internal role CLIENT strictly maps to user-facing Engineer label', () => {
-    assert.equal(roleDisplayMap['CLIENT'], 'Engineer');
+  test('Internal role CLIENT strictly maps to user-facing Engineer/Architect label', () => {
+    assert.equal(roleDisplayMap['CLIENT'], 'Engineer/Architect');
   });
 
   test('Database keys CLIENT and client_id are preserved internally', () => {

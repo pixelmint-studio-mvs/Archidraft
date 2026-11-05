@@ -141,7 +141,7 @@ describe('Engineer Project Assignment — Isolated Admin Feature Contracts', () 
   describe('4. Stepper Validation Contracts', () => {
     function validateStep1(selectedEngineerId: string) {
       if (!selectedEngineerId || !selectedEngineerId.trim()) {
-        return { valid: false, error: 'Please select a registered Engineer to proceed.' };
+        return { valid: false, error: 'Please select a registered Engineer/Architect to proceed.' };
       }
       return { valid: true, error: null };
     }
@@ -165,7 +165,7 @@ describe('Engineer Project Assignment — Isolated Admin Feature Contracts', () 
     it('Rejects progression from Step 1 without selecting an Engineer', () => {
       const res = validateStep1('');
       assert.strictEqual(res.valid, false);
-      assert.strictEqual(res.error, 'Please select a registered Engineer to proceed.');
+      assert.strictEqual(res.error, 'Please select a registered Engineer/Architect to proceed.');
     });
 
     it('Approves progression from Step 1 when an Engineer is selected', () => {

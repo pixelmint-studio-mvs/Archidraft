@@ -574,7 +574,7 @@ class _CollaborationHubScreenState extends ConsumerState<CollaborationHubScreen>
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        isEngineer ? 'Engineer' : 'Draughtsman',
+                        isEngineer ? 'Engineer/Architect' : 'Draughtsman',
                         style: AppTypography.labelMono.copyWith(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,

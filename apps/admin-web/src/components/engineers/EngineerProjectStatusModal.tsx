@@ -139,7 +139,7 @@ export function EngineerProjectStatusModal({
       setItems(data || []);
     } catch (err: any) {
       console.error('Failed to load engineer project statuses:', err);
-      setError(err.message || 'Failed to retrieve engineer project status records');
+      setError(err.message || 'Failed to retrieve engineer/architect project status records');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -247,8 +247,8 @@ export function EngineerProjectStatusModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Engineer Project Assignment Status"
-      description="Centralized live status tracking, acceptance verification, and assignment progress for registered Engineers"
+      title="Engineer/Architect Project Assignment Status"
+      description="Centralized live status tracking, acceptance verification, and assignment progress for registered Engineers/Architects"
       maxWidth="4xl"
     >
       <div className="space-y-5">
@@ -270,7 +270,7 @@ export function EngineerProjectStatusModal({
           <Card technicalCorners className="p-3 bg-white border-slate-200 shadow-2xs">
             <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-slate-500">Total Assigned</p>
             <p className="text-xl font-bold font-mono text-slate-900 mt-1">{kpis.total}</p>
-            <p className="text-[10px] text-slate-400 font-mono mt-0.5">Engineer projects</p>
+            <p className="text-[10px] text-slate-400 font-mono mt-0.5">Engineer/Architect projects</p>
           </Card>
 
           <Card technicalCorners className="p-3 bg-white border-slate-200 shadow-2xs">
@@ -322,7 +322,7 @@ export function EngineerProjectStatusModal({
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Search by engineer name, firm, project title, or ID..."
+                placeholder="Search by engineer/architect name, firm, project title, or ID..."
                 className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0453cd] focus:border-[#0453cd] shadow-2xs"
               />
             </div>
@@ -388,7 +388,7 @@ export function EngineerProjectStatusModal({
             {/* Engineer Filter */}
             <div>
               <label className="block text-[10px] font-mono uppercase font-bold text-slate-500 mb-1">
-                Filter by Engineer
+                Filter by Engineer/Architect
               </label>
               <select
                 value={engineerFilter}
@@ -398,7 +398,7 @@ export function EngineerProjectStatusModal({
                 }}
                 className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0453cd]"
               >
-                <option value="ALL">All Registered Engineers ({uniqueEngineers.length})</option>
+                <option value="ALL">All Registered Engineers/Architects ({uniqueEngineers.length})</option>
                 {uniqueEngineers.map((eng) => (
                   <option key={eng.id} value={eng.id}>
                     {eng.identification_number ? `${eng.identification_number} — ${eng.name}` : eng.name}
@@ -414,16 +414,16 @@ export function EngineerProjectStatusModal({
           {loading ? (
             <div className="flex flex-col items-center justify-center p-16">
               <RefreshCw className="h-7 w-7 text-[#0453cd] animate-spin mb-3" />
-              <p className="text-xs text-slate-500 font-mono">Loading engineer project assignments…</p>
+              <p className="text-xs text-slate-500 font-mono">Loading engineer/architect project assignments…</p>
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="p-14 text-center">
               <FolderKanban className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm font-semibold text-slate-700">No Engineer Project Assignments Found</p>
+              <p className="text-sm font-semibold text-slate-700">No Engineer/Architect Project Assignments Found</p>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto font-mono">
                 {searchQuery || acceptanceFilter !== 'ALL' || projectStatusFilter !== 'ALL' || engineerFilter !== 'ALL'
                   ? 'No assignments match your current filters. Try resetting search or filter criteria.'
-                  : 'No projects are currently assigned to engineers.'}
+                  : 'No projects are currently assigned to engineers/architects.'}
               </p>
             </div>
           ) : (
@@ -432,7 +432,7 @@ export function EngineerProjectStatusModal({
                 <thead className="bg-slate-50 text-slate-500 font-mono font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                   <tr>
                     <th className="px-4 py-3">ID Number</th>
-                    <th className="px-4 py-3">Engineer</th>
+                    <th className="px-4 py-3">Engineer/Architect</th>
                     <th className="px-4 py-3">Assigned Project</th>
                     <th className="px-4 py-3">Assignment Date</th>
                     <th className="px-4 py-3">Acceptance Status</th>
@@ -463,7 +463,7 @@ export function EngineerProjectStatusModal({
                             </div>
                             <div className="min-w-0">
                               <p className="font-bold text-slate-900 text-xs truncate max-w-[150px]">
-                                {item.engineer_name || 'Unnamed Engineer'}
+                                {item.engineer_name || 'Unnamed Engineer/Architect'}
                               </p>
                               {item.engineer_company ? (
                                 <p className="text-[10px] text-slate-500 truncate max-w-[150px] flex items-center gap-1">
@@ -605,7 +605,7 @@ export function EngineerProjectStatusModal({
         {/* Modal Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
           <p className="text-[11px] font-mono text-slate-400">
-            Strictly isolated to registered Engineer accounts • D1 Database
+            Strictly isolated to registered Engineer/Architect accounts • D1 Database
           </p>
           <Button variant="primary" size="sm" onClick={onClose} className="bg-[#0453cd] hover:bg-blue-700 text-white font-mono text-xs px-5">
             Close Overview

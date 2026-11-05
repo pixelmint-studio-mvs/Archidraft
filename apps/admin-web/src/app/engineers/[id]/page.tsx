@@ -63,7 +63,7 @@ export default function EngineerDetailPage({
 
   return (
     <AdminShell
-      title={engineer ? `Engineer Dossier: ${engineer.name || 'Unnamed'}` : 'Engineer Profile'}
+      title={engineer ? `Engineer/Architect Dossier: ${engineer.name || 'Unnamed'}` : 'Engineer/Architect Profile'}
       subtitle="Comprehensive submission history, active CAD drafting queues, and performance metrics"
       onRefresh={() => fetchEngineerData(true)}
       isRefreshing={refreshing}
@@ -75,7 +75,7 @@ export default function EngineerDetailPage({
           className="inline-flex items-center gap-2 text-xs font-mono font-medium text-slate-600 hover:text-[#0453cd] transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs hover:border-slate-300"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to Engineer Directory</span>
+          <span>Back to Engineer/Architect Directory</span>
         </Link>
         {engineer && (
           <span className="text-[11px] font-mono text-slate-400">
@@ -93,11 +93,11 @@ export default function EngineerDetailPage({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">
-              {isAuthError ? 'Administrative Access Required' : isNotFound ? 'Engineer Profile Not Found' : 'Engineer Dossier Temporarily Unavailable'}
+              {isAuthError ? 'Administrative Access Required' : isNotFound ? 'Engineer/Architect Profile Not Found' : 'Engineer/Architect Dossier Temporarily Unavailable'}
             </h3>
             <p className="text-xs text-slate-500 mt-1 font-mono max-w-md mx-auto">
               {isNotFound
-                ? `No engineer record exists matching identifier "${id}". The record may have been deleted or the link is invalid.`
+                ? `No engineer/architect record exists matching identifier "${id}". The record may have been deleted or the link is invalid.`
                 : error}
             </p>
           </div>
@@ -115,7 +115,7 @@ export default function EngineerDetailPage({
       ) : loading ? (
         <div className="flex flex-col items-center justify-center p-24">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#0453cd] border-t-transparent" />
-          <p className="text-xs text-slate-500 mt-3 font-mono">Loading engineer dossier…</p>
+          <p className="text-xs text-slate-500 mt-3 font-mono">Loading engineer/architect dossier…</p>
         </div>
       ) : engineer ? (
         <EngineerProfileView

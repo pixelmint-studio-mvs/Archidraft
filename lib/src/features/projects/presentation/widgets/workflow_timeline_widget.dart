@@ -45,7 +45,7 @@ class WorkflowTimelineWidget extends StatelessWidget {
       _TimelineStage('Waiting Assignment', 'Allocating to draughtsman', ProjectStatus.waitingAssignment),
       _TimelineStage('Waiting Acceptance', 'Draughtsman review', ProjectStatus.waitingAcceptance),
       _TimelineStage('In Progress', 'Drawing creation', ProjectStatus.inProgress),
-      _TimelineStage('Under Review', 'Engineer review and corrections', ProjectStatus.underEngineerReview),
+      _TimelineStage('Under Review', 'Engineer/Architect review and corrections', ProjectStatus.underEngineerReview),
       _TimelineStage('Completed', 'Final delivery', ProjectStatus.completed),
     ];
 

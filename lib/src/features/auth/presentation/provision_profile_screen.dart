@@ -258,7 +258,7 @@ class _ProvisionProfileScreenState
                                   label: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Text(
-                                      'ENGINEER',
+                                      'ENGINEER/ARCHITECT',
                                       maxLines: 1,
                                       softWrap: false,
                                       style: TextStyle(

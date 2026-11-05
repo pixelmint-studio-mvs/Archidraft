@@ -39,7 +39,7 @@ const STATUS_FILTERS: { label: string; value: string }[] = [
   { label: 'Needs Draughtsman', value: 'WAITING_ASSIGNMENT' },
   { label: 'Awaiting Accept', value: 'WAITING_ACCEPTANCE' },
   { label: 'In Progress', value: 'IN_PROGRESS' },
-  { label: 'Engineer Review', value: 'UNDER_CLIENT_REVIEW' },
+  { label: 'Engineer/Architect Review', value: 'UNDER_CLIENT_REVIEW' },
   { label: 'Completed', value: 'COMPLETED' },
   { label: 'Cancelled', value: 'CANCELLED' },
   { label: 'Drafts', value: 'DRAFT' },

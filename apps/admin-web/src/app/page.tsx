@@ -130,7 +130,7 @@ export default function LandingPage() {
           <div className="bg-white border border-slate-200 rounded-2xl p-6 soft-elevation relative overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <span className="font-mono text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Engineers Joined
+                Engineers/Architects Joined
               </span>
               <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
                 <HardHat className="h-4 w-4" />
@@ -172,7 +172,7 @@ export default function LandingPage() {
                 <h3 className="text-sm font-bold text-slate-900">Real-Time Redline Sync</h3>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Collaborate between Studio Admins and structural engineers with a strict 3-round cap and auditable state machine progression.
+                Collaborate between Studio Admins and structural engineers/architects with a strict 3-round cap and auditable state machine progression.
               </p>
             </div>
 

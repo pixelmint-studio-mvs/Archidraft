@@ -43,7 +43,7 @@ const STATUS_FILTERS: { label: string; value: string; color: string }[] = [
 
 const ROLE_FILTERS: { label: string; value: string }[] = [
   { label: 'All Roles', value: 'ALL' },
-  { label: 'Engineer', value: 'ENGINEER' },
+  { label: 'Engineer/Architect', value: 'ENGINEER' },
   { label: 'Draughtsman', value: 'DRAUGHTSMAN' },
   { label: 'Student', value: 'STUDENT' },
 ];
@@ -306,7 +306,7 @@ export default function RegistrationsPage() {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
           <HardHat className="w-3.5 h-3.5" />
-          Engineer
+          Engineer/Architect
         </span>
       );
     }

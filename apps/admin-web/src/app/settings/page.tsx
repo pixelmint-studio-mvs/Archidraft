@@ -550,7 +550,7 @@ export default function SettingsPage() {
                     {[
                       {
                         title: 'New Project Intake Alerts',
-                        desc: 'Notify administrator immediately when an Engineer submits a new project brief',
+                        desc: 'Notify administrator immediately when an Engineer/Architect submits a new project brief',
                         state: notifySubmissions,
                         setter: setNotifySubmissions,
                       },
@@ -562,7 +562,7 @@ export default function SettingsPage() {
                       },
                       {
                         title: 'Correction Cap Escalation Monitoring',
-                        desc: 'Escalate to administrator review when an engineer initiates round 2 or round 3 corrections',
+                        desc: 'Escalate to administrator review when an engineer/architect initiates round 2 or round 3 corrections',
                         state: notifyCorrections,
                         setter: setNotifyCorrections,
                       },
@@ -1006,7 +1006,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                Shared identity directory with Archi Draft mobile portals (Engineers, Draughtsmen, and Students).
+                Shared identity directory with Archi Draft mobile portals (Engineers/Architects, Draughtsmen, and Students).
               </p>
               <div className="space-y-2.5 text-xs font-mono">
                 <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 break-all text-slate-700">
@@ -1072,7 +1072,7 @@ export default function SettingsPage() {
                     <span>Correction Round Limit (Max 3)</span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed pl-6">
-                    Engineer correction requests are capped at 3 rounds server-side, preventing infinite scope creep while providing full visibility in the admin console.
+                    Engineer/Architect correction requests are capped at 3 rounds server-side, preventing infinite scope creep while providing full visibility in the admin console.
                   </p>
                 </div>
               </div>

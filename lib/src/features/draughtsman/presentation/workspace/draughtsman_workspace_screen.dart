@@ -541,7 +541,7 @@ class _ReferenceFilesQuickAccessCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ENGINEER REFERENCE FILES ($count AVAILABLE)',
+                      'ENGINEER/ARCHITECT REFERENCE FILES ($count AVAILABLE)',
                       style: const TextStyle(
                         fontFamily: 'JetBrains Mono',
                         fontSize: 10,
@@ -811,7 +811,7 @@ class _ReferenceFilesTabState extends ConsumerState<_ReferenceFilesTab> {
                         runSpacing: 4,
                         children: [
                           const Text(
-                            'ENGINEER REFERENCE FILES',
+                            'ENGINEER/ARCHITECT REFERENCE FILES',
                             style: TextStyle(
                               fontFamily: 'JetBrains Mono',
                               fontSize: 12,
@@ -840,7 +840,7 @@ class _ReferenceFilesTabState extends ConsumerState<_ReferenceFilesTab> {
                       ),
                       const SizedBox(height: 2),
                       const Text(
-                        'Original blueprints, CAD drawings, and specs uploaded by the Engineer at submission.',
+                        'Original blueprints, CAD drawings, and specs uploaded by the Engineer/Architect at submission.',
                         style: TextStyle(fontSize: 11, color: AppColors.onSurfaceVariant),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1000,7 +1000,7 @@ class _ReferenceFilesTabState extends ConsumerState<_ReferenceFilesTab> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Single reference drawing inspection mode \u2022 Geometry extracted directly from engineer upload.',
+                    'Single reference drawing inspection mode \u2022 Geometry extracted directly from engineer/architect upload.',
                     style: TextStyle(
                       fontFamily: 'JetBrains Mono',
                       fontSize: 10,

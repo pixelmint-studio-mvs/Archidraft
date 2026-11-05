@@ -1294,12 +1294,12 @@ class _DraughtsmanAssignmentDetailScreenState
             stepNumber: '5',
             title: isCorrectionMode
                 ? '5. Correction Requested (Round $correctionRound)'
-                : '5. Engineer Review',
+                : '5. Engineer/Architect Review',
             description: isCorrectionMode
-                ? 'Revisions required by the assigned Engineer. See review notes.'
+                ? 'Revisions required by the assigned Engineer/Architect. See review notes.'
                 : (isUnderReview
-                    ? 'Drawings submitted and currently pending Engineer review and approval.'
-                    : 'Assigned Engineer review of submitted drawings and project specifications.'),
+                    ? 'Drawings submitted and currently pending Engineer/Architect review and approval.'
+                    : 'Assigned Engineer/Architect review of submitted drawings and project specifications.'),
             isCompleted: step5Completed,
             isActive: step5Active,
             isCorrection: isCorrectionMode,
@@ -1471,7 +1471,7 @@ class _DraughtsmanAssignmentDetailScreenState
                 child: Text(
                   isCorrectionMode
                       ? 'CORRECTION CYCLE #$correctionRound ACTIVE'
-                      : 'UNDER ENGINEER REVIEW',
+                      : 'UNDER ENGINEER/ARCHITECT REVIEW',
                   style: AppTypography.labelMonoSm.copyWith(
                     color: isCorrectionMode ? AppColors.error : AppColors.secondary,
                     fontWeight: FontWeight.bold,
@@ -1483,8 +1483,8 @@ class _DraughtsmanAssignmentDetailScreenState
           const SizedBox(height: 6),
           Text(
             isCorrectionMode
-                ? 'Engineer requested amendments to the submitted draft. Please make updates in Workspace and resubmit.'
-                : 'Current revision submitted. Awaiting Engineer review or correction feedback.',
+                ? 'Engineer/Architect requested amendments to the submitted draft. Please make updates in Workspace and resubmit.'
+                : 'Current revision submitted. Awaiting Engineer/Architect review or correction feedback.',
             style: AppTypography.bodySm.copyWith(
               color: AppColors.onSurfaceVariant,
             ),

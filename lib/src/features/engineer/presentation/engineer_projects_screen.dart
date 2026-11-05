@@ -199,7 +199,7 @@ class _EngineerProjectsScreenState extends ConsumerState<EngineerProjectsScreen>
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
-                    'ENGINEER PROJECT SUITE',
+                    'ENGINEER/ARCHITECT PROJECT SUITE',
                     style: AppTypography.labelMono.copyWith(
                       color: AppColors.outline,
                       letterSpacing: 0.08 * 12,

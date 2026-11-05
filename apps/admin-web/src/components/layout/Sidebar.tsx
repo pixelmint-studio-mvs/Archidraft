@@ -89,7 +89,7 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Users,
       },
       {
-        name: 'Engineers',
+        name: 'Engineers/Architects',
         href: '/engineers',
         icon: HardHat,
         badgeKey: 'engineers',

@@ -279,14 +279,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) {
-          final role = state.extra as String?;
+          final role = (state.extra as String?) ?? ref.read(preLoginTermsProvider).role;
           return LoginScreen(initialRole: role);
         },
       ),
       GoRoute(
         path: '/register',
         builder: (context, state) {
-          final role = state.extra as String?;
+          final role = (state.extra as String?) ?? ref.read(preLoginTermsProvider).role;
           return RegisterScreen(role: role);
         },
       ),

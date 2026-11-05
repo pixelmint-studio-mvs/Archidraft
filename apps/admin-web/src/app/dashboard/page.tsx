@@ -225,7 +225,7 @@ export default function DashboardPage() {
                   <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
                     <HardHat className="h-4 w-4" />
                   </div>
-                  <span>Engineer Portal</span>
+                  <span>Engineer/Architect Portal</span>
                 </span>
                 <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
               </div>
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                   <span className="text-3xl font-extrabold font-mono tracking-tight text-slate-900">
                     {engineerCount}
                   </span>
-                  <p className="text-xs text-slate-500 mt-0.5">Registered Engineers</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Registered Engineers/Architects</p>
                 </div>
                 <div className="text-right">
                   <span className="text-lg font-bold font-mono text-slate-700">
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                   href="/engineers"
                   className="text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
                 >
-                  <span>Manage Engineers</span>
+                  <span>Manage Engineers/Architects</span>
                   <ArrowRight className="h-3 w-3" />
                 </Link>
                 <span className="text-[11px] font-mono text-slate-400">Structural & Civil</span>
@@ -463,7 +463,7 @@ export default function DashboardPage() {
                     <p className="text-2xl font-bold font-mono text-cyan-800 mt-1">{inProgressCount}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200">
-                    <p className="text-[11px] font-mono font-semibold text-teal-800 uppercase">6. Engineer Review</p>
+                    <p className="text-[11px] font-mono font-semibold text-teal-800 uppercase">6. Engineer/Architect Review</p>
                     <p className="text-2xl font-bold font-mono text-teal-800 mt-1">{engineerReviewCount}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
@@ -558,7 +558,7 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-800 transition-colors">
-                          Engineers
+                          Engineers/Architects
                         </p>
                         <p className="text-[11px] text-slate-500">Structural, Civil & MEP</p>
                       </div>
