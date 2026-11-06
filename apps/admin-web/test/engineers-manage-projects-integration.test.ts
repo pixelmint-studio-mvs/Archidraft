@@ -35,7 +35,7 @@ describe('Engineer Management & Manage Projects Integration Contracts', () => {
     it('Engineers item maps to /engineers with badgeKey engineers', () => {
       assert.match(
         sidebarContent,
-        /name:\s*'Engineers',\s*href:\s*'\/engineers'/
+        /name:\s*'(?:Engineers|Engineers\/Architects)',\s*href:\s*'\/engineers'/
       );
     });
 

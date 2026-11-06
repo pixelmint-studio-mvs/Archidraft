@@ -121,7 +121,7 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
     it('Engineers item exists in Quick Access and activates on /projects routes', () => {
       assert.match(
         content,
-        /name:\s*'Engineers',\s*href:\s*'\/engineers',\s*icon:\s*HardHat,\s*badgeKey:\s*'engineers'/
+        /name:\s*'(?:Engineers|Engineers\/Architects)',\s*href:\s*'\/engineers',\s*icon:\s*HardHat,\s*badgeKey:\s*'engineers'/
       );
       assert.ok(
         content.includes("(item.href === '/engineers' && pathname.startsWith('/projects'))"),

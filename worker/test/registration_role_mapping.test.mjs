@@ -81,7 +81,23 @@ function createIsolatedTestDb() {
   const storageMap = new Map();
   const storage = {
     async put(key, body, options) {
-      let buf = Buffer.from('mock-bytes');
+      let buf;
+      if (body instanceof Uint8Array || Buffer.isBuffer(body)) {
+        buf = Buffer.from(body);
+      } else if (typeof body === 'string') {
+        buf = Buffer.from(body, 'utf8');
+      } else if (body && typeof body.getReader === 'function') {
+        const reader = body.getReader();
+        const chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        buf = Buffer.concat(chunks);
+      } else {
+        buf = Buffer.from('mock');
+      }
       storageMap.set(key, { body: buf, size: buf.length, httpMetadata: options?.httpMetadata || {} });
       return { size: buf.length };
     },
@@ -111,14 +127,14 @@ async function apiRequest(env, path, options = {}) {
       : `mock-token:${rawToken}`;
     headers['Authorization'] = `Bearer ${token}`;
   }
-  if (options.body && typeof options.body === 'object' && !headers['Content-Type']) {
+  if (options.body && typeof options.body === 'object' && !(options.body instanceof Uint8Array) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
   const req = new Request(`http://localhost${path}`, {
     method: options.method || 'GET',
     headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body ? (typeof options.body === 'string' || options.body instanceof Uint8Array ? options.body : JSON.stringify(options.body)) : undefined,
   });
 
   return await app.fetch(req, env);

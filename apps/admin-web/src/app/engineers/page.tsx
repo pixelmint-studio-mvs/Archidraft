@@ -195,7 +195,7 @@ function EngineersContent() {
 
       {currentTab === 'projects' ? (
         /* ── Embedded Projects Catalog Tab ── */
-        <ProjectsCatalogueView />
+        <ProjectsCatalogueView isEmbedded={true} />
       ) : (
         /* ── Engineers Tab ── */
         <>
