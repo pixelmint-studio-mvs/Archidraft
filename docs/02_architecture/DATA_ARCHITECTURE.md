@@ -32,6 +32,7 @@ projects/{projectId}/
 
 ### USERS
 - `id`
+- `identification_number` (Permanent role-based unique identifier: `ENG_XX` for Engineers/Architects, `DM_XX` for Draughtsman, `STU_XX` for Student, where `XX` are numbers scaling infinitely)
 - `name`
 - `email`
 - `mobile`
@@ -43,6 +44,12 @@ projects/{projectId}/
 - `collegeName` (Optional, based on role)
 - `proofDocument` (Optional, based on role)
 - `createdAt`
+
+### ROLE ID SEQUENCES (`role_id_sequences`)
+Table managing infinite, atomic sequential generation of user unique identifiers:
+- `role_prefix` (TEXT PRIMARY KEY — `'ENG'`, `'DM'`, `'STU'`)
+- `last_seq` (INTEGER NOT NULL DEFAULT 0)
+- `updated_at` (DATETIME)
 
 *(Do not force irrelevant fields for every role).*
 

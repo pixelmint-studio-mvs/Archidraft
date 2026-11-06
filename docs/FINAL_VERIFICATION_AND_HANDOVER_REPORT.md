@@ -66,6 +66,14 @@ This document represents the single authoritative handover, architecture, and ve
     - Refactored `ActivityLog.parseTimestamp` to safely handle standard ISO-8601 strings (ending with or without `Z`), SQLite space-delimited formats, and integer Unix epoch timestamps without double-`Z` concatenation corruption.
     - Updated `ActivityLog.createdAt` to be nullable (`DateTime?`). Unparseable or absent timestamps explicitly evaluate to `null` and render as "Date unavailable" across `EngineerActivityScreen`, `ActivityTimeline`, and `WorkflowTimelineWidget`, strictly preventing silent fallback to `DateTime.now()`.
     - Verified via 6/6 unit tests in `test/unit/activity_log_test.dart`, 4/4 widget tests in `test/features/engineer/presentation/engineer_activity_screen_test.dart`, live Chrome CDP runtime evaluation, and 342/342 Worker tests.
+13. **Role-Based Unique User Identification System (`ENG_XX`, `DM_XX`, `STU_XX`):**
+    - Configured deterministic, sequential unique identification numbers (`identification_number`) for every registered user:
+      - **For Engineers/Architects:** `ENG_XX` (e.g., `ENG_01`, `ENG_02`, `ENG_03`, scaling infinitely)
+      - **For Draughtsman:** `DM_XX` (e.g., `DM_01`, `DM_02`, `DM_03`, scaling infinitely)
+      - **For Student:** `STU_XX` (e.g., `STU_01`, `STU_02`, `STU_03`, scaling infinitely)
+      - *Where `XX` are numbers and these can be added and incremented infinitely.*
+    - Backed by relational tracking table `role_id_sequences` in Cloudflare D1 with collision recovery and self-healing auto-allocation.
+    - Integrated as the primary identifier column across all Admin Portal user tables (`/engineers`, `/draughtsmen`, `/students`, `/users`, `/registrations`), dropdown assignment selectors, and client profile screens.
 
 ---
 

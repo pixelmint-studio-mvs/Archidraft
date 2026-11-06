@@ -17,6 +17,23 @@ ARCHI DRAFT enforces strict Role-Based Access Control (RBAC) at both the Flutter
 
 ---
 
+## Unique User Identification System (Role-Based Unique IDs)
+
+Every single user registered across the platform is assigned an immutable, unique sequential identification number (`identification_number`):
+
+- **For Engineers/Architects:** Use `ENG_XX` (e.g., `ENG_01`, `ENG_02`, `ENG_03`, scaling infinitely to `ENG_100`, `ENG_1000`, etc.)
+- **For Draughtsman:** Use `DM_XX` (e.g., `DM_01`, `DM_02`, `DM_03`, scaling infinitely to `DM_100`, `DM_1000`, etc.)
+- **For Student:** Use `STU_XX` (e.g., `STU_01`, `STU_02`, `STU_03`, scaling infinitely to `STU_100`, `STU_1000`, etc.)
+
+*Where `XX` are numbers and these can be added infinitely.*
+
+### Characteristics & Guarantees:
+1. **Permanent & Sequential:** Allocated atomically from `role_id_sequences` in Cloudflare D1 during registration or user profile creation.
+2. **Infinite Scaling:** The numeric sequence (`XX`) starts at zero-padded two digits (`01`, `02`, ...) and expands infinitely (`100`, `1000`, `10000`+) without any upper bound.
+3. **Primary Identifier Throughout App:** Displayed across Admin tables, dropdown selectors, dossier views, and Flutter profile screens as `<ID> — <Name>` (e.g., `ENG_01 — John Doe`).
+
+---
+
 ## 1. CLIENT
 The Client is the project owner.
 

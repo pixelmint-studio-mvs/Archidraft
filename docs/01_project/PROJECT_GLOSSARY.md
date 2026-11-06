@@ -17,3 +17,8 @@ To prevent misinterpretation, all developers and AI agents must use the followin
 - **Firestore:** The NoSQL database used for application data.
 - **Storage Rules:** The security rules governing file uploads/downloads in Firebase Storage.
 - **Idempotency:** A design principle ensuring that if a Cloud Function is accidentally run twice for the same event (e.g., due to network retry), it does not create duplicate activity logs or corrupt the state.
+- **Unique User ID (`identification_number`):** A permanent, sequential identifier assigned to each and every user upon account creation:
+  - **For Engineers/Architects:** `ENG_XX`
+  - **For Draughtsman:** `DM_XX`
+  - **For Student:** `STU_XX`
+  *(Where `XX` are numbers and can be incremented and added infinitely).*

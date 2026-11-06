@@ -174,7 +174,7 @@ All fixes have been verified against active source code, validated via automated
 
 ---
 
-### H. Role-Based Unique User Identification System (`ENG_XX`, `DM_XX`, `ST_XX`)
+### H. Role-Based Unique User Identification System (`ENG_XX`, `DM_XX`, `STU_XX`)
 - **File References:**
   - `worker/migrations/0024_role_based_user_ids.sql`
   - `worker/scripts/migrate_user_ids.mjs`
@@ -200,9 +200,10 @@ All fixes have been verified against active source code, validated via automated
   - `apps/admin-web/test/role-based-user-id.test.ts`
 - **Implementation & Architectural Rules:**
   1. **Deterministic Role ID Sequences:**
-     - Engineers: `ENG_XX` (e.g., `ENG_01`, `ENG_02`, `ENG_03`, scaling past 99 to `ENG_100`).
-     - Draughtsmen: `DM_XX` (e.g., `DM_01`, `DM_02`, `DM_03`, scaling past 99 to `DM_100`).
-     - Students: `ST_XX` (e.g., `ST_01`, `ST_02`, `ST_03`, scaling past 99 to `ST_100`).
+     - **For Engineers/Architects:** `ENG_XX` (e.g., `ENG_01`, `ENG_02`, `ENG_03`, scaling infinitely to `ENG_100`, `ENG_1000`, etc.).
+     - **For Draughtsman:** `DM_XX` (e.g., `DM_01`, `DM_02`, `DM_03`, scaling infinitely to `DM_100`, `DM_1000`, etc.).
+     - **For Student:** `STU_XX` (e.g., `STU_01`, `STU_02`, `STU_03`, scaling infinitely to `STU_100`, `STU_1000`, etc.).
+     - *Where `XX` are numbers and these can be added infinitely.*
      - Admins: Excluded from end-user sequence generation; identified by administrative roles (`ADMIN`, `STUDIO_ADMIN`).
   2. **Database Sequence Engine:**
      - Created relational tracking table `role_id_sequences` (`prefix TEXT PRIMARY KEY, last_seq INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMP`).
