@@ -561,8 +561,8 @@ export default function SettingsPage() {
                         setter: setNotifyAssignments,
                       },
                       {
-                        title: 'Correction Cap Escalation Monitoring',
-                        desc: 'Escalate to administrator review when an engineer/architect initiates round 2 or round 3 corrections',
+                        title: 'Correction Round Escalation Monitoring',
+                        desc: 'Escalate to administrator review when an engineer/architect initiates repeated correction rounds',
                         state: notifyCorrections,
                         setter: setNotifyCorrections,
                       },

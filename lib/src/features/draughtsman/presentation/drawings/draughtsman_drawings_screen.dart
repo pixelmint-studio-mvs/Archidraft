@@ -171,6 +171,7 @@ class _DraughtsmanDrawingsScreenState
                   a.assignmentStatus == AssignmentStatus.accepted ||
                   a.assignmentStatus == AssignmentStatus.completed ||
                   a.projectStatus == 'IN_PROGRESS' ||
+                  a.projectStatus == 'UNDER_ADMIN_REVIEW' ||
                   a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW' ||
                   a.projectStatus == 'COMPLETED')
               .toList();
@@ -595,7 +596,11 @@ class _DraughtsmanDrawingsScreenState
     Color statusBg;
     Color statusFg;
 
-    if (rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
+    if (rawStatus == 'UNDER_ADMIN_REVIEW') {
+      statusText = 'STATUS: STUDIO QC REVIEW';
+      statusBg = const Color(0xFFFEF3C7);
+      statusFg = const Color(0xFFB45309);
+    } else if (rawStatus == 'UNDER_ENGINEER_REVIEW' || rawStatus == 'UNDER_CLIENT_REVIEW' || rawStatus == 'REVIEW') {
       statusText = 'STATUS: REVIEW';
       statusBg = const Color(0xFF85F8C4); // tertiary-fixed
       statusFg = const Color(0xFF069669); // on-tertiary-container
@@ -739,7 +744,7 @@ class _DraughtsmanDrawingsScreenState
       ),
     );
 
-    final isUnderReview = assignment.projectStatus == 'UNDER_ENGINEER_REVIEW' || assignment.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderReview = assignment.projectStatus == 'UNDER_ADMIN_REVIEW' || assignment.projectStatus == 'UNDER_ENGINEER_REVIEW' || assignment.projectStatus == 'UNDER_CLIENT_REVIEW';
     final primaryActionBtn = FilledButton.icon(
       onPressed: () {
         if (isUnderReview) {
@@ -2813,7 +2818,7 @@ class _DrawingGridCardState extends State<_DrawingGridCard> {
     final a = widget.assignment;
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
-    final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderReview = a.projectStatus == 'UNDER_ADMIN_REVIEW' || a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
     final hasActiveCorrection = !isCompleted &&
         !isUnderReview &&
         a.assignmentStatus == AssignmentStatus.accepted &&

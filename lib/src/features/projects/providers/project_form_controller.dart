@@ -47,7 +47,7 @@ class ProjectFormState {
     this.projectName = '',
     this.projectAddress = '',
     this.drawingName = '',
-    this.drawingType = '',
+    this.drawingType = 'ARCHITECTURAL',
     this.projectArea = '',
     this.estimatedAmount = '',
     this.isSaving = false,
@@ -148,7 +148,7 @@ class ProjectFormController extends Notifier<ProjectFormState> {
 
   @override
   ProjectFormState build() {
-    return const ProjectFormState();
+    return const ProjectFormState(drawingType: 'ARCHITECTURAL');
   }
 
   // ── Field Updates ──
@@ -349,6 +349,6 @@ class ProjectFormController extends Notifier<ProjectFormState> {
 
   /// Resets the form to its initial state.
   void reset() {
-    state = const ProjectFormState();
+    state = const ProjectFormState(drawingType: 'ARCHITECTURAL');
   }
 }

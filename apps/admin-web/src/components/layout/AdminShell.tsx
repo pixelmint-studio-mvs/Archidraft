@@ -11,6 +11,8 @@ interface AdminShellProps {
   subtitle?: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  lastSyncedAt?: Date | null;
+  syncError?: string | null;
   backHref?: string;
   backLabel?: string;
 }
@@ -21,6 +23,8 @@ export function AdminShell({
   subtitle,
   onRefresh,
   isRefreshing,
+  lastSyncedAt,
+  syncError,
   backHref,
   backLabel,
 }: AdminShellProps) {
@@ -100,6 +104,8 @@ export function AdminShell({
           subtitle={subtitle}
           onRefresh={onRefresh}
           isRefreshing={isRefreshing}
+          lastSyncedAt={lastSyncedAt}
+          syncError={syncError}
           onToggleSidebar={handleToggleSidebar}
           isSidebarCollapsed={isSidebarCollapsed}
           backHref={backHref}

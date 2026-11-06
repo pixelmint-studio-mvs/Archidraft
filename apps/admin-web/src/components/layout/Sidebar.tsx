@@ -254,7 +254,8 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href)) ||
-                (item.href === '/students' && pathname.startsWith('/teaching'));
+                (item.href === '/students' && pathname.startsWith('/teaching')) ||
+                (item.href === '/engineers' && pathname.startsWith('/projects'));
               const badgeCount = (item.badgeKey ? counts[item.badgeKey] : 0) ?? 0;
 
               return (

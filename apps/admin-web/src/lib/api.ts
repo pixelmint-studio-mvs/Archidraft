@@ -13,6 +13,8 @@ import {
   StudioSettings,
   ProjectFile,
   DrawingVersion,
+  DrawingVersionReview,
+  AdminNotification,
   Correction,
   ProjectComment,
   StudentSubmission,
@@ -572,6 +574,72 @@ export const adminApi = {
       if (err?.status === 404) return [];
       throw err;
     }
+  },
+
+  async getDrawingVersionReviews(projectId: string): Promise<DrawingVersionReview[]> {
+    try {
+      return await fetchApi<DrawingVersionReview[]>(`/api/projects/${projectId}/drawing_version_reviews`);
+    } catch {
+      return [];
+    }
+  },
+
+  async adminApproveDrawing(
+    projectId: string,
+    drawingVersionId: string,
+    feedback?: string,
+    actionId?: string
+  ): Promise<{
+    success: boolean;
+    drawingVersionId: string;
+    versionNumber: number;
+    approvalStatus: string;
+    projectStatus: string;
+  }> {
+    return await fetchApi<{
+      success: boolean;
+      drawingVersionId: string;
+      versionNumber: number;
+      approvalStatus: string;
+      projectStatus: string;
+    }>('/api/projects/admin-approve-drawing', {
+      method: 'POST',
+      body: JSON.stringify({
+        projectId,
+        drawingVersionId,
+        actionId: actionId || (typeof crypto !== 'undefined' ? crypto.randomUUID() : undefined),
+        feedback,
+      }),
+    });
+  },
+
+  async adminRequestRevision(
+    projectId: string,
+    drawingVersionId: string,
+    feedback: string,
+    actionId?: string
+  ): Promise<{
+    success: boolean;
+    drawingVersionId: string;
+    versionNumber: number;
+    approvalStatus: string;
+    projectStatus: string;
+  }> {
+    return await fetchApi<{
+      success: boolean;
+      drawingVersionId: string;
+      versionNumber: number;
+      approvalStatus: string;
+      projectStatus: string;
+    }>('/api/projects/admin-request-revision', {
+      method: 'POST',
+      body: JSON.stringify({
+        projectId,
+        drawingVersionId,
+        actionId: actionId || (typeof crypto !== 'undefined' ? crypto.randomUUID() : undefined),
+        feedback,
+      }),
+    });
   },
 
   async getProjectCorrections(projectId: string): Promise<Correction[]> {
@@ -1233,6 +1301,34 @@ export const adminApi = {
     return fetchApi<StudentProgressDetail>(`/api/admin/students/${studentId}/progress-detail`);
   },
 
+  // ── Notifications Feed & Actions ──
+  async getNotifications(): Promise<AdminNotification[]> {
+    try {
+      const data = await fetchApi<AdminNotification[]>('/api/notifications');
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async markNotificationRead(id: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/notifications/${id}/read`, {
+      method: 'PATCH',
+    });
+  },
+
+  async markAllNotificationsRead(): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>('/api/notifications/read-all', {
+      method: 'PATCH',
+    });
+  },
+
+  async clearNotification(id: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   // ── Registration Verification Provision ──
   async getRegistrations(params?: { search?: string; role?: string; status?: string }): Promise<RegistrationVerification[]> {
     const query = new URLSearchParams();
@@ -1452,13 +1548,26 @@ export const adminApi = {
   },
 
   // Admin: Delete a single ticket
+    // Admin: Delete a single ticket
   async deleteHelpdeskTicket(ticketId: string): Promise<{ success: boolean; id: string }> {
     return fetchApi<{ success: boolean; id: string }>('/api/admin/helpdesk/tickets/' + ticketId, {
       method: 'DELETE',
     });
   },
 
-  // Admin: Bulk delete tickets or clear all
+  async clearAllNotifications(): Promise<{ success: boolean }> {
+    try {
+      return await fetchApi<{ success: boolean }>('/api/notifications', {
+        method: 'DELETE',
+      });
+    } catch {
+      return await fetchApi<{ success: boolean }>('/api/notifications/clear', {
+        method: 'POST',
+      });
+    }
+
+  },
+// Admin: Bulk delete tickets or clear all
   async bulkDeleteHelpdeskTickets(payload: { ids?: string[]; clearAll?: boolean }): Promise<{ success: boolean; count?: number; message?: string }> {
     return fetchApi<{ success: boolean; count?: number; message?: string }>('/api/admin/helpdesk/tickets/bulk-delete', {
       method: 'POST',
@@ -1472,5 +1581,6 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ recipient }),
     });
+
   },
 };

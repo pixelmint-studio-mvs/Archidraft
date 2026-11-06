@@ -77,11 +77,11 @@ void main() {
       // Ensure no red error screen / assertion error occurred
       expect(tester.takeException(), isNull);
 
-      // Verify screen title and dropdown presence
+      // Verify screen title and dropdown presence (defaults to Architectural)
       expect(find.text('Initiate Project'), findsOneWidget);
       expect(find.text('PROJECT_TITLE'), findsOneWidget);
       expect(find.text('TECHNICAL_CATEGORY'), findsOneWidget);
-      expect(find.text('Select category'), findsOneWidget);
+      expect(find.text('Architectural'), findsWidgets);
 
       // Verify reference file upload section is present
       expect(find.byType(ReferenceFilesUploadSection), findsOneWidget);
@@ -187,11 +187,11 @@ void main() {
       // MUST NOT crash with assertion error
       expect(tester.takeException(), isNull);
 
-      // The unmapped category gracefully falls back to prompt selection
-      expect(find.text('Select category'), findsOneWidget);
+      // The unmapped legacy category safely defaults to Architectural without assertion error
+      expect(find.text('Architectural'), findsWidgets);
     });
 
-    testWidgets('The user can select a category and update form state', (tester) async {
+    testWidgets('The user sees Architectural selected by default and only Architectural option', (tester) async {
       setLargeSurface(tester);
 
       final container = ProviderContainer(
@@ -204,7 +204,9 @@ void main() {
       await tester.pumpWidget(buildTestHarness(container: container));
       await tester.pumpAndSettle();
 
-      expect(container.read(projectFormControllerProvider).drawingType, isEmpty);
+      // Defaults to ARCHITECTURAL
+      expect(container.read(projectFormControllerProvider).drawingType, equals('ARCHITECTURAL'));
+      expect(find.text('Architectural'), findsWidgets);
 
       // Tap the dropdown to open selection items
       final dropdownFinder = find.byType(DropdownButtonFormField<String>);
@@ -218,7 +220,7 @@ void main() {
       await tester.tap(architecturalItem);
       await tester.pumpAndSettle();
 
-      // Verify controller state updated to normalized canonical value
+      // Verify controller state remains normalized canonical value
       expect(container.read(projectFormControllerProvider).drawingType, equals('ARCHITECTURAL'));
     });
 

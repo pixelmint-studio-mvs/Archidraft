@@ -118,6 +118,17 @@ describe('Admin Web Sidebar Navigation & Role Count Contracts', () => {
       assert.strictEqual(occurrences, 1, 'Financials route must appear exactly once in sidebar');
     });
 
+    it('Engineers item exists in Quick Access and activates on /projects routes', () => {
+      assert.match(
+        content,
+        /name:\s*'Engineers',\s*href:\s*'\/engineers',\s*icon:\s*HardHat,\s*badgeKey:\s*'engineers'/
+      );
+      assert.ok(
+        content.includes("(item.href === '/engineers' && pathname.startsWith('/projects'))"),
+        'Sidebar must highlight Engineers when navigating to /projects'
+      );
+    });
+
     it('Projects Catalogue is removed from sidebar menu items', () => {
       assert.strictEqual(
         content.includes("name: 'Projects Catalogue'"),

@@ -9,6 +9,7 @@ enum ProjectStatus {
   waitingAssignment,
   waitingAcceptance,
   inProgress,
+  underAdminReview,
   underEngineerReview,
   completed,
   cancelled;
@@ -32,6 +33,8 @@ enum ProjectStatus {
         return ProjectStatus.waitingAcceptance;
       case 'IN_PROGRESS':
         return ProjectStatus.inProgress;
+      case 'UNDER_ADMIN_REVIEW':
+        return ProjectStatus.underAdminReview;
       case 'UNDER_ENGINEER_REVIEW':
       case 'UNDER_CLIENT_REVIEW':
         return ProjectStatus.underEngineerReview;
@@ -57,6 +60,8 @@ enum ProjectStatus {
         return 'WAITING_ACCEPTANCE';
       case ProjectStatus.inProgress:
         return 'IN_PROGRESS';
+      case ProjectStatus.underAdminReview:
+        return 'UNDER_ADMIN_REVIEW';
       case ProjectStatus.underEngineerReview:
         return 'UNDER_ENGINEER_REVIEW';
       case ProjectStatus.completed:
@@ -79,6 +84,8 @@ enum ProjectStatus {
         return 'Waiting Acceptance';
       case ProjectStatus.inProgress:
         return 'In Progress';
+      case ProjectStatus.underAdminReview:
+        return 'Under Studio Review';
       case ProjectStatus.underEngineerReview:
         return 'Under Engineer/Architect Review';
       case ProjectStatus.completed:

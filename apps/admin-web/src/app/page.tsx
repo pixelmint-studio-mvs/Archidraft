@@ -172,7 +172,7 @@ export default function LandingPage() {
                 <h3 className="text-sm font-bold text-slate-900">Real-Time Redline Sync</h3>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Collaborate between Studio Admins and structural engineers/architects with a strict 3-round cap and auditable state machine progression.
+                Collaborate between Studio Admins and structural engineers/architects with unlimited revision rounds and auditable state machine progression.
               </p>
             </div>
 

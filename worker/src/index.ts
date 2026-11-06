@@ -109,6 +109,7 @@ app.use('*', async (c, next) => {
 app.use('*', async (c, next) => {
   const isPublicDocRead = c.req.method === 'GET' && c.req.path.startsWith('/api/legal/documents/');
   const isPublicVerify = c.req.method === 'GET' && c.req.path.startsWith('/api/public/');
+  const isPublicHealth = c.req.method === 'GET' && c.req.path === '/api/health';
   const isPublicHelpdeskReport = c.req.method === 'POST' && c.req.path === '/api/helpdesk/report';
   const isPublicHelpdeskTicket = c.req.method === 'POST' && c.req.path === '/api/helpdesk/tickets';
 
@@ -121,7 +122,7 @@ app.use('*', async (c, next) => {
   }
 
   if (!token) {
-    if (isPublicDocRead || isPublicVerify || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
@@ -130,7 +131,7 @@ app.use('*', async (c, next) => {
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
-    if (isPublicDocRead || isPublicVerify || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Invalid Firebase token' }, 401);
@@ -435,6 +436,8 @@ async function getUser(db: D1Database, uid: string) {
 }
 
 // User Profile sync
+app.get('/api/health', (c) => c.json({ status: 'healthy', timestamp: new Date().toISOString() }));
+
 app.post('/api/users', async (c) => {
   const uid = c.get('uid');
   const body = await c.req.json();
@@ -1282,12 +1285,12 @@ app.get('/api/student/metrics', async (c) => {
 
   // 1. Learning Progress
   const learningQuery = `
-    SELECT 
-      m.category, 
-      COUNT(l.id) as totalLessons, 
-      COUNT(p.id) as completedLessons 
-    FROM training_lessons l 
-    JOIN training_modules m ON l.module_id = m.id 
+    SELECT
+      m.category,
+      COUNT(l.id) as totalLessons,
+      COUNT(p.id) as completedLessons
+    FROM training_lessons l
+    JOIN training_modules m ON l.module_id = m.id
     LEFT JOIN student_lesson_progress p ON l.id = p.lesson_id AND p.student_id = ? AND p.status = 'COMPLETED'
     GROUP BY m.category
   `;
@@ -1302,7 +1305,7 @@ app.get('/api/student/metrics', async (c) => {
 
   // 2. Activity Metrics (Completed projects & corrections)
   const activityQuery = `
-    SELECT 
+    SELECT
       p.drawing_type as category,
       COUNT(p.id) as completedProjects,
       SUM(p.correction_round) as correctionRounds
@@ -1322,7 +1325,7 @@ app.get('/api/student/metrics', async (c) => {
 
   // 3. Practical Proficiency (Evaluations)
   const evalQuery = `
-    SELECT e.criteria_json, p.drawing_type 
+    SELECT e.criteria_json, p.drawing_type
     FROM evaluations e
     JOIN projects p ON e.project_id = p.id
     JOIN student_assignments sa ON p.id = sa.project_id
@@ -1366,7 +1369,7 @@ app.get('/api/student/metrics', async (c) => {
 
   // 4. Corrections Summary (for Revision Discipline)
   const correctionsQuery = `
-    SELECT 
+    SELECT
       COUNT(c.id) as totalCorrections,
       SUM(CASE WHEN c.status = 'RESOLVED' THEN 1 ELSE 0 END) as resolvedCorrections
     FROM corrections c
@@ -1893,6 +1896,18 @@ app.post('/api/projects/submit', async (c) => {
       actionId, projectId, 'PROJECT_SUBMITTED', uid, user.role, (user.role === 'CLIENT' ? 'Client' : 'Engineer') + ' submitted the project brief.'
     )
   ];
+
+  // Notify Admins of newly submitted project brief
+  const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+  for (const admin of admins.results || []) {
+    batch.push(
+      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        uuidv4(), admin.id, projectId, 'PROJECT_SUBMITTED', 'New Project Brief Submitted',
+        `Engineer ${(user.name as string) || (user.email as string) || 'Client'} submitted project brief for "${project.project_name}".`
+      )
+    );
+  }
+
   await db.batch(batch);
   return c.json({ success: true });
 });
@@ -1923,8 +1938,14 @@ app.post('/api/projects/submit-drawing', async (c) => {
     if (project.draughtsman_id !== uid) return c.json({ error: 'Not assigned to you' }, 403);
   }
 
-  if ((project.status === 'UNDER_ENGINEER_REVIEW' || project.status === 'UNDER_CLIENT_REVIEW') && project.last_action_id === actionId) {
-    return c.json({ success: true });
+  if (project.is_training_project === 1) {
+    if (project.status === 'UNDER_ENGINEER_REVIEW' || project.status === 'UNDER_CLIENT_REVIEW') {
+      return c.json({ success: true, message: 'Student project is already submitted for review' });
+    }
+  } else {
+    if (project.status === 'UNDER_ADMIN_REVIEW') {
+      return c.json({ success: true, message: 'Drawing deliverable is already submitted for studio review' });
+    }
   }
   if (project.status !== 'IN_PROGRESS' && project.status !== 'CANCELLED') {
     return c.json({ error: 'Project is not in a submittable state' }, 400);
@@ -1958,28 +1979,28 @@ app.post('/api/projects/submit-drawing', async (c) => {
       ).bind(projectId).first();
       const vNum = ((latest?.v as number) || 0) + 1;
       const corr = await db.prepare(
-        "SELECT id FROM corrections WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS') ORDER BY round_number DESC LIMIT 1"
+        "SELECT id FROM corrections WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS', 'IN_REVIEW') ORDER BY round_number DESC LIMIT 1"
       ).bind(projectId).first();
 
       batch.push(
         db.prepare(`
-          INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(uuidv4(), projectId, finalFileId, vNum, uid, (corr?.id as string) || null)
+          INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id, approval_status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(uuidv4(), projectId, finalFileId, vNum, uid, (corr?.id as string) || null, project.is_training_project === 1 ? 'APPROVED' : 'PENDING')
       );
     }
   }
 
-  batch.push(
-    db.prepare(`UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
-    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS')`).bind(projectId),
-    db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'DRAWING_SUBMITTED', uid, user.role,
-      user.role === 'STUDENT' ? 'Student submitted drawing for review.' : 'Draughtsman submitted the drawing for engineer review.'
-    )
-  );
-
   if (project.is_training_project === 1) {
+    batch.push(
+      db.prepare(`UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+      db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS')`).bind(projectId),
+      db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        actionId, projectId, 'DRAWING_SUBMITTED', uid, user.role,
+        'Student submitted drawing for review.'
+      )
+    );
+
     const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
     for (const admin of admins.results || []) {
       batch.push(
@@ -1989,15 +2010,351 @@ app.post('/api/projects/submit-drawing', async (c) => {
       );
     }
   } else {
+    // Commercial workflow: Enters mandatory Studio Admin Quality Review
     batch.push(
-      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-        uuidv4(), project.client_id, projectId, 'DRAWING_SUBMITTED', 'Drawing Submitted', 'A drawing has been submitted for your review.'
+      db.prepare(`UPDATE projects SET status = 'UNDER_ADMIN_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId),
+      // Correction lifecycle invariant: Corrections transition to IN_REVIEW upon submission (NOT RESOLVED!)
+      db.prepare(`UPDATE corrections SET status = 'IN_REVIEW' WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS')`).bind(projectId),
+      db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        actionId, projectId, 'DRAWING_SUBMITTED_FOR_ADMIN', uid, user.role,
+        'Draughtsman submitted drawing deliverable for Studio Admin Quality Review.'
       )
     );
+
+    const prevVersion = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
+    const isResubmission = ((prevVersion?.v as number) || 0) > 0 || ((project.correction_round as number) || 0) > 0;
+    const notifTitle = isResubmission ? 'Corrected Drawing Awaiting Studio QC' : 'New Drawing Awaiting Studio QC';
+    const notifMsg = isResubmission
+      ? `Draughtsman ${(user.name as string) || (user.email as string) || 'Draughtsman'} resubmitted corrected drawing for "${project.project_name}". Ready for Studio QC.`
+      : `Draughtsman ${(user.name as string) || (user.email as string) || 'Draughtsman'} submitted drawing deliverable for "${project.project_name}". Ready for Studio QC.`;
+
+    // Notify Studio Admins of pending deliverable
+    const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+    for (const admin of admins.results || []) {
+      batch.push(
+        db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+          uuidv4(), admin.id, projectId, isResubmission ? 'DRAWING_RESUBMITTED_FOR_ADMIN' : 'DRAWING_SUBMITTED_FOR_ADMIN', notifTitle, notifMsg
+        )
+      );
+    }
+
+    // If resubmitted following an Engineer correction, notify Engineer that corrected drawing was submitted and is undergoing Studio QC
+    if ((project.correction_round as number) > 0 && project.client_id) {
+      batch.push(
+        db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+          uuidv4(), project.client_id, projectId, 'CORRECTION_RESUBMITTED', 'Correction Submitted for Review',
+          `Draughtsman has submitted the corrected drawing for "${project.project_name}". It is undergoing Studio QC.`
+        )
+      );
+    }
   }
 
   await db.batch(batch);
   return c.json({ success: true });
+});
+
+app.post('/api/projects/admin-approve-drawing', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, drawingVersionId, actionId, feedback } = body;
+
+  const user = await getUser(db, uid);
+  const allowedRoles = ['ADMIN', 'STUDIO_ADMIN'];
+  if (!user || !allowedRoles.includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Studio Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found', code: 'NOT_FOUND' }, 404);
+
+  if (project.is_training_project === 1) {
+    return c.json({ error: 'Training projects use student evaluation rubric workflow', code: 'TRAINING_PROJECT_NOT_SUPPORTED' }, 400);
+  }
+
+  // Idempotency: if project already moved to review via this action
+  if (project.status === 'UNDER_ENGINEER_REVIEW' && actionId && project.last_action_id === actionId) {
+    return c.json({ success: true, idempotent: true });
+  }
+
+  if (project.status !== 'UNDER_ADMIN_REVIEW') {
+    return c.json({ error: `Project is not awaiting studio review (current status: ${project.status})`, code: 'INVALID_PROJECT_STATUS' }, 400);
+  }
+
+  const version = await db.prepare('SELECT * FROM drawing_versions WHERE id = ? AND project_id = ?').bind(drawingVersionId, projectId).first();
+  if (!version) {
+    return c.json({ error: 'Drawing version not found for this project', code: 'VERSION_NOT_FOUND' }, 404);
+  }
+
+  if (version.approval_status === 'APPROVED') {
+    return c.json({ error: 'Drawing version is already approved', code: 'ALREADY_APPROVED' }, 400);
+  }
+
+  const reviewId = uuidv4();
+  const effectiveActionId = actionId || uuidv4();
+  const reviewFeedback = typeof feedback === 'string' && feedback.trim() ? feedback.trim() : null;
+
+  const batch: any[] = [
+    // 1. Update drawing version conditionally
+    db.prepare(`
+      UPDATE drawing_versions
+      SET approval_status = 'APPROVED', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, review_feedback = ?
+      WHERE id = ?
+        AND approval_status = 'PENDING'
+        AND EXISTS (SELECT 1 FROM projects WHERE id = ? AND status = 'UNDER_ADMIN_REVIEW')
+    `).bind(uid, reviewFeedback, drawingVersionId, projectId),
+
+    // 2. Transition project to UNDER_ENGINEER_REVIEW conditionally
+    db.prepare(`
+      UPDATE projects
+      SET status = 'UNDER_ENGINEER_REVIEW', last_action_id = ?
+      WHERE id = ?
+        AND status = 'UNDER_ADMIN_REVIEW'
+        AND EXISTS (SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'APPROVED')
+    `).bind(effectiveActionId, projectId, drawingVersionId),
+
+    // 3. Insert audit record into dedicated drawing_version_reviews table conditionally
+    db.prepare(`
+      INSERT INTO drawing_version_reviews (id, project_id, drawing_version_id, reviewer_id, decision, feedback)
+      SELECT ?, ?, ?, ?, 'APPROVED', ?
+      WHERE EXISTS (
+        SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'APPROVED'
+      ) AND EXISTS (
+        SELECT 1 FROM projects WHERE id = ? AND status = 'UNDER_ENGINEER_REVIEW' AND last_action_id = ?
+      )
+    `).bind(reviewId, projectId, drawingVersionId, uid, reviewFeedback, drawingVersionId, projectId, effectiveActionId),
+
+    // 4. Log activity conditionally
+    db.prepare(`
+      INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details)
+      SELECT ?, ?, 'ADMIN_DRAWING_APPROVED', ?, ?, ?
+      WHERE EXISTS (
+        SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'APPROVED'
+      ) AND EXISTS (
+        SELECT 1 FROM projects WHERE id = ? AND status = 'UNDER_ENGINEER_REVIEW' AND last_action_id = ?
+      )
+    `).bind(
+      effectiveActionId, projectId, uid, user.role,
+      `Studio Admin approved drawing version v${version.version_number}. Deliverable released to engineer.`,
+      drawingVersionId, projectId, effectiveActionId
+    ),
+
+    // 5. Notify Engineer conditionally
+    db.prepare(`
+      INSERT INTO notifications (id, user_id, project_id, type, title, message)
+      SELECT ?, ?, ?, 'DRAWING_READY_FOR_REVIEW', 'Drawing Ready for Review', ?
+      WHERE EXISTS (
+        SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'APPROVED'
+      ) AND EXISTS (
+        SELECT 1 FROM projects WHERE id = ? AND status = 'UNDER_ENGINEER_REVIEW' AND last_action_id = ?
+      )
+    `).bind(
+      uuidv4(), project.client_id, projectId,
+      `Drawing version v${version.version_number} for "${project.project_name}" has passed Studio Quality Check and is ready for your review.`,
+      drawingVersionId, projectId, effectiveActionId
+    )
+  ];
+
+  // 6. Notify Draughtsman conditionally
+  if (project.draughtsman_id) {
+    batch.push(
+      db.prepare(`
+        INSERT INTO notifications (id, user_id, project_id, type, title, message)
+        SELECT ?, ?, ?, 'ADMIN_DRAWING_APPROVED', 'Drawing Approved by Studio', ?
+        WHERE EXISTS (
+          SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'APPROVED'
+        ) AND EXISTS (
+          SELECT 1 FROM projects WHERE id = ? AND status = 'UNDER_ENGINEER_REVIEW' AND last_action_id = ?
+        )
+      `).bind(
+        uuidv4(), project.draughtsman_id, projectId,
+        `Your submitted drawing version v${version.version_number} for "${project.project_name}" was approved by Studio Admin and forwarded to the client.`,
+        drawingVersionId, projectId, effectiveActionId
+      )
+    );
+  }
+
+  const batchResults: any[] = await db.batch(batch);
+  const versionChanges = batchResults[0]?.meta?.changes ?? batchResults[0]?.changes ?? 0;
+  const projectChanges = batchResults[1]?.meta?.changes ?? batchResults[1]?.changes ?? 0;
+
+  if (versionChanges === 0 || projectChanges === 0) {
+    return c.json({
+      error: 'Conflict: Drawing version or project status was modified concurrently',
+      code: 'CONCURRENT_MODIFICATION'
+    }, 409);
+  }
+
+  return c.json({
+    success: true,
+    drawingVersionId,
+    versionNumber: version.version_number,
+    approvalStatus: 'APPROVED',
+    projectStatus: 'UNDER_ENGINEER_REVIEW'
+  });
+});
+
+app.post('/api/projects/admin-request-revision', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const body = await c.req.json();
+  const { projectId, drawingVersionId, actionId, feedback } = body;
+
+  const user = await getUser(db, uid);
+  const allowedRoles = ['ADMIN', 'STUDIO_ADMIN'];
+  if (!user || !allowedRoles.includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Studio Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found', code: 'NOT_FOUND' }, 404);
+
+  if (project.is_training_project === 1) {
+    return c.json({ error: 'Training projects use student evaluation rubric workflow', code: 'TRAINING_PROJECT_NOT_SUPPORTED' }, 400);
+  }
+
+  // Idempotency: if project already moved back to IN_PROGRESS via this action
+  if (project.status === 'IN_PROGRESS' && actionId && project.last_action_id === actionId) {
+    return c.json({ success: true, idempotent: true });
+  }
+
+  if (project.status !== 'UNDER_ADMIN_REVIEW') {
+    return c.json({ error: `Project is not awaiting studio review (current status: ${project.status})`, code: 'INVALID_PROJECT_STATUS' }, 400);
+  }
+
+  const version = await db.prepare('SELECT * FROM drawing_versions WHERE id = ? AND project_id = ?').bind(drawingVersionId, projectId).first();
+  if (!version) {
+    return c.json({ error: 'Drawing version not found for this project', code: 'VERSION_NOT_FOUND' }, 404);
+  }
+
+  if (version.approval_status !== 'PENDING') {
+    return c.json({ error: `Drawing version cannot be rejected (current approval status: ${version.approval_status})`, code: 'INVALID_APPROVAL_STATUS' }, 400);
+  }
+
+  if (!feedback || typeof feedback !== 'string' || !feedback.trim()) {
+    return c.json({ error: 'Feedback is required for quality rework request', code: 'FEEDBACK_REQUIRED' }, 400);
+  }
+
+  const reviewId = uuidv4();
+  const effectiveActionId = actionId || uuidv4();
+  const trimmedFeedback = feedback.trim();
+
+  const batch: any[] = [
+    // 1. Update drawing version approval state to REJECTED conditionally
+    db.prepare(`
+      UPDATE drawing_versions
+      SET approval_status = 'REJECTED', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, review_feedback = ?
+      WHERE id = ?
+        AND approval_status = 'PENDING'
+        AND EXISTS (SELECT 1 FROM projects WHERE id = ? AND status = 'UNDER_ADMIN_REVIEW')
+    `).bind(uid, trimmedFeedback, drawingVersionId, projectId),
+
+    // 2. Return project to IN_PROGRESS conditionally
+    db.prepare(`
+      UPDATE projects
+      SET status = 'IN_PROGRESS', last_action_id = ?
+      WHERE id = ?
+        AND status = 'UNDER_ADMIN_REVIEW'
+        AND EXISTS (SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'REJECTED')
+    `).bind(effectiveActionId, projectId, drawingVersionId),
+
+    // 3. Insert audit record into drawing_version_reviews conditionally
+    db.prepare(`
+      INSERT INTO drawing_version_reviews (id, project_id, drawing_version_id, reviewer_id, decision, feedback)
+      SELECT ?, ?, ?, ?, 'REJECTED', ?
+      WHERE EXISTS (
+        SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'REJECTED'
+      ) AND EXISTS (
+        SELECT 1 FROM projects WHERE id = ? AND status = 'IN_PROGRESS' AND last_action_id = ?
+      )
+    `).bind(reviewId, projectId, drawingVersionId, uid, trimmedFeedback, drawingVersionId, projectId, effectiveActionId),
+
+    // 4. Log activity conditionally
+    db.prepare(`
+      INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details)
+      SELECT ?, ?, 'ADMIN_REVISION_REQUESTED', ?, ?, ?
+      WHERE EXISTS (
+        SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'REJECTED'
+      ) AND EXISTS (
+        SELECT 1 FROM projects WHERE id = ? AND status = 'IN_PROGRESS' AND last_action_id = ?
+      )
+    `).bind(
+      effectiveActionId, projectId, uid, user.role,
+      `Studio Admin requested quality rework on version v${version.version_number}: ${trimmedFeedback}`,
+      drawingVersionId, projectId, effectiveActionId
+    )
+  ];
+
+  // 5. Notify Draughtsman conditionally
+  if (project.draughtsman_id) {
+    batch.push(
+      db.prepare(`
+        INSERT INTO notifications (id, user_id, project_id, type, title, message)
+        SELECT ?, ?, ?, 'ADMIN_REVISION_REQUESTED', 'Studio Revision Requested', ?
+        WHERE EXISTS (
+          SELECT 1 FROM drawing_versions WHERE id = ? AND approval_status = 'REJECTED'
+        ) AND EXISTS (
+          SELECT 1 FROM projects WHERE id = ? AND status = 'IN_PROGRESS' AND last_action_id = ?
+        )
+      `).bind(
+        uuidv4(), project.draughtsman_id, projectId,
+        `Studio Admin requested rework on drawing version v${version.version_number} for "${project.project_name}": ${trimmedFeedback}`,
+        drawingVersionId, projectId, effectiveActionId
+      )
+    );
+  }
+
+  // Note: Zero notifications to Engineer! Internal rework is completely decoupled and hidden from client.
+
+  const batchResults: any[] = await db.batch(batch);
+  const versionChanges = batchResults[0]?.meta?.changes ?? batchResults[0]?.changes ?? 0;
+  const projectChanges = batchResults[1]?.meta?.changes ?? batchResults[1]?.changes ?? 0;
+
+  if (versionChanges === 0 || projectChanges === 0) {
+    return c.json({
+      error: 'Conflict: Drawing version or project status was modified concurrently',
+      code: 'CONCURRENT_MODIFICATION'
+    }, 409);
+  }
+
+  return c.json({
+    success: true,
+    drawingVersionId,
+    versionNumber: version.version_number,
+    approvalStatus: 'REJECTED',
+    projectStatus: 'IN_PROGRESS'
+  });
+});
+
+app.get('/api/projects/:projectId/drawing_version_reviews', async (c) => {
+  const uid = c.get('uid');
+  const projectId = c.req.param('projectId');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project) return c.json({ error: 'Project not found' }, 404);
+
+  const hasAccess = await canUserAccessProject(db, project, user, uid);
+  if (!hasAccess) return c.json({ error: 'Forbidden: Access denied' }, 403);
+
+  // Review history access policy: Admins and Draughtsmen allowed; Engineers blocked
+  const isEngineer = user.role === 'CLIENT' || user.role === 'ENGINEER';
+  if (isEngineer) {
+    return c.json({ error: 'Forbidden: Access to internal review history denied', code: 'FORBIDDEN' }, 403);
+  }
+
+  const query = `
+    SELECT dvr.*, u.name as reviewer_name, u.role as reviewer_role
+    FROM drawing_version_reviews dvr
+    LEFT JOIN users u ON dvr.reviewer_id = u.id
+    WHERE dvr.project_id = ?
+    ORDER BY dvr.created_at ASC
+  `;
+
+  const { results } = await db.prepare(query).bind(projectId).all();
+  return c.json(results || []);
 });
 
 app.post('/api/projects/approve', async (c) => {
@@ -2020,6 +2377,18 @@ app.post('/api/projects/approve', async (c) => {
       actionId, projectId, 'PROJECT_APPROVED', uid, 'STUDIO_ADMIN', 'Studio Admin approved the project.'
     )
   ];
+
+  // Notify Admins that project is ready for assignment
+  const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+  for (const admin of admins.results || []) {
+    batch.push(
+      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        uuidv4(), admin.id, projectId, 'PROJECT_READY_FOR_ASSIGNMENT', 'Project Ready for Allocation',
+        `Project "${project.project_name}" is approved and ready for Draughtsman allocation.`
+      )
+    );
+  }
+
   await db.batch(batch);
   return c.json({ success: true });
 });
@@ -2079,25 +2448,53 @@ app.post('/api/projects/approve-final', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
   if (project.client_id !== uid && !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
   if (project.status === 'COMPLETED' && project.last_action_id === actionId) return c.json({ success: true });
-  if (project.status !== 'UNDER_ENGINEER_REVIEW' && project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in review state' }, 400);
+  if (project.status !== 'UNDER_ENGINEER_REVIEW' && project.status !== 'UNDER_CLIENT_REVIEW') {
+    return c.json({ error: 'Project is not in review state', code: 'NOT_IN_REVIEW_STATE' }, 400);
+  }
 
-  // Verify approval of an older drawing version cannot mark a project completed when a newer version exists
+  const effectiveActionId = actionId || uuidv4();
+
+  // Prevent approval of unapproved deliverable or older version
   if (drawingVersionId) {
+    const dv = await db.prepare('SELECT id, approval_status, version_number FROM drawing_versions WHERE id = ?').bind(drawingVersionId).first();
+    if (!dv) return c.json({ error: 'Drawing version not found', code: 'VERSION_NOT_FOUND' }, 404);
+    if (dv.approval_status !== 'APPROVED') {
+      return c.json({ error: 'Cannot approve final drawing: deliverable is not approved by Studio Admin', code: 'DELIVERABLE_UNAPPROVED' }, 400);
+    }
+
     const latestVersion = await db.prepare(
       'SELECT id, version_number FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1'
     ).bind(projectId).first();
     if (latestVersion && latestVersion.id !== drawingVersionId) {
-      const targetVersion = await db.prepare('SELECT version_number FROM drawing_versions WHERE id = ?').bind(drawingVersionId).first();
-      if (targetVersion && (latestVersion.version_number as number) > (targetVersion.version_number as number)) {
+      if ((latestVersion.version_number as number) > (dv.version_number as number)) {
         return c.json({
           error: 'Cannot approve an older drawing version when a newer revision exists requiring review',
           code: 'OLDER_VERSION_APPROVAL'
         }, 400);
       }
     }
+  } else {
+    const latestVersion = await db.prepare(
+      'SELECT id, approval_status, version_number FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1'
+    ).bind(projectId).first();
+    if (latestVersion && latestVersion.approval_status !== 'APPROVED') {
+      return c.json({ error: 'Cannot approve final drawing: deliverable is not approved by Studio Admin', code: 'DELIVERABLE_UNAPPROVED' }, 400);
+    }
   }
 
-  const batch = buildApproveFinalBatch(db, project, uid, actionId, 'ENGINEER', null);
+  const batch = buildApproveFinalBatch(db, project, uid, effectiveActionId, 'ENGINEER', null);
+
+  // Notify Admins of final drawing acceptance
+  const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+  for (const admin of admins.results || []) {
+    batch.push(
+      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        uuidv4(), admin.id, projectId, 'PROJECT_COMPLETED', 'Final Drawing Approved',
+        `Client approved final drawing for "${project.project_name}". Project marked COMPLETED.`
+      )
+    );
+  }
+
   await db.batch(batch);
   return c.json({ success: true });
 });
@@ -2118,29 +2515,40 @@ app.post('/api/projects/request-correction', async (c) => {
   if (!project) return c.json({ error: 'Project not found' }, 404);
   if (project.client_id !== uid && !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) return c.json({ error: 'Permission denied' }, 403);
 
-  if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true });
+  if (project.status === 'IN_PROGRESS' && project.last_action_id === actionId) return c.json({ success: true, newRound: project.correction_round });
   if (project.status !== 'UNDER_ENGINEER_REVIEW' && project.status !== 'UNDER_CLIENT_REVIEW') return c.json({ error: 'Project is not in review state' }, 400);
 
   const currentRound = (project.correction_round as number) || 0;
-  if (currentRound >= 3) {
-    return c.json({ error: 'Maximum correction rounds (3) exceeded' }, 400);
-  }
-
+  // Unlimited revisions supported — no cap on correction rounds
   const newRound = currentRound + 1;
+  const effectiveActionId = actionId || uuidv4();
+  const effectiveCorrectionId = correctionId || uuidv4();
 
   const batch = [
     db.prepare(`
       INSERT INTO corrections (id, project_id, requested_by, target_version_id, round_number, description, status)
       VALUES (?, ?, ?, ?, ?, ?, 'OPEN')
-    `).bind(correctionId, projectId, uid, targetVersionId, newRound, description),
-    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ?`).bind(newRound, actionId, projectId),
+    `).bind(effectiveCorrectionId, projectId, uid, targetVersionId, newRound, description),
+    db.prepare(`UPDATE projects SET status = 'IN_PROGRESS', correction_round = ?, last_action_id = ? WHERE id = ? AND status IN ('UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')`).bind(newRound, effectiveActionId, projectId),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      actionId, projectId, 'CORRECTION_REQUESTED', uid, user.role, `${['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string) ? 'Studio Admin' : 'Engineer'} requested correction (Round ${newRound}).`
+      effectiveActionId, projectId, 'CORRECTION_REQUESTED', uid, user.role, `${['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string) ? 'Studio Admin' : 'Engineer'} requested correction (Round ${newRound}).`
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), project.draughtsman_id, projectId, 'CORRECTION_REQUESTED', 'Correction Requested', `Engineer has requested a correction (Round ${newRound}).`
+      uuidv4(), project.draughtsman_id, projectId, 'CORRECTION_REQUESTED', 'Correction Requested', `Engineer has requested a correction (Round ${newRound}) on "${project.project_name}": ${description}`
     )
   ];
+
+  // Notify Admins of engineer correction request
+  const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+  for (const admin of admins.results || []) {
+    batch.push(
+      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        uuidv4(), admin.id, projectId, 'CORRECTION_REQUESTED', 'Engineer Requested Correction',
+        `Engineer requested correction (Round ${newRound}) on "${project.project_name}": ${description}`
+      )
+    );
+  }
+
   await db.batch(batch);
   return c.json({ success: true, newRound });
 });
@@ -2181,22 +2589,7 @@ app.post('/api/projects/assign', async (c) => {
     }
   }
 
-  // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
-  if (dMan.role === 'DRAUGHTSMAN') {
-    const activeCountRes = await db.prepare(`
-      SELECT COUNT(*) as count
-      FROM projects
-      WHERE draughtsman_id = ?
-        AND status IN ('WAITING_ACCEPTANCE', 'IN_PROGRESS', 'UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')
-    `).bind(draughtsmanId).first();
-    const activeCount = (activeCountRes?.count as number) || 0;
-    if (activeCount >= 4) {
-      return c.json({
-        error: 'Draughtsman is at maximum capacity (4/4 active projects)',
-        code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED'
-      }, 400);
-    }
-  }
+  // Draughtsman capacity cap removed: multi-project allocation permitted
 
   const assignmentId = uuidv4();
   const assignmentQuery = dMan.role === 'STUDENT'
@@ -2210,7 +2603,7 @@ app.post('/api/projects/assign', async (c) => {
       actionId, projectId, dMan.role === 'STUDENT' ? 'STUDENT_ASSIGNED' : 'DRAUGHTSMAN_ASSIGNED', uid, 'STUDIO_ADMIN', `Studio Admin assigned ${dMan.role === 'STUDENT' ? 'student' : 'draughtsman'}: ` + dMan.name
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), draughtsmanId, projectId, dMan.role === 'STUDENT' ? 'NEW_ASSIGNMENT' : 'DRAUGHTSMAN_ASSIGNED', 'New Assignment', 'You have been assigned to a new project.'
+      uuidv4(), draughtsmanId, projectId, dMan.role === 'STUDENT' ? 'NEW_ASSIGNMENT' : 'DRAUGHTSMAN_ASSIGNED', 'New Assignment', `You have been assigned to project "${project.project_name}".`
     )
   ];
   await db.batch(batch);
@@ -2249,22 +2642,7 @@ app.post('/api/projects/reassign', async (c) => {
     }
   }
 
-  // Authoritative Draughtsman Capacity Cap (SEC-03): Maximum 4 active concurrent projects
-  if (dMan.role === 'DRAUGHTSMAN') {
-    const activeCountRes = await db.prepare(`
-      SELECT COUNT(*) as count
-      FROM projects
-      WHERE draughtsman_id = ?
-        AND status IN ('WAITING_ACCEPTANCE', 'IN_PROGRESS', 'UNDER_ENGINEER_REVIEW', 'UNDER_CLIENT_REVIEW')
-    `).bind(draughtsmanId).first();
-    const activeCount = (activeCountRes?.count as number) || 0;
-    if (activeCount >= 4) {
-      return c.json({
-        error: 'Draughtsman is at maximum capacity (4/4 active projects)',
-        code: 'DRAUGHTSMAN_CAPACITY_EXCEEDED'
-      }, 400);
-    }
-  }
+  // Draughtsman capacity cap removed: multi-project allocation permitted
 
   if (project.last_action_id === actionId) return c.json({ success: true });
 
@@ -2356,9 +2734,21 @@ const handleAcceptAssignment = async (c: any) => {
       actionId, projectId, 'ASSIGNMENT_ACCEPTED', uid, user.role, 'User accepted the assignment.'
     ),
     db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-      uuidv4(), project.client_id, projectId, 'ASSIGNMENT_ACCEPTED', 'Project In Progress', 'A draughtsman has accepted and started your project.'
+      uuidv4(), project.client_id, projectId, 'ASSIGNMENT_ACCEPTED', 'Project In Progress', `A draughtsman has accepted and started your project "${project.project_name}".`
     )
   ];
+
+  // Notify Admins of assignment acceptance
+  const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+  for (const admin of admins.results || []) {
+    batch.push(
+      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        uuidv4(), admin.id, projectId, 'ASSIGNMENT_ACCEPTED', 'Assignment Accepted',
+        `Draughtsman ${(user.name as string) || (user.email as string) || 'Draughtsman'} accepted assignment for "${project.project_name}".`
+      )
+    );
+  }
+
   await db.batch(batch);
   return c.json({ success: true });
 };
@@ -2403,6 +2793,18 @@ const handleRejectAssignment = async (c: any) => {
       effectiveActionId, projectId, 'ASSIGNMENT_REJECTED', uid, 'DRAUGHTSMAN', reason ? `Draughtsman rejected the assignment: ${reason}` : 'Draughtsman rejected the assignment.'
     )
   ];
+
+  // Notify Admins of assignment declination
+  const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+  for (const admin of admins.results || []) {
+    batch.push(
+      db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+        uuidv4(), admin.id, projectId, 'ASSIGNMENT_REJECTED', 'Assignment Declined',
+        `Draughtsman ${(user.name as string) || (user.email as string) || 'Draughtsman'} declined assignment for "${project.project_name}". Project returned to allocation pool.`
+      )
+    );
+  }
+
   await db.batch(batch);
   return c.json({ success: true });
 };
@@ -2427,7 +2829,7 @@ app.get('/api/assignments', async (c) => {
   }
 
   const { results } = await db.prepare(`
-    SELECT 
+    SELECT
       a.id, a.project_id, a.draughtsman_id, a.status, a.created_at, a.updated_at,
       p.project_name, p.project_address, p.drawing_name, p.drawing_type,
       p.project_area, p.status as project_status, p.correction_round,
@@ -2568,7 +2970,7 @@ app.get('/api/admin/student-submissions', async (c) => {
 
   const status = c.req.query('status');
   let query = `
-    SELECT 
+    SELECT
       p.id,
       p.project_name,
       p.drawing_name,
@@ -2673,8 +3075,34 @@ app.get('/api/projects/:projectId/files', async (c) => {
   const hasAccess = await canUserAccessProject(db, project, user, uid);
   if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
 
+  const isEngineer = user.role === 'CLIENT' || user.role === 'ENGINEER';
+  if (isEngineer) {
+    const { results } = await db.prepare(`
+      SELECT * FROM files
+      WHERE project_id = ?
+        AND status != 'FAILED'
+        AND category != 'workspace_draft'
+        AND category NOT IN ('admin_internal', 'qc_notes', 'internal_review', 'studio_internal')
+        AND id NOT IN (SELECT file_id FROM drawing_versions WHERE project_id = ? AND approval_status != 'APPROVED')
+      ORDER BY created_at DESC
+    `).bind(projectId, projectId).all();
+    return c.json(results || []);
+  }
+
+  const isDraughtsman = user.role === 'DRAUGHTSMAN';
+  if (isDraughtsman) {
+    const { results } = await db.prepare(`
+      SELECT * FROM files
+      WHERE project_id = ?
+        AND status != 'FAILED'
+        AND category NOT IN ('admin_internal', 'qc_notes', 'internal_review', 'studio_internal')
+      ORDER BY created_at DESC
+    `).bind(projectId).all();
+    return c.json(results || []);
+  }
+
   const { results } = await db.prepare("SELECT * FROM files WHERE project_id = ? AND status != 'FAILED' ORDER BY created_at DESC").bind(projectId).all();
-  return c.json(results);
+  return c.json(results || []);
 
 });
 
@@ -2710,7 +3138,7 @@ function buildApproveFinalBatch(
     db.prepare(`UPDATE projects SET status = 'COMPLETED', approved_at = CURRENT_TIMESTAMP, last_action_id = ? WHERE id = ?`).bind(actionId, project.id),
     db.prepare(`UPDATE assignments SET status = 'COMPLETED', updated_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status = 'ACCEPTED'`).bind(project.id),
     db.prepare(`UPDATE student_assignments SET status = 'COMPLETED' WHERE project_id = ? AND status = 'ACCEPTED'`).bind(project.id),
-    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS')`).bind(project.id),
+    db.prepare(`UPDATE corrections SET status = 'RESOLVED', resolved_at = CURRENT_TIMESTAMP WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS', 'IN_REVIEW')`).bind(project.id),
     db.prepare(`INSERT INTO activity_logs (id, project_id, action_type, actor_id, actor_role, details) VALUES (?, ?, ?, ?, ?, ?)`).bind(
       actionId, project.id, 'PROJECT_COMPLETED', uid, role, 'Approved the final drawing.'
     )
@@ -2718,7 +3146,7 @@ function buildApproveFinalBatch(
   if (targetRecipient) {
     batch.push(
       db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
-        uuidv4(), targetRecipient, project.id, 'PROJECT_COMPLETED', 'Project Approved', 'The final drawing has been approved.'
+        uuidv4(), targetRecipient, project.id, 'PROJECT_COMPLETED', 'Drawing Approved & Completed', `Client approved the final drawing for "${project.project_name}".`
       )
     );
   }
@@ -2979,8 +3407,20 @@ app.get('/api/projects/:projectId/drawing_versions', async (c) => {
   const hasAccess = await canUserAccessProject(db, project, user, uid);
   if (!hasAccess) return c.json({ error: 'Forbidden: Workspace access denied' }, 403);
 
-  const { results } = await db.prepare('SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ? ORDER BY dv.version_number DESC').bind(projectId).all();
-  return c.json(results);
+  const isEngineer = user.role === 'CLIENT' || user.role === 'ENGINEER';
+  let query = 'SELECT dv.*, f.original_name, f.sanitized_name, f.size FROM drawing_versions dv JOIN files f ON dv.file_id = f.id WHERE dv.project_id = ?';
+  if (isEngineer) {
+    query += " AND dv.approval_status = 'APPROVED'";
+  }
+  query += ' ORDER BY dv.version_number DESC';
+
+  const { results } = await db.prepare(query).bind(projectId).all();
+  if (isEngineer && results) {
+    for (const r of results as any[]) {
+      delete r.review_feedback;
+    }
+  }
+  return c.json(results || []);
 });
 
 app.get('/api/projects/:projectId/corrections', async (c) => {
@@ -3381,8 +3821,9 @@ app.post('/api/projects/:projectId/files', async (c) => {
     const isAdmin = ['ADMIN', 'STUDIO_ADMIN'].includes(user.role as string);
     isAuthorized = isOwner || isAdmin;
   } else if (category === 'draughtsman_version') {
-    const isAssignedDraughtsman = user.role === 'DRAUGHTSMAN' && project.draughtsman_id === uid && project.status === 'IN_PROGRESS';
-    isAuthorized = isAssignedDraughtsman;
+    const isAssignedDraughtsman = user.role === 'DRAUGHTSMAN' && project.draughtsman_id === uid;
+    const isStatusValid = project.status === 'IN_PROGRESS' || (project.status === 'UNDER_ADMIN_REVIEW' && project.last_action_id === actionId);
+    isAuthorized = isAssignedDraughtsman && isStatusValid;
   } else if (category === 'workspace_draft') {
     const isOwnerEngineer = (user.role === 'CLIENT' || user.role === 'ENGINEER') && project.client_id === uid;
     const isAssignedDraughtsman = user.role === 'DRAUGHTSMAN' && await verifyDraughtsmanWorkspaceAccess(db, project, uid);
@@ -3412,7 +3853,7 @@ app.post('/api/projects/:projectId/files', async (c) => {
   await db.prepare(`
     INSERT INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 'REQUESTED')
-    ON CONFLICT(id) DO UPDATE SET 
+    ON CONFLICT(id) DO UPDATE SET
       status = 'REQUESTED',
       created_at = CURRENT_TIMESTAMP
   `).bind(actionId, projectId, uid, fileName, sanitizedName, objectKey, contentType, category).run();
@@ -3486,14 +3927,37 @@ app.post('/api/projects/:projectId/files', async (c) => {
     await db.prepare(`UPDATE files SET status = 'COMPLETED', size = ? WHERE id = ?`).bind(finalSize, actionId).run();
 
     if (category === 'draughtsman_version') {
-      const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
-      const vNum = ((latest?.v as number) || 0) + 1;
-      const corr = await db.prepare("SELECT id FROM corrections WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS') ORDER BY round_number DESC LIMIT 1").bind(projectId).first();
+      const existingVersion = await db.prepare(
+        'SELECT id FROM drawing_versions WHERE project_id = ? AND file_id = ?'
+      ).bind(projectId, actionId).first();
 
-      await db.prepare(`
-        INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id) 
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(uuidv4(), projectId, actionId, vNum, uid, (corr?.id as string) || null).run();
+      if (!existingVersion) {
+        const latest = await db.prepare('SELECT MAX(version_number) as v FROM drawing_versions WHERE project_id = ?').bind(projectId).first();
+        const vNum = ((latest?.v as number) || 0) + 1;
+        const corr = await db.prepare("SELECT id FROM corrections WHERE project_id = ? AND status IN ('OPEN', 'IN_PROGRESS') ORDER BY round_number DESC LIMIT 1").bind(projectId).first();
+
+        await db.prepare(`
+          INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, correction_id, approval_status)
+          VALUES (?, ?, ?, ?, ?, ?, 'PENDING')
+        `).bind(uuidv4(), projectId, actionId, vNum, uid, (corr?.id as string) || null).run();
+
+        // Transition project to UNDER_ADMIN_REVIEW so it is immediately awaiting Studio Admin Quality Review
+        await db.prepare(`UPDATE projects SET status = 'UNDER_ADMIN_REVIEW', last_action_id = ? WHERE id = ?`).bind(actionId, projectId).run();
+
+        // If there is an active correction, transition its status to IN_REVIEW
+        if (corr?.id) {
+          await db.prepare("UPDATE corrections SET status = 'IN_REVIEW' WHERE id = ?").bind(corr.id).run();
+        }
+
+        // Notify studio admins that a deliverable was submitted
+        const admins = await db.prepare("SELECT id FROM users WHERE role IN ('STUDIO_ADMIN', 'ADMIN')").all();
+        for (const admin of admins.results || []) {
+          await db.prepare(`INSERT INTO notifications (id, user_id, project_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)`).bind(
+            uuidv4(), admin.id, projectId, 'DRAWING_SUBMITTED_FOR_ADMIN', 'Deliverable Submitted',
+            `Draughtsman submitted drawing deliverable v${vNum} for Studio Admin Quality Review.`
+          ).run();
+        }
+      }
     }
 
     // Log activity
@@ -3529,10 +3993,77 @@ app.get('/api/files/:fileId/download', async (c) => {
   // Authorization checks: strict cross-user and role-specific file download authorization
   let isAuthorized = false;
 
+  // 1. Resolve whether the requested file is linked to ANY drawing version for this project
+  const linkedVersion = await db.prepare(
+    'SELECT id, approval_status, version_number FROM drawing_versions WHERE file_id = ? AND project_id = ?'
+  ).bind(fileId, fileMeta.project_id).first<{ id: string; approval_status: string; version_number: number }>();
+
   if (user.role === 'CLIENT' || user.role === 'ENGINEER') {
-    isAuthorized = project.client_id === uid;
+    if (project.client_id !== uid) {
+      return c.json({ error: 'Forbidden: Access to project file denied', code: 'FORBIDDEN' }, 403);
+    }
+
+    if (linkedVersion) {
+      // Deliverable containment: Enforce drawing approval status REGARDLESS of who uploaded it!
+      if (linkedVersion.approval_status !== 'APPROVED') {
+        return c.json({
+          error: 'Forbidden: Drawing deliverable is undergoing Studio Quality Review and is not yet approved',
+          code: 'DELIVERABLE_UNAPPROVED'
+        }, 403);
+      }
+      isAuthorized = true;
+    } else {
+      // File is NOT linked to a drawing version deliverable
+      // A. Absolute containment: Engineers must never access draughtsman workspace drafts
+      if (fileMeta.category === 'workspace_draft') {
+        return c.json({
+          error: 'Forbidden: Access to workspace drafts is restricted to draughtsmen and studio admins',
+          code: 'DRAFT_ACCESS_DENIED'
+        }, 403);
+      }
+
+      // B. Explicit deny: Internal studio attachments (qc notes, internal reviews, admin memos)
+      const internalCategories = ['admin_internal', 'qc_notes', 'internal_review', 'studio_internal'];
+      if (internalCategories.includes(fileMeta.category as string)) {
+        return c.json({
+          error: 'Forbidden: Internal studio attachments are not accessible to clients',
+          code: 'INTERNAL_FILE_ACCESS_DENIED'
+        }, 403);
+      }
+
+      // C. Allowed client categories
+      const clientAccessibleCategories = [
+        'client_upload',
+        'reference',
+        'specification',
+        'correction_attachment',
+        'chat_attachment',
+        'message_attachment'
+      ];
+
+      if (clientAccessibleCategories.includes(fileMeta.category as string)) {
+        isAuthorized = true;
+      } else if (fileMeta.uploaded_by === uid) {
+        // Engineer's own uploaded reference file
+        isAuthorized = true;
+      } else {
+        // Deny by default for any unlinked internal or unknown file
+        return c.json({
+          error: 'Forbidden: Access to internal or unlinked project file denied',
+          code: 'FORBIDDEN'
+        }, 403);
+      }
+    }
   } else if (user.role === 'DRAUGHTSMAN') {
-    isAuthorized = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    const hasWorkspaceAccess = await verifyDraughtsmanWorkspaceAccess(db, project, uid);
+    if (hasWorkspaceAccess) {
+      // Draughtsmen are strictly forbidden from downloading admin-only internal attachments, regardless of uploader identity
+      const internalCategories = ['admin_internal', 'qc_notes', 'internal_review', 'studio_internal'];
+      if (internalCategories.includes(fileMeta.category as string)) {
+        return c.json({ error: 'Forbidden: Internal studio attachments are not accessible to draughtsmen', code: 'INTERNAL_FILE_ACCESS_DENIED' }, 403);
+      }
+      isAuthorized = true;
+    }
   } else if (user.role === 'STUDENT') {
     if (project.is_training_project === 1) {
       const isAssigned = await verifyStudentAssignment(db, uid, project.id as string);
@@ -3540,7 +4071,7 @@ app.get('/api/files/:fileId/download', async (c) => {
         // Can download own submitted files or instructor reference/brief materials for this assigned project
         if (fileMeta.uploaded_by === uid) {
           isAuthorized = true;
-        } else if (fileMeta.category !== 'workspace_draft' && fileMeta.category !== 'draughtsman_version') {
+        } else if (fileMeta.category !== 'workspace_draft' && fileMeta.category !== 'draughtsman_version' && fileMeta.category !== 'admin_internal') {
           isAuthorized = true;
         }
       }
@@ -3691,12 +4222,13 @@ app.get('/api/projects/:projectId/activity', async (c) => {
 
   let query = 'SELECT * FROM activity_logs WHERE project_id = ?';
   if (user.role === 'ENGINEER' || user.role === 'CLIENT') {
-    query += " AND action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')";
+    query += " AND action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED', 'ADMIN_REVISION_REQUESTED', 'STUDIO_REVISION_REQUESTED', 'DRAWING_REJECTED', 'INTERNAL_QC_NOTE', 'DRAWING_SUBMITTED_FOR_ADMIN')";
   }
   query += ' ORDER BY timestamp DESC';
   const logs = await db.prepare(query).bind(projectId).all();
   return c.json((logs.results || []).map((l: any) => ({
     ...l,
+    project_name: project.project_name,
     actor_role: l.actor_role === 'CLIENT' ? 'ENGINEER' : l.actor_role,
     timestamp: normalizeTimestampString(l.timestamp),
   })));
@@ -3714,25 +4246,36 @@ app.get('/api/activity', async (c) => {
 
   let logs;
   if (['ENGINEER', 'CLIENT'].includes(user.role as string)) {
-    // Activities for projects owned by this Engineer/Client, excluding internal reassignments
+    // Strictly isolate activities to projects owned by this Engineer/Client only; exclude internal QC notes
     logs = await db.prepare(`
       SELECT a.*, p.project_name
       FROM activity_logs a
-      LEFT JOIN projects p ON a.project_id = p.id
-      WHERE (p.client_id = ? OR a.actor_id = ?) AND a.action_type NOT IN ('ASSIGNMENT_REJECTED', 'DRAUGHTSMAN_REASSIGNED', 'INVOICE_CREATED', 'PAYMENT_RECORDED')
+      INNER JOIN projects p ON a.project_id = p.id
+      WHERE p.client_id = ?
+        AND a.action_type NOT IN (
+          'ASSIGNMENT_REJECTED',
+          'DRAUGHTSMAN_REASSIGNED',
+          'INVOICE_CREATED',
+          'PAYMENT_RECORDED',
+          'ADMIN_REVISION_REQUESTED',
+          'STUDIO_REVISION_REQUESTED',
+          'DRAWING_REJECTED',
+          'INTERNAL_QC_NOTE',
+          'DRAWING_SUBMITTED_FOR_ADMIN'
+        )
       ORDER BY a.timestamp DESC
       LIMIT ?
-    `).bind(uid, uid, limit).all();
+    `).bind(uid, limit).all();
   } else if (user.role === 'DRAUGHTSMAN') {
     // Activities for projects assigned to this Draughtsman
     logs = await db.prepare(`
       SELECT a.*, p.project_name
       FROM activity_logs a
-      LEFT JOIN projects p ON a.project_id = p.id
-      WHERE (p.draughtsman_id = ? OR a.actor_id = ?)
+      INNER JOIN projects p ON a.project_id = p.id
+      WHERE p.draughtsman_id = ?
       ORDER BY a.timestamp DESC
       LIMIT ?
-    `).bind(uid, uid, limit).all();
+    `).bind(uid, limit).all();
   } else if (['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
     // Global audit stream for administrators
     logs = await db.prepare(`
@@ -3756,66 +4299,80 @@ app.get('/api/activity', async (c) => {
 app.get('/api/notifications', async (c) => {
   const uid = c.get('uid');
   const db = c.env.DB;
-  const notifs = await db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC').bind(uid).all();
-  return c.json(notifs.results);
+  const notifs = await db.prepare(`
+    SELECT n.*, p.project_name
+    FROM notifications n
+    LEFT JOIN projects p ON n.project_id = p.id
+    WHERE n.user_id = ?
+    ORDER BY n.created_at DESC
+  `).bind(uid).all();
+  return c.json(notifs.results || []);
 });
 
 
-app.patch('/api/notifications/read-all', async (c) => {
+const handleMarkAllNotificationsRead = async (c: any) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').bind(uid).run();
   return c.json({ success: true });
-});
+};
+app.patch('/api/notifications/read-all', handleMarkAllNotificationsRead);
+app.put('/api/notifications/read-all', handleMarkAllNotificationsRead);
+app.post('/api/notifications/read-all', handleMarkAllNotificationsRead);
 
-app.patch('/api/notifications/:id/read', async (c) => {
+const handleMarkSingleNotificationRead = async (c: any) => {
   const uid = c.get('uid');
   const notificationId = c.req.param('id');
   const db = c.env.DB;
 
   const notif = await db.prepare('SELECT * FROM notifications WHERE id = ?').bind(notificationId).first();
-  if (!notif) return c.json({ error: 'Not found' }, 404);
+  if (!notif) return c.json({ error: 'Notification not found' }, 404);
   if (notif.user_id !== uid) return c.json({ error: 'Forbidden' }, 403);
 
   await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').bind(notificationId).run();
   return c.json({ success: true });
-});
+};
+app.patch('/api/notifications/:id/read', handleMarkSingleNotificationRead);
+app.put('/api/notifications/:id/read', handleMarkSingleNotificationRead);
+app.post('/api/notifications/:id/read', handleMarkSingleNotificationRead);
 
-app.post('/api/notifications/:id/read', async (c) => {
+const handleClearAllNotifications = async (c: any) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  const isAdmin = user && (user.role === 'ADMIN' || user.role === 'STUDIO_ADMIN');
+
+  if (isAdmin) {
+    await db.prepare(`
+      DELETE FROM notifications
+      WHERE user_id = ?
+         OR user_id IN (SELECT id FROM users WHERE role IN ('ADMIN', 'STUDIO_ADMIN'))
+    `).bind(uid).run();
+  } else {
+    await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
+  }
+  return c.json({ success: true });
+};
+
+app.delete('/api/notifications', handleClearAllNotifications);
+app.post('/api/notifications/clear', handleClearAllNotifications);
+
+const handleDismissNotification = async (c: any) => {
   const uid = c.get('uid');
   const db = c.env.DB;
   const id = c.req.param('id');
+  const user = await getUser(db, uid);
+  const isAdmin = user && (user.role === 'ADMIN' || user.role === 'STUDIO_ADMIN');
+
   const notif = await db.prepare('SELECT * FROM notifications WHERE id = ?').bind(id).first();
   if (!notif) return c.json({ error: 'Notification not found' }, 404);
-  if (notif.user_id !== uid) return c.json({ error: 'Permission denied' }, 403);
-  await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').bind(id).run();
+  if (notif.user_id !== uid && !isAdmin) return c.json({ error: 'Permission denied' }, 403);
+  await db.prepare('DELETE FROM notifications WHERE id = ?').bind(id).run();
   return c.json({ success: true });
-});
+};
 
-app.delete('/api/notifications', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
-  return c.json({ success: true });
-});
-
-app.post('/api/notifications/clear', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  await db.prepare('DELETE FROM notifications WHERE user_id = ?').bind(uid).run();
-  return c.json({ success: true });
-});
-
-app.delete('/api/notifications/:id', async (c) => {
-  const uid = c.get('uid');
-  const db = c.env.DB;
-  const id = c.req.param('id');
-  const notif = await db.prepare('SELECT * FROM notifications WHERE id = ?').bind(id).first();
-  if (!notif) return c.json({ error: 'Notification not found' }, 404);
-  if (notif.user_id !== uid) return c.json({ error: 'Permission denied' }, 403);
-  await db.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?').bind(id, uid).run();
-  return c.json({ success: true });
-});
+app.delete('/api/notifications/:id', handleDismissNotification);
+app.post('/api/notifications/:id/dismiss', handleDismissNotification);
 
 
 // ==========================================
@@ -3838,8 +4395,8 @@ app.get('/api/projects/:projectId/financials', async (c) => {
   const { results: invoices } = await db.prepare('SELECT * FROM invoices WHERE project_id = ? ORDER BY created_at DESC').bind(projectId).all();
 
   const { results: payments } = await db.prepare(`
-    SELECT p.* FROM payments p 
-    JOIN invoices i ON p.invoice_id = i.id 
+    SELECT p.* FROM payments p
+    JOIN invoices i ON p.invoice_id = i.id
     WHERE i.project_id = ? ORDER BY p.processed_at DESC
   `).bind(projectId).all();
 
@@ -5878,11 +6435,11 @@ app.get('/api/student/corrections', async (c) => {
   }
 
   const { results } = await db.prepare(`
-    SELECT c.* 
+    SELECT c.*
     FROM corrections c
     JOIN projects p ON c.project_id = p.id
     JOIN student_assignments sa ON p.id = sa.project_id
-    WHERE sa.student_id = ? 
+    WHERE sa.student_id = ?
       AND p.is_training_project = 1
       AND sa.status != 'REPLACED'
       AND c.status != 'RESOLVED'
@@ -5939,14 +6496,14 @@ app.get('/api/student/credentials', async (c) => {
   if (!user || user.role !== 'STUDENT') return c.json({ error: 'Unauthorized' }, 403);
 
   const { results } = await db.prepare(`
-    SELECT 
-      c.id, 
-      c.type, 
-      c.title, 
-      c.description, 
-      c.reference_id as referenceId, 
-      c.issued_at as issuedAt, 
-      c.certificate_object_key as certificateObjectKey, 
+    SELECT
+      c.id,
+      c.type,
+      c.title,
+      c.description,
+      c.reference_id as referenceId,
+      c.issued_at as issuedAt,
+      c.certificate_object_key as certificateObjectKey,
       c.verification_token as verificationToken,
       tl.title as lessonTitle,
       COALESCE(tm.title, tm_direct.title) as moduleTitle
@@ -6075,11 +6632,11 @@ app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
   const db = c.env.DB;
 
   const result: any = await db.prepare(`
-    SELECT 
-      c.id, 
-      c.type, 
-      c.title, 
-      c.issued_at as issuedAt, 
+    SELECT
+      c.id,
+      c.type,
+      c.title,
+      c.issued_at as issuedAt,
       u.name as display_name,
       tl.title as lesson_title,
       COALESCE(tm.title, tm_direct.title) as module_title
@@ -6125,9 +6682,9 @@ app.get('/api/student/portfolio', async (c) => {
 
   // 1. Fetch completed projects assigned to student
   const { results: projects } = await db.prepare(`
-    SELECT p.id, p.project_name, p.drawing_type, p.project_area, p.is_training_project, p.approved_at 
-    FROM projects p 
-    JOIN student_assignments sa ON p.id = sa.project_id 
+    SELECT p.id, p.project_name, p.drawing_type, p.project_area, p.is_training_project, p.approved_at
+    FROM projects p
+    JOIN student_assignments sa ON p.id = sa.project_id
     WHERE sa.student_id = ? AND p.status = 'COMPLETED' AND sa.status != 'REPLACED'
   `).bind(uid).all();
 
@@ -6143,8 +6700,8 @@ app.get('/api/student/portfolio', async (c) => {
     const chunk = projectIds.slice(i, i + chunkSize);
     const placeholders = chunk.map(() => '?').join(',');
     const { results: evals } = await db.prepare(`
-      SELECT project_id, drawing_version_id, overall_result, criteria_json, general_feedback 
-      FROM evaluations 
+      SELECT project_id, drawing_version_id, overall_result, criteria_json, general_feedback
+      FROM evaluations
       WHERE overall_result = 'APPROVED' AND project_id IN (${placeholders})
     `).bind(...chunk).all();
     allEvaluations.push(...evals);
@@ -6158,8 +6715,8 @@ app.get('/api/student/portfolio', async (c) => {
       const chunk = drawingVersionIds.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
       const { results: versions } = await db.prepare(`
-        SELECT id, project_id, file_id 
-        FROM drawing_versions 
+        SELECT id, project_id, file_id
+        FROM drawing_versions
         WHERE id IN (${placeholders})
       `).bind(...chunk).all();
       allVersions.push(...versions);
@@ -6173,8 +6730,8 @@ app.get('/api/student/portfolio', async (c) => {
       const chunk = fileIds.slice(i, i + chunkSize);
       const placeholders = chunk.map(() => '?').join(',');
       const { results: files } = await db.prepare(`
-        SELECT id, sanitized_name, content_type 
-        FROM files 
+        SELECT id, sanitized_name, content_type
+        FROM files
         WHERE id IN (${placeholders})
       `).bind(...chunk).all();
       allFiles.push(...files);

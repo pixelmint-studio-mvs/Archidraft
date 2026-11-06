@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,11 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/landing_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
-import '../../features/auth/presentation/provision_profile_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/auth/presentation/registration_confirmation_screen.dart';
 import '../../features/auth/presentation/role_selection_screen.dart';
-import '../../features/auth/presentation/verify_email_screen.dart';
 import '../../features/auth/providers/auth_providers.dart';
 import '../../features/profile/domain/user_role.dart';
 import '../../features/profile/presentation/profile_screen.dart';

@@ -6,7 +6,6 @@ import 'package:mockito/mockito.dart';
 
 import 'package:archi_draft/src/core/router/app_router.dart';
 import 'package:archi_draft/src/features/auth/domain/user_profile.dart';
-import 'package:archi_draft/src/features/auth/presentation/verify_email_screen.dart';
 import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
 import 'package:archi_draft/src/features/legal/domain/legal_document.dart';
 import 'package:archi_draft/src/features/legal/domain/user_legal_status.dart';

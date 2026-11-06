@@ -392,12 +392,14 @@ class NotificationItemCard extends StatelessWidget {
   final AppNotification notification;
   final VoidCallback onTap;
   final VoidCallback? onMarkAsRead;
+  final VoidCallback? onDismiss;
 
   const NotificationItemCard({
     super.key,
     required this.notification,
     required this.onTap,
     this.onMarkAsRead,
+    this.onDismiss,
   });
 
   @override
@@ -469,25 +471,30 @@ class NotificationItemCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            typeLabel,
-                            style: AppTypography.labelMonoSm.copyWith(
-                              color: accentColor,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              typeLabel,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: AppTypography.labelMonoSm.copyWith(
+                                color: accentColor,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ),
+                        const SizedBox(width: AppSpacing.xs),
                         Text(
                           formattedTime,
                           style: AppTypography.labelMonoSm.copyWith(
@@ -531,7 +538,18 @@ class NotificationItemCard extends StatelessWidget {
                         size: 20,
                         color: AppColors.secondary,
                       ),
+                      tooltip: 'Mark as read',
                       onPressed: onMarkAsRead,
+                    ),
+                  if (onDismiss != null)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppColors.outline,
+                      ),
+                      tooltip: 'Dismiss notification',
+                      onPressed: onDismiss,
                     ),
                   const Icon(
                     Icons.chevron_right_rounded,

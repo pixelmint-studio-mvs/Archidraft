@@ -10,8 +10,8 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
 final notificationsProvider = FutureProvider<List<AppNotification>>((ref) async {
   final repository = ref.watch(notificationRepositoryProvider);
   
-  // Simple production-appropriate live-refresh via polling
-  final timer = Timer.periodic(const Duration(seconds: 30), (_) {
+  // 5-second live polling interval
+  final timer = Timer.periodic(const Duration(seconds: 5), (_) {
     ref.invalidateSelf();
   });
   ref.onDispose(timer.cancel);
@@ -31,6 +31,12 @@ final markAllNotificationsReadProvider = FutureProvider<void>((ref) async {
   ref.invalidate(notificationsProvider);
 });
 
+final clearSingleNotificationProvider = FutureProvider.family<void, String>((ref, id) async {
+  final repository = ref.watch(notificationRepositoryProvider);
+  await repository.clearNotification(id);
+  ref.invalidate(notificationsProvider);
+});
+
 final clearNotificationsProvider = FutureProvider<void>((ref) async {
   final repository = ref.watch(notificationRepositoryProvider);
   await repository.clearAll();
@@ -44,5 +50,3 @@ final unreadNotificationsCountProvider = Provider<int>((ref) {
     orElse: () => 0,
   );
 });
-
-

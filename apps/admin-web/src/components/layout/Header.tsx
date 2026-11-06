@@ -2,8 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Shield, RefreshCw, PanelLeft, ArrowLeft } from 'lucide-react';
+import { Shield, RefreshCw, PanelLeft, ArrowLeft, Clock, AlertTriangle } from 'lucide-react';
+import { formatTime } from '@/lib/dateUtils';
 import { useAuth } from '@/lib/auth';
+import { AdminNotificationPopover } from './AdminNotificationPopover';
 import { Monogram3DViewer } from '@/components/ui/Monogram3DViewer';
 
 interface HeaderProps {
@@ -11,6 +13,8 @@ interface HeaderProps {
   subtitle?: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  lastSyncedAt?: Date | null;
+  syncError?: string | null;
   onToggleSidebar?: () => void;
   isSidebarCollapsed?: boolean;
   backHref?: string;
@@ -22,6 +26,8 @@ export function Header({
   subtitle,
   onRefresh,
   isRefreshing = false,
+  lastSyncedAt,
+  syncError,
   onToggleSidebar,
   isSidebarCollapsed = false,
   backHref,
@@ -76,6 +82,18 @@ export function Header({
       </div>
 
       <div className="flex items-center flex-wrap gap-2 sm:gap-2.5 shrink-0 self-start sm:self-center ml-auto sm:ml-0">
+        {lastSyncedAt && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-slate-500">
+            <Clock className="h-3 w-3 text-slate-400" />
+            Last synced: {formatTime(lastSyncedAt)}
+          </span>
+        )}
+        {syncError && !isRefreshing && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-rose-600">
+            <AlertTriangle className="h-3 w-3" />
+            Sync error
+          </span>
+        )}
         {onRefresh && (
           <button
             onClick={onRefresh}
@@ -84,20 +102,12 @@ export function Header({
             title="Refresh data"
           >
             <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${isRefreshing ? 'animate-spin text-[#0453cd]' : ''}`} />
-            <span>Sync</span>
+            <span className="font-mono text-xs">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
           </button>
         )}
 
-        {/* Worker API status indicator */}
-        <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-          <span className="text-[10px] sm:text-[11px] font-mono font-semibold text-slate-700">
-            D1 Worker Live
-          </span>
-        </div>
+        {/* Studio Notifications Feed */}
+        <AdminNotificationPopover />
 
         {/* Security badge (shown on larger screens) */}
         <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0d1c32] text-white text-xs font-mono font-medium shadow-xs shrink-0">

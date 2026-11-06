@@ -118,7 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         // Fallback for platforms with sync bytes
       }
 
-      final fileSize = bytes?.length ?? (file.lengthSync() as int?) ?? 0;
+      final fileSize = bytes?.length ?? file.lengthSync() ?? 0;
       if (fileSize > 10 * 1024 * 1024) {
         setState(() {
           _proofError = 'File size exceeds the 10MB limit.';

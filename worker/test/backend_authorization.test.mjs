@@ -219,8 +219,8 @@ function seedTestData(rawDb) {
   );
 
   const insertDrawingVersion = rawDb.prepare(`
-    INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, approval_status)
+    VALUES (?, ?, ?, ?, ?, 'APPROVED')
   `);
   insertDrawingVersion.run('ver-1', 'prj-review-c1', 'file-c1-drawing', 1, 'draughtsman-1');
 }

@@ -1,3 +1,4 @@
+import 'package:archi_draft/src/features/notifications/providers/notification_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +40,65 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   int? _selectedVersionNumber;
+  bool _isRefreshing = false;
+  bool _isApprovingFinal = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      ref.invalidate(projectProvider(widget.projectId));
+      ref.invalidate(projectDrawingVersionsProvider(widget.projectId));
+      ref.invalidate(projectCorrectionsProvider(widget.projectId));
+      ref.invalidate(projectFilesProvider(widget.projectId));
+      await ref.read(projectProvider(widget.projectId).future);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Project details and drawings refreshed'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Refresh failed: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
+  Widget _buildDrawingsRefreshButton() {
+    return TextButton.icon(
+      onPressed: _isRefreshing ? null : _handleRefresh,
+      icon: _isRefreshing
+          ? const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+            )
+          : const Icon(Icons.refresh_rounded, size: 14),
+      label: Text(
+        _isRefreshing ? 'Refreshing...' : 'Refresh Drawings',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +128,20 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           },
         ),
         actions: [
+          IconButton(
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh project & drawings',
+            onPressed: _isRefreshing ? null : _handleRefresh,
+          ),
           if (userRole == UserRole.student)
             TextButton.icon(
               icon: const Icon(Icons.draw_outlined, size: 18),
@@ -199,7 +273,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'STATUS: ${status.toFirestoreString()}',
+                    project.correctionRound > 0 && status == ProjectStatus.inProgress
+                        ? 'STATUS: CORRECTION ROUND ${project.correctionRound}'
+                        : (status == ProjectStatus.underEngineerReview
+                            ? 'STATUS: WAITING FOR YOUR REVIEW'
+                            : (status == ProjectStatus.underAdminReview
+                                ? 'STATUS: WAITING FOR STUDIO REVIEW'
+                                : (status == ProjectStatus.completed
+                                    ? 'STATUS: COMPLETED'
+                                    : 'STATUS: ${status.toFirestoreString()}'))),
                     style: AppTypography.labelMono.copyWith(color: badgeTextColor, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -281,8 +363,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           OutlinedButton.icon(
             onPressed: () {
               final versionsAsync = ref.read(projectDrawingVersionsProvider(project.projectId));
-              final latestVersionId = versionsAsync.value?.isNotEmpty == true
-                  ? versionsAsync.value!.first.id
+              final approvedList = versionsAsync.value?.where((v) => v.isApproved).toList() ?? [];
+              final latestVersionId = approvedList.isNotEmpty
+                  ? approvedList.first.id
                   : 'latest';
               showDialog(
                 context: context,
@@ -293,42 +376,72 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
               );
             },
             icon: const Icon(Icons.rate_review),
-            label: const Text('Request Revision'),
+            label: Text(project.correctionRound > 0
+                ? 'Request Correction (Round ${project.correctionRound + 1})'
+                : 'Request Revision (Round 1)'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
             ),
           ),
           FilledButton.icon(
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Approve Final Drawing'),
-                  content: const Text('Are you sure you want to approve this drawing? This marks the project as COMPLETED.'),
-                  actions: [
-                    TextButton(onPressed: () => context.pop(false), child: const Text('Cancel')),
-                    FilledButton(onPressed: () => context.pop(true), child: const Text('Approve')),
-                  ],
-                ),
-              );
-              
-              if (confirm == true) {
-                try {
-                  await ref.read(projectRepositoryProvider).approveFinal(
-                    projectId: project.projectId,
-                    actionId: const Uuid().v4(),
-                  );
-                  ref.invalidate(projectProvider(project.projectId));
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              }
-            },
-            icon: const Icon(Icons.check),
-            label: const Text('Approve Final'),
+            onPressed: _isApprovingFinal
+                ? null
+                : () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Approve Final Drawing'),
+                        content: const Text('Are you sure you want to approve this drawing? This marks the project as COMPLETED.'),
+                        actions: [
+                          TextButton(onPressed: () => context.pop(false), child: const Text('Cancel')),
+                          FilledButton(onPressed: () => context.pop(true), child: const Text('Approve')),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      if (_isApprovingFinal) return;
+                      setState(() => _isApprovingFinal = true);
+                      try {
+                        await ref.read(projectRepositoryProvider).approveFinal(
+                          projectId: project.projectId,
+                          actionId: const Uuid().v4(),
+                        );
+                        ref.invalidate(projectProvider(project.projectId));
+                        ref.invalidate(projectCorrectionsProvider(project.projectId));
+                        ref.invalidate(projectDrawingVersionsProvider(project.projectId));
+                        ref.invalidate(engineerProjectsProvider);
+                        ref.invalidate(notificationsProvider);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Project final drawing approved successfully! Status: COMPLETED'),
+                              backgroundColor: Color(0xFF059669),
+                              duration: Duration(seconds: 3),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isApprovingFinal = false);
+                        }
+                      }
+                    }
+                  },
+            icon: _isApprovingFinal
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check),
+            label: Text(_isApprovingFinal ? 'Approving Final...' : 'Approve Final'),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
             ),
@@ -358,9 +471,265 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     return null;
   }
 
+  Widget _buildCorrectionStageCard(BuildContext context, Project project) {
+    if (project.projectStatus == ProjectStatus.completed || project.projectStatus == ProjectStatus.cancelled) {
+      return const SizedBox.shrink();
+    }
+    if (project.correctionRound <= 0 && project.projectStatus != ProjectStatus.inProgress) {
+      return const SizedBox.shrink();
+    }
+
+    final correctionsAsync = ref.watch(projectCorrectionsProvider(project.projectId));
+    final openCorrection = correctionsAsync.value?.where((c) => c.status != CorrectionStatus.resolved).firstOrNull;
+
+    if (openCorrection == null) {
+      return const SizedBox.shrink();
+    }
+
+    final roundNum = openCorrection.roundNumber;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.gridGutter),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+            ),
+            child: const Icon(Icons.rate_review_outlined, color: Color(0xFFB45309), size: 24),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'CORRECTION ROUND $roundNum REQUESTED',
+                      style: const TextStyle(
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFB45309),
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'ROUND $roundNum IN PROGRESS',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  project.projectStatus == ProjectStatus.underAdminReview
+                      ? 'Draughtsman has submitted the corrected drawing. Studio Admin is verifying quality before releasing to you.'
+                      : (openCorrection.description.isNotEmpty
+                          ? 'Feedback provided: "${openCorrection.description}"'
+                          : 'Draughtsman is actively preparing revised technical deliverables for your review.'),
+                  style: AppTypography.bodyMd.copyWith(color: AppColors.onSurface),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+    Widget _buildCompletionSummaryCard(BuildContext context, Project project) {
+    final versionsAsync = ref.watch(projectDrawingVersionsProvider(project.projectId));
+    final approvedVersions = versionsAsync.value?.where((v) => v.isApproved).toList() ?? [];
+    final latestApproved = approvedVersions.isNotEmpty ? approvedVersions.first : null;
+    final dateStr = project.completedAt != null
+        ? DateFormat.yMMMd().add_jm().format(project.completedAt!)
+        : (latestApproved?.createdAt != null
+            ? DateFormat.yMMMd().add_jm().format(latestApproved!.createdAt!)
+            : 'Completed');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.gridGutter),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: const Color(0xFFECFDF5),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1FAE5),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF047857), size: 28),
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'PROJECT DELIVERED & COMPLETED',
+                          style: TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF065F46),
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD1FAE5),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF10B981), width: 0.8),
+                          ),
+                          child: const Text(
+                            'COMPLETED',
+                            style: TextStyle(
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF065F46),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'All technical drawings for "${project.projectName.isNotEmpty ? project.projectName : 'Project'}" have passed Studio Quality Control and received your final acceptance.',
+                      style: AppTypography.bodyMd.copyWith(color: const Color(0xFF064E3B)),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.lg,
+                      runSpacing: AppSpacing.sm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.layers_rounded, size: 16, color: Color(0xFF047857)),
+                            const SizedBox(width: 6),
+                            Text(
+                              latestApproved != null
+                                  ? 'Final Deliverable: v${latestApproved.versionNumber} (${latestApproved.originalName ?? 'CAD Package'})'
+                                  : 'Final Deliverable: Approved',
+                              style: AppTypography.labelMono.copyWith(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF065F46),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 15, color: Color(0xFF047857)),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Approved: $dateStr',
+                              style: AppTypography.labelMono.copyWith(
+                                fontSize: 12,
+                                color: const Color(0xFF047857),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (latestApproved != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          ref.read(fileRepositoryProvider).downloadFile(
+                                latestApproved.fileId,
+                                latestApproved.originalName ?? 'final_drawing.dwg',
+                                openInBrowser: false,
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Downloading ${latestApproved.originalName ?? "final drawing"}...')),
+                          );
+                        },
+                        icon: const Icon(Icons.download_rounded, size: 16),
+                        label: const Text('Download Final Approved Package'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF065F46),
+                          side: const BorderSide(color: Color(0xFF10B981)),
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMainArea(BuildContext context, Project project) {
     return Column(
       children: [
+        if (project.projectStatus == ProjectStatus.completed)
+          _buildCompletionSummaryCard(context, project),
+
+        // Correction Stage Visibility Card
+        _buildCorrectionStageCard(context, project),
+
         // Drawing Versions section with embedded CAD viewer
         _buildDrawingVersionsSection(context, project),
           
@@ -442,9 +811,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         ),
       ),
       data: (versions) {
-        if (versions.isEmpty) {
+        // Phase 4 containment: Engineers only see approved drawing versions (or legacy versions without approval status)
+        final approvedVersions = versions
+            .where((v) => v.isApproved)
+            .toList();
+
+        if (approvedVersions.isEmpty) {
           return _buildSectionCard(
             title: 'Drawing Versions',
+            trailing: _buildDrawingsRefreshButton(),
             child: Container(
               height: 300,
               alignment: Alignment.center,
@@ -454,8 +829,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   const Icon(Icons.layers_outlined, size: 48, color: AppColors.outline),
                   const SizedBox(height: AppSpacing.md),
                   Text(
-                    'Drawings will appear here once submitted by the draughtsman.',
+                    project.projectStatus == ProjectStatus.underAdminReview
+                        ? 'Draughtsman deliverable is undergoing Studio QC review. Approved drawings will appear here.'
+                        : 'Drawings will appear here once submitted by the draughtsman.',
                     style: AppTypography.bodyMd.copyWith(color: AppColors.outlineVariant),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -463,7 +841,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           );
         }
 
-        final sortedVersions = List<DrawingVersion>.from(versions)
+        final sortedVersions = List<DrawingVersion>.from(approvedVersions)
           ..sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
         final latestVersion = sortedVersions.first;
         final current = sortedVersions.firstWhere(
@@ -492,11 +870,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
         final String statusLabel;
         if (current.versionNumber == latestVersion.versionNumber) {
           if (project.projectStatus == ProjectStatus.underEngineerReview) {
-            statusLabel = 'Under Engineer/Architect Review';
+            statusLabel = 'Waiting for Your Review';
+          } else if (project.projectStatus == ProjectStatus.underAdminReview) {
+            statusLabel = 'Waiting for Studio Review';
           } else if (project.projectStatus == ProjectStatus.inProgress) {
-            statusLabel = 'In Revision';
+            statusLabel = project.correctionRound > 0 ? 'Correction Round ${project.correctionRound}' : 'In Drafting';
           } else if (project.projectStatus == ProjectStatus.completed) {
-            statusLabel = 'Approved';
+            statusLabel = 'Completed';
           } else {
             statusLabel = project.projectStatus?.displayName ?? project.status;
           }
@@ -506,6 +886,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
 
         return _buildSectionCard(
           title: 'Drawing Versions',
+          trailing: _buildDrawingsRefreshButton(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -835,7 +1216,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
     );
   }
 
-  Widget _buildSectionCard({required String title, required Widget child}) {
+  Widget _buildSectionCard({required String title, required Widget child, Widget? trailing}) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
@@ -858,7 +1239,13 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary, fontSize: 20)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title, style: AppTypography.headlineLgMobile.copyWith(color: AppColors.primary, fontSize: 20)),
+              ?trailing,
+            ],
+          ),
           const SizedBox(height: AppSpacing.lg),
           child,
         ],

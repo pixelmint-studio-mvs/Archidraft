@@ -16,8 +16,15 @@ import '../../domain/project_status.dart';
 /// - Cancelled: Red
 class ProjectStatusChip extends StatelessWidget {
   final ProjectStatus status;
+  final int? correctionRound;
+  final bool useHumanLabel;
 
-  const ProjectStatusChip({super.key, required this.status});
+  const ProjectStatusChip({
+    super.key,
+    required this.status,
+    this.correctionRound,
+    this.useHumanLabel = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,16 +39,55 @@ class ProjectStatusChip extends StatelessWidget {
         border: Border.all(color: _borderColor, width: 0.5),
       ),
       child: Text(
-        status.toFirestoreString(),
+        _displayText,
         style: AppTypography.labelMono.copyWith(
           color: _textColor,
           fontSize: 10,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
   }
 
+  String get _displayText {
+    if (status == ProjectStatus.completed) {
+      return 'COMPLETED';
+    }
+    if (status == ProjectStatus.cancelled) {
+      return 'CANCELLED';
+    }
+    if (correctionRound != null && correctionRound! > 0 && status == ProjectStatus.inProgress) {
+      return 'Correction Round $correctionRound';
+    }
+    if (useHumanLabel) {
+      switch (status) {
+        case ProjectStatus.underAdminReview:
+          return 'Waiting for Studio Review';
+        case ProjectStatus.underEngineerReview:
+          return 'Waiting for Your Review';
+        case ProjectStatus.completed:
+          return 'COMPLETED';
+        case ProjectStatus.inProgress:
+          return 'In Drafting';
+        case ProjectStatus.waitingAssignment:
+          return 'Needs Draughtsman';
+        case ProjectStatus.waitingAcceptance:
+          return 'Awaiting Acceptance';
+        case ProjectStatus.submitted:
+          return 'Submitted';
+        case ProjectStatus.draft:
+          return 'Draft';
+        case ProjectStatus.cancelled:
+          return 'CANCELLED';
+      }
+    }
+    return status.toFirestoreString();
+  }
+
   Color get _backgroundColor {
+    if (correctionRound != null && correctionRound! > 0 && status == ProjectStatus.inProgress) {
+      return const Color(0xFFFEF3C7); // amber-100
+    }
     switch (status) {
       case ProjectStatus.draft:
         return AppColors.surfaceContainerHigh;
@@ -52,8 +98,10 @@ class ProjectStatusChip extends StatelessWidget {
         return AppColors.warningContainer;
       case ProjectStatus.inProgress:
         return AppColors.warningContainer;
+      case ProjectStatus.underAdminReview:
+        return const Color(0xFFFEF3C7);
       case ProjectStatus.underEngineerReview:
-        return AppColors.secondaryFixed;
+        return const Color(0xFFE0F2FE); // light sky blue
       case ProjectStatus.completed:
         return AppColors.successContainer;
       case ProjectStatus.cancelled:
@@ -62,6 +110,9 @@ class ProjectStatusChip extends StatelessWidget {
   }
 
   Color get _textColor {
+    if (correctionRound != null && correctionRound! > 0 && status == ProjectStatus.inProgress) {
+      return const Color(0xFF92400E); // amber-800
+    }
     switch (status) {
       case ProjectStatus.draft:
         return AppColors.onSurfaceVariant;
@@ -72,8 +123,10 @@ class ProjectStatusChip extends StatelessWidget {
         return AppColors.onSurface;
       case ProjectStatus.inProgress:
         return AppColors.onSurface;
+      case ProjectStatus.underAdminReview:
+        return const Color(0xFFB45309);
       case ProjectStatus.underEngineerReview:
-        return AppColors.onSecondaryFixed;
+        return const Color(0xFF0369A1);
       case ProjectStatus.completed:
         return AppColors.onTertiaryContainer;
       case ProjectStatus.cancelled:
@@ -82,6 +135,9 @@ class ProjectStatusChip extends StatelessWidget {
   }
 
   Color get _borderColor {
+    if (correctionRound != null && correctionRound! > 0 && status == ProjectStatus.inProgress) {
+      return const Color(0xFFF59E0B);
+    }
     switch (status) {
       case ProjectStatus.draft:
         return AppColors.outlineVariant;
@@ -92,8 +148,10 @@ class ProjectStatusChip extends StatelessWidget {
         return AppColors.warning;
       case ProjectStatus.inProgress:
         return AppColors.warning;
+      case ProjectStatus.underAdminReview:
+        return const Color(0xFFF59E0B);
       case ProjectStatus.underEngineerReview:
-        return AppColors.secondary;
+        return const Color(0xFF38BDF8);
       case ProjectStatus.completed:
         return AppColors.success;
       case ProjectStatus.cancelled:

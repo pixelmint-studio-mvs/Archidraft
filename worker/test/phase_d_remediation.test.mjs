@@ -52,8 +52,8 @@ function createIsolatedTestDb(customEnv = {}) {
             },
             async run() {
               const stmt = db.prepare(sql);
-              stmt.run(...args);
-              return { success: true };
+              const info = stmt.run(...args);
+              return { success: true, meta: { changes: info.changes }, changes: info.changes };
             }
           };
         },
@@ -68,23 +68,24 @@ function createIsolatedTestDb(customEnv = {}) {
         },
         async run() {
           const stmt = db.prepare(sql);
-          stmt.run();
-          return { success: true };
+          const info = stmt.run();
+          return { success: true, meta: { changes: info.changes }, changes: info.changes };
         }
       };
     },
     async batch(statements) {
-      const results = [];
-      for (const stmt of statements) {
-        if (stmt.all) {
-          results.push(await stmt.all());
-        } else if (stmt.run) {
-          results.push(await stmt.run());
-        } else {
-          results.push({ results: [] });
+      db.exec('BEGIN TRANSACTION');
+      try {
+        const results = [];
+        for (const s of statements) {
+          results.push(await s.run());
         }
+        db.exec('COMMIT');
+        return results;
+      } catch (e) {
+        db.exec('ROLLBACK');
+        throw e;
       }
-      return results;
     }
   };
 
@@ -486,28 +487,53 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
     let row = rawDb.prepare('SELECT status FROM projects WHERE id = ?').get(createdProjectId);
     assert.equal(row.status, 'IN_PROGRESS');
 
-    // Draughtsman submits deliverable drawing
+    // Draughtsman uploads draft file and submits deliverable drawing
+    rawDb.exec(`
+      INSERT INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status)
+      VALUES ('file-e2e-v1', '${createdProjectId}', 'drg-1', 'plan.dwg', 'plan.dwg', 'projects/${createdProjectId}/workspace_draft/plan.dwg', 'application/acad', 2048, 'workspace_draft', 'COMPLETED');
+    `);
+
     const submitRes = await testRequest(env, '/api/projects/submit-drawing', {
       method: 'POST',
       token: 'drg-1',
       body: {
         projectId: createdProjectId,
         actionId: 'action-e2e-submit-dwg',
+        draftFileId: 'file-e2e-v1',
       }
     });
     assert.equal(submitRes.status, 200);
+
+    row = rawDb.prepare('SELECT status FROM projects WHERE id = ?').get(createdProjectId);
+    assert.equal(row.status, 'UNDER_ADMIN_REVIEW');
+
+    // Admin quality reviews and approves the deliverable
+    const dvRow = rawDb.prepare('SELECT id FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1').get(createdProjectId);
+    const adminAppr = await testRequest(env, '/api/projects/admin-approve-drawing', {
+      method: 'POST',
+      token: 'admin-1',
+      body: {
+        projectId: createdProjectId,
+        drawingVersionId: dvRow.id,
+        actionId: 'action-admin-appr-dwg',
+        feedback: 'Linework standards verified.'
+      }
+    });
+    assert.equal(adminAppr.status, 200);
 
     row = rawDb.prepare('SELECT status FROM projects WHERE id = ?').get(createdProjectId);
     assert.equal(row.status, 'UNDER_ENGINEER_REVIEW');
   });
 
   await t.test('Step 4: Engineer approves final deliverable', async () => {
+    const dvRow = rawDb.prepare('SELECT id FROM drawing_versions WHERE project_id = ? ORDER BY version_number DESC LIMIT 1').get(createdProjectId);
     const approveRes = await testRequest(env, '/api/projects/approve-final', {
       method: 'POST',
       token: 'eng-1',
       body: {
         projectId: createdProjectId,
         actionId: 'action-e2e-eng-approve',
+        drawingVersionId: dvRow.id,
       }
     });
     assert.equal(approveRes.status, 200);
@@ -559,15 +585,17 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
     });
 
     let p2Row = rawDb.prepare('SELECT status, correction_round FROM projects WHERE id = ?').get(p2Id);
-    assert.equal(p2Row.status, 'UNDER_ENGINEER_REVIEW');
+    assert.equal(p2Row.status, 'UNDER_ADMIN_REVIEW');
 
     // Seed file and drawing version v1 so foreign key passes
     rawDb.exec(`
       INSERT INTO files (id, project_id, uploaded_by, original_name, sanitized_name, object_key, content_type, size, category, status)
       VALUES ('file-p2-v1', '${p2Id}', 'drg-1', 'drawing.dwg', 'drawing.dwg', 'obj-p2-v1', 'application/acad', 5000, 'workspace_draft', 'CONFIRMED');
 
-      INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by)
-      VALUES ('v1', '${p2Id}', 'file-p2-v1', 1, 'drg-1');
+      INSERT INTO drawing_versions (id, project_id, file_id, version_number, uploaded_by, approval_status)
+      VALUES ('v1', '${p2Id}', 'file-p2-v1', 1, 'drg-1', 'APPROVED');
+
+      UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW' WHERE id = '${p2Id}';
     `);
 
     // Round 1 correction
@@ -584,12 +612,14 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
     });
     assert.equal(c1.status, 200);
 
-    // Draughtsman resubmits
+    // Draughtsman resubmits -> enters UNDER_ADMIN_REVIEW
     await testRequest(env, '/api/projects/submit-drawing', {
       method: 'POST',
       token: 'drg-1',
       body: { projectId: p2Id, actionId: 'action-p2-submit-2' }
     });
+    // Admin approves revision v2 -> enters UNDER_ENGINEER_REVIEW
+    rawDb.exec(`UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW' WHERE id = '${p2Id}';`);
 
     // Round 2 correction
     const c2 = await testRequest(env, '/api/projects/request-correction', {
@@ -605,14 +635,16 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
     });
     assert.equal(c2.status, 200);
 
-    // Draughtsman resubmits
+    // Draughtsman resubmits -> enters UNDER_ADMIN_REVIEW
     await testRequest(env, '/api/projects/submit-drawing', {
       method: 'POST',
       token: 'drg-1',
       body: { projectId: p2Id, actionId: 'action-p2-submit-3' }
     });
+    // Admin approves revision v3 -> enters UNDER_ENGINEER_REVIEW
+    rawDb.exec(`UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW' WHERE id = '${p2Id}';`);
 
-    // Round 3 correction (reaches cap of 3)
+    // Round 3 correction (unlimited rounds supported)
     const c3 = await testRequest(env, '/api/projects/request-correction', {
       method: 'POST',
       token: 'eng-1',
@@ -626,14 +658,16 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
     });
     assert.equal(c3.status, 200);
 
-    // Draughtsman resubmits
+    // Draughtsman resubmits -> enters UNDER_ADMIN_REVIEW
     await testRequest(env, '/api/projects/submit-drawing', {
       method: 'POST',
       token: 'drg-1',
       body: { projectId: p2Id, actionId: 'action-p2-submit-4' }
     });
+    // Admin approves revision v4 -> enters UNDER_ENGINEER_REVIEW
+    rawDb.exec(`UPDATE projects SET status = 'UNDER_ENGINEER_REVIEW' WHERE id = '${p2Id}';`);
 
-    // Round 4 correction attempt MUST FAIL with 400
+    // Round 4 correction attempt SUCCEEDS under unlimited revision policy
     const c4 = await testRequest(env, '/api/projects/request-correction', {
       method: 'POST',
       token: 'eng-1',
@@ -641,13 +675,17 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
         projectId: p2Id,
         correctionId: 'corr-4',
         targetVersionId: 'v1',
-        description: 'Exceeding revision cap',
+        description: 'Unlimited revision test - round 4',
         actionId: 'action-p2-corr-4',
       }
     });
-    assert.equal(c4.status, 400);
+    assert.equal(c4.status, 200);
     const c4Body = await c4.json();
-    assert.equal(c4Body.error, 'Maximum correction rounds (3) exceeded');
+    assert.equal(c4Body.newRound, 4);
+
+    const p4Row = rawDb.prepare('SELECT status, correction_round FROM projects WHERE id = ?').get(p2Id);
+    assert.equal(p4Row.status, 'IN_PROGRESS');
+    assert.equal(p4Row.correction_round, 4);
   });
 
   await t.test('Step 6: Student isolation verification', async () => {
@@ -726,7 +764,7 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
       VALUES ('cap-proj-5', 'eng-1', 'Capacity Test 5', 'Addr', 'Dwg', 'Arch', '1000', 'WAITING_ASSIGNMENT');
     `);
 
-    // Admin attempts to assign drg-2 to the 5th project -> MUST FAIL with 400 DRAUGHTSMAN_CAPACITY_EXCEEDED
+    // Admin assigns drg-2 to the 5th project -> SUCCEEDS (capacity cap removed)
     const capRes = await testRequest(env, '/api/projects/assign', {
       method: 'POST',
       token: 'admin-1',
@@ -737,8 +775,8 @@ test('PHASE D.1 Cross-Portal E2E Business Workflow Simulation', async (t) => {
       }
     });
 
-    assert.equal(capRes.status, 400);
+    assert.equal(capRes.status, 200);
     const capBody = await capRes.json();
-    assert.equal(capBody.code, 'DRAUGHTSMAN_CAPACITY_EXCEEDED');
+    assert.equal(capBody.success, true);
   });
 });

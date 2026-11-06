@@ -21,7 +21,8 @@ extension _StudioFilterX on _StudioFilter {
   bool matches(Assignment a) {
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
-    final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' ||
+    final isUnderReview = a.projectStatus == 'UNDER_ADMIN_REVIEW' ||
+        a.projectStatus == 'UNDER_ENGINEER_REVIEW' ||
         a.projectStatus == 'UNDER_CLIENT_REVIEW';
     final hasActiveCorrection = !isCompleted &&
         !isUnderReview &&
@@ -63,6 +64,40 @@ class _DraughtsmanStudioScreenState
   final _searchController = TextEditingController();
   String _searchQuery = '';
   _StudioFilter _filter = _StudioFilter.all;
+  bool _isRefreshing = false;
+
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      ref.invalidate(draughtsmanAssignmentsProvider);
+      await ref.read(draughtsmanAssignmentsProvider.future);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Studio assignments synced successfully'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to sync assignments: $e'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -99,9 +134,7 @@ class _DraughtsmanStudioScreenState
           onRetry: () => ref.invalidate(draughtsmanAssignmentsProvider),
         ),
         data: (assignments) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(draughtsmanAssignmentsProvider);
-          },
+          onRefresh: _handleRefresh,
           child: _buildContent(context, assignments),
         ),
       ),
@@ -269,11 +302,51 @@ class _DraughtsmanStudioScreenState
       ],
     );
 
+    final syncButton = OutlinedButton.icon(
+      onPressed: _isRefreshing ? null : _handleRefresh,
+      icon: _isRefreshing
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.secondary,
+              ),
+            )
+          : const Icon(Icons.refresh_rounded, size: 16),
+      label: Text(
+        _isRefreshing ? 'Syncing...' : 'Sync Assignments',
+        style: AppTypography.buttonText.copyWith(fontSize: 12),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.secondary,
+        side: BorderSide(
+          color: AppColors.secondary.withValues(alpha: 0.3),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusDefault),
+        ),
+      ),
+    );
+
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          searchWidget,
+          Row(
+            children: [
+              Expanded(child: searchWidget),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                onPressed: _isRefreshing ? null : _handleRefresh,
+                icon: _isRefreshing
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh_rounded, size: 20),
+                tooltip: 'Sync Assignments',
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           filtersWidget,
         ],
@@ -286,7 +359,14 @@ class _DraughtsmanStudioScreenState
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,
       children: [
-        searchWidget,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            searchWidget,
+            const SizedBox(width: 12),
+            syncButton,
+          ],
+        ),
         filtersWidget,
       ],
     );
@@ -461,7 +541,9 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
     final isPending = a.assignmentStatus == AssignmentStatus.pending;
     final isCompleted = a.assignmentStatus == AssignmentStatus.completed ||
         a.projectStatus == 'COMPLETED';
-    final isUnderReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderAdminReview = a.projectStatus == 'UNDER_ADMIN_REVIEW';
+    final isUnderEngineerReview = a.projectStatus == 'UNDER_ENGINEER_REVIEW' || a.projectStatus == 'UNDER_CLIENT_REVIEW';
+    final isUnderReview = isUnderAdminReview || isUnderEngineerReview;
     final hasActiveCorrection = !isCompleted &&
         !isUnderReview &&
         a.assignmentStatus == AssignmentStatus.accepted &&
@@ -492,6 +574,12 @@ class _ProjectBentoCardState extends ConsumerState<_ProjectBentoCard> {
       statusBg = AppColors.tertiaryFixedDim.withValues(alpha: 0.25);
       statusBorder = AppColors.onTertiaryContainer.withValues(alpha: 0.20);
       statusIcon = Icons.fiber_new_rounded;
+    } else if (isUnderAdminReview) {
+      statusLabel = 'QC Review';
+      statusColor = const Color(0xFFB45309);
+      statusBg = const Color(0xFFFEF3C7);
+      statusBorder = const Color(0xFFF59E0B).withValues(alpha: 0.30);
+      statusIcon = Icons.hourglass_top_rounded;
     } else if (isUnderReview) {
       statusLabel = 'Review';
       statusColor = const Color(0xFF39475F);

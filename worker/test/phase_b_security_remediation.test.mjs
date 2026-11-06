@@ -297,7 +297,7 @@ test('PHASE B: Security & Safe Integration Remediation Suite', async (t) => {
     });
     assert.equal(retry4Res.status, 200, 'Idempotent retry on 4th assignment must succeed');
 
-    // 5th assignment must be REJECTED (exceeds capacity cap)
+    // 5th assignment must SUCCEED (multi-project capacity enabled)
     const asg5Res = await testRequest(env, '/api/projects/assign', {
       method: 'POST',
       token: 'admin-1',
@@ -307,11 +307,11 @@ test('PHASE B: Security & Safe Integration Remediation Suite', async (t) => {
         actionId: 'action-asg-5'
       }
     });
-    assert.equal(asg5Res.status, 400, '5th assignment must be rejected due to capacity limit');
-    const asg5Err = await asg5Res.json();
-    assert.equal(asg5Err.code, 'DRAUGHTSMAN_CAPACITY_EXCEEDED');
+    assert.equal(asg5Res.status, 200, '5th assignment must succeed without capacity restriction');
+    const asg5Body = await asg5Res.json();
+    assert.equal(asg5Body.success, true);
 
-    // Reassignment to draughtsman-cap when full must also be REJECTED
+    // Reassignment to draughtsman-cap with multiple active projects must also SUCCEED
     rawDb.prepare(`
       INSERT INTO projects (id, client_id, project_name, project_address, drawing_name, drawing_type, project_area, status, draughtsman_id, draughtsman_name)
       VALUES ('cap-prj-reassign-target', 'eng-1', 'Reassign Test', '101 Pine', 'Framing', 'Architectural', '2000', 'IN_PROGRESS', 'draughtsman-1', 'Draughtsman One')
@@ -323,12 +323,12 @@ test('PHASE B: Security & Safe Integration Remediation Suite', async (t) => {
       body: {
         projectId: 'cap-prj-reassign-target',
         draughtsmanId: 'draughtsman-cap',
-        actionId: 'action-reassign-blocked'
+        actionId: 'action-reassign-allowed'
       }
     });
-    assert.equal(reassignRes.status, 400, 'Reassignment to draughtsman at capacity must be rejected');
-    const reassignErr = await reassignRes.json();
-    assert.equal(reassignErr.code, 'DRAUGHTSMAN_CAPACITY_EXCEEDED');
+    assert.equal(reassignRes.status, 200, 'Reassignment to busy draughtsman must succeed');
+    const reassignBody = await reassignRes.json();
+    assert.equal(reassignBody.success, true);
   });
 
   // -------------------------------------------------------------

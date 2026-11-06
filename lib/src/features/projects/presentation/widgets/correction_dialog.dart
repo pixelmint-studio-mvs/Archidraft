@@ -34,7 +34,7 @@ class _CorrectionDialogState extends ConsumerState<CorrectionDialog> {
 
   Future<void> _submit() async {
     final description = _descriptionController.text.trim();
-    if (description.isEmpty) return;
+    if (description.isEmpty || _isSubmitting) return;
 
     setState(() => _isSubmitting = true);
 

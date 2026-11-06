@@ -542,7 +542,7 @@ export function EngineerProjectStatusModal({
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <div className="space-y-0.5">
                             <p className="text-[11px] text-slate-700 font-semibold">
-                              Round {item.correction_round || 0} of 3
+                              Round {item.correction_round || 0}
                             </p>
                             <p className="text-[10px] text-slate-400">
                               {item.drawing_versions_count || 0} CAD versions

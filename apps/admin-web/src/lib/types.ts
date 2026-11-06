@@ -59,6 +59,7 @@ export type ProjectStatus =
   | 'WAITING_ASSIGNMENT'
   | 'WAITING_ACCEPTANCE'
   | 'IN_PROGRESS'
+  | 'UNDER_ADMIN_REVIEW'
   | 'UNDER_CLIENT_REVIEW'
   | 'UNDER_ENGINEER_REVIEW'
   | 'COMPLETED'
@@ -175,6 +176,11 @@ export interface DrawingVersion {
   version_number: number;
   uploaded_by: string;
   correction_id?: string;
+  approval_status?: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
+  approval_source?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  review_feedback?: string;
   created_at: string;
   // Joined fields from files table
   original_name?: string;
@@ -182,6 +188,33 @@ export interface DrawingVersion {
   object_key?: string;
   content_type?: string;
   size?: number;
+}
+
+// ── Drawing Version Review Audit Record ──
+
+export interface AdminNotification {
+  id: string;
+  user_id: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  type: string;
+  title: string;
+  message: string;
+  is_read: number | boolean;
+  created_at: string;
+}
+
+export interface DrawingVersionReview {
+  id: string;
+  project_id: string;
+  drawing_version_id: string;
+  reviewer_id: string;
+  decision: 'APPROVED' | 'REJECTED';
+  feedback?: string | null;
+  created_at: string;
+  reviewer_name?: string;
+  reviewer_role?: string;
+  version_number?: number;
 }
 
 // ── Correction ──

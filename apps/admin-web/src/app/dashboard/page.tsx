@@ -120,10 +120,12 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorInfo, setErrorInfo] = useState<ClassifiedError | null>(null);
 
-  const loadData = async (isManual = false) => {
+  const loadData = async (isManual = false, isSilent = false) => {
     if (isManual) setRefreshing(true);
-    else setLoading(true);
-    setErrorInfo(null);
+    else if (!isSilent) setLoading(true);
+    if (!isSilent) {
+      setErrorInfo(null);
+    }
 
     try {
       const [statsData, projectsData] = await Promise.all([
@@ -133,32 +135,53 @@ export default function DashboardPage() {
       setStats(statsData);
       // Filter projects that need immediate admin action
       const needsAction = (projectsData || []).filter(
-        (p) => p.status === 'SUBMITTED' || p.status === 'WAITING_ASSIGNMENT'
+        (p) => p.status === 'SUBMITTED' || p.status === 'WAITING_ASSIGNMENT' || p.status === 'UNDER_ADMIN_REVIEW'
       );
       setPendingProjects(needsAction.slice(0, 5));
       setErrorInfo(null);
     } catch (err: any) {
       console.error('Failed to load dashboard metrics:', err);
-      const classified = classifyApiError(err);
-      setErrorInfo(classified);
+      if (!isSilent) {
+        const classified = classifyApiError(err);
+        setErrorInfo(classified);
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!isSilent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      loadData(false, true);
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const byStatus = stats?.projects?.byStatus || {};
+  const draftCount = byStatus['DRAFT'] || 0;
   const submittedCount = byStatus['SUBMITTED'] || 0;
   const waitingAssignmentCount = byStatus['WAITING_ASSIGNMENT'] || 0;
   const waitingAcceptanceCount = byStatus['WAITING_ACCEPTANCE'] || 0;
   const inProgressCount = byStatus['IN_PROGRESS'] || 0;
-  const engineerReviewCount = byStatus['UNDER_CLIENT_REVIEW'] || 0;
+  const adminReviewCount = byStatus['UNDER_ADMIN_REVIEW'] || 0;
+  const engineerReviewCount =
+    (byStatus['UNDER_CLIENT_REVIEW'] || 0) + (byStatus['UNDER_ENGINEER_REVIEW'] || 0);
   const completedCount = byStatus['COMPLETED'] || 0;
   const cancelledCount = byStatus['CANCELLED'] || 0;
+
+  // Streamlined Pipeline Overview Groups (Setup, In Production, Review, Completed, Cancelled)
+  const setupGroupCount = draftCount + submittedCount + waitingAssignmentCount;
+  const inProductionGroupCount = inProgressCount;
+  const reviewGroupCount = waitingAcceptanceCount + adminReviewCount + engineerReviewCount;
+  const completedGroupCount = completedCount;
+  const cancelledGroupCount = cancelledCount;
+
+  const totalReconciledProjects =
+    setupGroupCount + inProductionGroupCount + reviewGroupCount + completedGroupCount + cancelledGroupCount;
 
   const usersByRole = stats?.users?.byRole || {};
   const draughtsmanCount = stats?.metrics?.activeDraughtsmen ?? (usersByRole['DRAUGHTSMAN'] || 0);
@@ -436,43 +459,125 @@ export default function DashboardPage() {
             {/* Status Breakdown & Priority Queue */}
             <div className="lg:col-span-2 space-y-6">
               <Card technicalCorners>
-                <CardHeader
-                  title="Ecosystem State Machine Distribution"
-                  subtitle="Live status distribution across all projects in the Cloudflare D1 database"
-                />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                  <div>
+                    <h3 className="text-base font-bold font-mono text-slate-900 tracking-tight">
+                      Project Pipeline Overview
+                    </h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">
+                      Streamlined operational status distribution across all studio projects
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                      Reconciled: <strong className="text-slate-900">{totalReconciledProjects}</strong> projects
+                    </span>
+                    <Link
+                      href="/engineers?tab=projects"
+                      className="text-xs font-semibold text-[#0453cd] hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Manage Projects</span>
+                      <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                    <p className="text-[11px] font-mono font-semibold text-slate-500 uppercase">1. Drafts</p>
-                    <p className="text-2xl font-bold font-mono text-slate-900 mt-1">{byStatus['DRAFT'] || 0}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
+                  {/* 1. Setup */}
+                  <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-blue-900 uppercase tracking-wider">
+                          1. Setup
+                        </span>
+                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                      </div>
+                      <p className="text-2xl font-bold font-mono text-blue-950 mt-2">
+                        {setupGroupCount}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-blue-200/70 text-[10px] font-mono text-blue-800 space-y-0.5">
+                      <p>{draftCount} drafts</p>
+                      <p>{submittedCount} submitted</p>
+                      <p>{waitingAssignmentCount} awaiting assign</p>
+                    </div>
                   </div>
-                  <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
-                    <p className="text-[11px] font-mono font-semibold text-amber-800 uppercase">2. Submitted</p>
-                    <p className="text-2xl font-bold font-mono text-amber-800 mt-1">{submittedCount}</p>
+
+                  {/* 2. In Production */}
+                  <div className="p-4 rounded-xl bg-cyan-50/60 border border-cyan-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-cyan-900 uppercase tracking-wider">
+                          2. In Production
+                        </span>
+                        <span className="h-2 w-2 rounded-full bg-cyan-500" />
+                      </div>
+                      <p className="text-2xl font-bold font-mono text-cyan-950 mt-2">
+                        {inProductionGroupCount}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-cyan-200/70 text-[10px] font-mono text-cyan-800 space-y-0.5">
+                      <p>{inProductionGroupCount} in progress</p>
+                      <p className="text-cyan-600">Active drafting</p>
+                    </div>
                   </div>
-                  <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200">
-                    <p className="text-[11px] font-mono font-semibold text-[#0453cd] uppercase">3. Awaiting Assign</p>
-                    <p className="text-2xl font-bold font-mono text-[#0453cd] mt-1">{waitingAssignmentCount}</p>
+
+                  {/* 3. Review */}
+                  <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-amber-900 uppercase tracking-wider">
+                          3. Review
+                        </span>
+                        <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      </div>
+                      <p className="text-2xl font-bold font-mono text-amber-950 mt-2">
+                        {reviewGroupCount}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-amber-200/70 text-[10px] font-mono text-amber-800 space-y-0.5">
+                      <p>{waitingAcceptanceCount} awaiting accept</p>
+                      <p>{adminReviewCount} studio QC</p>
+                      <p>{engineerReviewCount} engineer/architect review</p>
+                    </div>
                   </div>
-                  <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200">
-                    <p className="text-[11px] font-mono font-semibold text-purple-800 uppercase">4. Awaiting Accept</p>
-                    <p className="text-2xl font-bold font-mono text-purple-800 mt-1">{waitingAcceptanceCount}</p>
+
+                  {/* 4. Completed */}
+                  <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-emerald-900 uppercase tracking-wider">
+                          4. Completed
+                        </span>
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      </div>
+                      <p className="text-2xl font-bold font-mono text-emerald-950 mt-2">
+                        {completedGroupCount}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-emerald-200/70 text-[10px] font-mono text-emerald-800 space-y-0.5">
+                      <p>{completedGroupCount} final approved</p>
+                      <p className="text-emerald-600">Delivered</p>
+                    </div>
                   </div>
-                  <div className="p-3 rounded-xl bg-cyan-50/70 border border-cyan-200">
-                    <p className="text-[11px] font-mono font-semibold text-cyan-800 uppercase">5. In Progress</p>
-                    <p className="text-2xl font-bold font-mono text-cyan-800 mt-1">{inProgressCount}</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200">
-                    <p className="text-[11px] font-mono font-semibold text-teal-800 uppercase">6. Engineer/Architect Review</p>
-                    <p className="text-2xl font-bold font-mono text-teal-800 mt-1">{engineerReviewCount}</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
-                    <p className="text-[11px] font-mono font-semibold text-emerald-800 uppercase">7. Completed</p>
-                    <p className="text-2xl font-bold font-mono text-emerald-800 mt-1">{completedCount}</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200">
-                    <p className="text-[11px] font-mono font-semibold text-rose-800 uppercase">8. Cancelled</p>
-                    <p className="text-2xl font-bold font-mono text-rose-800 mt-1">{cancelledCount}</p>
+
+                  {/* 5. Cancelled */}
+                  <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-rose-900 uppercase tracking-wider">
+                          5. Cancelled
+                        </span>
+                        <span className="h-2 w-2 rounded-full bg-rose-400" />
+                      </div>
+                      <p className="text-2xl font-bold font-mono text-rose-950 mt-2">
+                        {cancelledGroupCount}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-rose-200/70 text-[10px] font-mono text-rose-800 space-y-0.5">
+                      <p>{cancelledGroupCount} closed</p>
+                      <p className="text-rose-600">Withdrawn</p>
+                    </div>
                   </div>
                 </div>
 

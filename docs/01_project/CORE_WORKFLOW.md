@@ -1,17 +1,17 @@
 # CORE WORKFLOW
 
-This document defines the exact, unchangeable main workflow of an ARCHI DRAFT project. 
+This document defines the verified main workflow of an ARCHI DRAFT commercial drafting project.
 
 ## The Linear Workflow
 
-**CLIENT**
-↓ Creates Project
+**ENGINEER / CLIENT**
+↓ Creates Project Brief
 **[ DRAFT ]**
 ↓ Submits Project
 **[ SUBMITTED ]**
 
-**ADMIN REVIEW**
-↓ Approves Project
+**STUDIO ADMIN REVIEW**
+↓ Approves Project Brief
 **[ WAITING_ASSIGNMENT ]**
 ↓ Assigns Draughtsman
 **[ WAITING_ACCEPTANCE ]**
@@ -19,32 +19,44 @@ This document defines the exact, unchangeable main workflow of an ARCHI DRAFT pr
 **DRAUGHTSMAN ACTION**
 ↓ Accepts Assignment
 **[ IN_PROGRESS ]**
-↓ Uploads Drawing & Submits
-**[ UNDER_CLIENT_REVIEW ]**
+↓ Uploads CAD Deliverable & Submits (`POST /api/projects/submit-drawing`)
+**[ WAITING_FOR_STUDIO_REVIEW ]**
 
-## The Review Fork
+**STUDIO ADMIN QUALITY CONTROL (QC) GATE**
+Studio Admin inspects the deliverable prior to Engineer release:
+- **QC Approved** (`POST /api/admin/drawing-approvals/approve`):
+  Deliverable released to client.
+  ↓
+  **[ UNDER_ENGINEER_REVIEW ]** (or `UNDER_CLIENT_REVIEW`)
+- **QC Revision Requested** (`POST /api/admin/drawing-approvals/request-revision`):
+  Returned to draughtsman for internal rework with feedback.
+  ↓
+  **[ IN_PROGRESS ]** *(Note: QC rework does NOT consume or increment client revision rounds).*
 
-Once `UNDER_CLIENT_REVIEW`, the Client has two options:
+---
+
+## The Client Review Fork
+
+Once in **[ UNDER_ENGINEER_REVIEW ]** (or `UNDER_CLIENT_REVIEW`), the Client/Engineer has two actions:
 
 ### Option A: Approval (Happy Path)
-**CLIENT APPROVES** (`POST /api/projects/approve-final`)
+**CLIENT / ENGINEER APPROVES** (`POST /api/projects/approve-final`)
 ↓ 
 **[ COMPLETED ]**
 
-*Authorization:* Strictly the owning **Client** or platform **Admin/Studio Admin**. Engineers and Draughtsmen are prohibited from approving final drawings (`403 Forbidden`).
+*Authorization:* Strictly the owning **Client / Engineer** or platform **Studio Admin**. Draughtsmen are prohibited from approving final deliverables (`403 Forbidden`). All active corrections are marked `RESOLVED`.
 
 ### Option B: Corrections (Iterative Path)
-**CLIENT REQUESTS CORRECTION** (`POST /api/projects/request-correction`)
+**CLIENT / ENGINEER REQUESTS CORRECTION** (`POST /api/projects/request-correction`)
 ↓ 
-**Correction Status: [ OPEN ]**
+**Correction Status: [ OPEN ]** (Correction round increments: 1, 2, 3, 4, ... indefinitely)
 ↓ Draughtsman Begins Work
 **Correction Status: [ IN_PROGRESS ]**
-↓ Draughtsman Uploads Revision & Resolves (`POST /api/projects/resolve-correction`)
-**Correction Status: [ RESOLVED ]**
-↓ Draughtsman Submits Drawing Again (`POST /api/projects/submit-drawing`)
-**Project Status: [ UNDER_CLIENT_REVIEW ]**
+↓ Draughtsman Uploads Revision & Submits (`POST /api/projects/submit-drawing`)
+**[ WAITING_FOR_STUDIO_REVIEW ]** (Quality gate re-applies)
+↓ Studio Admin QC Approves
+**[ UNDER_ENGINEER_REVIEW ]**
 
-*(Note: The maximum number of correction rounds allowed per project is **3**. The backend will automatically reject a 4th request).*
+*(Note: Unlimited revision rounds are supported. The correction round increments accurately with every Client/Engineer correction request until final satisfaction and approval).*
 
-*Authorization:* Strictly the owning **Client** or platform **Admin/Studio Admin**. Engineers and Draughtsmen are prohibited from initiating correction requests (`403 Forbidden`). Only the assigned Draughtsman may resolve corrections.
-
+*Authorization:* Owning **Client**, **Engineer**, or platform **Studio Admin**. Only the assigned Draughtsman may submit corrected deliverables.

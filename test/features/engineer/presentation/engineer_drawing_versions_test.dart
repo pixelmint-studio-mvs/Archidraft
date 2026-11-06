@@ -142,6 +142,7 @@ EOF''';
           uploadedBy: 'draught-01',
           uploaderName: 'Staging Draughtsman Primary',
           originalName: '01_test_drawing_v1.dxf',
+          approvalStatus: 'APPROVED',
           size: 1528,
           createdAt: DateTime(2026, 10, 26, 14, 51),
         ),
@@ -176,7 +177,7 @@ EOF''';
 
       // Verified metadata strip
       expect(find.text('Staging Draughtsman Primary'), findsOneWidget);
-      expect(find.text('In Revision'), findsOneWidget);
+      expect(find.text('Correction Round 1'), findsOneWidget);
       expect(find.textContaining('DXF • 1.5 KB'), findsOneWidget);
 
       // Verified revision notes
@@ -204,6 +205,7 @@ EOF''';
           uploadedBy: 'draught-01',
           uploaderName: 'Staging Draughtsman Primary',
           originalName: '02_test_drawing_v2.dxf',
+          approvalStatus: 'APPROVED',
           size: 2048,
           createdAt: DateTime(2026, 10, 26, 16, 00),
         ),
@@ -215,6 +217,7 @@ EOF''';
           uploadedBy: 'draught-01',
           uploaderName: 'Staging Draughtsman Primary',
           originalName: '01_test_drawing_v1.dxf',
+          approvalStatus: 'APPROVED',
           size: 1528,
           createdAt: DateTime(2026, 10, 26, 14, 51),
         ),
