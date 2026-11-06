@@ -92,6 +92,8 @@ flutter:
   assets:
     - assets/images/draughtsman_logo.jpeg
     - assets/models/
+    - assets/images/
+    - assets/images/extracted/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

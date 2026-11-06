@@ -256,13 +256,34 @@ All fixes have been verified against active source code, validated via automated
 
 ---
 
+### K. PIXMINT BOT 2.0 Integration & Admin Control Center Simplification
+- **File References:**
+  - `apps/admin-web/src/app/bot/page.tsx`
+  - `apps/admin-web/src/components/layout/Sidebar.tsx`
+  - `apps/admin-web/src/lib/api.ts`
+  - `apps/admin-web/src/lib/types.ts`
+  - `apps/admin-web/test/pixmint-bot-admin.test.ts`
+  - `worker/src/pixmint/`
+  - `lib/src/features/pixmint_bot/`
+- **Implementation & Clarifications:**
+  1. **5 Consolidated Admin Tabs:** Simplified navigation into Dashboard, Bot Settings, Knowledge Base, Conversations, and Feedback & Insights.
+  2. **Session Lifecycle Deduplication:** Resolved multiple "New Conversation" rows by reusing active unarchived sessions on launcher open and app reload. Added concurrency guard in Flutter controller.
+  3. **Architectural Title Generation:** Implemented automatic intent-based title generation from first user questions with zero-loss self-healing backfill for legacy sessions.
+  4. **User-Grouped Conversation Management:** Redesigned Tab 4 from flat session dump to a clean User-Grouped table with expandable session history and WhatsApp-style continuous chat inspector modal.
+  5. **Question Analytics & Gap Audit:** Integrated semantic clustering of repeated user queries, negative rating detection, and knowledge gap action items.
+  6. **Chat Composer Visibility Fix:** Applied explicit dark charcoal `#17212B` text and `#00D6A0` emerald cursor on white `#FFFFFF` input background across all user portals.
+  7. **Strict Role Governance:** Enforced strictly `ENGINEER`, `DRAUGHTSMAN`, `STUDENT`, and `ADMIN`. Prohibited Client/Guest portal access.
+
+---
+
 ## 3. Test & Verification Evidence Summary
 
 | Test Harness | Total Suites | Tests Passed | Status |
 | :--- | :--- | :--- | :--- |
-| **Cloudflare Worker** | 13 | **367 / 367** | Verified |
-| **Admin Web Portal** | 82 | **312 / 312** | Verified |
-| **Flutter Analysis** | 1 | **0 issues** | Verified |
+| **Cloudflare Worker** | 16 | **463 / 463** | Verified |
+| **Admin Web Portal** | 83 | **340 / 340** | Verified |
+| **Flutter Test Suite** | 3 | **25 / 25** | Verified |
+| **Admin Web Build** | 37 routes | **0 errors** | Verified |
 
 ---
 

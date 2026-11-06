@@ -130,3 +130,22 @@ The Student role represents academic learners in future educational modules.
 - View internal activity logs or files
 - The Student Portal implementation is intentionally deferred until multi-portal integration.
 
+---
+
+## 6. PIXMINT BOT 2.0 AI ASSISTANT ROLE GOVERNANCE
+
+PIXMINT BOT 2.0 is tightly integrated into ARCHI DRAFT user portals with role-based prompt templates, knowledge retrieval filters, and suggestion engines:
+
+| Role | Bot Access Status | Contextual Scope & Suggested Questions |
+|---|:---:|---|
+| **ENGINEER** | Active | Project requirements, CAD specifications, drawing revisions, redline markups, QC workflows |
+| **DRAUGHTSMAN** | Active | Drafting standards, layer conventions, scale factors, assignment acceptance, v1/v2 drawing uploads |
+| **STUDENT** | Active | CAD curriculum modules, drawing exercises, submission feedback, qualification certificates |
+| **STUDIO_ADMIN** | Control Center | Full management at `/bot` (metrics, global toggles, knowledge base, question analytics, chat inspection) |
+| **CLIENT / GUEST** | **PROHIBITED** | Prohibited from chatbot exposure; no portal toggles, suggestions, or mock entities exist |
+
+### Role Isolation Invariants
+1. **Authoritative Server Resolution:** Chat turn authorization is validated server-side against the user's authentic Cloudflare D1 profile record.
+2. **Session Thread Scoping:** Chat sessions (`chat_sessions`) and message turns (`chat_messages`) are strictly partitioned per `user_id` and `user_role`. Cross-tenant data leakage is structurally impossible.
+3. **Admin Studio Oversight:** Only authenticated users with `ADMIN` or `STUDIO_ADMIN` roles can access `/bot` in Next.js Admin Web, inspect conversations, approve knowledge documents, or export Question Audit reports.
+

@@ -710,3 +710,198 @@ export interface RegistrationVerification {
   date_of_birth?: string | null;
   address?: string | null;
 }
+
+// ── PIXMINT BOT 2.0 Types ──────────────────────────────────────────────────
+
+export type BotUserRole = 'engineer' | 'draughtsman' | 'student' | 'admin' | 'guest';
+
+export interface AdminHealthData {
+  status: string;
+  botVersion: string;
+  activeProvider: string;
+  isProviderConfigured: boolean;
+  modelName: string;
+  d1Connected: boolean;
+  workersAiAvailable: boolean;
+  botEnabled?: boolean;
+  maintenanceMode?: boolean;
+  timestamp: number;
+}
+
+export interface AdminAnalyticsData {
+  metrics: {
+    totalSessionsToday: number;
+    totalMessagesToday: number;
+    avgLatencyMs: number;
+    resolutionRatePercent: number;
+    unansweredCountToday: number;
+  };
+  topQueries: Array<{ query: string; count: number }>;
+  recentAuditLogs: Array<{ id: string; adminUserId: string; action: string; target: string; timestamp: number }>;
+}
+
+export interface RemoteSuggestion {
+  id: string;
+  role: string;
+  label: string;
+  prompt: string;
+  icon: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface BotConfigData {
+  botEnabled: boolean;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  allowedMaintenanceRoles: string[];
+  maxInputChars: number;
+  rateLimitPerMinute: number;
+  historyLimit: number;
+  enabledPortals: Record<string, boolean>;
+  updatedAt: number;
+  updatedBy: string;
+}
+
+export interface AuditLogItem {
+  id: string;
+  adminUserId: string;
+  action: string;
+  target?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: number;
+}
+
+export interface KnowledgeSourceItem {
+  id: string;
+  title: string;
+  path: string;
+  category: string;
+  version: string;
+  status: 'approved' | 'deactivated';
+  chunkCount: number;
+  lastAuditDate?: string;
+  verificationAuthority?: string;
+  updatedAt: number;
+}
+
+export interface FeedbackItem {
+  id: string;
+  messageId: string;
+  userId: string;
+  rating: number;
+  feedbackText?: string;
+  messageContent?: string;
+  createdAt: number;
+}
+
+export interface UnansweredItem {
+  id: string;
+  userId: string;
+  userRole: string;
+  query: string;
+  intentCategory?: string;
+  failureReason: string;
+  createdAt: number;
+}
+
+export interface ConversationSessionItem {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userRole: string;
+  title: string;
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
+  messageCount?: number;
+}
+
+export interface UserConversationGroup {
+  userId: string;
+  userEmail: string;
+  userRole: string;
+  totalSessions: number;
+  totalMessages: number;
+  lastActive: number;
+  sessions: ConversationSessionItem[];
+}
+
+export interface ConversationMessageItem {
+  id: string;
+  sessionId: string;
+  userId: string;
+  sender: 'user' | 'bot';
+  content: string;
+  sources?: Array<{ title: string; path: string; section?: string; category?: string }>;
+  modelName?: string;
+  latencyMs?: number;
+  createdAt: number;
+  feedbackRating?: number;
+  feedbackText?: string;
+}
+
+export interface QuestionAnalyticsSummary {
+  totalQuestionsAnalyzed: number;
+  uniqueQuestionGroups: number;
+  mostRepeatedTopic: string;
+  unansweredQuestionCount: number;
+  negativeFeedbackCount: number;
+  topicsNeedingAttention: number;
+  groupingMethod: string;
+  auditPeriod: {
+    timeRange: string;
+    startDate: number;
+    endDate: number;
+  };
+}
+
+export interface FrequentlyAskedQuestionItem {
+  rank: number;
+  id: string;
+  topic: string;
+  category: string;
+  timesAsked: number;
+  portals: {
+    engineer: number;
+    draughtsman: number;
+    student: number;
+  };
+  uniqueUsersCount: number;
+  firstAsked: number;
+  lastAsked: number;
+  originalVariations: Array<{ text: string; count: number }>;
+  botAnswers: string[];
+  positiveFeedbackCount: number;
+  negativeFeedbackCount: number;
+  feedbackComments: string[];
+  relatedSessionIds: string[];
+  isFlaggedGap: boolean;
+}
+
+export interface KnowledgeGapItem {
+  id: string;
+  topic: string;
+  category: string;
+  affectedQuestionsCount: number;
+  unansweredCount: number;
+  negativeFeedbackCount: number;
+  flagReason: string;
+  relatedDocuments: Array<{ id: string; title: string }>;
+  recommendedAction: string;
+}
+
+export interface QuestionAnalyticsData {
+  summary: QuestionAnalyticsSummary;
+  frequentlyAskedQuestions: FrequentlyAskedQuestionItem[];
+  knowledgeGaps: KnowledgeGapItem[];
+}
+
+export interface QuestionAnalyticsFilter {
+  portal: 'all' | 'engineer' | 'draughtsman' | 'student';
+  timeRange: 'today' | '7d' | '30d' | 'all' | 'custom';
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}
+

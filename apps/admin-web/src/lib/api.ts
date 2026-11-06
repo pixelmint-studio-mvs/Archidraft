@@ -35,6 +35,18 @@ import {
   HelpdeskHealthReport,
   HelpdeskSettings,
   RegistrationVerification,
+  AdminHealthData,
+  AdminAnalyticsData,
+  BotConfigData,
+  KnowledgeSourceItem,
+  RemoteSuggestion,
+  AuditLogItem,
+  FeedbackItem,
+  UnansweredItem,
+  ConversationSessionItem,
+  ConversationMessageItem,
+  QuestionAnalyticsData,
+  QuestionAnalyticsFilter,
 } from './types';
 
 export const API_BASE = (() => {
@@ -1581,6 +1593,133 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ recipient }),
     });
+  },
 
+  // ============================================================================
+  // PIXMINT BOT 2.0 ADMINISTRATION API
+  // ============================================================================
+
+  async getBotHealth(): Promise<AdminHealthData> {
+    return fetchApi<AdminHealthData>('/api/pixmint/admin/health');
+  },
+
+  async getBotAnalytics(): Promise<AdminAnalyticsData> {
+    return fetchApi<AdminAnalyticsData>('/api/pixmint/admin/analytics');
+  },
+
+  async getBotConfig(): Promise<{ config: BotConfigData }> {
+    return fetchApi<{ config: BotConfigData }>('/api/pixmint/admin/config');
+  },
+
+  async updateBotConfig(payload: Partial<BotConfigData>): Promise<{ success: boolean; config: BotConfigData }> {
+    return fetchApi<{ success: boolean; config: BotConfigData }>('/api/pixmint/admin/config', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getBotKnowledgeSources(): Promise<{ sources: KnowledgeSourceItem[] }> {
+    return fetchApi<{ sources: KnowledgeSourceItem[] }>('/api/pixmint/admin/knowledge/sources');
+  },
+
+  async updateBotKnowledgeSourceStatus(
+    id: string,
+    status: 'approved' | 'deactivated'
+  ): Promise<{ success: boolean; sourceId: string; status: string; message: string }> {
+    return fetchApi<{ success: boolean; sourceId: string; status: string; message: string }>(
+      `/api/pixmint/admin/knowledge/sources/${encodeURIComponent(id)}/status`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      }
+    );
+  },
+
+  async getBotSuggestions(role: string): Promise<{ role: string; suggestions: RemoteSuggestion[] }> {
+    const res = await fetchApi<RemoteSuggestion[] | { role: string; suggestions: RemoteSuggestion[] }>(
+      `/api/pixmint/admin/suggestions?role=${encodeURIComponent(role)}`
+    ).catch(() =>
+      fetchApi<RemoteSuggestion[] | { role: string; suggestions: RemoteSuggestion[] }>(
+        `/api/pixmint/chat/suggestions?role=${encodeURIComponent(role)}`
+      )
+    );
+    if (Array.isArray(res)) {
+      return { role, suggestions: res };
+    }
+    return res || { role, suggestions: [] };
+  },
+
+  async createBotSuggestion(data: { role: string; label: string; prompt: string; icon?: string; sortOrder?: number }): Promise<{ success: boolean; suggestion: RemoteSuggestion }> {
+    return fetchApi<{ success: boolean; suggestion: RemoteSuggestion }>('/api/pixmint/admin/suggestions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateBotSuggestion(id: string, data: Partial<RemoteSuggestion>): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/pixmint/admin/suggestions/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteBotSuggestion(id: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/pixmint/admin/suggestions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async uploadBotKnowledgeDocument(data: { title: string; category: string; content: string; allowedRoles?: string[] }): Promise<{ success: boolean; document: KnowledgeSourceItem }> {
+    return fetchApi<{ success: boolean; document: KnowledgeSourceItem }>('/api/pixmint/admin/knowledge/documents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteBotKnowledgeDocument(id: string): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(`/api/pixmint/admin/knowledge/documents/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async getBotConversations(limit = 50, offset = 0): Promise<{ conversations: ConversationSessionItem[] }> {
+    return fetchApi<{ conversations: ConversationSessionItem[] }>(
+      `/api/pixmint/admin/conversations?limit=${limit}&offset=${offset}`
+    );
+  },
+
+  async getBotConversationMessages(sessionId: string): Promise<{ messages: ConversationMessageItem[] }> {
+    return fetchApi<{ messages: ConversationMessageItem[] }>(
+      `/api/pixmint/admin/conversations/${encodeURIComponent(sessionId)}/messages`
+    );
+  },
+
+  async getBotFeedback(limit = 50): Promise<{ feedback: FeedbackItem[]; total: number }> {
+    return fetchApi<{ feedback: FeedbackItem[]; total: number }>(`/api/pixmint/admin/feedback?limit=${limit}`);
+  },
+
+  async getBotUnanswered(limit = 50): Promise<{ questions: UnansweredItem[]; total: number }> {
+    return fetchApi<{ questions: UnansweredItem[]; total: number }>(`/api/pixmint/admin/unanswered?limit=${limit}`);
+  },
+
+  async getBotAuditLogs(
+    limit = 50,
+    offset = 0,
+    action?: string
+  ): Promise<{ logs: AuditLogItem[]; total: number }> {
+    const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (action) q.set('action', action);
+    return fetchApi<{ logs: AuditLogItem[]; total: number }>(`/api/pixmint/admin/audit-logs?${q.toString()}`);
+  },
+
+  async getBotQuestionAnalytics(filter?: QuestionAnalyticsFilter): Promise<QuestionAnalyticsData> {
+    const q = new URLSearchParams();
+    if (filter?.portal && filter.portal !== 'all') q.set('portal', filter.portal);
+    if (filter?.timeRange) q.set('timeRange', filter.timeRange);
+    if (filter?.startDate) q.set('startDate', filter.startDate);
+    if (filter?.endDate) q.set('endDate', filter.endDate);
+    if (filter?.search) q.set('search', filter.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return fetchApi<QuestionAnalyticsData>(`/api/pixmint/admin/question-analytics${qs}`);
   },
 };

@@ -22,3 +22,7 @@ To prevent misinterpretation, all developers and AI agents must use the followin
   - **For Draughtsman:** `DM_XX`
   - **For Student:** `STU_XX`
   *(Where `XX` are numbers and can be incremented and added infinitely).*
+- **PIXMINT BOT 2.0:** The contextual, grounded architectural AI assistant platform embedded across ARCHI DRAFT client portals (Engineer, Draughtsman, Student) and governed by Studio Admins via the Next.js Admin Web Control Center (`/bot`).
+- **Grounded Architectural Retrieval:** The RAG retrieval engine used by PIXMINT BOT that searches studio knowledge documents, CAD standards, and learning modules before generating assistant answers, citing source references and metadata.
+- **Session Lifecycle & Deduplication:** The architecture guaranteeing that a user's active conversation session is preserved across app reloads, page navigation, and launcher minimizes without creating duplicate "New Conversation" entries in Cloudflare D1.
+- **Question Analytics & Knowledge Gap Audit:** The studio administrative audit engine that analyzes conversational queries across portals, clusters semantic question variations, and identifies topics with negative feedback or documentation gaps.

@@ -74,6 +74,14 @@ This document represents the single authoritative handover, architecture, and ve
       - *Where `XX` are numbers and these can be added and incremented infinitely.*
     - Backed by relational tracking table `role_id_sequences` in Cloudflare D1 with collision recovery and self-healing auto-allocation.
     - Integrated as the primary identifier column across all Admin Portal user tables (`/engineers`, `/draughtsmen`, `/students`, `/users`, `/registrations`), dropdown assignment selectors, and client profile screens.
+14. **PIXMINT BOT 2.0 AI Assistant & Admin Control Center Integration:**
+    - **Grounded Architecture:** Native Cloudflare Worker RAG backend with approved document grounding, D1 persistence (`chat_sessions`, `chat_messages`, `bot_config`), and Flutter client floating assistant.
+    - **Session Lifecycle & Deduplication:** Resolved multiple "New Conversation" rows by reusing active unarchived sessions across window minimizes, page navigations, and app reloads.
+    - **Domain Title Generation & Self-Healing:** Generated contextual architectural titles from user queries with automated self-healing backfill for legacy sessions.
+    - **5-Tab Admin Center:** Replaced 7 fragmented tabs with 5 simplified operational sections: Dashboard, Bot Settings, Knowledge Base, Conversations (User-Grouped Table + WhatsApp continuous chat inspector), and Feedback & Insights.
+    - **Repeated Question Analytics & Gap Audit:** Clustered common user queries across Engineer, Draughtsman, and Student portals to highlight knowledge gaps and unhelpful ratings.
+    - **Chat Input High Contrast:** Standardized white background, dark charcoal text (`#17212B`), and emerald green cursor (`#00D6A0`) across all portals.
+    - **Strict Role Isolation:** Governed strictly for Engineer, Draughtsman, Student, and Admin. Zero Client/Guest exposure.
 
 ---
 

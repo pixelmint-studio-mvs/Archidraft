@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/user_profile.dart';
+import '../../../pixmint_bot/presentation/launcher/pixmint_bot_launcher.dart';
 import 'app_bottom_nav.dart';
 import 'app_nav_rail.dart';
 import 'app_top_bar.dart';
@@ -43,6 +44,13 @@ class ResponsiveScaffold extends ConsumerWidget {
       } catch (_) {}
     }
 
+    final roleUpper = profile?.role.toUpperCase();
+    final bool showBotLauncher = !shouldHide &&
+        (roleUpper == 'CLIENT' ||
+            roleUpper == 'ENGINEER' ||
+            roleUpper == 'DRAUGHTSMAN' ||
+            roleUpper == 'STUDENT');
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = AppBreakpoints.isMobile(constraints.maxWidth);
@@ -79,6 +87,12 @@ class ResponsiveScaffold extends ConsumerWidget {
                   bottom: false,
                   child: body,
                 ),
+                if (showBotLauncher)
+                  const Positioned(
+                    right: 16,
+                    bottom: 84,
+                    child: PixmintBotLauncher(),
+                  ),
               ],
             ),
             bottomNavigationBar: AppBottomNav(
@@ -112,6 +126,12 @@ class ResponsiveScaffold extends ConsumerWidget {
                     ),
                   ],
                 ),
+                if (showBotLauncher)
+                  const Positioned(
+                    right: 24,
+                    bottom: 24,
+                    child: PixmintBotLauncher(),
+                  ),
               ],
             ),
           );
@@ -188,6 +208,12 @@ class ResponsiveScaffold extends ConsumerWidget {
                   ),
                 ),
               ),
+              if (showBotLauncher)
+                const Positioned(
+                  right: 32,
+                  bottom: 40,
+                  child: PixmintBotLauncher(),
+                ),
             ],
           ),
         );

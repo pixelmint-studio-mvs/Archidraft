@@ -13,6 +13,18 @@ function generateSimpleCertificatePdf(studentName: string, title: string, date: 
 import { getStudentAchievements } from './achievements';
 import { registerLegalRoutes, assertTermsAccepted } from './legal';
 export { assertTermsAccepted };
+import {
+  registerPixmintRoutes,
+  pixmintApp,
+  mapToBotUserRole,
+  detectPromptInjection,
+  checkRateLimit,
+  retrieveKnowledge,
+  getBotConfig,
+  updateBotConfig,
+  recordAuditEvent,
+  createAiAdapter,
+} from './pixmint';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { verifyFirebaseToken } from './auth';
@@ -40,6 +52,13 @@ type Bindings = {
   HELPDESK_EMAIL_API_KEY?: string;
   SENDGRID_API_KEY?: string;
   HELPDESK_EMAIL_FROM?: string;
+  AI?: any;
+  AI_PROVIDER?: string;
+  AI_MODEL_NAME?: string;
+  AI_PROVIDER_API_KEY?: string;
+  MAX_HISTORY_MESSAGES?: string;
+  MAX_INPUT_CHARS?: string;
+  RATE_LIMIT_PER_MINUTE?: string;
 };
 
 type Variables = {
@@ -110,6 +129,7 @@ app.use('*', async (c, next) => {
   const isPublicDocRead = c.req.method === 'GET' && c.req.path.startsWith('/api/legal/documents/');
   const isPublicVerify = c.req.method === 'GET' && c.req.path.startsWith('/api/public/');
   const isPublicHealth = c.req.method === 'GET' && c.req.path === '/api/health';
+  const isPublicPixmintStatus = c.req.method === 'GET' && (c.req.path === '/api/pixmint/chat/status' || c.req.path === '/api/chat/status');
   const isPublicHelpdeskReport = c.req.method === 'POST' && c.req.path === '/api/helpdesk/report';
   const isPublicHelpdeskTicket = c.req.method === 'POST' && c.req.path === '/api/helpdesk/tickets';
 
@@ -122,7 +142,7 @@ app.use('*', async (c, next) => {
   }
 
   if (!token) {
-    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
@@ -131,7 +151,7 @@ app.use('*', async (c, next) => {
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
-    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Invalid Firebase token' }, 401);
@@ -8009,5 +8029,17 @@ app.onError(async (err, c) => {
 });
 
 registerLegalRoutes(app);
+registerPixmintRoutes(app);
 
+export {
+  pixmintApp,
+  mapToBotUserRole,
+  detectPromptInjection,
+  checkRateLimit,
+  retrieveKnowledge,
+  getBotConfig,
+  updateBotConfig,
+  recordAuditEvent,
+  createAiAdapter,
+};
 export default app;

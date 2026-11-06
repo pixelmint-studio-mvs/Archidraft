@@ -18,6 +18,7 @@ import {
   ChevronRight,
   LifeBuoy,
   ClipboardCheck,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -120,6 +121,16 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'AI Assistant',
+    items: [
+      {
+        name: 'PIXMINT Bot 2.0',
+        href: '/bot',
+        icon: Bot,
+      },
+    ],
+  },
+  {
     title: 'Settings',
     items: [
       {
@@ -167,11 +178,12 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
     registrations: 0,
   });
 
-  // Fetch live counts on mount, then refresh every 30 seconds
+  // Fetch live counts on mount and user auth change, then refresh every 30 seconds
   useEffect(() => {
     let mounted = true;
 
     async function fetchCounts() {
+      if (!user) return;
       try {
         const [stats, helpdeskStats] = await Promise.all([
           adminApi.getStats(),
@@ -199,7 +211,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [user]);
 
   return (
     <aside

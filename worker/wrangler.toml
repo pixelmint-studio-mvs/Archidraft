@@ -27,6 +27,7 @@ account_id = "06fbb6f8b2e1e65612347252ea10574c"
 [env.staging.vars]
 ENVIRONMENT = "staging"
 FIREBASE_PROJECT_ID = "archi-draft-staging"
+AI_PROVIDER = "local_grounded"
 # Staging permitted web origins (Vercel deployments, custom domains, and staging apps)
 ALLOWED_ORIGINS = "https://admin-web-eight-wine.vercel.app,https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app,https://admin-staging.draughtsmanstudio.com,https://archi-draft-staging.vercel.app,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app,https://www.draughtsmanstudio.com,https://draughtsmanstudio.com,https://archidraft-app.pages.dev,http://localhost:3000"
 
@@ -49,6 +50,7 @@ account_id = "06fbb6f8b2e1e65612347252ea10574c"
 [env.production.vars]
 ENVIRONMENT = "production"
 FIREBASE_PROJECT_ID = "archi-draft"
+AI_PROVIDER = "local_grounded"
 # Production permitted web origins (Custom production domains + production Vercel deployment)
 ALLOWED_ORIGINS = "https://admin-web-eight-wine.vercel.app,https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app,https://www.draughtsmanstudio.com,https://draughtsmanstudio.com"
 
