@@ -33,6 +33,7 @@ interface NavBadgeCounts {
   students: number;
   tickets: number;
   registrations?: number;
+  legalRequests?: number;
 }
 
 interface NavItem {
@@ -131,6 +132,17 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Governance & Compliance',
+    items: [
+      {
+        name: 'Legal & Compliance',
+        href: '/legal',
+        icon: ShieldCheck,
+        badgeKey: 'legalRequests',
+      },
+    ],
+  },
+  {
     title: 'Settings',
     items: [
       {
@@ -176,6 +188,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
     students: 0,
     tickets: 0,
     registrations: 0,
+    legalRequests: 0,
   });
 
   // Fetch live counts on mount and user auth change, then refresh every 30 seconds
@@ -185,9 +198,10 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
     async function fetchCounts() {
       if (!user) return;
       try {
-        const [stats, helpdeskStats] = await Promise.all([
+        const [stats, helpdeskStats, legalStats] = await Promise.all([
           adminApi.getStats(),
           adminApi.getHelpdeskStats().catch(() => null),
+          adminApi.getLegalStats().catch(() => null),
         ]);
         if (!mounted) return;
         setCounts({
@@ -199,6 +213,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
           students: stats.users?.byRole?.['STUDENT'] ?? 0,
           tickets: helpdeskStats?.openTickets ?? 0,
           registrations: (stats as any).pendingRegistrations ?? 0,
+          legalRequests: legalStats?.queues?.totalPendingAction ?? 0,
         });
       } catch {
         // Silently fail — badge just shows 0

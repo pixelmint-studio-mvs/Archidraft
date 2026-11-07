@@ -47,6 +47,17 @@ import {
   ConversationMessageItem,
   QuestionAnalyticsData,
   QuestionAnalyticsFilter,
+  LegalComplianceStats,
+  LegalDocumentAdmin,
+  LegalBusinessProfile,
+  AdminAccountDeletionRequest,
+  AdminDataExportRequest,
+  AdminDataCorrectionRequest,
+  AdminGuardianConsent,
+  AdminCancellationRefundRequest,
+  AdminConsentEvent,
+  AdminPrivacyRequest,
+  DataRetentionPolicy,
 } from './types';
 
 export const API_BASE = (() => {
@@ -1763,5 +1774,148 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  },
+
+  // =========================================================================
+  // LEGAL & COMPLIANCE SYSTEM API METHODS (PHASE 4)
+  // =========================================================================
+
+  async getLegalStats(): Promise<LegalComplianceStats> {
+    return fetchApi<LegalComplianceStats>('/api/admin/legal/stats');
+  },
+
+  async getLegalBusinessProfile(): Promise<LegalBusinessProfile> {
+    return fetchApi<LegalBusinessProfile>('/api/legal/business-profile');
+  },
+
+  async getLegalDocuments(): Promise<{ documents: LegalDocumentAdmin[] }> {
+    return fetchApi<{ documents: LegalDocumentAdmin[] }>('/api/admin/legal/documents');
+  },
+
+  async createLegalDocumentDraft(payload: {
+    documentType: string;
+    version: string;
+    title: string;
+    content: string;
+    effectiveAt?: string;
+    isMandatory?: boolean;
+    locale?: string;
+    changeSummary?: string;
+  }): Promise<{ success: boolean; documentId: string; status: string }> {
+    return fetchApi<{ success: boolean; documentId: string; status: string }>('/api/admin/legal/documents', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async publishLegalDocument(id: string): Promise<{ success: boolean; documentId: string; status: string }> {
+    return fetchApi<{ success: boolean; documentId: string; status: string }>(`/api/admin/legal/documents/${encodeURIComponent(id)}/publish`, {
+      method: 'POST',
+    });
+  },
+
+  async getLegalPrivacyRequests(status?: string): Promise<{ requests: AdminPrivacyRequest[] }> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return fetchApi<{ requests: AdminPrivacyRequest[] }>(`/api/admin/legal/privacy-requests${q}`);
+  },
+
+  async resolveLegalPrivacyRequest(
+    id: string,
+    payload: { status: 'ACKNOWLEDGED' | 'RESOLVED' | 'REJECTED'; resolutionNotes?: string }
+  ): Promise<{ success: boolean; requestId: string; status: string }> {
+    return fetchApi<{ success: boolean; requestId: string; status: string }>(`/api/admin/legal/privacy-requests/${encodeURIComponent(id)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getLegalConsentEvents(limit = 50, offset = 0): Promise<{ events: AdminConsentEvent[]; count: number }> {
+    return fetchApi<{ events: AdminConsentEvent[]; count: number }>(`/api/admin/legal/consents?limit=${limit}&offset=${offset}`);
+  },
+
+  async getLegalAccountDeletionRequests(status?: string): Promise<{ requests: AdminAccountDeletionRequest[] }> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return fetchApi<{ requests: AdminAccountDeletionRequest[] }>(`/api/admin/legal/account-deletion-requests${q}`);
+  },
+
+  async updateLegalAccountDeletionRequest(
+    id: string,
+    payload: {
+      status: string;
+      reviewNotes?: string;
+      retentionHoldReason?: string;
+      failureDetails?: string;
+    }
+  ): Promise<{ success: boolean; requestId: string; status: string; systemsProcessed?: string }> {
+    return fetchApi<{ success: boolean; requestId: string; status: string; systemsProcessed?: string }>(`/api/admin/legal/account-deletion-requests/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getLegalDataExportRequests(): Promise<{ requests: AdminDataExportRequest[] }> {
+    return fetchApi<{ requests: AdminDataExportRequest[] }>('/api/admin/legal/data-export-requests');
+  },
+
+  async updateLegalDataExportRequest(
+    id: string,
+    payload: { status: string; failureDetails?: string }
+  ): Promise<{ success: boolean; requestId: string; status: string }> {
+    return fetchApi<{ success: boolean; requestId: string; status: string }>(`/api/admin/legal/data-export-requests/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getLegalDataCorrectionRequests(): Promise<{ requests: AdminDataCorrectionRequest[] }> {
+    return fetchApi<{ requests: AdminDataCorrectionRequest[] }>('/api/admin/legal/data-correction-requests');
+  },
+
+  async updateLegalDataCorrectionRequest(
+    id: string,
+    payload: { status: 'RESOLVED' | 'REJECTED'; reviewNotes?: string; applyToUser?: boolean }
+  ): Promise<{ success: boolean; requestId: string; status: string }> {
+    return fetchApi<{ success: boolean; requestId: string; status: string }>(`/api/admin/legal/data-correction-requests/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getLegalGuardianConsents(): Promise<{ guardianConsents: AdminGuardianConsent[] }> {
+    return fetchApi<{ guardianConsents: AdminGuardianConsent[] }>('/api/admin/legal/guardian-consents');
+  },
+
+  async updateLegalGuardianConsent(
+    id: string,
+    payload: { status: 'VERIFIED' | 'REJECTED' | 'WITHDRAWN' | 'EXPIRED'; notes?: string }
+  ): Promise<{ success: boolean; consentId: string; status: string }> {
+    return fetchApi<{ success: boolean; consentId: string; status: string }>(`/api/admin/legal/guardian-consents/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getLegalCancellationRefundRequests(): Promise<{ refundRequests: AdminCancellationRefundRequest[] }> {
+    return fetchApi<{ refundRequests: AdminCancellationRefundRequest[] }>('/api/admin/legal/cancellation-refund-requests');
+  },
+
+  async updateLegalCancellationRefundRequest(
+    id: string,
+    payload: {
+      status: string;
+      amountApproved?: number;
+      reviewDecision?: string;
+      resolutionNotes?: string;
+      refundTransactionRef?: string;
+    }
+  ): Promise<{ success: boolean; requestId: string; status: string }> {
+    return fetchApi<{ success: boolean; requestId: string; status: string }>(`/api/admin/legal/cancellation-refund-requests/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getLegalRetentionPolicies(): Promise<{ retentionPolicies: DataRetentionPolicy[] }> {
+    return fetchApi<{ retentionPolicies: DataRetentionPolicy[] }>('/api/admin/legal/retention-policies');
   },
 };

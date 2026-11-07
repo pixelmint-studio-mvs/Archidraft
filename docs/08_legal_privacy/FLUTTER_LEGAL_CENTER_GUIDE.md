@@ -117,3 +117,4 @@ The Legal Center is designed to be fully functional even in complete offline sce
 2. **Business Configuration Invariants:**
    - Centralized in `lib/src/features/legal/data/business_configuration.dart`.
    - Legal proprietor (MOHAMMED MOSIN S), brand (DRAUGHTSMAN STUDIO), and grievance email (`mosin@draughtsmanstudio.com`) are hardcoded constants that cannot be corrupted by external network failures.
+

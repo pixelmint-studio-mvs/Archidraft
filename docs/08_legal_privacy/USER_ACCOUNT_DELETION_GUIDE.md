@@ -69,3 +69,4 @@ When an account deletion request is active:
   > **Account Deletion Scheduled**  
   > *Your deletion request is currently pending. Scheduled purge date: [Date]. You may cancel this request anytime before the scheduled date.*
 - Clicking the **"Cancel Deletion Request"** button invokes `LegalRepository.cancelAccountDeletion()`, invalidates the active request, shows a success notification, and refreshes the Legal Center state.
+

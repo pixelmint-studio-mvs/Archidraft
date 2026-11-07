@@ -87,3 +87,4 @@ Every user can view the authoritative contact vectors in Section 5 of the Legal 
 - **Statutory Timelines:**
   - Acknowledgment within **48 hours**.
   - Final resolution within **30 calendar days** (§ 13 DPDP Act).
+

@@ -1322,6 +1322,79 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
   // ADMIN COMPLIANCE & REVIEW ENDPOINTS (ADMIN & STUDIO_ADMIN ONLY)
   // =========================================================================
 
+  // GET /api/admin/legal/stats
+  // Aggregated KPI counts for the Admin Legal Compliance Dashboard
+  app.get('/api/admin/legal/stats', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    try {
+      const [
+        docStats,
+        pendingDeletions,
+        pendingExports,
+        pendingCorrections,
+        pendingGuardians,
+        pendingRefunds,
+        pendingPrivacy,
+        consentTotal,
+        retentionTotal
+      ] = await Promise.all([
+        db.prepare(`
+          SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'EFFECTIVE' OR status = 'PUBLISHED' THEN 1 ELSE 0 END) as published,
+            SUM(CASE WHEN status = 'DRAFT' THEN 1 ELSE 0 END) as draft,
+            SUM(CASE WHEN status = 'PENDING_LEGAL_REVIEW' OR status = 'UNDER_REVIEW' THEN 1 ELSE 0 END) as pending_review
+          FROM legal_documents
+        `).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM account_deletion_requests WHERE status IN ('PENDING', 'IDENTITY_VERIFICATION_REQUIRED', 'UNDER_REVIEW', 'DELETION_SCHEDULED')`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM data_export_requests WHERE status IN ('PENDING', 'PROCESSING')`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM data_correction_requests WHERE status IN ('PENDING', 'UNDER_REVIEW')`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM guardian_consents WHERE verification_status = 'PENDING'`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM cancellation_refund_requests WHERE status IN ('PENDING', 'UNDER_REVIEW')`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM privacy_requests WHERE status IN ('PENDING', 'ACKNOWLEDGED')`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM legal_consent_events`).first<any>(),
+        db.prepare(`SELECT COUNT(*) as count FROM data_retention_policies`).first<any>(),
+      ]);
+
+      return c.json({
+        documents: {
+          total: Number(docStats?.total || 0),
+          published: Number(docStats?.published || 0),
+          draft: Number(docStats?.draft || 0),
+          pendingReview: Number(docStats?.pending_review || 0),
+        },
+        queues: {
+          pendingDeletions: Number(pendingDeletions?.count || 0),
+          pendingExports: Number(pendingExports?.count || 0),
+          pendingCorrections: Number(pendingCorrections?.count || 0),
+          pendingGuardians: Number(pendingGuardians?.count || 0),
+          pendingRefunds: Number(pendingRefunds?.count || 0),
+          pendingPrivacyRequests: Number(pendingPrivacy?.count || 0),
+          totalPendingAction: 
+            Number(pendingDeletions?.count || 0) +
+            Number(pendingExports?.count || 0) +
+            Number(pendingCorrections?.count || 0) +
+            Number(pendingGuardians?.count || 0) +
+            Number(pendingRefunds?.count || 0) +
+            Number(pendingPrivacy?.count || 0),
+        },
+        telemetry: {
+          totalConsentEvents: Number(consentTotal?.count || 0),
+          retentionPoliciesConfigured: Number(retentionTotal?.count || 0),
+        }
+      });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to aggregate compliance metrics: ' + err.message }, 500);
+    }
+  });
+
   // GET /api/admin/legal/account-deletion-requests
   app.get('/api/admin/legal/account-deletion-requests', async (c) => {
     const uid = c.get('uid');

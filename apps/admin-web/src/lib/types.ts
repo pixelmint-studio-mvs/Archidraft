@@ -905,3 +905,224 @@ export interface QuestionAnalyticsFilter {
   search?: string;
 }
 
+// =============================================================================
+// LEGAL & COMPLIANCE SYSTEM TYPES (PHASE 4)
+// =============================================================================
+
+export interface LegalComplianceStats {
+  documents: {
+    total: number;
+    published: number;
+    draft: number;
+    pendingReview: number;
+  };
+  queues: {
+    pendingDeletions: number;
+    pendingExports: number;
+    pendingCorrections: number;
+    pendingGuardians: number;
+    pendingRefunds: number;
+    pendingPrivacyRequests: number;
+    totalPendingAction: number;
+  };
+  telemetry: {
+    totalConsentEvents: number;
+    retentionPoliciesConfigured: number;
+  };
+}
+
+export interface LegalDocumentAdmin {
+  id: string;
+  document_type: string;
+  version: string;
+  title: string;
+  content?: string;
+  effective_at: string | null;
+  published_at: string | null;
+  published_by: string | null;
+  status: 'DRAFT' | 'UNDER_REVIEW' | 'PENDING_LEGAL_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'EFFECTIVE' | 'SUPERSEDED' | 'ARCHIVED';
+  is_mandatory: number | boolean;
+  locale: string;
+  change_summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegalBusinessProfile {
+  businessIdentity: {
+    structure: string;
+    legalProprietor: string;
+    operatingBrand: string;
+    legalRepresentation: string;
+  };
+  productIdentity: {
+    productName: string;
+    description: string;
+  };
+  websiteAddresses: {
+    applicationWebsite: string;
+    businessWebsite: string;
+  };
+  contactInformation: {
+    grievanceEmail: string;
+    supportEmail: string;
+    privacyEmail: string;
+  };
+  physicalAddress: {
+    status: string;
+    line1: string | null;
+    line2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
+    country: string;
+    note: string;
+  };
+  grievanceOfficer: {
+    status: string;
+    formalAppointmentStatus: string;
+    name: string;
+    designation: string;
+    email: string;
+    appointmentDate: string | null;
+    note: string;
+  };
+  verificationStatus: Record<string, string>;
+  configurationVersion: string;
+  updatedAt: string;
+}
+
+export interface AdminAccountDeletionRequest {
+  id: string;
+  user_id: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
+  status: 'PENDING' | 'IDENTITY_VERIFICATION_REQUIRED' | 'VERIFIED' | 'UNDER_REVIEW' | 'DELETION_SCHEDULED' | 'PROCESSING' | 'PARTIALLY_COMPLETED' | 'COMPLETED' | 'CANCELLED' | 'REJECTED_WITH_REASON';
+  reason?: string | null;
+  submitted_at: string;
+  scheduled_purge_at?: string | null;
+  completed_at?: string | null;
+  assigned_admin_id?: string | null;
+  review_notes?: string | null;
+  retention_hold_reason?: string | null;
+  failure_details?: string | null;
+  systems_processed?: string | null;
+}
+
+export interface AdminDataExportRequest {
+  id: string;
+  user_id: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
+  export_scope: 'FULL_ARCHIVE' | 'PROJECTS_ONLY' | 'CONSENT_AUDIT';
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'EXPIRED';
+  requested_at: string;
+  completed_at?: string | null;
+  expires_at?: string | null;
+  failure_details?: string | null;
+  download_url?: string | null;
+  download_token?: string | null;
+}
+
+export interface AdminDataCorrectionRequest {
+  id: string;
+  user_id: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
+  field_name: string;
+  current_value?: string | null;
+  proposed_value: string;
+  reason?: string | null;
+  status: 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED';
+  review_notes?: string | null;
+  reviewed_by?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+}
+
+export interface AdminGuardianConsent {
+  id: string;
+  student_user_id: string;
+  student_email?: string;
+  student_name?: string;
+  guardian_name: string;
+  guardian_email: string;
+  guardian_phone: string;
+  relationship: string;
+  consent_declaration: string;
+  verification_status: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'WITHDRAWN' | 'EXPIRED';
+  verified_by?: string | null;
+  verified_at?: string | null;
+  withdrawn_at?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminCancellationRefundRequest {
+  id: string;
+  user_id: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
+  project_id?: string | null;
+  milestone_id?: string | null;
+  reason: string;
+  amount_requested?: number | null;
+  amount_approved?: number | null;
+  status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'PROCESSED';
+  review_decision?: string | null;
+  resolution_notes?: string | null;
+  refund_transaction_ref?: string | null;
+  reviewed_by?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminConsentEvent {
+  id: string;
+  user_id: string;
+  document_id: string;
+  document_type: string;
+  document_version: string;
+  action_type: string;
+  consent_purpose: string;
+  idempotency_key?: string | null;
+  ip_hash: string;
+  user_agent?: string | null;
+  source: string;
+  recorded_at: string;
+}
+
+export interface AdminPrivacyRequest {
+  id: string;
+  user_id: string;
+  user_email?: string;
+  user_name?: string;
+  user_role?: string;
+  request_type: string;
+  details?: string | null;
+  status: 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED' | 'REJECTED';
+  resolution_notes?: string | null;
+  resolved_by?: string | null;
+  created_at: string;
+  acknowledged_at?: string | null;
+  resolved_at?: string | null;
+}
+
+export interface DataRetentionPolicy {
+  id: string;
+  data_category: string;
+  purpose: string;
+  retention_period: string;
+  legal_basis: string;
+  policy_source: string;
+  last_reviewed_at: string;
+  review_status: string;
+}
+
+
