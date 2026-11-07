@@ -86,3 +86,4 @@ Under Section 6(1) of the DPDP Act 2023, consent must be free, specific, informe
    - Verified via `apps/admin-web/test/admin-legal-compliance.test.ts` (Test: `Consent events listing returns accurate actions and user bindings`).
 
 **Audit Status:** Consent Ledger and Granular Preference mechanisms are 100% operational, truthful, and verified.
+

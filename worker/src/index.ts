@@ -200,7 +200,18 @@ app.use('*', async (c, next) => {
     const email = ((user?.email || tokenPayload?.email || '') as string).toLowerCase();
     const isKnownAdmin = email === 'contact@draughtsmanstudio.com' || email === 'zedsuo125@gmail.com' || email.endsWith('@draughtsmanstudio.com');
     if (isKnownAdmin && user && (user.role !== 'STUDIO_ADMIN' || user.verification_status !== 'APPROVED')) {
-      await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+      try {
+        await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+      } catch (adminUpErr: any) {
+        if (adminUpErr?.message?.includes('no such column') || adminUpErr?.message?.includes('SQLITE_ERROR')) {
+          await ensureIdentificationSchema(c.env.DB);
+          try {
+            await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+          } catch (_) {
+            await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN' WHERE id = ?").bind(uid).run().catch(() => {});
+          }
+        }
+      }
       user = await getUser(c.env.DB, uid);
       userRole = 'STUDIO_ADMIN';
     }
@@ -304,14 +315,54 @@ export async function ensureIdentificationSchema(db: D1Database): Promise<void> 
         ('ST', 0)
     `).run();
 
-    // 3. Ensure identification_number column exists on users table
+    // 3. Ensure identification_number, verification_status, and rejection_reason columns exist on users table
     try {
       await db.prepare('ALTER TABLE users ADD COLUMN identification_number TEXT').run();
     } catch (_) {
       // Column already exists in SQLite
     }
 
-    // 4. Ensure unique index on identification_number
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN verification_status TEXT CHECK (verification_status IN ('PENDING', 'APPROVED', 'REJECTED')) DEFAULT 'APPROVED'").run();
+    } catch (_) {
+      // Column already exists in SQLite
+    }
+
+    try {
+      await db.prepare('ALTER TABLE users ADD COLUMN rejection_reason TEXT').run();
+    } catch (_) {
+      // Column already exists in SQLite
+    }
+
+    // 4. Ensure registration_verifications table exists
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS registration_verifications (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          email TEXT NOT NULL,
+          role TEXT NOT NULL,
+          mobile TEXT,
+          document_type TEXT NOT NULL,
+          file_id TEXT,
+          file_name TEXT,
+          file_size INTEGER,
+          content_type TEXT,
+          object_key TEXT,
+          status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+          reviewed_by TEXT,
+          reviewer_name TEXT,
+          reviewed_at DATETIME,
+          rejection_reason TEXT,
+          submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+    } catch (_) {}
+
+    // 5. Ensure unique index on identification_number
     try {
       await db.prepare(`
         CREATE UNIQUE INDEX IF NOT EXISTS idx_users_identification_number 
@@ -649,7 +700,18 @@ app.get('/api/users/me', async (c) => {
   ).bind(uid).first();
   const isKnownAdmin = ((user.email || '') as string).toLowerCase() === 'contact@draughtsmanstudio.com' || ((user.email || '') as string).toLowerCase() === 'zedsuo125@gmail.com' || ((user.email || '') as string).toLowerCase().endsWith('@draughtsmanstudio.com');
   if (isKnownAdmin && (user.role !== 'STUDIO_ADMIN' || user.verification_status !== 'APPROVED')) {
-    await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+    try {
+      await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+    } catch (adminUpErr: any) {
+      if (adminUpErr?.message?.includes('no such column') || adminUpErr?.message?.includes('SQLITE_ERROR')) {
+        await ensureIdentificationSchema(c.env.DB);
+        try {
+          await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN', verification_status = 'APPROVED' WHERE id = ?").bind(uid).run();
+        } catch (_) {
+          await c.env.DB.prepare("UPDATE users SET role = 'STUDIO_ADMIN' WHERE id = ?").bind(uid).run().catch(() => {});
+        }
+      }
+    }
     user.role = 'STUDIO_ADMIN';
     user.verification_status = 'APPROVED';
   } else if (!isKnownAdmin && reg?.role && user.role !== reg.role) {

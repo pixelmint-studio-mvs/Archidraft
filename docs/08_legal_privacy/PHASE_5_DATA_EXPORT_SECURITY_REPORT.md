@@ -112,3 +112,4 @@ app.get('/api/legal/data-export-requests/:id/download', requireAuth, async (c) =
 - **Flutter Domain Test:** Verified in `test/features/legal/domain/canonical_legal_system_phase3_test.dart` (Test: `DataExportRequest parses JSON, scopes, and expiration timestamps`).
 
 **Audit Status:** Personal Data Export and Download Security is fully operational, verified, and hardened.
+

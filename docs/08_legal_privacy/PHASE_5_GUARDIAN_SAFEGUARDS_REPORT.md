@@ -84,3 +84,4 @@ CREATE INDEX IF NOT EXISTS idx_guardian_consent_status ON legal_guardian_consent
    - Verified via `apps/admin-web/test/admin-legal-compliance.test.ts` (Test: `Guardian consent queue renders student parental declarations and supports review status updates`).
 
 **Audit Status:** Student minority safeguards are operational, compliant with existing frameworks, and positioned for seamless compliance with future DPDP rule notifications.
+
