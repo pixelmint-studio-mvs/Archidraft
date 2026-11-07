@@ -197,3 +197,4 @@ CREATE TABLE IF NOT EXISTS cancellation_refund_requests (
 
 CREATE INDEX IF NOT EXISTS idx_refund_user ON cancellation_refund_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_refund_status ON cancellation_refund_requests(status);
+

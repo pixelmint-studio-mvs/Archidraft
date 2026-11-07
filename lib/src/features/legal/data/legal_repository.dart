@@ -1,4 +1,8 @@
 import '../../api/data/api_client.dart';
+import '../domain/account_deletion_request.dart';
+import '../domain/data_correction_request.dart';
+import '../domain/data_export_request.dart';
+import '../domain/guardian_consent.dart';
 import '../domain/legal_document.dart';
 import '../domain/privacy_request.dart';
 import '../domain/user_legal_status.dart';
@@ -242,5 +246,199 @@ class LegalRepository {
       return list.map((item) => PrivacyRequest.fromJson(item as Map<String, dynamic>)).toList();
     }
     return [];
+  }
+
+  /// Retrieves all 7 canonical legal documents, preferring live server data where available
+  Future<List<LegalDocument>> getAllCanonicalDocuments() async {
+    try {
+      final effectiveDocs = await getEffectiveDocuments();
+      final effectiveByType = {for (final d in effectiveDocs) d.documentType: d};
+      return kAllCanonicalDefaultDocuments.map((fallback) {
+        if (effectiveByType.containsKey(fallback.documentType)) {
+          final live = effectiveByType[fallback.documentType]!;
+          if (live.content.trim().length > 100) return live;
+        }
+        return fallback;
+      }).toList();
+    } catch (_) {
+      return kAllCanonicalDefaultDocuments;
+    }
+  }
+
+  // =========================================================================
+  // ACCOUNT DELETION WORKFLOWS (DPDP SEC 12)
+  // =========================================================================
+
+  /// Retrieves user's submitted account deletion requests
+  Future<List<AccountDeletionRequest>> getMyAccountDeletionRequests() async {
+    try {
+      final response = await _apiClient.get('/api/legal/account-deletion-requests/me');
+      if (response is Map<String, dynamic> && response['requests'] is List) {
+        final list = response['requests'] as List;
+        return list.map((item) => AccountDeletionRequest.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Submits statutory account deletion and right-to-erasure request
+  Future<AccountDeletionRequest> requestAccountDeletion({
+    String? reason,
+    String? requestCategory,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/legal/account-deletion-requests',
+      body: {
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+        'requestCategory': requestCategory ?? 'SELF_SERVICE',
+      },
+    );
+    if (response is Map<String, dynamic> && response['request'] is Map<String, dynamic>) {
+      return AccountDeletionRequest.fromJson(response['request'] as Map<String, dynamic>);
+    }
+    throw Exception('Failed to submit account deletion request');
+  }
+
+  /// Cancels an eligible pending account deletion request
+  Future<bool> cancelAccountDeletion(String requestId) async {
+    final response = await _apiClient.post(
+      '/api/legal/account-deletion-requests/$requestId/cancel',
+    );
+    if (response is Map<String, dynamic> && response['success'] == true) {
+      return true;
+    }
+    return false;
+  }
+
+  // =========================================================================
+  // DATA EXPORT WORKFLOWS (DPDP SEC 11)
+  // =========================================================================
+
+  /// Retrieves user's personal data export requests
+  Future<List<DataExportRequest>> getMyDataExportRequests() async {
+    try {
+      final response = await _apiClient.get('/api/legal/data-export-requests/me');
+      if (response is Map<String, dynamic> && response['requests'] is List) {
+        final list = response['requests'] as List;
+        return list.map((item) => DataExportRequest.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Submits request for machine-readable personal data archive
+  Future<DataExportRequest> requestDataExport({
+    String exportScope = 'FULL_PERSONAL_DATA',
+  }) async {
+    final response = await _apiClient.post(
+      '/api/legal/data-export-requests',
+      body: {
+        'exportScope': exportScope,
+      },
+    );
+    if (response is Map<String, dynamic> && response['request'] is Map<String, dynamic>) {
+      return DataExportRequest.fromJson(response['request'] as Map<String, dynamic>);
+    }
+    throw Exception('Failed to submit data export request');
+  }
+
+  // =========================================================================
+  // DATA CORRECTION WORKFLOWS (DPDP SEC 12)
+  // =========================================================================
+
+  /// Retrieves user's submitted profile data correction requests
+  Future<List<DataCorrectionRequest>> getMyDataCorrectionRequests() async {
+    try {
+      final response = await _apiClient.get('/api/legal/data-correction-requests/me');
+      if (response is Map<String, dynamic> && response['requests'] is List) {
+        final list = response['requests'] as List;
+        return list.map((item) => DataCorrectionRequest.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Submits an audited profile field correction request
+  Future<DataCorrectionRequest> requestDataCorrection({
+    required String fieldName,
+    required String proposedValue,
+    String? reason,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/legal/data-correction-requests',
+      body: {
+        'fieldName': fieldName,
+        'proposedValue': proposedValue.trim(),
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
+    );
+    if (response is Map<String, dynamic> && response['request'] is Map<String, dynamic>) {
+      return DataCorrectionRequest.fromJson(response['request'] as Map<String, dynamic>);
+    }
+    throw Exception('Failed to submit data correction request');
+  }
+
+  // =========================================================================
+  // PURPOSE-SPECIFIC CONSENT WITHDRAWAL (DPDP SEC 6(4))
+  // =========================================================================
+
+  /// Withdraws previously granted optional processing consent without deleting account
+  Future<bool> withdrawOptionalConsent({
+    required String purpose,
+    String? source,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/legal/consents/withdraw',
+      body: {
+        'purpose': purpose,
+        'source': source ?? 'FLUTTER_APP',
+      },
+    );
+    if (response is Map<String, dynamic> && response['success'] == true) {
+      return true;
+    }
+    return false;
+  }
+
+  // =========================================================================
+  // GUARDIAN CONSENTS (DPDP SEC 9 - STUDENT SAFEGUARDS)
+  // =========================================================================
+
+  /// Retrieves guardian consent records for the authenticated student user
+  Future<List<GuardianConsent>> getMyGuardianConsents() async {
+    try {
+      final response = await _apiClient.get('/api/legal/guardian-consents/me');
+      if (response is Map<String, dynamic>) {
+        final list = (response['results'] ?? response['guardianConsents'] ?? response['consents']) as List?;
+        if (list != null) {
+          return list.map((item) => GuardianConsent.fromJson(item as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Submits verifiable parental or legal guardian consent declaration
+  Future<GuardianConsent> submitGuardianConsent({
+    required String guardianName,
+    required String guardianEmail,
+    String? guardianPhone,
+    required String relationship,
+    String? consentPolicyVersion,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/legal/guardian-consents',
+      body: {
+        'guardianName': guardianName.trim(),
+        'guardianEmail': guardianEmail.trim().toLowerCase(),
+        if (guardianPhone != null && guardianPhone.trim().isNotEmpty) 'guardianPhone': guardianPhone.trim(),
+        'relationship': relationship.trim(),
+        'consentPolicyVersion': consentPolicyVersion ?? '1.0.0',
+      },
+    );
+    if (response is Map<String, dynamic> && response['guardianConsent'] is Map<String, dynamic>) {
+      return GuardianConsent.fromJson(response['guardianConsent'] as Map<String, dynamic>);
+    }
+    throw Exception('Failed to submit guardian consent');
   }
 }

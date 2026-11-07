@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../legal/data/authoritative_policy_content.dart';
+import '../../../legal/presentation/widgets/document_reader_sheet.dart';
 import '../../domain/models/bot_user_role.dart';
 import '../../domain/models/pixmint_default_suggestions.dart';
 import '../../providers/pixmint_bot_providers.dart';
@@ -157,6 +160,9 @@ class _PixmintChatSheetState extends ConsumerState<PixmintChatSheet> {
                   },
                 ),
 
+                // Canonical AI Usage & Engineering Disclaimer Notice
+                _buildAiDisclaimerBar(context),
+
                 // Main Chat Body
                 Expanded(
                   child: chatState.isInitializing
@@ -267,6 +273,88 @@ class _PixmintChatSheetState extends ConsumerState<PixmintChatSheet> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAiDisclaimerBar(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: PixmintBotTheme.spacingMd, vertical: 6),
+      decoration: BoxDecoration(
+        color: PixmintBotTheme.surfaceElevated.withValues(alpha: 0.95),
+        border: Border(
+          bottom: BorderSide(
+            color: PixmintBotTheme.emerald.withValues(alpha: 0.15),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 13,
+                color: PixmintBotTheme.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'PIXMINT BOT provides AI-assisted information. Responses may contain errors and are not certified architectural or engineering advice. Verify technical and safety-critical calculations with an appropriately qualified professional.',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1.35,
+                    color: PixmintBotTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              InkWell(
+                onTap: () => DocumentReaderSheet.show(context, kDefaultAiDisclaimerDocument),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    'Read Full Disclaimer (v1.0.0)',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: PixmintBotTheme.emerald,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  Navigator.of(context).maybePop();
+                  context.push('/legal/center');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    'Legal Center \u2192',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: PixmintBotTheme.emerald,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

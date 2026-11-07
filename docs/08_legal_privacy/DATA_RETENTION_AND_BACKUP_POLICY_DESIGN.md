@@ -109,3 +109,4 @@ To resolve the tension between immutability of backups and the Right to Erasure,
   - `GET /api/admin/legal/data-retention-policies`
   - `POST /api/admin/legal/data-retention-policies`
 - **Automated Tests:** Covered by `worker/test/canonical_legal_system_phase2.test.mjs` (Test 4 confirms queryability, integrity, and category uniqueness).
+

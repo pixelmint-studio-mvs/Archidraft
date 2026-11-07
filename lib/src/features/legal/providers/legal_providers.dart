@@ -2,6 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../api/providers/api_providers.dart';
 import '../data/legal_repository.dart';
+import '../domain/account_deletion_request.dart';
+import '../domain/data_correction_request.dart';
+import '../domain/data_export_request.dart';
+import '../domain/guardian_consent.dart';
 import '../domain/legal_document.dart';
 import '../domain/privacy_request.dart';
 import '../domain/user_legal_status.dart';
@@ -36,8 +40,41 @@ final effectiveDocumentsListProvider = FutureProvider<List<LegalDocument>>((ref)
   return ref.watch(legalRepositoryProvider).getEffectiveDocuments();
 });
 
+final allCanonicalDocumentsProvider = FutureProvider<List<LegalDocument>>((ref) async {
+  return ref.watch(legalRepositoryProvider).getAllCanonicalDocuments();
+});
+
 final myPrivacyRequestsProvider = FutureProvider<List<PrivacyRequest>>((ref) async {
   return ref.watch(legalRepositoryProvider).getMyPrivacyRequests();
+});
+
+final myAccountDeletionRequestsProvider = FutureProvider<List<AccountDeletionRequest>>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) return [];
+  return ref.watch(legalRepositoryProvider).getMyAccountDeletionRequests();
+});
+
+final activeAccountDeletionRequestProvider = Provider<AccountDeletionRequest?>((ref) {
+  final asyncRequests = ref.watch(myAccountDeletionRequestsProvider);
+  return asyncRequests.value?.where((r) => r.isCancellable).firstOrNull;
+});
+
+final myDataExportRequestsProvider = FutureProvider<List<DataExportRequest>>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) return [];
+  return ref.watch(legalRepositoryProvider).getMyDataExportRequests();
+});
+
+final myDataCorrectionRequestsProvider = FutureProvider<List<DataCorrectionRequest>>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) return [];
+  return ref.watch(legalRepositoryProvider).getMyDataCorrectionRequests();
+});
+
+final myGuardianConsentsProvider = FutureProvider<List<GuardianConsent>>((ref) async {
+  final authState = ref.watch(authStateChangesProvider);
+  if (authState.value == null) return [];
+  return ref.watch(legalRepositoryProvider).getMyGuardianConsents();
 });
 
 /// Ephemeral in-memory state tracking Terms & Conditions acceptance per role-selection flow

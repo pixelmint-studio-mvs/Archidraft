@@ -18,6 +18,8 @@ import '../../profile/providers/credentials_providers.dart';
 import '../../profile/providers/achievements_providers.dart';
 import '../../profile/providers/metrics_providers.dart';
 import 'package:archi_draft/src/shared/widgets/hexagonal_monogram_3d_viewer.dart';
+import '../../legal/providers/legal_providers.dart';
+import '../../legal/presentation/widgets/guardian_consent_dialog.dart';
 
 // ─────────────────────────────────────────────
 // LOCAL PROVIDERS
@@ -167,6 +169,10 @@ class StudentStudioScreen extends ConsumerWidget {
               children: [
                 // ── Welcome Header ──
                 _WelcomeHeader(profileAsync: profileAsync),
+                const SizedBox(height: AppSpacing.md),
+
+                // ── Student Guardian Consent Banner (§ 9 DPDPA) ──
+                const _StudentGuardianConsentBanner(),
                 const SizedBox(height: AppSpacing.xl),
 
                 if (useWideLayout) ...[
@@ -334,6 +340,165 @@ class _WelcomeHeader extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// STUDENT GUARDIAN CONSENT BANNER (§ 9 DPDPA)
+// ─────────────────────────────────────────────
+
+class _StudentGuardianConsentBanner extends ConsumerWidget {
+  const _StudentGuardianConsentBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final guardianAsync = ref.watch(myGuardianConsentsProvider);
+
+    return guardianAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (consents) {
+        if (consents.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.escalator_warning_outlined, color: AppColors.secondary, size: 24),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Under-18 Student Safeguards (DPDP Act § 9)',
+                        style: AppTypography.buttonText.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'If you are under 18 years of age, verifiable parental or legal guardian consent is required to participate in live commercial project drafting.',
+                        style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.secondary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  onPressed: () => GuardianConsentDialog.show(context),
+                  child: const Text('Submit Consent'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final latest = consents.first;
+        if (latest.isVerified) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_rounded, color: AppColors.success, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Parental Consent Verified: ${latest.guardianName} (${latest.relationship})',
+                    style: AppTypography.bodySm.copyWith(color: AppColors.success, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (latest.isPending) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.hourglass_top_rounded, color: Colors.amber.shade800, size: 22),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Guardian Consent Verification Pending',
+                        style: AppTypography.buttonText.copyWith(color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Declaration submitted for ${latest.guardianName} (${latest.relationship}) is currently awaiting administrative verification under DPDP Act § 9.',
+                        style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (latest.isRejected) {
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 22),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Guardian Consent Rejected',
+                        style: AppTypography.buttonText.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Previous declaration could not be verified. Please submit updated parental details.',
+                        style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+                  onPressed: () => GuardianConsentDialog.show(context),
+                  child: const Text('Resubmit'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
     );
   }
 }

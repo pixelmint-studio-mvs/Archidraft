@@ -115,3 +115,4 @@ To guard against partial execution failures (e.g. D1 updates succeeding while R2
 
 - If an error occurs, the request status is set to `FAILED`, the stack trace is written to `failure_details`, and already-processed systems remain recorded.
 - Administrative tools can safely retry failed jobs without duplicate operations or corrupted state.
+

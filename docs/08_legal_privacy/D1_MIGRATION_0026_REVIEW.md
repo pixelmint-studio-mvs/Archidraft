@@ -155,3 +155,4 @@ Migration `0026_canonical_legal_system.sql` was verified using an isolated local
 - Table creation and constraint validation: **PASSED (100%)**
 - Seed records presence: **PASSED (100%)**
 - Rollback execution and re-application: **PASSED (100%)**
+

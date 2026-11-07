@@ -12,6 +12,9 @@ import 'widgets/profile_header.dart';
 import 'package:go_router/go_router.dart';
 import 'widgets/student_credentials_card.dart';
 import 'widgets/student_achievements_card.dart';
+import '../../legal/presentation/widgets/document_reader_sheet.dart';
+import '../../legal/presentation/widgets/account_deletion_dialog.dart';
+import '../../legal/data/authoritative_policy_content.dart';
 
 // ---------------------------------------------------------------------------
 // BLUEPRINT GRID BACKGROUND PAINTER (40px unit from DESIGN.md)
@@ -159,6 +162,8 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                           ),
                         ],
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildLegalPrivacyCard(context),
                         const SizedBox(height: AppSpacing.xxxl),
                       ],
                     ),
@@ -260,6 +265,101 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLegalPrivacyCard(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.6)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.shield_outlined, color: AppColors.secondary, size: 22),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'LEGAL & PRIVACY',
+                        style: AppTypography.labelMono.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.secondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        'Manage your legal agreements, personal information and privacy preferences.',
+                        style: AppTypography.bodySm.copyWith(color: AppColors.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            ListTile(
+              leading: const Icon(Icons.hub_outlined, color: AppColors.secondary),
+              title: Text('Legal & Privacy Center', style: AppTypography.buttonText.copyWith(fontWeight: FontWeight.bold)),
+              subtitle: Text('View platform compliance status, document versions, and contact details.', style: AppTypography.bodySm),
+              trailing: const Icon(Icons.chevron_right),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => context.push('/legal/center'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.description_outlined, color: AppColors.onSurfaceVariant),
+              title: Text('Terms and Conditions', style: AppTypography.bodyMd),
+              subtitle: Text('Read the active Platform Terms and Conditions agreement.', style: AppTypography.bodySm),
+              trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.outline),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => DocumentReaderSheet.show(context, kDefaultEffectiveTermsDocument),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.onSurfaceVariant),
+              title: Text('Privacy Policy & Data Notice', style: AppTypography.bodyMd),
+              subtitle: Text('Review data collection, processing purposes, and DPDPA rights.', style: AppTypography.bodySm),
+              trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.outline),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => DocumentReaderSheet.show(context, kDefaultEffectivePrivacyDocument),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder_shared_outlined, color: AppColors.onSurfaceVariant),
+              title: Text('My Data & Privacy Requests', style: AppTypography.bodyMd),
+              subtitle: Text('Export your personal data or request corrections under Section 11/12 DPDPA.', style: AppTypography.bodySm),
+              trailing: const Icon(Icons.chevron_right),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => context.push('/legal/center'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: AppColors.error),
+              title: Text('Account Deletion', style: AppTypography.bodyMd.copyWith(color: AppColors.error, fontWeight: FontWeight.w600)),
+              subtitle: Text('Request erasure of your account with a 30-day statutory grace period.', style: AppTypography.bodySm),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.error),
+              contentPadding: EdgeInsets.zero,
+              onTap: () => AccountDeletionDialog.show(context),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

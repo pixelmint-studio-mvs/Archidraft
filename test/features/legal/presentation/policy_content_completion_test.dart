@@ -11,29 +11,29 @@ void main() {
 
   group('Authoritative Policy Content Integrity & Safeguard Tests', () {
     test('1. Terms and Conditions text contains expected authoritative clauses', () {
-      expect(kAuthoritativeTermsAndConditionsContent, contains('ARCHI DRAFT — TERMS & CONDITIONS'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('1. INTRODUCTION AND ACCEPTANCE'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('4. ROLE-SPECIFIC RESPONSIBILITIES'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('4.1. Client / Engineer Responsibilities'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('4.2. Draughtsman Responsibilities'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('4.3. Student Responsibilities'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('9. CORRECTIONS AND REVISION CONDITIONS'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('14. OWNERSHIP OF UPLOADED DRAWINGS & DERIVATIVE WORKS'));
-      expect(kAuthoritativeTermsAndConditionsContent, contains('21. GOVERNING LAW AND JURISDICTION'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('PLATFORM TERMS AND CONDITIONS'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('1. PLATFORM SCOPE AND SERVICES'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('4. PROFESSIONAL AND ROLE-SPECIFIC RESPONSIBILITIES'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('Client / Consulting Engineer Responsibilities'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('Draughtsman Responsibilities'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('Student Responsibilities'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('8. REVISION CYCLES AND SCOPE BOUNDARIES'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('6. INTELLECTUAL PROPERTY AND CAD OWNERSHIP'));
+      expect(kAuthoritativeTermsAndConditionsContent, contains('12. GRIEVANCE REDRESSAL AND GOVERNING LAW'));
       expect(kAuthoritativeTermsVersion, equals('1.0.0'));
-      expect(kAuthoritativeTermsTitle, equals('Terms and Conditions'));
+      expect(kAuthoritativeTermsTitle, equals('Platform Terms and Conditions'));
     });
 
     test('2. Privacy Policy text contains expected authoritative clauses', () {
-      expect(kAuthoritativePrivacyPolicyContent, contains('ARCHI DRAFT — PRIVACY POLICY'));
-      expect(kAuthoritativePrivacyPolicyContent, contains('1. INTRODUCTION AND ORGANIZATION IDENTITY'));
+      expect(kAuthoritativePrivacyPolicyContent, contains('PRIVACY POLICY & DATA PROTECTION NOTICE'));
+      expect(kAuthoritativePrivacyPolicyContent, contains('1. DATA FIDUCIARY IDENTITY'));
       expect(kAuthoritativePrivacyPolicyContent, contains('DPDP Act'));
-      expect(kAuthoritativePrivacyPolicyContent, contains('3. CATEGORIES OF PERSONAL DATA ACTUALLY COLLECTED'));
-      expect(kAuthoritativePrivacyPolicyContent, contains('12. DATA RETENTION: STATUTORY OBLIGATIONS VS. OPERATIONAL SCHEDULES'));
-      expect(kAuthoritativePrivacyPolicyContent, contains('15. SPECIAL PROVISIONS FOR STUDENT USERS & MINORS'));
-      expect(kAuthoritativePrivacyPolicyContent, contains('18. GRIEVANCE AND PRIVACY CONTACT DETAILS'));
+      expect(kAuthoritativePrivacyPolicyContent, contains('3. CATEGORIES OF PERSONAL DATA COLLECTED'));
+      expect(kAuthoritativePrivacyPolicyContent, contains('6. STATUTORY LOG RETENTION VS. OPERATIONAL ARCHIVES'));
+      expect(kAuthoritativePrivacyPolicyContent, contains('7. SAFEGUARDS FOR STUDENT USERS AND MINORS (<18 YEARS)'));
+      expect(kAuthoritativePrivacyPolicyContent, contains('9. HOW TO EXERCISE YOUR RIGHTS & GRIEVANCE REDRESSAL'));
       expect(kAuthoritativePrivacyVersion, equals('1.0.0'));
-      expect(kAuthoritativePrivacyTitle, equals('Privacy Policy'));
+      expect(kAuthoritativePrivacyTitle, equals('Privacy Policy & Data Protection Notice'));
     });
 
     testWidgets('3. Pre-login onboarding screen populates and displays authoritative Terms and Privacy Policy', (tester) async {
@@ -59,22 +59,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify Headers and Version Badges
-      expect(find.text('Terms and Conditions'), findsOneWidget);
+      expect(find.text(kAuthoritativeTermsTitle), findsOneWidget);
       expect(find.text('v1.0.0'), findsNWidgets(2)); // Both Terms and Privacy preview badges
 
       // Verify Terms content is populated and displayed
-      expect(find.textContaining('1. INTRODUCTION AND ACCEPTANCE'), findsOneWidget);
+      expect(find.textContaining('1. PLATFORM SCOPE AND SERVICES'), findsOneWidget);
 
       // Privacy tile starts collapsed by default
-      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(find.text(kAuthoritativePrivacyTitle), findsOneWidget);
 
       // Expand Privacy tile
-      final privacyTile = find.widgetWithText(ExpansionTile, 'Privacy Policy');
+      final privacyTile = find.widgetWithText(ExpansionTile, kAuthoritativePrivacyTitle);
       await tester.tap(privacyTile);
       await tester.pumpAndSettle();
 
       // Verify Privacy Policy content is readable when expanded
-      expect(find.textContaining('1. INTRODUCTION AND ORGANIZATION IDENTITY'), findsOneWidget);
+      expect(find.textContaining('1. DATA FIDUCIARY IDENTITY'), findsOneWidget);
       expect(find.textContaining('DPDP Act'), findsWidgets);
     });
 
@@ -112,7 +112,7 @@ void main() {
 
       // Verify full authoritative text is displayed rather than the 22-character placeholder
       expect(find.textContaining('4.2. Draughtsman Responsibilities'), findsOneWidget);
-      expect(find.textContaining('14. OWNERSHIP OF UPLOADED DRAWINGS & DERIVATIVE WORKS'), findsOneWidget);
+      expect(find.textContaining('6. INTELLECTUAL PROPERTY AND CAD OWNERSHIP'), findsOneWidget);
     });
 
     testWidgets('5. Consent behavior, checkboxes, and optional preference defaults remain strictly intact', (tester) async {

@@ -379,3 +379,4 @@ Approving automatically updates the corresponding column in the `users` table.
 }
 ```
 - **Response:** `200 OK`
+
