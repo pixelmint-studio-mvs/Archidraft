@@ -220,3 +220,4 @@ Executed: `cd worker; npm test`
 
 1. **Intentional Environment Isolation:** Localhost Miniflare D1 emulation remains strictly decoupled from remote staging and production databases. Local edits or test project creations will not mutate remote Cloudflare staging or production data.
 2. **Idempotent Synchronization Re-run:** If the local SQLite database is ever reset or cleared during migrations, running `node scripts/sync_authoritative_data.mjs` will immediately restore the exact 33-project, 17-account reconciled dataset in under 50 milliseconds.
+

@@ -63,3 +63,4 @@ console.log('- Active in drafting (inProgress + waitingAcceptance):', inProgress
 console.log('- Registered Engineers:', results[7].c);
 console.log('- Certified Draughtsmen:', results[5].c);
 console.log('- Enrolled Students:', db.prepare("SELECT count(*) as c FROM users WHERE role = 'STUDENT'").get().c);
+
