@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BusinessProfile",
+  "description": "Canonical schema for Archi Draft / Draughtsman Studio business identity and compliance configuration",
+  "type": "object",
+  "required": [
+    "businessIdentity",
+    "productIdentity",
+    "websiteAddresses",
+    "contactInformation",
+    "physicalAddress",
+    "grievanceOfficer",
+    "verificationStatus",
+    "configurationVersion",
+    "updatedAt"
+  ],
+  "properties": {
+    "businessIdentity": {
+      "type": "object",
+      "required": ["structure", "legalProprietor", "operatingBrand", "legalRepresentation"],
+      "properties": {
+        "structure": { "type": "string", "enum": ["Sole Proprietorship"] },
+        "legalProprietor": { "type": "string" },
+        "operatingBrand": { "type": "string" },
+        "legalRepresentation": { "type": "string" }
+      }
+    },
+    "productIdentity": {
+      "type": "object",
+      "required": ["productName", "description"],
+      "properties": {
+        "productName": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "websiteAddresses": {
+      "type": "object",
+      "required": ["applicationWebsite", "businessWebsite"],
+      "properties": {
+        "applicationWebsite": { "type": "string", "format": "uri" },
+        "businessWebsite": { "type": "string", "format": "uri" }
+      }
+    },
+    "contactInformation": {
+      "type": "object",
+      "required": ["grievanceEmail", "supportEmail", "privacyEmail"],
+      "properties": {
+        "grievanceEmail": { "type": "string", "format": "email" },
+        "supportEmail": { "type": "string", "format": "email" },
+        "privacyEmail": { "type": "string", "format": "email" }
+      }
+    },
+    "physicalAddress": {
+      "type": "object",
+      "required": ["status", "country"],
+      "properties": {
+        "status": { "type": "string", "enum": ["PENDING_VERIFICATION", "VERIFIED"] },
+        "line1": { "type": ["string", "null"] },
+        "line2": { "type": ["string", "null"] },
+        "city": { "type": ["string", "null"] },
+        "state": { "type": ["string", "null"] },
+        "postalCode": { "type": ["string", "null"] },
+        "country": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "grievanceOfficer": {
+      "type": "object",
+      "required": ["status", "formalAppointmentStatus", "email"],
+      "properties": {
+        "status": { "type": "string", "enum": ["PENDING_VERIFICATION", "APPOINTED"] },
+        "formalAppointmentStatus": { "type": "string", "enum": ["PENDING_VERIFICATION", "APPOINTED"] },
+        "name": { "type": "string" },
+        "designation": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "appointmentDate": { "type": ["string", "null"] },
+        "note": { "type": "string" }
+      }
+    },
+    "verificationStatus": {
+      "type": "object",
+      "description": "Summary mapping of field verification statuses"
+    },
+    "configurationVersion": { "type": "string" },
+    "updatedAt": { "type": "string" }
+  }
+}

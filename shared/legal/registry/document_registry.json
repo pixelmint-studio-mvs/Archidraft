@@ -1,0 +1,142 @@
+{
+  "registryVersion": "1.0.0",
+  "updatedAt": "2026-11-07T09:30:00Z",
+  "documents": [
+    {
+      "id": "doc-terms-v1-0-0",
+      "documentType": "TERMS_AND_CONDITIONS",
+      "version": "1.0.0",
+      "title": "Platform Terms and Conditions",
+      "summary": "Master contractual terms governing access, user role responsibilities, acceptable use, liability, and dispute resolution for Archi Draft.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN", "ALL"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/terms_and_conditions/v1.0.0.md",
+      "changeSummary": "Initial baseline canonical terms incorporating confirmed sole proprietorship identity of MOHAMMED MOSIN S and Draughtsman Studio.",
+      "governingStatutes": [
+        "Indian Contract Act, 1872",
+        "Information Technology Act, 2000",
+        "Consumer Protection (E-Commerce) Rules, 2020"
+      ]
+    },
+    {
+      "id": "doc-priv-v1-0-0",
+      "documentType": "PRIVACY_POLICY",
+      "version": "1.0.0",
+      "title": "Privacy Policy & Personal Data Protection Notice",
+      "summary": "Comprehensive data fiduciary disclosure detailing personal data processing, Firebase authentication, Cloudflare storage, statutory retention, and user data rights.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": false,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN", "ALL"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/privacy_policy/v1.0.0.md",
+      "changeSummary": "Initial canonical privacy policy with confirmed business contacts, explicit DPDP Act 2023 grounds, and CERT-In 180-day retention logging.",
+      "governingStatutes": [
+        "Digital Personal Data Protection Act, 2023",
+        "Information Technology (SPDI) Rules, 2011",
+        "CERT-In Directions (April 2022)"
+      ]
+    },
+    {
+      "id": "doc-ai-v1-0-0",
+      "documentType": "AI_USAGE_DISCLAIMER",
+      "version": "1.0.0",
+      "title": "Pixmint Bot & AI Usage Disclaimer",
+      "summary": "Explicit disclosure on Pixmint Bot AI capabilities, non-certification of architectural/engineering outputs, and mandatory human professional verification.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN", "ALL"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/ai_usage_disclaimer/v1.0.0.md",
+      "changeSummary": "Initial canonical AI disclaimer specifically branding Pixmint Bot, establishing non-professional status, and mandating licensed human verification.",
+      "governingStatutes": [
+        "Information Technology Act, 2000",
+        "Consumer Protection Act, 2019"
+      ]
+    },
+    {
+      "id": "doc-eng-v1-0-0",
+      "documentType": "ENGINEERING_DISCLAIMER",
+      "version": "1.0.0",
+      "title": "Architectural and Engineering Professional Services Disclaimer",
+      "summary": "Clarification that Archi Draft is a technical workflow and educational collaboration portal, not a licensed engineering firm or architect of record.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN", "ALL"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/engineering_disclaimer/v1.0.0.md",
+      "changeSummary": "Initial canonical engineering disclaimer clarifying professional liability, statutory permit requirements, and structural calculation sign-offs.",
+      "governingStatutes": [
+        "Architects Act, 1972",
+        "National Building Code of India (NBC 2016)",
+        "Local Municipal Building Bye-Laws"
+      ]
+    },
+    {
+      "id": "doc-cad-v1-0-0",
+      "documentType": "CAD_OWNERSHIP_FRAMEWORK",
+      "version": "1.0.0",
+      "title": "CAD Drawing Ownership and Intellectual Property Framework",
+      "summary": "Framework defining background IP, project deliverable rights, limited platform hosting license, and non-automatic IP transfer rules.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/cad_ownership_framework/v1.0.0.md",
+      "changeSummary": "Initial canonical IP framework explicitly preserving client/engineer background IP, granting limited operational hosting license, and barring automatic transfers.",
+      "governingStatutes": [
+        "Indian Copyright Act, 1957",
+        "Indian Patents Act, 1970",
+        "Commercial Courts Act, 2015"
+      ]
+    },
+    {
+      "id": "doc-rev-v1-0-0",
+      "documentType": "REVISION_POLICY",
+      "version": "1.0.0",
+      "title": "Project Revision and Correction Policy",
+      "summary": "Rules governing included revision rounds (2 cycles), correction scope vs new scope, turnaround windows, and additional billable drafting cycles.",
+      "status": "PENDING_BUSINESS_APPROVAL",
+      "isMandatory": false,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "ADMIN"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/revision_policy/v1.0.0.md",
+      "changeSummary": "Initial canonical revision policy formalizing 2 included rounds per brief and delineating drafting errors from architectural scope expansions.",
+      "governingStatutes": [
+        "Indian Contract Act, 1872"
+      ]
+    },
+    {
+      "id": "doc-ref-v1-0-0",
+      "documentType": "CANCELLATION_REFUND_POLICY",
+      "version": "1.0.0",
+      "title": "Subscription, Cancellation and Refund Policy",
+      "summary": "Policy governing project cancellation milestones, drafting service dispute resolution, student course enrollment refunds, and grievance escalation.",
+      "status": "PENDING_BUSINESS_APPROVAL",
+      "isMandatory": false,
+      "locale": "en-IN",
+      "targetAudience": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN", "ALL"],
+      "effectiveAt": null,
+      "publishedAt": null,
+      "contentPath": "documents/cancellation_refund_policy/v1.0.0.md",
+      "changeSummary": "Initial canonical refund policy establishing milestone-based cancellation and student withdrawal rules pending commercial payment gateway selection.",
+      "governingStatutes": [
+        "Consumer Protection (E-Commerce) Rules, 2020",
+        "Indian Contract Act, 1872"
+      ]
+    }
+  ]
+}

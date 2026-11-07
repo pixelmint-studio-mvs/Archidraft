@@ -1,0 +1,49 @@
+{
+  "manifestVersion": "1.0.0",
+  "generatedAt": "2026-11-07T09:30:00Z",
+  "activeVersions": {
+    "TERMS_AND_CONDITIONS": {
+      "version": "1.0.0",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "documentId": "doc-terms-v1-0-0"
+    },
+    "PRIVACY_POLICY": {
+      "version": "1.0.0",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": false,
+      "documentId": "doc-priv-v1-0-0"
+    },
+    "AI_USAGE_DISCLAIMER": {
+      "version": "1.0.0",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "documentId": "doc-ai-v1-0-0"
+    },
+    "ENGINEERING_DISCLAIMER": {
+      "version": "1.0.0",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "documentId": "doc-eng-v1-0-0"
+    },
+    "CAD_OWNERSHIP_FRAMEWORK": {
+      "version": "1.0.0",
+      "status": "PENDING_LEGAL_REVIEW",
+      "isMandatory": true,
+      "documentId": "doc-cad-v1-0-0"
+    },
+    "REVISION_POLICY": {
+      "version": "1.0.0",
+      "status": "PENDING_BUSINESS_APPROVAL",
+      "isMandatory": false,
+      "documentId": "doc-rev-v1-0-0",
+      "includedRounds": 2
+    },
+    "CANCELLATION_REFUND_POLICY": {
+      "version": "1.0.0",
+      "status": "PENDING_BUSINESS_APPROVAL",
+      "isMandatory": false,
+      "documentId": "doc-ref-v1-0-0"
+    }
+  }
+}

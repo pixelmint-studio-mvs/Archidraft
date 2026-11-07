@@ -1,0 +1,58 @@
+{
+  "businessIdentity": {
+    "structure": "Sole Proprietorship",
+    "legalProprietor": "MOHAMMED MOSIN S",
+    "operatingBrand": "DRAUGHTSMAN STUDIO",
+    "legalRepresentation": "DRAUGHTSMAN STUDIO — a sole proprietorship operated by MOHAMMED MOSIN S."
+  },
+  "productIdentity": {
+    "productName": "ARCHI DRAFT",
+    "description": "Professional architectural drafting, workflow coordination, and vocational CAD training platform."
+  },
+  "websiteAddresses": {
+    "applicationWebsite": "https://archidraft.draughtsmanstudio.com",
+    "businessWebsite": "https://draughtsmanstudio.com"
+  },
+  "contactInformation": {
+    "grievanceEmail": "mosin@draughtsmanstudio.com",
+    "supportEmail": "support@draughtsmanstudio.com",
+    "privacyEmail": "support@draughtsmanstudio.com"
+  },
+  "physicalAddress": {
+    "status": "PENDING_VERIFICATION",
+    "line1": null,
+    "line2": null,
+    "city": null,
+    "state": null,
+    "postalCode": null,
+    "country": "India",
+    "note": "Official physical business address has not yet been supplied. Marked PENDING_VERIFICATION. Website URLs must never be published or substituted as a physical address."
+  },
+  "grievanceOfficer": {
+    "status": "PENDING_VERIFICATION",
+    "formalAppointmentStatus": "PENDING_VERIFICATION",
+    "name": "PENDING_VERIFICATION",
+    "designation": "PENDING_VERIFICATION",
+    "email": "mosin@draughtsmanstudio.com",
+    "appointmentDate": null,
+    "note": "The Grievance Officer formal appointment and specific officer name require business confirmation. Do not automatically assume the proprietor name is the appointed officer."
+  },
+  "verificationStatus": {
+    "businessStructure": "CONFIRMED",
+    "legalProprietor": "CONFIRMED",
+    "operatingBrand": "CONFIRMED",
+    "productName": "CONFIRMED",
+    "applicationWebsite": "CONFIRMED",
+    "businessWebsite": "CONFIRMED",
+    "grievanceEmail": "CONFIRMED",
+    "supportEmail": "CONFIRMED",
+    "privacyEmail": "CONFIRMED",
+    "physicalAddress": "PENDING_VERIFICATION",
+    "grievanceOfficerFormalAppointment": "PENDING_VERIFICATION",
+    "grievanceOfficerName": "PENDING_VERIFICATION",
+    "grievanceOfficerDesignation": "PENDING_VERIFICATION",
+    "grievanceOfficerAppointmentDate": "PENDING_VERIFICATION"
+  },
+  "configurationVersion": "1.0.0",
+  "updatedAt": "2026-11-07T09:30:00Z"
+}

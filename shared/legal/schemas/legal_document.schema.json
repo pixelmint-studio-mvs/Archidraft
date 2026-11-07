@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LegalDocument",
+  "description": "Schema for individual legal policy documents and metadata",
+  "type": "object",
+  "required": [
+    "id",
+    "documentType",
+    "version",
+    "title",
+    "status",
+    "isMandatory",
+    "locale",
+    "targetAudience",
+    "contentPath",
+    "changeSummary"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "documentType": {
+      "type": "string",
+      "enum": [
+        "TERMS_AND_CONDITIONS",
+        "PRIVACY_POLICY",
+        "AI_USAGE_DISCLAIMER",
+        "ENGINEERING_DISCLAIMER",
+        "CAD_OWNERSHIP_FRAMEWORK",
+        "REVISION_POLICY",
+        "CANCELLATION_REFUND_POLICY"
+      ]
+    },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$" },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "PENDING_BUSINESS_APPROVAL",
+        "PENDING_LEGAL_REVIEW",
+        "EFFECTIVE",
+        "SUPERSEDED",
+        "ARCHIVED"
+      ]
+    },
+    "isMandatory": { "type": "boolean" },
+    "locale": { "type": "string", "default": "en-IN" },
+    "targetAudience": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["ENGINEER", "DRAUGHTSMAN", "STUDENT", "ADMIN", "ALL"]
+      }
+    },
+    "effectiveAt": { "type": ["string", "null"] },
+    "publishedAt": { "type": ["string", "null"] },
+    "contentPath": { "type": "string" },
+    "changeSummary": { "type": "string" },
+    "governingStatutes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

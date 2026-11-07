@@ -1,509 +1,556 @@
 import '../domain/legal_document.dart';
+export 'business_configuration.dart';
 
 const String kAuthoritativeTermsVersion = '1.0.0';
 const String kAuthoritativePrivacyVersion = '1.0.0';
+const String kAuthoritativeAiDisclaimerVersion = '1.0.0';
+const String kAuthoritativeEngineeringDisclaimerVersion = '1.0.0';
+const String kAuthoritativeCadOwnershipVersion = '1.0.0';
+const String kAuthoritativeRevisionPolicyVersion = '1.0.0';
+const String kAuthoritativeRefundPolicyVersion = '1.0.0';
 
-const String kAuthoritativeTermsTitle = 'Terms and Conditions';
-const String kAuthoritativePrivacyTitle = 'Privacy Policy';
+const String kAuthoritativeTermsTitle = 'Platform Terms and Conditions';
+const String kAuthoritativePrivacyTitle = 'Privacy Policy & Data Protection Notice';
+const String kAuthoritativeAiDisclaimerTitle = 'Pixmint Bot & AI Usage Disclaimer';
+const String kAuthoritativeEngineeringDisclaimerTitle =
+    'Architectural and Engineering Professional Services Disclaimer';
+const String kAuthoritativeCadOwnershipTitle =
+    'CAD Drawing Ownership and Intellectual Property Framework';
+const String kAuthoritativeRevisionPolicyTitle = 'Project Revision and Correction Policy';
+const String kAuthoritativeRefundPolicyTitle = 'Subscription, Cancellation and Refund Policy';
 
 /// Authoritative Terms & Conditions text sourced directly from
-/// `docs/08_legal_privacy/TERMS_AND_CONDITIONS_DRAFT.md`.
+/// `shared/legal/documents/terms_and_conditions/v1.0.0.md`.
 const String kAuthoritativeTermsAndConditionsContent = r'''
-# ARCHI DRAFT — TERMS & CONDITIONS
-**DOCUMENT STATUS:** DRAFT — NOT APPROVED FOR PRODUCTION
-**REQUIRES QUALIFIED INDIAN LEGAL REVIEW AND BUSINESS-OWNER APPROVAL BEFORE PUBLICATION**
-**PROJECT:** Archi Draft
-**PARENT BRAND:** Draughtsman Studio (https://www.draughtsmanstudio.com)
-**BUSINESS STRUCTURE:** Sole Proprietorship / Individual Business (Proprietor: [PROPRIETOR FULL LEGAL NAME — TO BE CONFIRMED])
-**TARGET JURISDICTION:** India
-**EFFECTIVE DATE:** [EFFECTIVE DATE — TO BE CONFIRMED UPON PRODUCTION RELEASE]
-**VERSION:** 1.2.0-DRAFT
+# ARCHI DRAFT — PLATFORM TERMS AND CONDITIONS
+
+**DOCUMENT STATUS:** PENDING_LEGAL_REVIEW / DRAFT (NOT APPROVED FOR UNRESTRICTED PRODUCTION PUBLICATION)  
+**BUSINESS STRUCTURE:** Sole Proprietorship  
+**LEGAL PROPRIETOR:** MOHAMMED MOSIN S  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**PRODUCT / PLATFORM:** ARCHI DRAFT  
+**APPLICATION WEBSITE:** https://archidraft.draughtsmanstudio.com  
+**BUSINESS WEBSITE:** https://draughtsmanstudio.com  
+**GRIEVANCE CONTACT:** mosin@draughtsmanstudio.com  
+**SUPPORT CONTACT:** support@draughtsmanstudio.com  
+**PHYSICAL ADDRESS:** PENDING_VERIFICATION (Official physical establishment address in India pending formal confirmation)  
+**GRIEVANCE OFFICER APPOINTMENT:** PENDING_VERIFICATION (Formal statutory appointment under IT Rules pending confirmation)  
+**TARGET JURISDICTION:** Republic of India  
+**DOCUMENT VERSION:** 1.0.0  
+**EFFECTIVE DATE:** PENDING_BUSINESS_AND_LEGAL_APPROVAL  
 
 ---
 
 > ### CONTRACTUAL NOTICE
-> These Terms & Conditions constitute a legally binding agreement between you ("User", "you") and **[PROPRIETOR FULL LEGAL NAME — TO BE CONFIRMED]**, an individual carrying on business as a **Sole Proprietorship** in India under the trade name **Draughtsman Studio** ("Archi Draft", "we", "us"). By affirmatively selecting the "I agree to the Terms & Conditions" checkbox and accessing the platform, you agree to be bound by these terms. If you do not agree, you must not access or use Archi Draft.
+> These Terms and Conditions ("Terms", "Agreement") constitute a legally binding contract under the **Indian Contract Act, 1872** between you ("User", "you", "your") and **DRAUGHTSMAN STUDIO**, a sole proprietorship operated by **MOHAMMED MOSIN S** ("Archi Draft", "we", "us", "our").
+> By accessing, registering for, or using the Archi Draft platform, web applications, or associated services, you affirmatively accept and agree to be bound by these Terms, our Privacy Policy, AI Usage Disclaimer, and Architectural & Engineering Disclaimer. If you do not agree to these Terms, you must immediately refrain from creating an account and cease using the platform.
 
 ---
 
-## 1. INTRODUCTION AND ACCEPTANCE
+## 1. PLATFORM SCOPE AND SERVICES
 
-1.1. **Platform Scope:** Archi Draft is a professional architecture and engineering workflow coordination platform developed under Draughtsman Studio. The platform facilitates project brief submission, CAD drawing coordination, revision cycles, communications, and technical drafting training among clients, engineers, architects, draughtsmen, students, and studio administrators.
+1.1. **Core Purpose:** Archi Draft is a technical workflow coordination and vocational drafting education portal operated under Draughtsman Studio. The platform facilitates architectural and engineering project brief submissions, CAD drawing exchanges, correction tracking, and structured vocational training modules among consulting engineers, professional draughtsmen, architectural students, and studio administrators.
 
-1.2. **Affirmative Acceptance:** You must actively accept these Terms by selecting an unselected checkbox at registration or upon the introduction of material changes. Continued use of the platform after receiving notice of updated terms shall constitute acceptance in accordance with Section 20.
+1.2. **Service Boundaries:** Archi Draft provides digital collaboration tools, Cloudflare R2 drawing storage, version-tracking mechanisms, and educational curriculum management. The platform itself is **not** a licensed architectural firm, structural engineering consultancy, or municipal approval authority.
 
----
-
-## 2. ELIGIBILITY AND ACCOUNT REGISTRATION
-
-2.1. **Age of Majority & General Commercial Accounts:** For Client/Engineer and Draughtsman accounts, you must be at least **18 years of age** and possess full legal capacity to contract under the **Indian Contract Act, 1872**.
-
-2.2. **Student Portal & Younger Students (<18 Years):**
-- Archi Draft may allow younger students under 18 years of age to access the Student Portal for vocational drafting and educational coursework, **subject to business-owner decisions, applicable legal requirements, and appropriate safeguards**.
-- Under Section 11 of the Indian Contract Act, 1872, minors lack the capacity to enter into binding contracts, and agreements entered into directly by minors are void ab initio.
-- Therefore, allowing minors is an **unresolved business decision subject to establishing comprehensive technical, operational, and legal safeguards**. When activated for users under 18, access will be contingent upon:
-  1. A parent or lawful guardian executing these Terms on behalf of the minor student;
-  2. The parent or guardian providing verifiable consent under Section 9 of the DPDP Act, 2023;
-  3. Adherence to strict statutory bans on behavioral monitoring, tracking, or detrimental processing of children;
-  4. Fulfilling any institutional educational onboarding requirements.
-- Parental consent alone does not resolve every legal requirement under Indian law. Until this multi-layered framework and qualified legal review are finalized, general registration remains restricted to adults aged 18 and older.
-
-2.3. **Account Types:** Users may register under one of four primary roles:
-- **Client / Engineer:** Qualified civil engineers, structural consultants, architects, interior designers, or project clients.
-- **Draughtsman:** Qualified architectural, structural, interior, or approval drafting technicians.
-- **Student:** Individuals enrolled in professional drafting and architectural CAD educational courses.
-- **Admin:** Authorized studio operations and administrative personnel.
-
-2.4. **One Account Per Identity:** You may not maintain multiple fraudulent accounts or register using false contact information.
+1.3. **Affirmative Consent:** Access to role-specific dashboard capabilities is conditioned on affirmative, unbundled acceptance of these Terms. Where material changes occur, continuing use is conditioned on explicit re-acceptance.
 
 ---
 
-## 3. ACCOUNT ACCURACY AND SECURITY
+## 2. ELIGIBILITY AND REGISTRATION REQUIREMENTS
 
-3.1. **Accuracy of Information:** You agree to provide true, accurate, current, and complete information during registration and in your user profile, and to promptly update your information as needed.
+2.1. **Age of Majority for Commercial Users:** To register for a Client / Consulting Engineer account or a Professional Draughtsman account, you must be at least **18 years of age** and possess full legal capacity to enter into binding contracts under the **Indian Contract Act, 1872**.
 
-3.2. **Credential Confidentiality:** You are solely responsible for maintaining the confidentiality of your login credentials (email and password). You must not share your account or authentication tokens with any unauthorized third party.
+2.2. **Student Accounts and Under-18 Safeguards:**
+- Archi Draft provides specialized educational training features for students pursuing civil drafting, CAD design, and architectural visualization.
+- Under Section 11 of the Indian Contract Act, 1872, individuals who have not attained the age of majority lack legal capacity to contract. Under Section 9 of the **Digital Personal Data Protection Act, 2023 (DPDP Act)**, processing the personal data of a child requires verifiable consent of the parent or lawful guardian.
+- Accordingly, student accounts for individuals under 18 years of age remain **strictly subject to the operational implementation of verifiable parental consent, prohibition of behavioral tracking, and qualified legal review**. Until such technical and legal safeguards are formally certified, general self-service registration remains restricted to adults aged 18 and older.
 
-3.3. **Unauthorized Access:** You agree to immediately notify Archi Draft at **[SECURITY INCIDENT EMAIL — TO BE CONFIRMED]** upon becoming aware of any unauthorized use of your account or security breach.
+2.3. **User Roles:** Platform accounts are segregated into four defined operational roles:
+- **Client / Engineer:** Licensed consulting engineers, architects, project managers, or design principals commissioning drafting deliverables.
+- **Draughtsman:** Technical drafting professionals producing 2D/3D CAD models, working drawings, and approval sheets.
+- **Student:** Learners enrolled in vocational drafting curriculum, technical modules, and skill certifications.
+- **Admin / Studio Admin:** Authorized studio personnel managing assignments, user verification, and platform security.
 
----
-
-## 4. ROLE-SPECIFIC RESPONSIBILITIES
-
-### 4.1. Client / Engineer Responsibilities
-- Provide clear, accurate, and complete project briefs, dimensions, site locations, and design specifications.
-- Ensure you have all necessary rights, licenses, and authorizations to upload and share referenced architectural or structural drawings.
-- Review submitted drawings diligently and provide clear, consolidated revision instructions during correction cycles.
-- Settle agreed milestone fees in accordance with project financial terms.
-
-### 4.2. Draughtsman Responsibilities
-- Handle all assigned project specifications, site details, and drawings with the highest standards of professional care and strict confidentiality.
-- Adhere to Indian architectural, structural, and municipal drafting standards (including National Building Code of India requirements where specified).
-- Complete assigned drafting deliverables within agreed timelines.
-- Never reuse, re-share, or repurpose client drawing files for third-party projects or unapproved personal portfolios.
-
-### 4.3. Student Responsibilities
-- Use the Student Portal and training exercises strictly for legitimate educational and skills-development purposes.
-- Maintain academic integrity in all submitted lesson drawings, tests, and module assignments.
-- Never upload plagiarized drawings or represent another technician's work as your own.
-- Respect intellectual property rights in all training resources provided by Draughtsman Studio.
-
-### 4.4. Admin Responsibilities
-- Exercise administrative authorities strictly in accordance with least-privilege security principles and written studio procedures.
-- Maintain strict confidentiality of user personal data and proprietary project drawings.
-- Never export or disclose platform data without explicit authorization.
+2.4. **Truthfulness of Registration:** You agree to provide true, current, and verifiable information during registration, including your legal name, active mobile number, professional qualification, and institutional affiliation where applicable. Impersonation or creation of deceptive accounts is strictly prohibited.
 
 ---
 
-## 5. PROJECT SUBMISSION AND REVIEW
+## 3. ACCOUNT SECURITY AND CREDENTIALS
 
-5.1. **Submission Requirements:** Projects submitted through the Engineer Panel must include required project metadata (project name, site address, drawing type, project area).
+3.1. **Authentication:** User authentication is powered by **Google Firebase Authentication**. Passwords are encrypted and salted using industry-standard hashing. Users are strictly responsible for maintaining credential secrecy.
 
-5.2. **Review and Verification:** Submitted projects may undergo administrative and technical review before being assigned to a draughtsman. Archi Draft reserves the right to decline project submissions that violate acceptable use standards, contain incomplete briefs, or propose unlawful construction activities.
+3.2. **Incident Reporting:** If you discover or suspect unauthorized access to your account or any security incident, you must notify us immediately at `support@draughtsmanstudio.com`.
 
----
-
-## 6. PROJECT ASSIGNMENT WORKFLOW
-
-6.1. **Assignment Criteria:** Projects are assigned to draughtsmen based on specialization (Architectural, Structural, Interior, Approval), workload availability, and technical competency.
-
-6.2. **No Guaranteed Assignment:** Project submission does not guarantee immediate assignment if technical specifications require clarification or if studio capacity is constrained.
+3.3. **Session Responsibility:** You remain legally responsible for all actions, briefs, drawing uploads, and comments transmitted under your authenticated session credentials.
 
 ---
 
-## 7. ASSIGNMENT ACCEPTANCE AND REJECTION
+## 4. PROFESSIONAL AND ROLE-SPECIFIC RESPONSIBILITIES
 
-7.1. **Draughtsman Right to Decline:** An assigned draughtsman may accept or decline a proposed assignment based on technical assessment and availability within the prescribed acceptance window.
+4.1. **Client / Consulting Engineer Responsibilities:**
+- Ensure all uploaded briefs, survey data, site dimensions, and preliminary sketches are accurate and complete.
+- Verify that you possess all intellectual property rights, licenses, or authorizations necessary to share reference architectural plans.
+- Provide clear, consolidated revision instructions within agreed correction cycles.
+- Acknowledge that final construction drawings must be reviewed, verified, and stamped by a licensed architect or structural engineer of record prior to physical construction.
 
-7.2. **Reassignment:** If an assignment is declined or unacknowledged within the required timeframe, the platform administrators may reassign the project to an alternative qualified draughtsman.
+4.2. **Draughtsman Responsibilities:**
+- Prepare drafting deliverables with professional care and in accordance with Indian drafting conventions and National Building Code of India (NBC 2016) guidelines where specified.
+- Maintain absolute confidentiality regarding client drawing files, project locations, and private dimensions.
+- Never re-use, distribute, or publish proprietary project drawings for personal commercial gain or unauthorized third-party projects.
 
----
+4.3. **Student Responsibilities:**
+- Utilize training modules, lesson files, and feedback exclusively for genuine educational advancement.
+- Maintain academic honesty. Plagiarism of peer assignments or submitting work generated entirely by unauthorized automated means constitutes grounds for immediate suspension without certificate issuance.
 
-## 8. PROJECT STATUS AND COMPLETION
-
-8.1. **Workflow Statuses:** Projects progress through defined workflow milestones: `DRAFT`, `SUBMITTED`, `ASSIGNED`, `IN_PROGRESS`, `REVIEW`, `CORRECTION_REQUESTED`, and `COMPLETED`.
-
-8.2. **Formal Completion:** A project is marked `COMPLETED` when the client/engineer approves the final drawing deliverables, or after the expiration of the defined review window following delivery, provided no outstanding correction requests exist.
-
----
-
-## 9. CORRECTIONS AND REVISION CONDITIONS
-
-9.1. **Revision Rounds:** Projects include the number of revision rounds agreed upon in the initial project quotation or scope agreement.
-
-9.2. **Scope of Revisions:** Corrections must pertain to the original project brief. Fundamental design changes, substantial additions to project area, or new drawing categories requested after drafting commencement may be treated as out-of-scope variations subject to additional fees and adjusted timelines.
+4.4. **Admin Responsibilities:**
+- Administer the platform adhering to least-privilege principles, preserving the integrity of user personal data and proprietary CAD assets.
 
 ---
 
-## 10. SERVICE AVAILABILITY AND LIMITATIONS
+## 5. DOCUMENT AND DRAWING UPLOADS
 
-10.1. **Availability:** We strive to maintain continuous platform availability, but Archi Draft is provided on an "as is" and "as available" basis. We do not warrant that platform operations will be entirely uninterrupted, error-free, or resilient against third-party network outages.
+5.1. **Storage Infrastructure:** Drawing files (`.dwg`, `.dxf`, `.pdf`), site images, and voice notes are stored securely on **Cloudflare R2 Object Storage**.
 
-10.2. **Maintenance:** Scheduled maintenance windows will be communicated in advance where practicable. Emergency security patching may be deployed without prior notice.
+5.2. **Prohibited Content:** You agree not to upload any files containing malware, harmful scripts, defamatory material, drawings infringing third-party copyrights, or content contrary to Indian statutory law.
 
----
-
-## 11. ACCEPTABLE USE
-
-You agree to access Archi Draft strictly for lawful professional and educational workflow management. You must comply with all applicable local, state, and national laws of India while using the service.
+5.3. **File Scanning and Quarantine:** We reserve the right to scan uploaded files for security threats and automatically quarantine any file suspected of containing malicious payloads.
 
 ---
 
-## 12. PROHIBITED CONDUCT
+## 6. INTELLECTUAL PROPERTY AND CAD OWNERSHIP
 
-You expressly agree that you will **NOT**:
-1. Upload any file, drawing, or content that infringes upon the copyright, patent, trademark, trade secret, or proprietary rights of any third party.
-2. Upload malicious code, viruses, corrupted CAD files, or malware intended to compromise server infrastructure.
-3. Attempt to bypass, circumvent, or disable server-side authorization controls or cross-user data isolation boundaries.
-4. Impersonate another user, professional engineer, or studio administrator.
-5. Scrape, crawl, harvest, or extract data in bulk from Archi Draft without explicit written authorization.
-6. Harass, threaten, defame, or abuse other users in collaboration hub messaging or voice notes.
-7. Use the platform for any fraudulent, unauthorized, or unlawful purpose.
+6.1. **Background Intellectual Property:** Users retain all pre-existing ownership rights, copyrights, and trade secrets in the drawings, briefs, and sketches they upload to Archi Draft.
 
-Violations of prohibited conduct will result in immediate account suspension, project termination, and potential reporting to law enforcement authorities.
+6.2. **Limited Platform License:** By uploading project materials to Archi Draft, you grant DRAUGHTSMAN STUDIO a non-exclusive, worldwide, royalty-free, limited license solely to host, cache, render, display, and transmit such materials to your assigned collaborators and project personnel for the sole purpose of operating the workflow.
+
+6.3. **No Automatic Ownership Transfer:** Using Archi Draft does **not** automatically transfer copyright or intellectual property ownership in completed drawings from the author or commissioning engineer to the platform or to assigned draughtsmen. Detailed ownership allocation is governed by our CAD Drawing Ownership and Intellectual Property Framework and bilateral commercial agreements.
 
 ---
 
-## 13. INTELLECTUAL PROPERTY IN THE PLATFORM
+## 7. AI ASSISTANCE AND AUTOMATED TOOLS (PIXMINT BOT)
 
-All rights, title, and interest in and to the Archi Draft platform, including its software code, interface design, brand identity, "Draughtsman Studio" trademarks, logos, typography, visual layouts, training curricula, and instructional materials are the exclusive intellectual property of the sole proprietor operating as Draughtsman Studio. You may not copy, reproduce, decompile, or create derivative works of the platform software.
+7.1. **Pixmint Bot Status:** Archi Draft features an interactive AI assistant branded as **Pixmint Bot** designed to provide technical guidance, navigational support, and drafting best-practice references.
 
----
+7.2. **Non-Professional Nature:** Pixmint Bot is **not** a licensed architect, structural engineer, municipal surveyor, or legal advisor. AI-generated suggestions, dimensions, and formula calculations are advisory only and must never be treated as certified engineering advice.
 
-## 14. OWNERSHIP OF UPLOADED DRAWINGS & DERIVATIVE WORKS
-
-14.1. **User Ownership:** You retain your preexisting copyrights and title in architectural designs, structural calculations, briefs, and CAD drawings that you upload to Archi Draft.
-
-14.2. **Pending IP Policy Determination:** The formal contractual allocation of intellectual property rights in derivative drawing revisions produced by draughtsmen, as well as the platform's portfolio display rules, is **currently undecided and subject to business-owner and qualified legal review**. Neither the platform nor any draughtsman acquires ownership of your underlying project design.
-
-14.3. **Limited Platform License:** By uploading files to Archi Draft, you grant us a worldwide, non-exclusive, royalty-free, revocable license strictly to host, store, transfer, format, and display the files as necessary to operate the platform and deliver the requested workflow services to you and your assigned project collaborators.
-
-14.4. **Third-Party Infringement:** You warrant that you possess all requisite authorizations to upload any third-party plans, survey maps, or engineering drawings. You agree to indemnify and hold Archi Draft harmless from any third-party copyright claims arising from materials you upload.
+7.3. **Mandatory Human Verification:** Every measurement, drawing note, structural calculation, and code reference suggested by Pixmint Bot must be independently evaluated, verified, and approved by a qualified human professional before being incorporated into construction drawings.
 
 ---
 
-## 15. CONFIDENTIALITY OBLIGATIONS
+## 8. REVISION CYCLES AND SCOPE BOUNDARIES
 
-15.1. **Confidential Information:** All non-public architectural drawings, site coordinates, structural details, engineering calculations, and project communications shared on Archi Draft constitute **Confidential Information**.
+8.1. **Included Revision Rounds:** Standard project commissions include **two (2) revision rounds** to rectify drafting inaccuracies, minor dimensional adjustments, or minor annotation changes within the original project brief.
 
-15.2. **Non-Disclosure:** Users agree to maintain the confidentiality of all project information they access. Draughtsmen and students agree that they will not disclose, publish, reproduce, or distribute confidential client drawings to any third party without explicit prior written authorization from the project owner.
-
----
-
-## 16. THIRD-PARTY SERVICES
-
-Archi Draft relies on enterprise third-party services, including Google Firebase Authentication and Cloudflare infrastructure. We are not liable for outages, delays, or service degradations directly resulting from failures of these third-party infrastructure providers.
+8.2. **Scope Expansions:** Requests involving structural redesign, alteration of built-up area, addition of new floors, or changes in fundamental municipal sanction requirements constitute out-of-scope revisions and require separate commercial approval.
 
 ---
 
-## 17. SUSPENSION AND TERMINATION
+## 9. FINANCIAL TERMS, PAYMENTS, AND REFUNDS
 
-17.1. **Termination by User:** You may stop using the platform at any time and request account closure in accordance with Section 18.
+9.1. **Commercial Terms:** Specific fees for drafting commissions, student course enrollment, or platform subscriptions will be clearly communicated before transaction confirmation.
 
-17.2. **Termination by Archi Draft:** We reserve the right to suspend or terminate your account immediately upon notice if:
-- You commit a material breach of these Terms or our Acceptable Use Policy.
-- Required by law enforcement or statutory directives.
-- Your conduct threatens the security, integrity, or legal compliance of the platform or other users.
+9.2. **Payment Processing:** When commercial payment features are enabled, transactions will be handled through PCI-DSS compliant certified payment aggregators.
 
----
-
-## 18. ACCOUNT DELETION & RETENTION OF PROJECT RECORDS
-
-You may request account deletion by submitting a formal request to **[PRIVACY / GRIEVANCE EMAIL — TO BE CONFIRMED]**. Account deletion will result in the erasure or anonymization of your personal profile data, subject to lawful retention exceptions (e.g., preservation of completed project drawings belonging to collaborating users and statutory audit logs). Specific operational retention schedules for completed project archives are currently subject to operational and legal review.
+9.3. **Cancellations and Refunds:** Milestone-based cancellations and refund evaluations are administered strictly in accordance with our Subscription, Cancellation and Refund Policy.
 
 ---
 
-## 19. DISPUTE AND GRIEVANCE PROCEDURES
+## 10. DISCLAIMER OF PROFESSIONAL LIABILITY
 
-19.1. **Grievance Redressal:** If you have any dispute, concern, or complaint regarding the platform or data handling, you should first contact our designated Grievance Officer:
-- **Email:** `[GRIEVANCE EMAIL — TO BE CONFIRMED]`
-- **Response SLA:** Within 30 days of receiving your written communication in compliance with Rule 5(9) of the IT SPDI Rules.
+10.1. **No Professional Consultancy:** DRAUGHTSMAN STUDIO, its sole proprietor MOHAMMED MOSIN S, and Archi Draft do not provide licensed architectural or structural engineering services. All drawings, files, and communications transmitted via the platform must be independently approved by licensed professionals of record holding statutory registration under the Architects Act, 1972 or appropriate state engineering registers.
 
-19.2. **Amicable Settlement:** The parties agree to use good-faith efforts to resolve any dispute through informal discussions prior to initiating formal legal proceedings.
-
----
-
-## 20. CHANGES TO TERMS
-
-We reserve the right to modify these Terms & Conditions to reflect technical updates, service modifications, or legislative amendments. In the event of material changes, we will provide at least 15 days' notice via email or an in-app banner. Your continued use following the effective date of updated terms signifies your agreement to the revised Terms.
+10.2. **Balanced Coordination Warranty:** While Archi Draft exercises reasonable skill and care in maintaining software availability and data integrity:
+- We do not warrant that drawing files will be uninterrupted or error-free under all CAD software versions.
+- We are not liable for on-site execution defects, contractor misinterpretations, structural failures, or municipal rejection of permit applications resulting from unverified drawings.
+- In no event shall our aggregate liability for direct technical platform failures exceed the total platform service fees paid by you for the specific affected project in the six (6) months preceding the claim.
 
 ---
 
-## 21. GOVERNING LAW AND JURISDICTION
+## 11. SUSPENSION AND TERMINATION
 
-These Terms & Conditions shall be governed by, construed, and enforced in accordance with the **laws of the Republic of India**. Subject to the dispute resolution provisions herein, the courts located in **[CITY / STATE, INDIA — TO BE CONFIRMED BY PROPRIETOR]** shall have exclusive jurisdiction over any legal proceeding arising out of or relating to these Terms.
+11.1. **Termination for Cause:** We may suspend or terminate your account immediately without prior notice if you violate these Terms, engage in unlawful conduct, tamper with security infrastructure, or infringe intellectual property rights.
+
+11.2. **Voluntary Closure:** You may request account deletion at any time by contacting `support@draughtsmanstudio.com`. Personal profile information will be anonymized or erased in accordance with our Privacy Policy and statutory record retention requirements.
+
+---
+
+## 12. GRIEVANCE REDRESSAL AND GOVERNING LAW
+
+12.1. **Grievance Contact:** In compliance with the Information Technology Act, 2000 and SPDI Rules, any grievances, disputes, or concerns regarding platform operations may be submitted to:
+- **Grievance Email:** `mosin@draughtsmanstudio.com`
+- **Customer Support Email:** `support@draughtsmanstudio.com`
+- **Response Timeline:** We will acknowledge grievances promptly and aim to resolve verified complaints within thirty (30) days.
+
+12.2. **Governing Law:** This Agreement shall be governed by, construed, and enforced exclusively in accordance with the **substantive laws of the Republic of India**.
+
+12.3. **Jurisdiction:** Subject to good-faith informal dispute resolution, the competent courts in India (location to be confirmed upon formal verification) shall have exclusive jurisdiction over all claims arising under this Agreement.
+
+---
+
+## 13. AMENDMENTS AND CONTACT
+
+We reserve the right to revise these Terms to reflect technical updates, statutory changes, or business model enhancements. When changes are made, we will update the version number and provide notification through the platform.
+
+For inquiries regarding these Terms:
+- **Entity:** DRAUGHTSMAN STUDIO (Sole proprietorship of MOHAMMED MOSIN S)
+- **Email:** `support@draughtsmanstudio.com` | `mosin@draughtsmanstudio.com`
 ''';
 
 /// Authoritative Privacy Policy text sourced directly from
-/// `docs/08_legal_privacy/PRIVACY_POLICY_DRAFT.md`.
+/// `shared/legal/documents/privacy_policy/v1.0.0.md`.
 const String kAuthoritativePrivacyPolicyContent = r'''
-# ARCHI DRAFT — PRIVACY POLICY
-**DOCUMENT STATUS:** DRAFT — NOT APPROVED FOR PRODUCTION
-**REQUIRES QUALIFIED INDIAN LEGAL REVIEW AND BUSINESS-OWNER APPROVAL BEFORE PUBLICATION**
-**PROJECT:** Archi Draft
-**PARENT BRAND:** Draughtsman Studio (https://www.draughtsmanstudio.com)
-**BUSINESS STRUCTURE:** Sole Proprietorship / Individual Business (Proprietor: [PROPRIETOR FULL LEGAL NAME — TO BE CONFIRMED])
-**TARGET JURISDICTION:** India
-**EFFECTIVE DATE:** [EFFECTIVE DATE — TO BE CONFIRMED UPON PRODUCTION RELEASE]
-**VERSION:** 1.2.0-DRAFT
+# ARCHI DRAFT — PRIVACY POLICY & DATA PROTECTION NOTICE
+
+**DOCUMENT STATUS:** PENDING_LEGAL_REVIEW / DRAFT (NOT APPROVED FOR UNRESTRICTED PRODUCTION PUBLICATION)  
+**DATA FIDUCIARY:** DRAUGHTSMAN STUDIO — a sole proprietorship operated by MOHAMMED MOSIN S  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**PRODUCT / APPLICATION:** ARCHI DRAFT  
+**APPLICATION WEBSITE:** https://archidraft.draughtsmanstudio.com  
+**BUSINESS WEBSITE:** https://draughtsmanstudio.com  
+**GRIEVANCE CONTACT:** mosin@draughtsmanstudio.com  
+**PRIVACY / SUPPORT CONTACT:** support@draughtsmanstudio.com  
+**PHYSICAL ADDRESS:** PENDING_VERIFICATION (Official physical establishment address in India pending formal confirmation)  
+**GRIEVANCE OFFICER APPOINTMENT:** PENDING_VERIFICATION (Formal statutory appointment under IT Rules pending confirmation)  
+**TARGET JURISDICTION:** Republic of India  
+**DOCUMENT VERSION:** 1.0.0  
+**EFFECTIVE DATE:** PENDING_BUSINESS_AND_LEGAL_APPROVAL  
 
 ---
 
-> ### IMPORTANT NOTICE TO USERS
-> This document is a draft privacy policy prepared for Archi Draft. It explains how personal data is collected, used, stored, shared, and protected across the platform. All business identification and contact fields are marked with explicit bracketed placeholders (`[...]`) pending formal confirmation by the business owner and legal counsel.
+> ### PRIVACY COMMITMENT
+> DRAUGHTSMAN STUDIO, operated as a sole proprietorship by MOHAMMED MOSIN S ("Archi Draft", "we", "us", "our"), is committed to processing your personal data transparently, securely, and in accordance with Indian data protection legislation, including the **Digital Personal Data Protection Act, 2023 (DPDP Act)**, the **Information Technology Act, 2000 (IT Act)**, the **Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011 (SPDI Rules)**, and directions issued by the **Indian Computer Emergency Response Team (CERT-In)**.
 
 ---
 
-## 1. INTRODUCTION AND ORGANIZATION IDENTITY
+## 1. DATA FIDUCIARY IDENTITY
 
-This Privacy Policy governs the processing of personal data on the **Archi Draft** platform, developed and operated under the brand **Draughtsman Studio** by **[PROPRIETOR FULL LEGAL NAME — TO BE CONFIRMED]**, an individual carrying on business as a **Sole Proprietorship** in India ("Archi Draft", "we", "us", or "our"), having its principal place of business at **[BUSINESS ADDRESS — TO BE CONFIRMED, INDIA]**.
-
-We are committed to processing your personal data transparently, securely, and in accordance with applicable Indian laws, including the **Digital Personal Data Protection Act, 2023 (DPDP Act)**, the **Information Technology Act, 2000 (IT Act)**, and the **Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011 (SPDI Rules)**.
-
-For the purposes of the DPDP Act, the sole proprietor operating as Draughtsman Studio acts as a **Data Fiduciary** with respect to personal data collected directly from users of Archi Draft.
-
----
-
-## 2. SCOPE OF THIS POLICY
-
-This Privacy Policy applies to all individuals who access, register, or use the Archi Draft web application, mobile applications, services, and associated panels:
-1. **Client / Engineer Panel:** For project creators, consulting engineers, architects, and interior designers.
-2. **Draughtsman Panel:** For architectural, structural, and interior drafting professionals.
-3. **Student Panel:** For drafting and engineering students enrolled in training modules. *(See Section 15 regarding students under 18).*
-4. **Admin Panel:** For authorized platform administrators and studio management personnel.
-
-This Policy does *not* apply to third-party websites, software, or external services that you may access through external links provided on our platform.
+For the purposes of the DPDP Act, 2023, the data fiduciary responsible for determining the purposes and means of processing personal data on Archi Draft is:
+- **Legal Entity:** DRAUGHTSMAN STUDIO (Sole proprietorship of MOHAMMED MOSIN S)
+- **Primary Data Privacy Contact:** `support@draughtsmanstudio.com`
+- **Grievance Redressal Contact:** `mosin@draughtsmanstudio.com`
+- **Principal Address:** PENDING_VERIFICATION (Awaiting formal confirmation of physical business address)
 
 ---
 
-## 3. CATEGORIES OF PERSONAL DATA ACTUALLY COLLECTED
+## 2. SCOPE AND APPLICABILITY
 
-We collect only the categories of personal data necessary to provide our architectural workflow, project coordination, and training services. In accordance with our data minimization principle, we do not collect data categories unless actively utilized by our features:
-
-1. **Identity & Authentication Information:**
-   - Full Name.
-   - Email Address.
-   - Encrypted Password (managed via Google Firebase Authentication; we never store plain-text passwords).
-   - User Role (Client/Engineer, Draughtsman, Student, Admin).
-   - Unique User Identifier (Firebase UID).
-2. **Profile & Contact Details:**
-   - Mobile / Telephone Number.
-   - Postal Address (optional).
-   - Date of Birth (optional, for age verification / student eligibility).
-   - Professional Qualification / Degree (e.g., B.Tech, B.Arch, Diploma in Civil/Architecture).
-   - Company or Firm Name (for Engineers/Draughtsmen).
-   - College or Educational Institution Name (for Students).
-   - Drafting Specialization (Architectural, Structural, Interior, Approval).
-3. **Project & Workflow Data:**
-   - Project Name and Project Site Address.
-   - Drawing Type and Project Area (square footage or dimensions).
-   - Project Assignment Records, Workflow Statuses, and Approval/Rejection Timestamps.
-4. **Drawings, Files & Media Attachments:**
-   - Uploaded CAD and technical drawing files (`.dwg`, `.dxf`, `.pdf`).
-   - Image attachments and site reference photos (`.png`, `.jpg`, `.jpeg`).
-   - Audio voice notes recorded in collaboration threads (`.webm`, `.m4a`, `.wav`).
-5. **Collaboration Messages:**
-   - Project messages, review comments, and correction instructions exchanged within project hubs.
-6. **Academic & Performance Records (Student Panel Only):**
-   - Training module progression and lesson completion records.
-   - Practical drafting submission evaluations and rubric scores.
-   - Issued credentials, course certificates, and unique verification tokens.
-7. **Security & Technical Activity Logs:**
-   - Action logs (file upload/deletion timestamps, submission events).
-   - IP address hashes and browser/device user-agent strings recorded during critical security actions.
+This Privacy Policy applies to all individuals who register, access, or utilize Archi Draft across our web application portals:
+1. **Client / Consulting Engineer Portal:** For submitting briefs, uploading survey plans, and coordinating drafting deliverables.
+2. **Draughtsman Portal:** For reviewing assigned drafting tasks, submitting CAD drawings, and logging project milestones.
+3. **Student Portal:** For vocational drafting training, CAD curriculum, module progress, and competency assessments.
+4. **Admin Portal:** For authorized administrative personnel conducting operations, verification, and technical support.
 
 ---
 
-## 4. PURPOSES OF PROCESSING
+## 3. CATEGORIES OF PERSONAL DATA COLLECTED
 
-We process your personal data strictly for the following defined purposes:
-1. **Account Creation and Authentication:** To verify identity, maintain account security, and control role-based access.
-2. **Project Workflow Coordination:** To facilitate project creation, assign draughtsmen, enable review rounds, and deliver completed drawings.
-3. **Communication & Collaboration:** To transmit project messages, correction requests, and voice notes between assigned project collaborators.
-4. **Educational Tracking & Credential Verification:** To evaluate student drafting assignments, record competency progression, and provide verifiable credentials.
-5. **Billing and Accounting:** To generate project fee summaries and milestone invoices.
-6. **Security & Regulatory Compliance:** To maintain audit logs, prevent unauthorized access, detect security incidents, and comply with applicable Indian statutory requirements (including CERT-In directions).
+In strict accordance with data minimization principles, Archi Draft collects only personal data necessary for workflow coordination, professional authentication, and educational delivery:
 
-We do *not* sell your personal data. We do *not* use project drawings or personal information for unsolicited commercial advertising or behavioral profiling.
+### 3.1. Account and Identity Data
+- **Full Legal Name**
+- **Email Address**
+- **Encrypted Password Hash** (processed and secured via Google Firebase Authentication)
+- **Assigned User Role** (`ENGINEER`, `DRAUGHTSMAN`, `STUDENT`, `ADMIN`)
+- **Unique Identifier** (Firebase User UID)
 
----
+### 3.2. Professional and Profile Information
+- **Contact Telephone / Mobile Number**
+- **Professional Qualifications** (e.g., B.Arch, B.Tech Civil, Diploma in Civil)
+- **Firm / Company Name** (for Consulting Engineers and Draughtsmen)
+- **College / Institutional Affiliation** (for Students)
+- **Drafting Specialization** (Architectural, Structural, Electrical/MEP, Municipal Approvals)
+- **Postal / Work Address** (optional)
 
-## 5. APPLICABLE GROUNDS FOR PROCESSING
+### 3.3. Project and Technical Workflow Data
+- **Project Briefs and Metadata** (Project Name, Site Address, Drawing Category, Built-up Area)
+- **CAD Drawing Files and Documents** (`.dwg`, `.dxf`, `.pdf`, `.rvt`, `.ifc`) stored in Cloudflare R2
+- **Site Photographs and Reference Sketches** (`.jpg`, `.png`)
+- **Audio Voice Notes and Correction Recordings** (`.webm`, `.m4a`, `.wav`)
+- **Correction Instructions and Comments** exchanged in project hubs
 
-Under the DPDP Act, 2023 and applicable Indian law, we process your personal data on the following lawful bases:
-1. **Contractual Necessity (Fulfillment of Terms):** Processing necessary to perform our contractual commitments under the Terms & Conditions.
-2. **Affirmative Consent:** Where required by law, we request your explicit, informed, and unambiguous affirmative consent for specific optional activities.
-3. **Legitimate Uses / Legal Compliance:** Processing necessary to comply with legal obligations, enforce our legal rights, maintain 180-day security logs under CERT-In directions, or respond to valid statutory notices from law enforcement.
+### 3.4. Academic and Training Records (Student Users Only)
+- **Lesson Progression and Completion Metrics**
+- **Drafting Assignment Submissions and Practical Exercises**
+- **Evaluation Scores, Competency Rubrics, and Instructor Feedback**
+- **Issued Certificates of Completion and Verification Tokens**
 
----
-
-## 6. INFORMATION SUPPLIED BY USERS
-
-Users are responsible for ensuring that all personal data and project details supplied to Archi Draft are accurate, complete, and up to date. You must not submit personal data of third parties unless you are lawfully authorized to do so.
-
----
-
-## 7. AUTHENTICATION AND ACCOUNT CREDENTIALS
-
-Authentication on Archi Draft is powered by **Google Firebase Authentication**:
-- Your password is cryptographically hashed and salted by Firebase Authentication. Plain-text passwords never touch our application database or application logs.
-- Session authentication utilizes industry-standard JSON Web Tokens (JWT) verified cryptographically on our serverless backend.
-- You are responsible for safeguarding your login credentials. You must immediately notify us at **[SECURITY INCIDENT EMAIL — TO BE CONFIRMED]** if you suspect unauthorized access to your account.
-
----
-
-## 8. PROJECT DATA AND UPLOADED DRAWINGS
-
-Architectural drawings, structural calculations, and project specifications uploaded to Archi Draft are treated as strictly confidential business information:
-- Drawings are stored securely in **Cloudflare R2 Object Storage**. Object keys are never exposed directly to public URLs.
-- Access to download or view a drawing is strictly restricted on our backend to verified project members (the project owner, the assigned draughtsman, the assigned student, or authorized administrators).
-- Allocation of intellectual property and derivative drawing rights is currently undergoing business-owner and qualified legal review. Archi Draft does not claim automatic ownership over drawings you upload.
+### 3.5. Security and Diagnostic Logs
+- **Session Timestamps and Activity Logs**
+- **SHA-256 Hashed IP Addresses** (collected during security-sensitive actions)
+- **Browser User-Agent and Device Telemetry**
 
 ---
 
-## 9. DATA SHARING WITH SERVICE PROVIDERS
+## 4. PURPOSES OF PROCESSING AND LAWFUL BASES
 
-We engage trusted enterprise third-party service providers ("Data Processors") to support platform operations under binding confidentiality and data protection terms:
-1. **Cloudflare, Inc. (Cloudflare Workers, D1 Database, R2 Storage):** Authoritative backend API execution, application database hosting, and secure object storage.
-2. **Google LLC (Firebase Authentication):** User identity authentication, password encryption, and email verification services.
-3. **[PAYMENT GATEWAY PROCESSOR — TO BE CONFIRMED]:** When commercial billing is activated, payment processing will be handled directly by a certified, PCI-DSS compliant payment aggregator.
-4. **[TRANSACTIONAL EMAIL SERVICE — TO BE CONFIRMED]:** For delivering account verification, password resets, and critical workflow notifications.
+Under Section 4 and Section 7 of the DPDP Act, 2023, we process your personal data on the following lawful grounds:
+1. **Contractual Necessity (Terms & Conditions):** Account creation, authentication, project assignment, CAD file delivery, and student progress tracking.
+2. **Affirmative Consent:** Optional profile additions, voice note recordings, and voluntary surveys.
+3. **Legal Compliance:** Mandatory CERT-In 180-day security logging, tax accounting (8 years), and responding to statutory notices.
 
-We do *not* authorize our service providers to use your personal data for their own independent marketing or commercial purposes.
-
----
-
-## 10. CLOUD INFRASTRUCTURE AND STORAGE
-
-Archi Draft runs entirely on modern enterprise cloud infrastructure designed for high availability and data resilience. Application data is stored in Cloudflare D1 distributed databases and Cloudflare R2 object storage with end-to-end encryption in transit (TLS 1.3) and encryption at rest (AES-256).
+We do **not** sell personal data. We do **not** engage in cross-site behavioral profiling or sell user project data to third-party advertising networks.
 
 ---
 
-## 11. CROSS-BORDER PROCESSING CONSIDERATIONS
+## 5. CLOUD INFRASTRUCTURE AND DATA PROCESSORS
 
-While our primary market is India and our primary database configurations prioritize Indian and regional data centers, our cloud infrastructure providers (Cloudflare, Google Cloud) maintain distributed global networks for latency reduction, DDoS mitigation, and edge caching. Any cross-border data transfer complies with applicable transfer restrictions and notifications issued under the DPDP Act.
-
----
-
-## 12. DATA RETENTION: STATUTORY OBLIGATIONS VS. OPERATIONAL SCHEDULES
-
-We distinguish verified statutory obligations from proposed operational retention schedules:
-- **Verified Statutory Log Mandate:** Under **CERT-In Directions (April 2022)**, system logs, security audit logs (`activity_logs`), and authentication events are maintained for a mandatory minimum period of **180 days** within Indian jurisdiction.
-- **Verified Statutory Tax Records:** Invoices and payment records are preserved for **8 financial years** under Indian tax statutes (Income Tax Act Sec 44AA / CGST Act Sec 36).
-- **Proposed Operational Schedules (Under Review):** Operational retention periods for completed CAD drawing archives and dormant account cleanup are **currently under business-owner and qualified legal review**. They do not constitute final platform policy.
-- **Account Deletion:** When an account deletion is requested and verified, personal identifiers are erased or anonymized from active user databases, subject to retention of completed project records belonging to other users and mandatory statutory exceptions.
-
-For full details, please review our separate **[Data Retention & Deletion Notice](file:///D:/PROJECT/Archidraft-integration-workspace/docs/08_legal_privacy/DATA_RETENTION_AND_DELETION.md)**.
+Archi Draft operates on enterprise cloud platforms bound by data processing and confidentiality obligations:
+1. **Cloudflare, Inc. (Cloudflare Workers, D1 Database, R2 Object Storage):** Serverless API execution, relational application data storage, and encrypted object storage for project drawings.
+2. **Google LLC (Firebase Authentication):** User identity, encrypted credentials, password hashing, and email verification.
+3. **Third-Party AI Services (Pixmint Bot):** Queries processed for technical guidance.
+4. **Commercial Payment Gateways (Pending Integration):** Certified PCI-DSS compliant payment processing.
 
 ---
 
-## 13. SECURITY SAFEGUARDS
+## 6. STATUTORY LOG RETENTION VS. OPERATIONAL ARCHIVES
 
-We implement rigorous technical, operational, and organizational security controls:
-1. **Server-Side Authorization:** Every API request verifies user identity and role server-side in Cloudflare Workers. Flutter client-side logic is never treated as a security boundary.
-2. **Cross-User Data Isolation:** Enforced access controls ensure Engineer A cannot view or access Engineer B's private projects; Draughtsmen can only access projects formally assigned to them.
-3. **Encrypted Transport:** All communication between user devices and Archi Draft servers is encrypted using modern Transport Layer Security (TLS 1.2 / TLS 1.3).
-4. **Least Privilege:** Administrative functions are segregated and restricted strictly to authorized studio management personnel.
-5. **No Credential Logging:** Passwords, private session keys, and sensitive credentials are never written to server console logs.
+6.1. **Mandatory Statutory Logs:**
+- Under **Direction No. 20(3)/2022-CERT-In**, system logs, access logs, and user consent records are retained for a minimum of **180 days** within Indian jurisdiction.
+- Financial transaction records and invoices are maintained for **8 financial years** under Indian tax laws.
 
----
-
-## 14. PERSONAL-DATA BREACH RESPONSE
-
-In the event of a confirmed personal data breach affecting Archi Draft systems:
-1. We will take immediate containment, mitigation, and forensic investigation measures.
-2. We will report the incident to the **Indian Computer Emergency Response Team (CERT-In)** within **6 hours** of noticing or being notified, in compliance with Direction No. 20(3)/2022-CERT-In under Section 70B(6) of the IT Act, 2000.
-3. We will notify the **Data Protection Board of India** and affected users in accordance with Section 8(6) of the DPDP Act.
+6.2. **Operational Drawing Archives (Subject to Review):**
+- Operational retention periods for completed CAD drawing archives and project revision histories are currently under business review.
 
 ---
 
-## 15. SPECIAL PROVISIONS FOR STUDENT USERS & MINORS (<18 YEARS)
+## 7. SAFEGUARDS FOR STUDENT USERS AND MINORS (<18 YEARS)
 
-The business owner has determined that Archi Draft **may allow younger students under 18 years of age** to access the Student Portal for vocational and academic drafting education.
+7.1. **Statutory Alignment:** Under Section 9 of the DPDP Act, 2023:
+- Verifiable parental or lawful guardian consent is mandatory prior to processing personal data of individuals under 18 years of age.
+- The platform strictly prohibits behavioral monitoring, tracking, or targeted advertising directed at students under 18.
 
-However, allowing minors is a **pending business decision subject to determining and implementing mandatory statutory safeguards and obtaining qualified legal review**.
-
-When activated for minors:
-1. **Verifiable Parental Consent (Section 9(1) DPDP Act):** The platform will require verifiable consent from a parent or legal guardian prior to processing personal data of any user under 18. Parental consent alone does not resolve all requirements.
-2. **Prohibition of Detrimental Processing (Section 9(2) DPDP Act):** Personal data of minors will never be processed in any manner likely to cause detrimental effects on their physical, mental, or moral well-being.
-3. **Zero Tracking & Behavioral Monitoring (Section 9(3) DPDP Act):** The platform strictly prohibits behavioral monitoring, tracking, or targeted advertising directed at students under 18.
-4. **Contractual Protections (Indian Contract Act, 1872):** Because contracts entered into directly by minors are void ab initio under Indian law, contractual terms must be formally acknowledged and agreed to by the parent or legal guardian on the minor's behalf.
-5. **Data Minimization:** Student profiles will collect strictly necessary academic information, avoiding personal phone numbers, physical residential addresses, or unnecessary identity documents.
-
-Until these multi-layered safeguards and legal reviews are finalized, general registration remains restricted to adults aged 18 and older.
+7.2. **Current Implementation Status:** Self-service registration remains restricted to adults aged 18 and older until formal operational certification of under-18 parental verification safeguards.
 
 ---
 
-## 16. APPLICABLE USER RIGHTS
+## 8. STATUTORY USER RIGHTS UNDER DPDP ACT, 2023
 
-Under Indian data protection laws, you have specific statutory rights regarding your personal data:
-1. **Right to Access:** You may request a summary of personal data being processed about you and the identities of data fiduciaries or processors with whom it has been shared.
-2. **Right to Correction and Updating:** You have the right to correct inaccurate or misleading personal data.
-3. **Right to Erasure:** You may request the erasure of your personal data where it is no longer necessary, subject to lawful retention exceptions.
-4. **Right to Grievance Redressal:** You have the right to have your grievances addressed by our designated Grievance Officer within statutory timeframes.
-5. **Right to Nominate:** In accordance with the DPDP Act, you may nominate another individual to exercise your data rights in the event of death or incapacity.
+Data principals hold the rights of access, correction, erasure, grievance redressal, and nomination.
 
 ---
 
-## 17. WITHDRAWAL OF CONSENT & ERASURE PROCEDURES
+## 9. HOW TO EXERCISE YOUR RIGHTS & GRIEVANCE REDRESSAL
 
-To exercise your statutory data protection rights:
-1. **Self-Service:** You can review and update your profile details directly in the **Profile** section of the app.
-2. **Formal Requests:** To request account deletion, data summaries, or erasure of specific records, submit a written request to **[PRIVACY / GRIEVANCE EMAIL — TO BE CONFIRMED]**.
-3. **Verification & Timeline:** We will verify your identity before processing sensitive requests and respond within the statutory timeframe (maximum **30 days** under Rule 5(9) of the IT SPDI Rules).
+- **Primary Privacy Email:** `support@draughtsmanstudio.com`
+- **Grievance Redressal Email:** `mosin@draughtsmanstudio.com`
+- **Statutory Resolution Period:** Within thirty (30) days of receiving a verified request.
+- **Physical Address:** PENDING_VERIFICATION
+''';
 
----
+/// Authoritative AI Disclaimer text sourced directly from
+/// `shared/legal/documents/ai_usage_disclaimer/v1.0.0.md`.
+const String kAuthoritativeAiDisclaimerContent = r'''
+# ARCHI DRAFT — PIXMINT BOT & ARTIFICIAL INTELLIGENCE USAGE DISCLAIMER
 
-## 18. GRIEVANCE AND PRIVACY CONTACT DETAILS
-
-In compliance with Rule 5(9) of the IT (SPDI) Rules, 2011 and Section 13 of the DPDP Act, 2023, Archi Draft has designated a **Grievance Officer**:
-
-- **Name:** [GRIEVANCE OFFICER NAME — TO BE CONFIRMED]
-- **Designation:** Grievance & Data Protection Officer
-- **Entity:** [PROPRIETOR FULL LEGAL NAME — TO BE CONFIRMED] doing business as Draughtsman Studio (Sole Proprietorship)
-- **Grievance Email:** `[GRIEVANCE EMAIL — TO BE CONFIRMED]`
-- **General Support Email:** `[SUPPORT EMAIL — TO BE CONFIRMED]`
-- **Security Incident Email:** `[SECURITY INCIDENT EMAIL — TO BE CONFIRMED]`
-- **Postal Address:** [OFFICIAL POSTAL ADDRESS — TO BE CONFIRMED, ATTN: GRIEVANCE OFFICER, INDIA]
-- **Statutory Resolution Period:** Within 30 days of receiving a verified complaint.
-
----
-
-## 19. POLICY CHANGES AND VERSION HISTORY
-
-We may update this Privacy Policy periodically. In the event of material changes, we will notify you through an in-app notice, email, or a revised version prompt upon your next login.
-
-- **Version 1.0.0-DRAFT (October 2026):** Initial unified privacy policy drafted for pre-merge compliance review.
-- **Version 1.1.0-DRAFT (October 2026):** Updated to reflect Sole Proprietorship business structure, pending minor student policy and safeguards under DPDP Section 9, and ongoing review of drawing IP and retention schedules.
-- **Version 1.2.0-DRAFT (October 2026):** Quality review revision: removed all unverified email domain examples, distinguished statutory retention from unapproved operational proposals, and refined legal placeholders.
+**DOCUMENT STATUS:** PENDING_LEGAL_REVIEW / DRAFT  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**LEGAL PROPRIETOR:** MOHAMMED MOSIN S  
+**PRODUCT / PLATFORM:** ARCHI DRAFT  
+**AI ASSISTANT BRAND:** PIXMINT BOT  
+**CONTACT EMAIL:** support@draughtsmanstudio.com  
+**DOCUMENT VERSION:** 1.0.0  
 
 ---
 
-## 20. EFFECTIVE DATE
+> ### CRITICAL NOTICE ON ARTIFICIAL INTELLIGENCE USAGE
+> Pixmint Bot is an automated artificial intelligence assistant, NOT a licensed architect, registered structural consultant, chartered engineer, or legal advisor.
+> Any output, drawing dimension, calculation, formula, code excerpt, or recommendation provided by Pixmint Bot is for preliminary informational and educational purposes only and must **never** be substituted for professional engineering judgment.
 
-This policy shall become effective upon formal approval by business management and publication at production commercial launch.
+## 1. MANDATORY HUMAN-IN-THE-LOOP VERIFICATION
+Every measurement, structural calculation, and building code reference suggested by Pixmint Bot must be independently evaluated, verified, and stamped by a qualified and licensed human professional prior to construction or municipal filing.
+
+## 2. LIMITATION OF LIABILITY
+DRAUGHTSMAN STUDIO and MOHAMMED MOSIN S assume no liability for calculation errors, structural defects, municipal permit rejections, or site accidents resulting from unverified reliance on Pixmint Bot suggestions.
+''';
+
+/// Authoritative Engineering Disclaimer text sourced directly from
+/// `shared/legal/documents/engineering_disclaimer/v1.0.0.md`.
+const String kAuthoritativeEngineeringDisclaimerContent = r'''
+# ARCHI DRAFT — ARCHITECTURAL AND ENGINEERING PROFESSIONAL SERVICES DISCLAIMER
+
+**DOCUMENT STATUS:** PENDING_LEGAL_REVIEW / DRAFT  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**LEGAL PROPRIETOR:** MOHAMMED MOSIN S  
+**PRODUCT / PLATFORM:** ARCHI DRAFT  
+**CONTACT EMAIL:** support@draughtsmanstudio.com  
+**DOCUMENT VERSION:** 1.0.0  
+
+---
+
+> ### IMPORTANT PROFESSIONAL SERVICES DISCLAIMER
+> Archi Draft is a technical workflow and educational collaboration portal, NOT a licensed architectural firm or structural engineering consultancy.
+> Neither DRAUGHTSMAN STUDIO nor MOHAMMED MOSIN S acts as an Architect of Record or Structural Engineer of Record for projects coordinated on the platform.
+
+## 1. PROFESSIONAL RESPONSIBILITY
+The consulting engineer or registered architect commissioning drafting deliverables remains solely responsible for soil testing, structural calculations, dead/live load sizing, and compliance with the National Building Code of India (NBC 2016) and municipal bye-laws.
+
+## 2. ON-SITE EXECUTION
+Archi Draft does not provide on-site supervision or quality control testing. All drawings must be verified and stamped by registered professionals prior to site execution.
+''';
+
+/// Authoritative CAD Ownership Framework text sourced directly from
+/// `shared/legal/documents/cad_ownership_framework/v1.0.0.md`.
+const String kAuthoritativeCadOwnershipContent = r'''
+# ARCHI DRAFT — CAD DRAWING OWNERSHIP AND INTELLECTUAL PROPERTY FRAMEWORK
+
+**DOCUMENT STATUS:** PENDING_LEGAL_REVIEW / DRAFT  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**LEGAL PROPRIETOR:** MOHAMMED MOSIN S  
+**PRODUCT / PLATFORM:** ARCHI DRAFT  
+**GOVERNING STATUTE:** Indian Copyright Act, 1957  
+**DOCUMENT VERSION:** 1.0.0  
+
+---
+
+> ### INTELLECTUAL PROPERTY NOTICE
+> No automatic transfer of copyright or intellectual property occurs merely by uploading or processing drawings on Archi Draft.
+
+## 1. BACKGROUND IP
+Clients and consulting engineers retain all pre-existing ownership rights, copyright, and trade secrets in briefs, sketches, and files uploaded to the platform.
+
+## 2. LIMITED PLATFORM LICENSE
+Users grant Draughtsman Studio a limited, revocable license strictly to host files on Cloudflare R2 and render previews for assigned collaborators to operate the workflow.
+
+## 3. COMPLETED DELIVERABLES
+Ownership in completed CAD drawings transfers to the commissioning client only upon full settlement of all agreed project milestone fees, subject to bilateral written agreement.
+''';
+
+/// Authoritative Revision Policy text sourced directly from
+/// `shared/legal/documents/revision_policy/v1.0.0.md`.
+const String kAuthoritativeRevisionPolicyContent = r'''
+# ARCHI DRAFT — PROJECT REVISION AND CORRECTION POLICY
+
+**DOCUMENT STATUS:** PENDING_BUSINESS_APPROVAL / DRAFT  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**LEGAL PROPRIETOR:** MOHAMMED MOSIN S  
+**PRODUCT / PLATFORM:** ARCHI DRAFT  
+**DOCUMENT VERSION:** 1.0.0  
+
+---
+
+## 1. INCLUDED REVISION ROUNDS
+Every standard project brief includes **two (2) revision rounds** (`included_revision_rounds = 2`) for minor dimensional adjustments, drafting errors, and annotation corrections within the original project brief.
+
+## 2. SCOPE EXPANSIONS
+Major structural redesigns, alterations of built-up area, addition of new storeys, or complete conceptual changes exceed the original brief and constitute billable scope expansions.
+
+## 3. REVIEW WINDOW
+Clients have seven (7) calendar days following deliverable upload to submit consolidated revision instructions.
+''';
+
+/// Authoritative Cancellation & Refund Policy text sourced directly from
+/// `shared/legal/documents/cancellation_refund_policy/v1.0.0.md`.
+const String kAuthoritativeRefundPolicyContent = r'''
+# ARCHI DRAFT — SUBSCRIPTION, CANCELLATION AND REFUND POLICY
+
+**DOCUMENT STATUS:** PENDING_BUSINESS_APPROVAL & PENDING_LEGAL_REVIEW / DRAFT  
+**OPERATING BRAND:** DRAUGHTSMAN STUDIO  
+**LEGAL PROPRIETOR:** MOHAMMED MOSIN S  
+**PRODUCT / PLATFORM:** ARCHI DRAFT  
+**DOCUMENT VERSION:** 1.0.0  
+
+---
+
+## 1. MILESTONE CANCELLATION
+- **Pre-Assignment:** 100% refund of milestone fee if canceled prior to draughtsman assignment.
+- **In-Progress:** Pro-rata refund based on verified hours expended and preliminary CAD work completed.
+- **Delivered Milestone:** Non-refundable once drawing files have been accessed or downloaded.
+
+## 2. STUDENT COURSE REFUNDS
+Full refund within seven (7) calendar days of enrollment provided course progression is under 15% and no credential has been issued.
 ''';
 
 const LegalDocument kDefaultEffectiveTermsDocument = LegalDocument(
-  id: 'doc-terms-v1',
+  id: 'doc-terms-v1-0-0',
   documentType: 'TERMS_AND_CONDITIONS',
   version: kAuthoritativeTermsVersion,
   title: kAuthoritativeTermsTitle,
   content: kAuthoritativeTermsAndConditionsContent,
-  status: 'EFFECTIVE',
+  status: 'PENDING_LEGAL_REVIEW',
   isMandatory: true,
   locale: 'en-IN',
-  effectiveAt: '2026-10-24T00:00:00Z',
+  effectiveAt: null,
 );
 
 const LegalDocument kDefaultEffectivePrivacyDocument = LegalDocument(
-  id: 'doc-priv-v1',
+  id: 'doc-priv-v1-0-0',
   documentType: 'PRIVACY_POLICY',
   version: kAuthoritativePrivacyVersion,
   title: kAuthoritativePrivacyTitle,
   content: kAuthoritativePrivacyPolicyContent,
-  status: 'EFFECTIVE',
+  status: 'PENDING_LEGAL_REVIEW',
   isMandatory: false,
   locale: 'en-IN',
-  effectiveAt: '2026-10-24T00:00:00Z',
+  effectiveAt: null,
 );
+
+const LegalDocument kDefaultAiDisclaimerDocument = LegalDocument(
+  id: 'doc-ai-v1-0-0',
+  documentType: 'AI_USAGE_DISCLAIMER',
+  version: kAuthoritativeAiDisclaimerVersion,
+  title: kAuthoritativeAiDisclaimerTitle,
+  content: kAuthoritativeAiDisclaimerContent,
+  status: 'PENDING_LEGAL_REVIEW',
+  isMandatory: true,
+  locale: 'en-IN',
+  effectiveAt: null,
+);
+
+const LegalDocument kDefaultEngineeringDisclaimerDocument = LegalDocument(
+  id: 'doc-eng-v1-0-0',
+  documentType: 'ENGINEERING_DISCLAIMER',
+  version: kAuthoritativeEngineeringDisclaimerVersion,
+  title: kAuthoritativeEngineeringDisclaimerTitle,
+  content: kAuthoritativeEngineeringDisclaimerContent,
+  status: 'PENDING_LEGAL_REVIEW',
+  isMandatory: true,
+  locale: 'en-IN',
+  effectiveAt: null,
+);
+
+const LegalDocument kDefaultCadOwnershipDocument = LegalDocument(
+  id: 'doc-cad-v1-0-0',
+  documentType: 'CAD_OWNERSHIP_FRAMEWORK',
+  version: kAuthoritativeCadOwnershipVersion,
+  title: kAuthoritativeCadOwnershipTitle,
+  content: kAuthoritativeCadOwnershipContent,
+  status: 'PENDING_LEGAL_REVIEW',
+  isMandatory: true,
+  locale: 'en-IN',
+  effectiveAt: null,
+);
+
+const LegalDocument kDefaultRevisionPolicyDocument = LegalDocument(
+  id: 'doc-rev-v1-0-0',
+  documentType: 'REVISION_POLICY',
+  version: kAuthoritativeRevisionPolicyVersion,
+  title: kAuthoritativeRevisionPolicyTitle,
+  content: kAuthoritativeRevisionPolicyContent,
+  status: 'PENDING_BUSINESS_APPROVAL',
+  isMandatory: false,
+  locale: 'en-IN',
+  effectiveAt: null,
+);
+
+const LegalDocument kDefaultRefundPolicyDocument = LegalDocument(
+  id: 'doc-ref-v1-0-0',
+  documentType: 'CANCELLATION_REFUND_POLICY',
+  version: kAuthoritativeRefundPolicyVersion,
+  title: kAuthoritativeRefundPolicyTitle,
+  content: kAuthoritativeRefundPolicyContent,
+  status: 'PENDING_BUSINESS_APPROVAL',
+  isMandatory: false,
+  locale: 'en-IN',
+  effectiveAt: null,
+);
+
+const List<LegalDocument> kAllCanonicalDefaultDocuments = [
+  kDefaultEffectiveTermsDocument,
+  kDefaultEffectivePrivacyDocument,
+  kDefaultAiDisclaimerDocument,
+  kDefaultEngineeringDisclaimerDocument,
+  kDefaultCadOwnershipDocument,
+  kDefaultRevisionPolicyDocument,
+  kDefaultRefundPolicyDocument,
+];

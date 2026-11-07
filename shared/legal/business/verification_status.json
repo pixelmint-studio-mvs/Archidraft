@@ -1,0 +1,128 @@
+{
+  "updatedAt": "2026-11-07T09:30:00Z",
+  "auditedBy": "Antigravity Engineering Runtime / PixelMint Studio MVS",
+  "fields": [
+    {
+      "key": "businessStructure",
+      "value": "Sole Proprietorship",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "legalProprietor",
+      "value": "MOHAMMED MOSIN S",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "operatingBrand",
+      "value": "DRAUGHTSMAN STUDIO",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "legalRepresentation",
+      "value": "DRAUGHTSMAN STUDIO — a sole proprietorship operated by MOHAMMED MOSIN S.",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "productName",
+      "value": "ARCHI DRAFT",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "applicationWebsite",
+      "value": "https://archidraft.draughtsmanstudio.com",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "businessWebsite",
+      "value": "https://draughtsmanstudio.com",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "grievanceEmail",
+      "value": "mosin@draughtsmanstudio.com",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "supportEmail",
+      "value": "support@draughtsmanstudio.com",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "privacyEmail",
+      "value": "support@draughtsmanstudio.com",
+      "status": "CONFIRMED",
+      "authority": "Master Implementation Prompt Section 2",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "physicalAddress",
+      "value": null,
+      "status": "PENDING_VERIFICATION",
+      "authority": "Awaiting official physical establishment address in India",
+      "blockingPublication": true,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z",
+      "notes": "Required by Consumer Protection (E-Commerce) Rules 2020 and IT Act 2000 intermediaries rules. Blocks publishing documents to EFFECTIVE in production."
+    },
+    {
+      "key": "grievanceOfficerFormalAppointment",
+      "value": null,
+      "status": "PENDING_VERIFICATION",
+      "authority": "Awaiting formal appointment resolution/letter under IT SPDI Rules 2011 Rule 5(9) & DPDP Act 2023 Sec 13",
+      "blockingPublication": true,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z",
+      "notes": "Proprietor name must not be substituted as officer without explicit business appointment."
+    },
+    {
+      "key": "cadOwnershipFramework",
+      "value": "No automatic IP transfer; background IP retained by creator; limited platform license",
+      "status": "PENDING_LEGAL_REVIEW",
+      "authority": "Legal counsel required for Indian Copyright Act 1957 assignment mechanics",
+      "blockingPublication": true,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "revisionPolicyRounds",
+      "value": "2 included revision rounds per project brief",
+      "status": "PENDING_BUSINESS_APPROVAL",
+      "authority": "Business owner operational confirmation required",
+      "blockingPublication": false,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    },
+    {
+      "key": "cancellationRefundPolicy",
+      "value": "Milestone-based pro-rata refund upon review",
+      "status": "PENDING_BUSINESS_APPROVAL",
+      "authority": "Payment gateway terms & business policy approval required",
+      "blockingPublication": true,
+      "lastVerifiedAt": "2026-11-07T09:30:00Z"
+    }
+  ]
+}

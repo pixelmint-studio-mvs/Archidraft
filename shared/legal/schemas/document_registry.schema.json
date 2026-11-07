@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocumentRegistry",
+  "description": "Schema for the canonical legal document registry and active version manifest",
+  "type": "object",
+  "required": [
+    "registryVersion",
+    "updatedAt",
+    "documents"
+  ],
+  "properties": {
+    "registryVersion": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "legal_document.schema.json"
+      }
+    }
+  }
+}
