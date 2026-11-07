@@ -9,6 +9,7 @@ import 'package:archi_draft/src/features/auth/domain/user_profile.dart';
 import 'package:archi_draft/src/features/auth/providers/auth_providers.dart';
 import 'package:archi_draft/src/features/legal/domain/legal_document.dart';
 import 'package:archi_draft/src/features/legal/domain/user_legal_status.dart';
+import 'package:archi_draft/src/features/legal/domain/guardian_consent.dart';
 import 'package:archi_draft/src/features/legal/providers/legal_providers.dart';
 import 'package:archi_draft/src/features/projects/domain/assignment.dart';
 import 'package:archi_draft/src/features/projects/providers/assignment_providers.dart';
@@ -26,6 +27,8 @@ import 'package:archi_draft/src/features/profile/providers/achievements_provider
 import 'package:archi_draft/src/features/profile/providers/credentials_providers.dart';
 import 'package:archi_draft/src/features/profile/providers/metrics_providers.dart';
 import 'package:archi_draft/src/features/projects/domain/correction.dart';
+import 'package:archi_draft/src/features/pixmint_bot/data/repositories/mock_pixmint_bot_repository.dart';
+import 'package:archi_draft/src/features/pixmint_bot/providers/pixmint_bot_providers.dart';
 
 class MockUser extends Mock implements User {
   @override
@@ -131,6 +134,8 @@ void main() {
           userLegalStatusProvider.overrideWithValue(const AsyncValue.data(compliantLegalStatus)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -162,6 +167,8 @@ void main() {
           userLegalStatusProvider.overrideWithValue(const AsyncValue.data(compliantLegalStatus)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -193,6 +200,8 @@ void main() {
           userProfileProvider.overrideWithValue(const AsyncValue.data(null)),
           userLegalStatusProvider.overrideWithValue(const AsyncValue.data(emptyLegalStatus)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -228,6 +237,8 @@ void main() {
           effectiveDocumentProvider('TERMS_AND_CONDITIONS').overrideWithValue(const AsyncValue.data(mockTermsDoc)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -264,6 +275,8 @@ void main() {
           effectiveDocumentProvider('TERMS_AND_CONDITIONS').overrideWithValue(const AsyncValue.data(mockTermsDoc)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
           draughtsmanAssignmentsProvider.overrideWithValue(const AsyncValue.data(<Assignment>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -298,6 +311,7 @@ void main() {
           userLegalStatusProvider.overrideWithValue(const AsyncValue.data(compliantLegalStatus)),
           effectiveDocumentProvider('TERMS_AND_CONDITIONS').overrideWithValue(const AsyncValue.data(mockTermsDoc)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          myGuardianConsentsProvider.overrideWithValue(const AsyncValue.data(<GuardianConsent>[])),
           studentModulesProvider.overrideWithValue(const AsyncValue.data(<TrainingModule>[])),
           categoryProgressProvider.overrideWithValue(const AsyncValue.data(<TrainingCategoryProgress>[])),
           studentAssignmentsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
@@ -311,6 +325,8 @@ void main() {
                 practical: [],
                 activity: ActivityMetric(completedProjects: 0, correctionRounds: 0),
               )),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -358,6 +374,8 @@ void main() {
               ),
             ),
           ),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);
@@ -389,6 +407,8 @@ void main() {
           userProfileProvider.overrideWithValue(const AsyncValue.data(null)),
           userLegalStatusProvider.overrideWithValue(const AsyncValue.data(emptyLegalStatus)),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
+          pixmintApiBaseUrlProvider.overrideWithValue('http://localhost:8787'),
         ],
       );
       addTearDown(container.dispose);

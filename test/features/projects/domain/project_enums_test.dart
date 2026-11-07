@@ -21,7 +21,7 @@ void main() {
       expect(ProjectStatus.fromString('UNDER_ENGINEER_REVIEW'), ProjectStatus.underEngineerReview);
       expect(ProjectStatus.fromString('UNDER_CLIENT_REVIEW'), ProjectStatus.underEngineerReview);
       expect(ProjectStatus.underEngineerReview.toFirestoreString(), 'UNDER_ENGINEER_REVIEW');
-      expect(ProjectStatus.underEngineerReview.displayName, 'Under Engineer Review');
+      expect(ProjectStatus.underEngineerReview.displayName, 'Under Engineer/Architect Review');
     });
 
     test('isEditable logic', () {

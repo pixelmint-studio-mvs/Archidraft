@@ -329,7 +329,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('ENGINEER REFERENCE FILES'), findsOneWidget);
+    expect(find.text('ENGINEER/ARCHITECT REFERENCE FILES'), findsOneWidget);
     expect(find.text('PROJECT REFERENCE INVENTORY'), findsOneWidget);
     expect(find.text('architectural_reference_brief.dwg'), findsWidgets);
     expect(find.text('184.6 KB \u2022 DWG'), findsOneWidget);
