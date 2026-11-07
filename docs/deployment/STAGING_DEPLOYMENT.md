@@ -4,8 +4,8 @@
 **Hosting Target:** Cloudflare Pages  
 **Cloudflare Pages Project:** `archidraft-app`  
 **Live Public Staging URL:** `https://archidraft-app.pages.dev`  
-**Current Deployment Version:** `https://9ba115dd.archidraft-app.pages.dev`  
-**Last Deployed:** October 31, 2026 (23:56 IST / 18:26 UTC)  
+**Current Deployment Version:** `https://33b6b553.archidraft-app.pages.dev`  
+**Last Deployed:** November 7, 2026 (14:06 IST / 08:36 UTC)  
 **Deployment Status:** **ACTIVE & VERIFIED**
 
 ---

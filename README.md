@@ -18,7 +18,7 @@ The multi-role Flutter Web application is deployed live on **Cloudflare Pages** 
 | Staging Resource | Configuration / Endpoint | Status |
 | :--- | :--- | :--- |
 | **Public Staging Web App** | [https://archidraft-app.pages.dev](https://archidraft-app.pages.dev) | **LIVE** (Cloudflare Pages project: `archidraft-app`) |
-| **Unique Deployment URL** | [https://9ba115dd.archidraft-app.pages.dev](https://9ba115dd.archidraft-app.pages.dev) | **ACTIVE** (Direct immutable build) |
+| **Unique Deployment URL** | [https://33b6b553.archidraft-app.pages.dev](https://33b6b553.archidraft-app.pages.dev) | **ACTIVE** (Direct immutable build) |
 | **Backend Worker API** | `https://archi-draft-worker-staging.imserratex.workers.dev` | **DEPLOYED** (Cloudflare Worker Hono API) |
 | **Relational Database** | `archi-draft-db-staging` (`065d76ba-eca5-4cc1-ba39-51281b79d6b4`) | **ISOLATED** (Cloudflare D1 SQLite) |
 | **CAD Object Storage** | `archi-draft-storage-staging` | **ISOLATED** (Cloudflare R2 Bucket) |
