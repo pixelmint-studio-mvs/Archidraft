@@ -473,5 +473,27 @@ describe('PIXMINT BOT 2.0 — Simplified 5-Section Admin Control Center Contract
       assert.ok(supportWidgetContent.includes('loading || !user'), 'SupportWidget must return null if not authenticated');
       assert.ok(supportWidgetContent.includes("pathname === '/login'"), 'SupportWidget must return null on /login');
     });
+
+    it('Zero floating icons in admin panel: PixmintChatWidget and SupportWidget do not render persistent floating launcher buttons', () => {
+      const chatWidgetContent = fs.readFileSync(chatWidgetPath, 'utf-8');
+      const supportWidgetPath = getSafePath('src/components/helpdesk/SupportWidget.tsx');
+      const supportWidgetContent = fs.readFileSync(supportWidgetPath, 'utf-8');
+
+      // Floating icons must be removed from persistent view
+      assert.strictEqual(
+        chatWidgetContent.includes('fixed bottom-20 right-6'),
+        false,
+        'PixmintChatWidget must not have fixed bottom-20 launcher'
+      );
+      assert.strictEqual(
+        supportWidgetContent.includes('fixed bottom-20 right-6'),
+        false,
+        'SupportWidget must not have fixed bottom-20 launcher'
+      );
+      assert.ok(
+        chatWidgetContent.includes('if (!isOpen)'),
+        'PixmintChatWidget must return null when closed to eliminate floating icon disturbance'
+      );
+    });
   });
 });
