@@ -58,6 +58,8 @@ import {
   AdminConsentEvent,
   AdminPrivacyRequest,
   DataRetentionPolicy,
+  SystemTelemetryReport,
+  AdminFinancialSummary,
 } from './types';
 
 export const API_BASE = (() => {
@@ -1917,5 +1919,17 @@ export const adminApi = {
 
   async getLegalRetentionPolicies(): Promise<{ retentionPolicies: DataRetentionPolicy[] }> {
     return fetchApi<{ retentionPolicies: DataRetentionPolicy[] }>('/api/admin/legal/retention-policies');
+  },
+
+  // ==========================================
+  // AUTHORITATIVE TELEMETRY & FINANCIAL LEDGERS
+  // ==========================================
+
+  async getSystemTelemetry(): Promise<SystemTelemetryReport> {
+    return fetchApi<SystemTelemetryReport>('/api/admin/system/telemetry');
+  },
+
+  async getAdminFinancials(): Promise<AdminFinancialSummary> {
+    return fetchApi<AdminFinancialSummary>('/api/admin/financials');
   },
 };

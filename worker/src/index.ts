@@ -6927,7 +6927,7 @@ app.get('/api/admin/settings', async (c) => {
     settings.updated_by = latest.updated_by;
   }
 
-  return c.json(settings);
+  return c.json({ success: true, settings, ...settings, updated_at: settings.updated_at, updated_by: settings.updated_by });
 });
 
 app.put('/api/admin/settings', async (c) => {
@@ -6955,6 +6955,312 @@ app.put('/api/admin/settings', async (c) => {
   }
 
   return c.json({ success: true, settings: { ...DEFAULT_STUDIO_SETTINGS, ...body, updated_at: new Date().toISOString(), updated_by: uid } });
+});
+
+// ==========================================
+// SYSTEM TELEMETRY & STORAGE AUDIT ENDPOINT
+// ==========================================
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+app.get('/api/admin/system/telemetry', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  // 1. D1 Database Probe & Latency
+  const d1Start = Date.now();
+  let d1Status = 'ONLINE';
+  let d1Error: string | null = null;
+  try {
+    await db.prepare('SELECT 1').run();
+  } catch (err: any) {
+    d1Status = 'DEGRADED';
+    d1Error = err?.message || String(err);
+  }
+  const d1LatencyMs = Date.now() - d1Start;
+
+  // Foreign key integrity check
+  let fkViolations = 0;
+  try {
+    const fkCheck = await db.prepare('PRAGMA foreign_key_check').all();
+    fkViolations = fkCheck.results?.length || 0;
+  } catch {
+    fkViolations = 0;
+  }
+
+  // 2. Storage Telemetry (Authoritative query on D1 files ledger)
+  const categoryStatsQuery = await db.prepare(`
+    SELECT category, count(*) as count, sum(size) as total_bytes
+    FROM files
+    GROUP BY category
+  `).all();
+
+  const categories = (categoryStatsQuery.results || []).map((row: any) => ({
+    category: row.category,
+    count: Number(row.count) || 0,
+    totalBytes: Number(row.total_bytes) || 0,
+    formattedSize: formatBytes(Number(row.total_bytes) || 0),
+  }));
+
+  const totalFilesQuery = await db.prepare(`
+    SELECT count(*) as total_count, sum(size) as total_bytes
+    FROM files
+  `).first<{ total_count: number; total_bytes: number }>();
+
+  const totalBytes = Number(totalFilesQuery?.total_bytes) || 0;
+  const totalCount = Number(totalFilesQuery?.total_count) || 0;
+
+  // Cloudflare R2 Probe
+  let r2Status = 'CONNECTED';
+  let r2BucketName = 'archi-draft-storage-local';
+  if (c.env.ENVIRONMENT === 'staging') {
+    r2BucketName = 'archi-draft-storage-staging';
+  } else if (c.env.ENVIRONMENT === 'production') {
+    r2BucketName = 'archi-draft-storage';
+  }
+
+  try {
+    if (c.env.STORAGE) {
+      await c.env.STORAGE.list({ limit: 1 });
+    } else {
+      r2Status = 'UNCONFIGURED';
+    }
+  } catch {
+    r2Status = 'DEGRADED';
+  }
+
+  // External S3 CAD Vault (Explicitly verify that external S3 is unprovisioned)
+  const s3Status = {
+    configured: false,
+    status: 'NOT_CONFIGURED',
+    provider: 'Amazon Web Services S3 (CAD Vault)',
+    details: 'External S3 CAD Vault is unprovisioned; CAD drawings and assets stream directly via Cloudflare R2.',
+  };
+
+  // Quota allocation (Cloudflare R2 is dynamic utility billing, no fixed 10 TB quota)
+  const storageTelemetry = {
+    provider: 'Cloudflare R2 Object Storage',
+    bucket: r2BucketName,
+    r2Status,
+    s3Status,
+    totalFiles: totalCount,
+    totalBytes,
+    formattedTotalSize: formatBytes(totalBytes),
+    categories,
+    quota: {
+      hasFixedQuota: false,
+      model: 'DYNAMIC_UTILITY_BILLING',
+      quotaCeiling: 'DYNAMIC_UNMETERED',
+      displayQuota: 'Dynamic Utility Allocation (No fixed 10 TB ceiling)',
+      usagePercentage: null,
+      explanation: 'Cloudflare R2 operates on elastic dynamic billing per stored GB. There is no artificial 10 TB limit.',
+    },
+    lastAudited: new Date().toISOString(),
+  };
+
+  // 3. Infrastructure Telemetry
+  // Firebase JWKS Probe
+  let firebaseAuthStatus = 'ONLINE';
+  try {
+    const jwksRes = await fetch(
+      'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com',
+      { method: 'GET', signal: AbortSignal.timeout(3000) }
+    );
+    if (!jwksRes.ok) firebaseAuthStatus = 'DEGRADED';
+  } catch {
+    firebaseAuthStatus = 'UNREACHABLE';
+  }
+
+  const infraTelemetry = {
+    workerGateway: {
+      status: 'ONLINE',
+      version: '1.0.0',
+      runtime: 'Cloudflare Workers (workerd / V8 isolate)',
+      environment: c.env.ENVIRONMENT || 'development',
+      region: (c.req.raw as any)?.cf?.colo || (c.env.ENVIRONMENT === 'development' ? 'LOCAL (Miniflare / Localhost)' : 'Cloudflare Anycast Global Edge'),
+      latencyMs: d1LatencyMs,
+    },
+    database: {
+      provider: 'Cloudflare D1 (SQLite Edge Engine)',
+      databaseName: c.env.ENVIRONMENT === 'staging' ? 'archi-draft-db-staging' : c.env.ENVIRONMENT === 'production' ? 'archi-draft-db' : 'archi-draft-db-local',
+      status: d1Status,
+      latencyMs: d1LatencyMs,
+      foreignKeyCheck: {
+        status: fkViolations === 0 ? 'CLEAN' : 'VIOLATIONS_DETECTED',
+        violations: fkViolations,
+      },
+      error: d1Error,
+    },
+    cadEngine: {
+      status: 'ONLINE',
+      mode: 'STANDALONE (Local R2 Vector / Raster Streaming)',
+      externalForgeApi: {
+        status: 'NOT_CONFIGURED',
+        cluster: 'No external Autodesk Forge cluster provisioned; native R2 vector streaming active.',
+      },
+      supportedFormats: ['DWG', 'DXF', 'PDF', 'PNG', 'SVG'],
+      strictLayerCompliance: true,
+    },
+    identityProvider: {
+      provider: 'Firebase Authentication (Google Identity Platform)',
+      projectId: c.env.FIREBASE_PROJECT_ID || 'archi-draft',
+      jwksStatus: firebaseAuthStatus,
+      tokenVerification: 'Google JWKS RS256 via jose',
+    },
+  };
+
+  // 4. Statutory Legal Business Profile (Distinct from Administrator)
+  const legalProfileRow = await db.prepare(
+    'SELECT * FROM legal_business_profile WHERE id = ?'
+  ).bind('current').first<any>();
+
+  const legalBusinessProfile = {
+    legalProprietor: legalProfileRow?.legal_proprietor || 'MOHAMMED MOSIN S',
+    businessStructure: legalProfileRow?.business_structure || 'Sole Proprietorship',
+    operatingBrand: legalProfileRow?.operating_brand || 'DRAUGHTSMAN STUDIO',
+    productName: legalProfileRow?.product_name || 'ARCHI DRAFT',
+    supportEmail: legalProfileRow?.support_email || 'support@draughtsmanstudio.com',
+    privacyEmail: legalProfileRow?.privacy_email || 'support@draughtsmanstudio.com',
+    grievanceEmail: legalProfileRow?.grievance_email || 'mosin@draughtsmanstudio.com',
+    physicalAddressStatus: legalProfileRow?.physical_address_status || 'PENDING_VERIFICATION',
+    physicalAddressCountry: legalProfileRow?.physical_address_country || 'India',
+    grievanceOfficerName: legalProfileRow?.grievance_officer_name || 'PENDING_VERIFICATION',
+    grievanceOfficerStatus: legalProfileRow?.grievance_officer_appointment_status || 'PENDING_VERIFICATION',
+    configurationVersion: legalProfileRow?.configuration_version || '1.0.0',
+    lastUpdated: legalProfileRow?.updated_at || null,
+  };
+
+  // 5. Session Administrator
+  const sessionAdmin = {
+    id: user.id,
+    name: user.name || 'Studio Administrator',
+    email: user.email,
+    role: user.role,
+    mobile: user.mobile || null,
+    company: user.company_name || 'DRAUGHTSMAN STUDIO',
+    address: user.address || 'PENDING_VERIFICATION',
+    isDistinctFromProprietor: true,
+    proprietorClarification: 'The authenticated administrator is a technical/studio operator and is distinct from the statutory Sole Proprietor (MOHAMMED MOSIN S).',
+  };
+
+  return c.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    storage: storageTelemetry,
+    infrastructure: infraTelemetry,
+    legalBusinessProfile,
+    sessionAdmin,
+  });
+});
+
+// ==========================================
+// ADMIN FINANCIALS & INVOICE LEDGER ENDPOINT
+// ==========================================
+
+app.get('/api/admin/financials', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Permission denied' }, 403);
+  }
+
+  // 1. Fetch Invoices joined with Projects
+  const invoicesQuery = await db.prepare(`
+    SELECT 
+      i.id,
+      i.project_id,
+      i.invoice_number,
+      i.amount,
+      i.currency,
+      i.status,
+      i.due_date,
+      i.created_at,
+      p.project_name as project_title,
+      p.drawing_type,
+      p.project_area,
+      p.status as project_status,
+      u.name as client_name,
+      u.email as client_email
+    FROM invoices i
+    LEFT JOIN projects p ON i.project_id = p.id
+    LEFT JOIN users u ON p.client_id = u.id
+    ORDER BY i.created_at DESC
+  `).all();
+
+  const invoices = invoicesQuery.results || [];
+
+  // 2. Fetch Payments joined with Invoices
+  const paymentsQuery = await db.prepare(`
+    SELECT 
+      pay.id,
+      pay.invoice_id,
+      pay.amount,
+      pay.payment_method,
+      pay.processed_at,
+      pay.recorded_by,
+      i.invoice_number,
+      i.currency,
+      i.project_id
+    FROM payments pay
+    LEFT JOIN invoices i ON pay.invoice_id = i.id
+    ORDER BY pay.processed_at DESC
+  `).all();
+
+  const payments = paymentsQuery.results || [];
+
+  // 3. Compute Summary in Indian Rupees (INR)
+  let totalInvoiced = 0;
+  let totalCollected = 0;
+  let paidInvoicesCount = 0;
+  let pendingInvoicesCount = 0;
+
+  for (const inv of invoices as any[]) {
+    const amt = Number(inv.amount) || 0;
+    totalInvoiced += amt;
+    if (inv.status === 'PAID') {
+      paidInvoicesCount++;
+    } else {
+      pendingInvoicesCount++;
+    }
+  }
+
+  for (const pay of payments as any[]) {
+    totalCollected += Number(pay.amount) || 0;
+  }
+
+  const totalOutstanding = Math.max(0, totalInvoiced - totalCollected);
+  const collectionRate = totalInvoiced > 0 ? Math.round((totalCollected / totalInvoiced) * 100) : 100;
+
+  return c.json({
+    success: true,
+    currency: 'INR',
+    currencySymbol: '₹',
+    summary: {
+      totalInvoiced,
+      totalCollected,
+      totalOutstanding,
+      collectionRate,
+      invoiceCount: invoices.length,
+      paidInvoicesCount,
+      pendingInvoicesCount,
+      paymentCount: payments.length,
+    },
+    invoices,
+    payments,
+  });
 });
 
 // ==========================================

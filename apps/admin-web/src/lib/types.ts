@@ -1125,4 +1125,167 @@ export interface DataRetentionPolicy {
   review_status: string;
 }
 
+// ==========================================
+// SYSTEM TELEMETRY & ACCURACY MODELS
+// ==========================================
+
+export interface StorageCategoryStat {
+  category: string;
+  count: number;
+  totalBytes: number;
+  formattedSize: string;
+}
+
+export interface StorageTelemetry {
+  provider: string;
+  bucket: string;
+  r2Status: 'CONNECTED' | 'UNCONFIGURED' | 'DEGRADED';
+  s3Status: {
+    configured: boolean;
+    status: string;
+    provider: string;
+    details: string;
+  };
+  totalFiles: number;
+  totalBytes: number;
+  formattedTotalSize: string;
+  categories: StorageCategoryStat[];
+  quota: {
+    hasFixedQuota: boolean;
+    model: string;
+    quotaCeiling: string;
+    displayQuota: string;
+    usagePercentage: number | null;
+    explanation: string;
+  };
+  lastAudited: string;
+}
+
+export interface InfrastructureTelemetry {
+  workerGateway: {
+    status: string;
+    version: string;
+    runtime: string;
+    environment: string;
+    region: string;
+    latencyMs: number;
+  };
+  database: {
+    provider: string;
+    databaseName: string;
+    status: string;
+    latencyMs: number;
+    foreignKeyCheck: {
+      status: string;
+      violations: number;
+    };
+    error?: string | null;
+  };
+  cadEngine: {
+    status: string;
+    mode: string;
+    externalForgeApi: {
+      status: string;
+      cluster: string;
+    };
+    supportedFormats: string[];
+    strictLayerCompliance: boolean;
+  };
+  identityProvider: {
+    provider: string;
+    projectId: string;
+    jwksStatus: string;
+    tokenVerification: string;
+  };
+}
+
+export interface StatutoryBusinessProfile {
+  legalProprietor: string;
+  businessStructure: string;
+  operatingBrand: string;
+  productName: string;
+  supportEmail: string;
+  privacyEmail: string;
+  grievanceEmail: string;
+  physicalAddressStatus: string;
+  physicalAddressCountry: string;
+  grievanceOfficerName: string;
+  grievanceOfficerStatus: string;
+  configurationVersion: string;
+  lastUpdated: string | null;
+}
+
+export interface SessionAdminProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  mobile: string | null;
+  company: string;
+  address: string;
+  isDistinctFromProprietor: boolean;
+  proprietorClarification: string;
+}
+
+export interface SystemTelemetryReport {
+  success: boolean;
+  timestamp: string;
+  storage: StorageTelemetry;
+  infrastructure: InfrastructureTelemetry;
+  legalBusinessProfile: StatutoryBusinessProfile;
+  sessionAdmin: SessionAdminProfile;
+}
+
+// ==========================================
+// ADMIN FINANCIAL MODELS (INR AUTHORITATIVE)
+// ==========================================
+
+export interface AdminInvoiceRecord {
+  id: string;
+  project_id: string;
+  invoice_number: string;
+  amount: number;
+  currency: string;
+  status: 'PAID' | 'UNPAID' | 'OVERDUE' | 'CANCELLED';
+  due_date: string;
+  created_at: string;
+  project_title?: string | null;
+  drawing_type?: string | null;
+  project_area?: string | null;
+  project_status?: string | null;
+  client_name?: string | null;
+  client_email?: string | null;
+}
+
+export interface AdminPaymentRecord {
+  id: string;
+  invoice_id: string;
+  amount: number;
+  payment_method: string;
+  processed_at: string;
+  recorded_by: string;
+  invoice_number?: string | null;
+  currency?: string | null;
+  project_id?: string | null;
+}
+
+export interface AdminFinancialSummary {
+  success: boolean;
+  currency: string;
+  currencySymbol: string;
+  summary: {
+    totalInvoiced: number;
+    totalCollected: number;
+    totalOutstanding: number;
+    collectionRate: number;
+    invoiceCount: number;
+    paidInvoicesCount: number;
+    pendingInvoicesCount: number;
+    paymentCount: number;
+  };
+  invoices: AdminInvoiceRecord[];
+  payments: AdminPaymentRecord[];
+}
+
+
 

@@ -731,3 +731,4 @@ try {
   console.error('✗ ERROR during synchronization, rolled back:', err);
   process.exit(1);
 }
+

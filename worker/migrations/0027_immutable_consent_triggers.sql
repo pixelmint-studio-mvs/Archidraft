@@ -18,3 +18,4 @@ BEFORE DELETE ON legal_consent_events
 BEGIN
   SELECT RAISE(FAIL, 'DELETE on legal_consent_events is strictly prohibited (immutable ledger)');
 END;
+
