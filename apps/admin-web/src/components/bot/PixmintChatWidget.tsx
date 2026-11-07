@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { adminApi, classifyApiError } from '@/lib/api';
 import {
@@ -26,7 +27,8 @@ import {
 } from 'lucide-react';
 
 export function PixmintChatWidget() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const pathname = usePathname();
 
   const [isOpen, setIsOpen] = useState(false);
   const [session, setSession] = useState<ConversationSessionItem | null>(null);
@@ -66,8 +68,8 @@ export function PixmintChatWidget() {
   }, [isOpen]);
 
   // Load session and suggestions on mount or when opened
-  const initSession = useCallback(async (forceNew = false) => {
-    if (!user) return;
+  const initSession = useCallback(async (forceNew = false): Promise<ConversationSessionItem | null> => {
+    if (!user) return null;
     setIsLoading(true);
     setError(null);
     try {
@@ -79,16 +81,29 @@ export function PixmintChatWidget() {
 
       // 2. Fetch existing messages for this session
       if (activeSession?.id) {
-        const history = await adminApi.getBotChatSessionMessages(activeSession.id);
-        setMessages(history || []);
+        try {
+          const history = await adminApi.getBotChatSessionMessages(activeSession.id);
+          setMessages(history || []);
+        } catch (histErr) {
+          console.warn('[PIXMINT_BOT_WIDGET] Could not load message history:', histErr);
+          setMessages([]);
+        }
       }
 
       // 3. Load suggestions for admin role
-      const sug = await adminApi.getBotChatSuggestions('admin');
-      setSuggestions(sug || []);
+      try {
+        const sug = await adminApi.getBotChatSuggestions('admin');
+        setSuggestions(sug || []);
+      } catch (sugErr) {
+        console.warn('[PIXMINT_BOT_WIDGET] Could not load suggestions:', sugErr);
+      }
+
+      return activeSession;
     } catch (err: any) {
       console.warn('[PIXMINT_BOT_WIDGET] Failed to initialize session:', err);
-      setError(err?.message || 'Unable to connect to PIXMINT BOT service.');
+      const classified = classifyApiError(err);
+      setError(classified.message || err?.message || 'Unable to connect to PIXMINT BOT service.');
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -100,17 +115,34 @@ export function PixmintChatWidget() {
     }
   }, [user, isOpen, session, initSession]);
 
+  // STRICT REQUIREMENT: Only visible AFTER login, never before
+  if (loading || !user) {
+    return null;
+  }
+
+  const isAuthPage =
+    pathname === '/login' ||
+    pathname === '/forgot-password' ||
+    pathname === '/verify' ||
+    pathname?.startsWith('/registration');
+  if (isAuthPage) {
+    return null;
+  }
+
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend || inputText).trim();
     if (!content || isSending) return;
 
-    if (!session?.id) {
-      await initSession(false);
+    setError(null);
+
+    let activeSession = session;
+    if (!activeSession?.id) {
+      activeSession = await initSession(false);
     }
 
-    const currentSessionId = session?.id;
+    const currentSessionId = activeSession?.id;
     if (!currentSessionId) {
-      setError('Chat session is not ready. Please retry.');
+      setError('Chat session is not ready. Please check connection and try again.');
       return;
     }
 
@@ -128,11 +160,13 @@ export function PixmintChatWidget() {
     setMessages((prev) => [...prev, optimisticUserMsg]);
     setInputText('');
     setIsSending(true);
-    setError(null);
 
     try {
       const botResponse = await adminApi.sendBotChatMessage(currentSessionId, content);
       setMessages((prev) => [...prev, botResponse]);
+      if (session && (session.title === 'New Conversation' || !session.title)) {
+        setSession({ ...session, title: content.slice(0, 30) });
+      }
     } catch (err: any) {
       const classified = classifyApiError(err);
       setError(classified.message || err?.message || 'Failed to send message.');

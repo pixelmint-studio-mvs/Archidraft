@@ -450,7 +450,7 @@ describe('PIXMINT BOT 2.0 — Simplified 5-Section Admin Control Center Contract
       assert.ok(content.includes('<PixmintChatWidget />'), 'providers.tsx must render PixmintChatWidget');
     });
 
-    it('api.ts defines all 6 interactive chat client methods', () => {
+    it('api.ts defines all 6 interactive chat client methods and provides content field', () => {
       const content = fs.readFileSync(apiPath, 'utf-8');
       assert.ok(content.includes('getBotChatStatus'), 'Must define getBotChatStatus');
       assert.ok(content.includes('getOrCreateBotChatSession'), 'Must define getOrCreateBotChatSession');
@@ -458,6 +458,20 @@ describe('PIXMINT BOT 2.0 — Simplified 5-Section Admin Control Center Contract
       assert.ok(content.includes('getBotChatSessionMessages'), 'Must define getBotChatSessionMessages');
       assert.ok(content.includes('sendBotChatMessage'), 'Must define sendBotChatMessage');
       assert.ok(content.includes('submitBotChatFeedback'), 'Must define submitBotChatFeedback');
+      assert.ok(content.includes('content: message'), 'sendBotChatMessage must pass content field in body');
+    });
+
+    it('PixmintChatWidget and SupportWidget are strictly hidden before login and on /login', () => {
+      const chatWidgetContent = fs.readFileSync(chatWidgetPath, 'utf-8');
+      const supportWidgetPath = getSafePath('src/components/helpdesk/SupportWidget.tsx');
+      const supportWidgetContent = fs.readFileSync(supportWidgetPath, 'utf-8');
+
+      // Both must require authenticated user
+      assert.ok(chatWidgetContent.includes('loading || !user'), 'PixmintChatWidget must return null if not authenticated');
+      assert.ok(chatWidgetContent.includes("pathname === '/login'"), 'PixmintChatWidget must return null on /login');
+
+      assert.ok(supportWidgetContent.includes('loading || !user'), 'SupportWidget must return null if not authenticated');
+      assert.ok(supportWidgetContent.includes("pathname === '/login'"), 'SupportWidget must return null on /login');
     });
   });
 });

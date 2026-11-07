@@ -360,13 +360,13 @@ export async function handleGetMessages(c: Context<{ Bindings: PixmintBindings; 
     return c.json({ error: 'Missing sessionId.', code: 'INVALID_SESSION_ID' }, 400);
   }
 
-  // Verify session ownership
+  // Verify session ownership (or admin privileges)
   const sessionRow = await db
     .prepare('SELECT id, user_id FROM chat_sessions WHERE id = ?')
     .bind(sessionId)
     .first<{ id: string; user_id: string }>();
 
-  if (!sessionRow || sessionRow.user_id !== user.uid) {
+  if (!sessionRow || (sessionRow.user_id !== user.uid && user.role !== 'admin')) {
     return c.json({ error: 'Chat session not found.', code: 'SESSION_NOT_FOUND' }, 404);
   }
 
@@ -501,7 +501,8 @@ export async function handleSendMessage(c: Context<{ Bindings: PixmintBindings; 
 
   let userContent: string;
   try {
-    userContent = validateChatInput(rawBody?.content, config.maxInputChars);
+    const rawContent = rawBody?.content ?? rawBody?.message;
+    userContent = validateChatInput(rawContent, config.maxInputChars);
   } catch (err: any) {
     return c.json({ error: err.message, code: 'INVALID_INPUT' }, 400);
   }
@@ -518,13 +519,13 @@ export async function handleSendMessage(c: Context<{ Bindings: PixmintBindings; 
     );
   }
 
-  // 5. Session ownership verification
+  // 5. Session ownership verification (or admin privileges)
   const sessionRow = await db
     .prepare('SELECT id, user_id, user_role, title FROM chat_sessions WHERE id = ?')
     .bind(sessionId)
     .first<{ id: string; user_id: string; user_role: string; title?: string }>();
 
-  if (!sessionRow || sessionRow.user_id !== user.uid) {
+  if (!sessionRow || (sessionRow.user_id !== user.uid && user.role !== 'admin')) {
     return c.json({ error: 'Chat session not found.', code: 'SESSION_NOT_FOUND' }, 404);
   }
 

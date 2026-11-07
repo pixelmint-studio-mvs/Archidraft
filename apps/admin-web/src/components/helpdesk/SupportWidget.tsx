@@ -29,7 +29,7 @@ const FRIENDLY_TOPICS = [
 
 export function SupportWidget() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -96,8 +96,19 @@ export function SupportWidget() {
     setIsOpen(false);
   };
 
-  // Do not render the floating launcher on admin helpdesk pages itself
-  if (pathname?.startsWith('/helpdesk')) {
+  // STRICT REQUIREMENT: Only visible AFTER login, never before
+  if (loading || !user) {
+    return null;
+  }
+
+  // Do not render on auth pages or admin helpdesk pages itself
+  const isExcluded =
+    pathname === '/login' ||
+    pathname === '/forgot-password' ||
+    pathname === '/verify' ||
+    pathname?.startsWith('/registration') ||
+    pathname?.startsWith('/helpdesk');
+  if (isExcluded) {
     return null;
   }
 

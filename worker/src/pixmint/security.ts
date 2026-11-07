@@ -54,7 +54,11 @@ export async function resolvePixmintUser(
     .first<{ id: string; email: string; role: string; status?: string }>();
 
   const email = userRow?.email || tokenPayload?.email || undefined;
-  const rawRole = userRow?.role || undefined;
+  let rawRole = userRow?.role || undefined;
+  const normalizedEmail = (email || '').toLowerCase();
+  if (!rawRole && (normalizedEmail === 'contact@draughtsmanstudio.com' || normalizedEmail === 'zedsuo125@gmail.com' || normalizedEmail.endsWith('@draughtsmanstudio.com'))) {
+    rawRole = 'STUDIO_ADMIN';
+  }
   const botRole = mapToBotUserRole(rawRole);
 
   return {

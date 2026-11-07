@@ -1750,7 +1750,7 @@ export const adminApi = {
   async sendBotChatMessage(sessionId: string, message: string): Promise<ConversationMessageItem> {
     return fetchApi<ConversationMessageItem>(`/api/pixmint/chat/sessions/${encodeURIComponent(sessionId)}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ content: message, message }),
     });
   },
 
