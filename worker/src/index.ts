@@ -1753,6 +1753,9 @@ function normalizeTimestampString(val: any): string {
 // ==========================================
 
 app.get('/api/projects', async (c) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
   const uid = c.get('uid');
   const db = c.env.DB;
   const user = await getUser(db, uid);
@@ -3010,6 +3013,9 @@ app.get('/api/draughtsman/summary', async (c) => {
 // ==========================================
 
 app.get('/api/admin/dashboard', async (c) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
 
   const uid = c.get('uid');
   const db = c.env.DB;
@@ -6970,6 +6976,9 @@ function formatBytes(bytes: number): string {
 }
 
 app.get('/api/admin/system/telemetry', async (c) => {
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
   const uid = c.get('uid');
   const db = c.env.DB;
 

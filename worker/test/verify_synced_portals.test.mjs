@@ -180,15 +180,15 @@ test('PORTAL DATA VERIFICATION: 4. Admin Portal (Studio Administrator Primary)',
   console.log(`   - Pending Assignments:          ${dash.pendingAssignments}`);
   console.log(`   - Registered Engineers:         ${dash.registeredEngineers}`);
 
-  assert.equal(dash.totalProjects, 10, 'Total projects KPI matches');
-  assert.equal(dash.completedProjects, 4, 'Completed projects KPI matches (2 commercial + 2 student)');
-  assert.equal(dash.activeDraughtsmen, 1, 'Active draughtsmen count matches');
+  assert.equal(dash.totalProjects, 33, 'Total projects KPI matches');
+  assert.equal(dash.completedProjects, 19, 'Completed projects KPI matches (17 commercial + 2 student)');
+  assert.equal(dash.activeDraughtsmen, 3, 'Active draughtsmen count matches');
 
   // Admin All Projects
   const prjRes = await testRequest('/api/projects', { token: adminUid });
   assert.equal(prjRes.status, 200);
   const prjs = await prjRes.json();
-  assert.equal(prjs.length, 10, `Admin should see all 10 projects, got ${prjs.length}`);
+  assert.equal(prjs.length, 33, `Admin should see all 33 projects, got ${prjs.length}`);
   console.log(`✓ 4b. Admin Unified Projects Feed: ${prjs.length} total projects visible`);
 
   // Admin Students Progress Directory
@@ -219,6 +219,7 @@ test('PORTAL DATA VERIFICATION: 5. STUDIO_ADMIN Portal (Secondary Studio Admin)'
   const dashRes = await testRequest('/api/admin/dashboard', { token: secondaryAdminUid });
   assert.equal(dashRes.status, 200);
   const dash = await dashRes.json();
-  assert.equal(dash.totalProjects, 10);
+  assert.equal(dash.totalProjects, 33);
+  assert.equal(dash.completedProjects, 19);
   console.log(`✓ 5. STUDIO_ADMIN Secondary Admin verified: Access to ${dash.totalProjects} total projects & ${dash.completedProjects} completed`);
 });
