@@ -609,7 +609,7 @@ class _LegalCenterScreenState extends ConsumerState<LegalCenterScreen>
               ],
             ),
           ),
-          if (exp.isCompleted && exp.downloadR2Key != null)
+          if (exp.isCompleted)
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.secondary,
@@ -618,13 +618,30 @@ class _LegalCenterScreenState extends ConsumerState<LegalCenterScreen>
               ),
               icon: const Icon(Icons.file_download, size: 14),
               label: const Text('Download Archive'),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Secure archive token active. Stored at: ${exp.downloadR2Key}'),
-                    backgroundColor: AppColors.secondary,
-                  ),
-                );
+              onPressed: () async {
+                try {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Starting data export download...')),
+                  );
+                  await ref.read(legalRepositoryProvider).downloadDataExportArchive(exp.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Data export archive downloaded successfully.'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to download archive: $e'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
               },
             ),
         ],

@@ -342,6 +342,16 @@ class LegalRepository {
     throw Exception('Failed to submit data export request');
   }
 
+  /// Downloads a completed data export archive via streaming API
+  Future<void> downloadDataExportArchive(String requestId, {String? filename}) async {
+    final saveName = filename ?? 'archi_draft_export_$requestId.json';
+    await _apiClient.downloadFileStream(
+      '/api/legal/data-export-requests/$requestId/download',
+      saveName,
+      openInBrowser: true,
+    );
+  }
+
   // =========================================================================
   // DATA CORRECTION WORKFLOWS (DPDP SEC 12)
   // =========================================================================

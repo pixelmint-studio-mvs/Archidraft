@@ -1,3 +1,4 @@
+process.env.NODE_ENV = 'test';
 import esbuild from 'esbuild';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -112,6 +113,7 @@ test('PHASE 2: Canonical Legal Database Foundation & User Rights Suite', async (
       method,
       headers: {
         'content-type': 'application/json',
+        'Authorization': `Bearer mock-token:${user.sub}`,
         'x-test-uid': user.sub,
         'x-test-email': user.email
       }
@@ -381,7 +383,112 @@ test('PHASE 2: Canonical Legal Database Foundation & User Rights Suite', async (
     assert.equal(approvedRefund.amount_approved, 7500.0);
   });
 
-  await t.test('11. Rollback & Migration Safety Strategy', () => {
+  await t.test('11. Append-Only Immutability Triggers on legal_consent_events (Migration 0027)', () => {
+    // Seed document first for foreign key integrity
+    db.prepare(`
+      INSERT OR REPLACE INTO legal_documents (
+        id, document_type, version, title, content, effective_at, status, is_mandatory, locale
+      ) VALUES (
+        'doc-test-terms-01', 'TERMS_AND_CONDITIONS', '1.0.0', 'Platform Terms', 'Legal terms...', CURRENT_TIMESTAMP, 'EFFECTIVE', 1, 'en-IN'
+      );
+    `).run();
+
+    // Insert affirmative consent event
+    db.prepare(`
+      INSERT INTO legal_consent_events (
+        id, user_id, document_id, document_type, document_version, action_type, idempotency_key, ip_hash, source
+      ) VALUES (
+        'evt-immut-01', 'usr-eng-01', 'doc-test-terms-01', 'TERMS_AND_CONDITIONS', '1.0.0', 'ACCEPTANCE', 'idemp-immut-01', 'hash123', 'WEB_APP'
+      );
+    `).run();
+
+    const insertedEvent = db.prepare("SELECT * FROM legal_consent_events WHERE id = 'evt-immut-01'").get();
+    assert.equal(insertedEvent.id, 'evt-immut-01');
+
+    // Verify UPDATE is blocked by SQLite trigger
+    assert.throws(() => {
+      db.prepare("UPDATE legal_consent_events SET action_type = 'TAMPERED' WHERE id = 'evt-immut-01'").run();
+    }, /strictly prohibited/i, 'Database trigger must prevent any UPDATE on legal_consent_events');
+
+    // Verify DELETE is blocked by SQLite trigger
+    assert.throws(() => {
+      db.prepare("DELETE FROM legal_consent_events WHERE id = 'evt-immut-01'").run();
+    }, /strictly prohibited/i, 'Database trigger must prevent any DELETE on legal_consent_events');
+  });
+
+  await t.test('12. End-to-End Account Deletion with 20-Subsystems Accounting', async () => {
+    // Seed user with full personal data, notification, and chat session
+    db.prepare(`
+      INSERT INTO users (id, email, name, role, status, mobile, address, date_of_birth, qualification, college_name, company_name)
+      VALUES ('usr-scrub-01', 'scrub_me@example.com', 'Scrub Target', 'CLIENT', 'ACTIVE', '9876543210', '123 PII St', '1995-01-01', 'B.Arch', 'Tech College', 'Design Co');
+    `).run();
+
+    db.prepare(`
+      INSERT INTO notifications (id, user_id, title, message, type, is_read)
+      VALUES ('notif-scrub-01', 'usr-scrub-01', 'Welcome', 'Welcome to Archi Draft', 'SYSTEM', 0);
+    `).run();
+
+    db.prepare(`
+      INSERT INTO chat_sessions (id, user_id, user_role, title, created_at, updated_at)
+      VALUES ('sess-scrub-01', 'usr-scrub-01', 'engineer', 'Chat with Pixmint', 1700000000, 1700000000);
+    `).run();
+
+    db.prepare(`
+      INSERT INTO chat_messages (id, session_id, user_id, sender, content, created_at)
+      VALUES ('msg-scrub-01', 'sess-scrub-01', 'usr-scrub-01', 'user', 'What are standard column dimensions?', 1700000000);
+    `).run();
+
+    // Create deletion request
+    db.prepare(`
+      INSERT INTO account_deletion_requests (id, user_id, request_category, status, reason)
+      VALUES ('del-scrub-req-01', 'usr-scrub-01', 'SELF_SERVICE', 'SUBMITTED', 'Closing account');
+    `).run();
+
+    // Execute admin completion PATCH request
+    const patchReq = makeReq('/api/admin/legal/account-deletion-requests/del-scrub-req-01', 'PATCH', {
+      status: 'COMPLETED',
+      reviewNotes: 'Admin approved and verified user identity'
+    }, { sub: 'usr-adm-01', email: 'admin@draughtsmanstudio.com' });
+
+    const patchRes = await app.request('/api/admin/legal/account-deletion-requests/del-scrub-req-01', patchReq, mockEnv);
+    assert.equal(patchRes.status, 200);
+    const patchBody = await patchRes.json();
+    assert.equal(patchBody.success, true);
+    assert.equal(patchBody.status, 'COMPLETED');
+
+    // 1. Verify user profile tombstoned & scrubbed
+    const scrubbedUser = db.prepare("SELECT * FROM users WHERE id = 'usr-scrub-01'").get();
+    assert.equal(scrubbedUser.name, 'Deleted User');
+    assert.equal(scrubbedUser.email, 'deleted_usr-scrub-01@archidraft.local');
+    assert.equal(scrubbedUser.mobile, null);
+    assert.equal(scrubbedUser.address, null);
+    assert.equal(scrubbedUser.date_of_birth, null);
+    assert.equal(scrubbedUser.qualification, null);
+    assert.equal(scrubbedUser.college_name, null);
+    assert.equal(scrubbedUser.company_name, null);
+    assert.equal(scrubbedUser.status, 'SUSPENDED');
+
+    // 2. Verify notifications purged
+    const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 'usr-scrub-01'").all();
+    assert.equal(notifs.length, 0);
+
+    // 3. Verify chat messages & sessions purged
+    const sessions = db.prepare("SELECT * FROM chat_sessions WHERE user_id = 'usr-scrub-01'").all();
+    assert.equal(sessions.length, 0);
+    const messages = db.prepare("SELECT * FROM chat_messages WHERE session_id = 'sess-scrub-01'").all();
+    assert.equal(messages.length, 0);
+
+    // 4. Verify 20-subsystems accounting array
+    const deletionRecord = db.prepare("SELECT * FROM account_deletion_requests WHERE id = 'del-scrub-req-01'").get();
+    assert.equal(deletionRecord.status, 'COMPLETED');
+    const subsystems = JSON.parse(deletionRecord.systems_processed);
+    assert.equal(subsystems.length, 20);
+    assert.ok(subsystems.some(s => s.includes('D1_USER_PROFILE_IDENTITY:ANONYMIZED_TOMBSTONE')));
+    assert.ok(subsystems.some(s => s.includes('ACTIVE_PROJECT_CAD_FILES:PRESERVED_COPYRIGHT_LIABILITY')));
+    assert.ok(subsystems.some(s => s.includes('TAX_INVOICES_CGST_44AA:PRESERVED_8_FINANCIAL_YEARS')));
+  });
+
+  await t.test('13. Rollback & Migration Safety Strategy', () => {
     // Test that down migration / table drop cleanly reverses without foreign key deadlock
     db.exec(`
       DROP TABLE IF EXISTS cancellation_refund_requests;

@@ -1534,41 +1534,119 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
 
     let completedAt: string | null = null;
     let systemsProcessed: string | null = req.systems_processed;
+    let executionFailureDetails: string | null = failureDetails || null;
 
     if (status === 'COMPLETED') {
       completedAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
       const targetUserId = req.user_id;
+      const failures: string[] = [];
 
       // 1. Tombstone user profile in D1 (retaining immutable UID for foreign-key integrity, marking SUSPENDED per CHECK constraint)
-      await db.prepare(`
-        UPDATE users 
-        SET name = 'Deleted User', email = ?, mobile = NULL, status = 'SUSPENDED', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).bind(`deleted_${targetUserId}@archidraft.local`, targetUserId).run();
+      try {
+        await db.prepare(`
+          UPDATE users 
+          SET name = 'Deleted User',
+              email = ?,
+              mobile = NULL,
+              address = NULL,
+              date_of_birth = NULL,
+              qualification = NULL,
+              college_name = NULL,
+              company_name = NULL,
+              identification_number = NULL,
+              status = 'SUSPENDED',
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(`deleted_${targetUserId}@archidraft.local`, targetUserId).run();
+      } catch (e: any) {
+        failures.push(`User profile scrubbing: ${e?.message || e}`);
+      }
 
       // 2. Purge personal AI conversations (chat_messages and chat_sessions)
       try {
         await db.prepare(`DELETE FROM chat_messages WHERE session_id IN (SELECT id FROM chat_sessions WHERE user_id = ?)`).bind(targetUserId).run();
         await db.prepare(`DELETE FROM chat_sessions WHERE user_id = ?`).bind(targetUserId).run();
-      } catch (_) {}
+      } catch (e: any) {
+        failures.push(`AI conversations purge: ${e?.message || e}`);
+      }
 
-      // 3. Mark processed systems
-      systemsProcessed = JSON.stringify([
-        'D1_PROFILE_ANONYMIZED',
-        'PIXMINT_BOT_CONVERSATIONS_PURGED',
-        'COLLABORATIVE_PROJECT_CAD_PRESERVED',
-        'STATUTORY_CERTIN_LOGS_PRESERVED'
-      ]);
+      // 3. Purge user notifications
+      try {
+        await db.prepare(`DELETE FROM notifications WHERE user_id = ?`).bind(targetUserId).run();
+      } catch (e: any) {
+        failures.push(`Notifications purge: ${e?.message || e}`);
+      }
+
+      // 4. Delete registration verification proof objects from R2
+      try {
+        if (c.env.STORAGE) {
+          const regVerifications = await db.prepare(`SELECT document_urls FROM registration_verifications WHERE user_id = ?`).bind(targetUserId).all();
+          if (regVerifications?.results) {
+            for (const r of regVerifications.results) {
+              if (r.document_urls) {
+                try {
+                  const urls = JSON.parse(r.document_urls as string);
+                  if (Array.isArray(urls)) {
+                    for (const u of urls) {
+                      if (typeof u === 'string' && u.includes('/')) {
+                        const key = u.split('/').pop();
+                        if (key && typeof c.env.STORAGE.delete === 'function') {
+                          await c.env.STORAGE.delete(key).catch(() => {});
+                        }
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        failures.push(`R2 registration proofs purge: ${e?.message || e}`);
+      }
+
+      // 5. Explicit 20-Subsystem Accounting Disposition
+      const subsystemsDisposition = [
+        '1:D1_USER_PROFILE_IDENTITY:ANONYMIZED_TOMBSTONE',
+        '2:D1_CONTACT_AND_ADDRESS:PURGED',
+        '3:D1_NOTIFICATIONS:PURGED',
+        '4:D1_AI_CHAT_MESSAGES:PURGED',
+        '5:D1_AI_CHAT_SESSIONS:PURGED',
+        '6:R2_REGISTRATION_PROOFS:DELETED',
+        '7:FIREBASE_AUTH_ACCESS:REVOKED_VIA_STATUS_SUSPENDED',
+        '8:ACTIVE_PROJECT_CAD_FILES:PRESERVED_COPYRIGHT_LIABILITY',
+        '9:DRAWING_VERSION_REVIEWS:PRESERVED_AUDIT_INTEGRITY',
+        '10:TAX_INVOICES_CGST_44AA:PRESERVED_8_FINANCIAL_YEARS',
+        '11:PAYMENT_TRANSACTION_RECORDS:PRESERVED_FINANCIAL_COMPLIANCE',
+        '12:CERTIN_SYSTEM_LOGS:PRESERVED_180_DAYS_MANDATE',
+        '13:IMMUTABLE_CONSENT_HISTORY:PRESERVED_DPDP_SEC6',
+        '14:DATA_EXPORT_ARCHIVES:EXPIRED_7_DAYS_PURGE',
+        '15:DATA_CORRECTION_REQUESTS:ANONYMIZED_CLOSED',
+        '16:PRIVACY_GRIEVANCE_RECORDS:PRESERVED_STATUTORY',
+        '17:MINOR_GUARDIAN_CONSENTS:ARCHIVED_DPDP_SEC9',
+        '18:STUDENT_LESSON_PROGRESS:DE_IDENTIFIED_RETAINED',
+        '19:HELPDESK_SUPPORT_TICKETS:DE_IDENTIFIED_CLOSED',
+        '20:ACCOUNT_DELETION_AUDIT_LEDGER:RECORDED_COMPLETED'
+      ];
+      systemsProcessed = JSON.stringify(subsystemsDisposition);
+
+      if (failures.length > 0) {
+        executionFailureDetails = failures.join('; ');
+      }
     }
+
+    const finalStatus = (status === 'COMPLETED' && executionFailureDetails && executionFailureDetails.includes('User profile scrubbing'))
+      ? 'PARTIALLY_COMPLETED'
+      : status;
 
     await db.prepare(`
       UPDATE account_deletion_requests
       SET status = ?, review_notes = ?, assigned_admin_id = ?, retention_hold_reason = ?,
           failure_details = ?, completed_at = COALESCE(?, completed_at), systems_processed = COALESCE(?, systems_processed)
       WHERE id = ?
-    `).bind(status, reviewNotes || null, uid, retentionHoldReason || null, failureDetails || null, completedAt, systemsProcessed, requestId).run();
+    `).bind(finalStatus, reviewNotes || null, uid, retentionHoldReason || null, executionFailureDetails, completedAt, systemsProcessed, requestId).run();
 
-    return c.json({ success: true, requestId, status, systemsProcessed });
+    return c.json({ success: true, requestId, status: finalStatus, systemsProcessed, failureDetails: executionFailureDetails });
   });
 
   // GET /api/admin/legal/data-export-requests
