@@ -24,6 +24,8 @@ import {
   Clock,
   ExternalLink,
   MessageSquare,
+  LifeBuoy,
+  Minus,
 } from 'lucide-react';
 
 export function PixmintChatWidget() {
@@ -40,6 +42,14 @@ export function PixmintChatWidget() {
   const [error, setError] = useState<string | null>(null);
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<Record<string, number>>({});
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('pixmint-widget-collapsed');
+      if (stored === 'true') setIsCollapsed(true);
+    } catch {}
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -129,6 +139,12 @@ export function PixmintChatWidget() {
     return null;
   }
 
+  // Do not render floating launcher on /bot or /helpdesk when closed (dedicated management pages)
+  const isDedicatedPage = pathname === '/bot' || pathname?.startsWith('/helpdesk');
+  if (isDedicatedPage && !isOpen) {
+    return null;
+  }
+
   const handleSendMessage = async (textToSend?: string) => {
     const content = (textToSend || inputText).trim();
     if (!content || isSending) return;
@@ -200,52 +216,99 @@ export function PixmintChatWidget() {
 
   return (
     <>
-      {/* ── Floating Launcher Button (positioned at bottom-6 right-6) ── */}
-      <div className="fixed bottom-6 right-6 z-40 select-none">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-label={isOpen ? 'Close PIXMINT Bot' : 'Chat with PIXMINT Bot'}
-          className={`group flex items-center gap-2.5 px-4 py-2.5 rounded-full shadow-xl hover:shadow-2xl active:scale-95 transition-all duration-200 border cursor-pointer ${
-            isOpen
-              ? 'bg-slate-900 border-slate-700 text-white'
-              : 'bg-gradient-to-r from-[#0453cd] via-[#0344a6] to-[#00a877] border-blue-400/30 text-white hover:from-blue-700 hover:to-emerald-600'
-          }`}
-        >
-          <div className="relative flex items-center justify-center">
-            {/* Mascot Avatar or Robot Icon */}
-            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center p-0.5 border border-white/20 overflow-hidden">
+      {/* ── Floating Launcher / Unified Studio Hub (bottom-6 right-6) ── */}
+      {isCollapsed && !isOpen ? (
+        <div className="fixed bottom-6 right-6 z-40 select-none">
+          <button
+            type="button"
+            onClick={() => {
+              setIsCollapsed(false);
+              try { localStorage.setItem('pixmint-widget-collapsed', 'false'); } catch {}
+            }}
+            className="h-10 w-10 rounded-full bg-slate-900 border border-slate-700 hover:border-emerald-500 shadow-lg hover:shadow-xl flex items-center justify-center p-1.5 transition-all hover:scale-105 cursor-pointer group"
+            title="Expand PIXMINT Studio Assistant"
+            aria-label="Expand PIXMINT Studio Assistant"
+          >
+            <div className="relative h-full w-full flex items-center justify-center">
               <img
                 src="/images/pixmint_bot_avatar.png"
-                alt="PIXMINT Bot"
+                alt="PIXMINT"
                 className="h-full w-full object-contain"
                 onError={(e) => {
-                  // Fallback to Bot icon if image load fails
                   (e.target as HTMLElement).style.display = 'none';
                   const fallback = (e.target as HTMLElement).parentElement?.querySelector('.fallback-bot-icon');
                   if (fallback) (fallback as HTMLElement).style.display = 'block';
                 }}
               />
               <Bot className="fallback-bot-icon h-4 w-4 text-emerald-300 hidden" />
+              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-slate-900" />
             </div>
-            {/* Pulsing Emerald Green Status Dot */}
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 ring-2 ring-slate-900" />
-            </span>
-          </div>
+          </button>
+        </div>
+      ) : (
+        <div className="fixed bottom-6 right-6 z-40 select-none flex items-center">
+          <div className="flex items-center bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-full shadow-xl hover:shadow-2xl transition-all p-1">
+            {/* Main PIXMINT Bot Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsOpen(!isOpen)}
+              aria-label={isOpen ? 'Close PIXMINT Bot' : 'Chat with PIXMINT Bot'}
+              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 text-white hover:text-emerald-300 transition-colors cursor-pointer group"
+            >
+              <div className="relative flex items-center justify-center">
+                <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center p-0.5 border border-white/20 overflow-hidden">
+                  <img
+                    src="/images/pixmint_bot_avatar.png"
+                    alt="PIXMINT Bot"
+                    className="h-full w-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                      const fallback = (e.target as HTMLElement).parentElement?.querySelector('.fallback-bot-icon');
+                      if (fallback) (fallback as HTMLElement).style.display = 'block';
+                    }}
+                  />
+                  <Bot className="fallback-bot-icon h-4 w-4 text-emerald-300 hidden" />
+                </div>
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
+              </div>
+              <span className="text-xs font-bold font-heading tracking-wide">
+                PIXMINT Bot
+              </span>
+            </button>
 
-          <div className="flex flex-col text-left">
-            <span className="text-xs font-bold font-heading tracking-wide flex items-center gap-1">
-              PIXMINT Bot
-              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-white/20 font-mono font-normal">v2.0</span>
-            </span>
-            <span className="text-[10px] text-blue-100 font-mono">
-              {isOpen ? 'Close Chat' : 'Architectural AI'}
-            </span>
+            {/* Inline Support Request Trigger */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('open-support-widget'));
+                }
+              }}
+              aria-label="Open Help & Support"
+              className="flex items-center gap-1 px-2.5 py-1 text-slate-400 hover:text-blue-300 hover:bg-slate-800 rounded-full text-xs font-mono transition-colors border-l border-slate-700/60 cursor-pointer"
+              title="Need Help? Open Support Request"
+            >
+              <LifeBuoy className="h-3.5 w-3.5 text-blue-400" />
+              <span className="text-[11px]">Help</span>
+            </button>
+
+            {/* Minimize / Collapse Trigger */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCollapsed(true);
+                try { localStorage.setItem('pixmint-widget-collapsed', 'true'); } catch {}
+              }}
+              aria-label="Minimize Assistant"
+              className="p-1 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-full transition-colors cursor-pointer ml-0.5"
+              title="Minimize launcher"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
           </div>
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* ── Floating Chat Dialog / Sheet ── */}
       {isOpen && (
@@ -281,6 +344,21 @@ export function PixmintChatWidget() {
             </div>
 
             <div className="flex items-center gap-1 text-slate-400">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('open-support-widget'));
+                  }
+                }}
+                title="Need human assistance? Open support ticket"
+                aria-label="Need Help?"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-blue-400 hover:text-blue-200 hover:bg-slate-800 transition-colors text-xs font-mono cursor-pointer mr-1"
+              >
+                <LifeBuoy className="h-3.5 w-3.5" />
+                <span className="text-[11px]">Need Help?</span>
+              </button>
               <button
                 type="button"
                 onClick={handleResetChat}

@@ -48,6 +48,17 @@ export function SupportWidget() {
     }
   }, [user?.email, email]);
 
+  // Listen for global open triggers from Header, PIXMINT Bot hub, or custom events
+  useEffect(() => {
+    const handleOpen = () => setIsOpen(true);
+    window.addEventListener('open-support-widget', handleOpen);
+    window.addEventListener('open-helpdesk-ticket', handleOpen);
+    return () => {
+      window.removeEventListener('open-support-widget', handleOpen);
+      window.removeEventListener('open-helpdesk-ticket', handleOpen);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!summary.trim()) {
@@ -114,23 +125,7 @@ export function SupportWidget() {
 
   return (
     <>
-      {/* ── Floating Launcher Button (positioned above bottom-right controls) ── */}
-      <div className="fixed bottom-20 right-6 z-40 select-none">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-label="Open Help & Support"
-          className="group flex items-center gap-2.5 px-4 py-2.5 bg-[#0453cd] hover:bg-blue-700 active:scale-95 text-white font-medium text-xs rounded-full shadow-lg hover:shadow-xl transition-all duration-200 border border-blue-400/30"
-        >
-          <div className="relative">
-            <LifeBuoy className="h-4 w-4 animate-spin-slow group-hover:rotate-45 transition-transform" />
-            <span className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-2 ring-[#0453cd]" />
-          </div>
-          <span className="font-semibold tracking-wide">Need Help?</span>
-        </button>
-      </div>
-
-      {/* ── Support Modal Dialog ── */}
+      {/* ── Support Modal Dialog (Triggered cleanly via Header, PIXMINT Bot Hub, or custom event) ── */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
