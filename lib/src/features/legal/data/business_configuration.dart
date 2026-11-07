@@ -43,3 +43,4 @@ class BusinessConfiguration {
   static const String configurationVersion = '1.0.0';
   static const String updatedAt = '2026-11-07T09:30:00Z';
 }
+

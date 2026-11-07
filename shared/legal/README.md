@@ -117,3 +117,4 @@ To run Flutter static analysis:
 ```bash
 flutter analyze --no-fatal-infos lib/src/features/legal/
 ```
+

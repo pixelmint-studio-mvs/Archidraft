@@ -74,3 +74,4 @@ The following table itemizes the seven authoritative policy documents establishe
    - **Minor (`x.1.0`):** Operational adjustments, new optional feature disclosures, revision window modifications.
    - **Major (`2.0.0`):** Material alteration of commercial liability, IP ownership, arbitration terms, or fee structures. Automatically invalidates prior consent in `assertTermsAccepted` and forces an in-app blocking re-acceptance prompt.
 3. **Database Ledger Synchronization:** Document metadata and markdown text must be synced into D1 table `legal_documents` with an accurate `change_summary` before status transition.
+

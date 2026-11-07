@@ -69,3 +69,4 @@ export function getCanonicalDocument(type: LegalDocumentType): CanonicalLegalDoc
 export function getMandatoryDocuments(): CanonicalLegalDocument[] {
   return CANONICAL_DOCUMENT_REGISTRY.filter((d) => d.isMandatory);
 }
+

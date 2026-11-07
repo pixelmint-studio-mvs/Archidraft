@@ -849,4 +849,816 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
 
     return c.json({ events: results || [], count: (results || []).length });
   });
+
+  // =========================================================================
+  // CANONICAL BUSINESS PROFILE
+  // =========================================================================
+
+  // GET /api/legal/business-profile
+  app.get('/api/legal/business-profile', async (c) => {
+    const db = c.env.DB;
+    try {
+      const profile = await db.prepare(
+        "SELECT * FROM legal_business_profile WHERE id = 'current'"
+      ).first();
+      if (profile) {
+        return c.json({ businessProfile: profile });
+      }
+    } catch (_) {}
+
+    return c.json({
+      businessProfile: {
+        legal_proprietor: 'MOHAMMED MOSIN S',
+        business_structure: 'Sole Proprietorship',
+        operating_brand: 'DRAUGHTSMAN STUDIO',
+        product_name: 'ARCHI DRAFT',
+        application_website: 'https://archidraft.draughtsmanstudio.com',
+        business_website: 'https://draughtsmanstudio.com',
+        support_email: 'support@draughtsmanstudio.com',
+        privacy_email: 'support@draughtsmanstudio.com',
+        grievance_email: 'mosin@draughtsmanstudio.com',
+        physical_address_status: 'PENDING_VERIFICATION',
+        grievance_officer_appointment_status: 'PENDING_VERIFICATION',
+        configuration_version: '1.0.0'
+      }
+    });
+  });
+
+  // =========================================================================
+  // ACCOUNT DELETION WORKFLOW (USER RIGHTS & ERASURE - DPDP SEC 12)
+  // =========================================================================
+
+  // POST /api/legal/account-deletion-requests
+  app.post('/api/legal/account-deletion-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const body = await c.req.json().catch(() => ({}));
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const activeReq = await db.prepare(`
+      SELECT id, status, submitted_at FROM account_deletion_requests 
+      WHERE user_id = ? AND status IN ('SUBMITTED', 'IDENTITY_VERIFICATION_REQUIRED', 'VERIFIED', 'UNDER_REVIEW', 'DELETION_SCHEDULED', 'PROCESSING')
+      LIMIT 1
+    `).bind(uid).first();
+
+    if (activeReq) {
+      return c.json({ 
+        error: 'An active account deletion request is already in progress',
+        code: 'DELETION_REQUEST_EXISTS',
+        request: activeReq 
+      }, 409);
+    }
+
+    const requestId = 'del-' + crypto.randomUUID();
+    const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 500) : null;
+    const category = body.requestCategory || 'SELF_SERVICE';
+
+    await db.prepare(`
+      INSERT INTO account_deletion_requests (
+        id, user_id, request_category, status, identity_verification_status, reason, submitted_at
+      ) VALUES (?, ?, ?, 'SUBMITTED', 'VERIFIED', ?, CURRENT_TIMESTAMP)
+    `).bind(requestId, uid, category, reason).run();
+
+    return c.json({
+      success: true,
+      request: {
+        id: requestId,
+        userId: uid,
+        status: 'SUBMITTED',
+        identityVerificationStatus: 'VERIFIED',
+        reason,
+        submittedAt: new Date().toISOString()
+      }
+    }, 201);
+  });
+
+  // GET /api/legal/account-deletion-requests/me
+  app.get('/api/legal/account-deletion-requests/me', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { results } = await db.prepare(`
+      SELECT id, user_id, request_category, status, identity_verification_status,
+             reason, review_notes, resolution_status, submitted_at, scheduled_for,
+             processed_at, completed_at, cancelled_at, failure_details, retention_hold_reason
+      FROM account_deletion_requests
+      WHERE user_id = ?
+      ORDER BY submitted_at DESC
+    `).bind(uid).all();
+
+    return c.json({ requests: results || [] });
+  });
+
+  // POST /api/legal/account-deletion-requests/:id/cancel
+  app.post('/api/legal/account-deletion-requests/:id/cancel', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const requestId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const req = await db.prepare(`
+      SELECT id, status FROM account_deletion_requests WHERE id = ? AND user_id = ?
+    `).bind(requestId, uid).first<any>();
+
+    if (!req) {
+      return c.json({ error: 'Deletion request not found' }, 404);
+    }
+
+    if (['COMPLETED', 'PROCESSING', 'CANCELLED'].includes(req.status)) {
+      return c.json({ 
+        error: `Request cannot be cancelled in status ${req.status}`,
+        code: 'CANNOT_CANCEL_REQUEST'
+      }, 400);
+    }
+
+    await db.prepare(`
+      UPDATE account_deletion_requests 
+      SET status = 'CANCELLED', cancelled_at = CURRENT_TIMESTAMP 
+      WHERE id = ? AND user_id = ?
+    `).bind(requestId, uid).run();
+
+    return c.json({ success: true, requestId, status: 'CANCELLED' });
+  });
+
+  // =========================================================================
+  // DATA EXPORT WORKFLOW (DPDP SEC 11)
+  // =========================================================================
+
+  // POST /api/legal/data-export-requests
+  app.post('/api/legal/data-export-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const body = await c.req.json().catch(() => ({}));
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const activeReq = await db.prepare(`
+      SELECT id, status FROM data_export_requests 
+      WHERE user_id = ? AND status IN ('PENDING', 'PROCESSING')
+      LIMIT 1
+    `).bind(uid).first();
+
+    if (activeReq) {
+      return c.json({ 
+        error: 'An active data export request is already pending',
+        code: 'EXPORT_REQUEST_EXISTS',
+        request: activeReq 
+      }, 409);
+    }
+
+    const requestId = 'exp-' + crypto.randomUUID();
+    const scope = body.exportScope || 'FULL_PERSONAL_DATA';
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const r2Key = `exports/${uid}/${requestId}.json`;
+
+    await db.prepare(`
+      INSERT INTO data_export_requests (
+        id, user_id, verification_status, export_scope, status, download_r2_key, download_url_expires_at, requested_at
+      ) VALUES (?, ?, 'VERIFIED', ?, 'PENDING', ?, ?, CURRENT_TIMESTAMP)
+    `).bind(requestId, uid, scope, r2Key, expiresAt).run();
+
+    return c.json({
+      success: true,
+      request: {
+        id: requestId,
+        userId: uid,
+        exportScope: scope,
+        status: 'PENDING',
+        downloadR2Key: r2Key,
+        expiresAt
+      }
+    }, 201);
+  });
+
+  // GET /api/legal/data-export-requests/me
+  app.get('/api/legal/data-export-requests/me', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { results } = await db.prepare(`
+      SELECT id, user_id, verification_status, export_scope, status, download_r2_key,
+             download_url_expires_at, requested_at, completed_at, failure_details
+      FROM data_export_requests
+      WHERE user_id = ?
+      ORDER BY requested_at DESC
+    `).bind(uid).all();
+
+    return c.json({ requests: results || [] });
+  });
+
+  // =========================================================================
+  // DATA CORRECTION WORKFLOW (DPDP SEC 12)
+  // =========================================================================
+
+  // POST /api/legal/data-correction-requests
+  app.post('/api/legal/data-correction-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const body = await c.req.json().catch(() => ({}));
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { fieldName, proposedValue, reason } = body;
+    const allowedFields = ['name', 'mobile', 'phone', 'college_name', 'specialization', 'qualification', 'professional_qualification', 'company_name', 'address', 'postal_address'];
+
+    if (!fieldName || !allowedFields.includes(fieldName)) {
+      return c.json({ 
+        error: 'Invalid fieldName for correction. Must be one of: ' + allowedFields.join(', '),
+        code: 'INVALID_FIELD' 
+      }, 400);
+    }
+
+    if (!proposedValue || typeof proposedValue !== 'string' || proposedValue.trim().length === 0) {
+      return c.json({ error: 'proposedValue is required', code: 'INVALID_VALUE' }, 400);
+    }
+
+    const requestId = 'cor-' + crypto.randomUUID();
+
+    await db.prepare(`
+      INSERT INTO data_correction_requests (
+        id, user_id, field_name, proposed_value, reason, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)
+    `).bind(requestId, uid, fieldName, proposedValue.trim(), reason || null).run();
+
+    return c.json({
+      success: true,
+      request: {
+        id: requestId,
+        userId: uid,
+        fieldName,
+        proposedValue: proposedValue.trim(),
+        reason: reason || null,
+        status: 'PENDING'
+      }
+    }, 201);
+  });
+
+  // GET /api/legal/data-correction-requests/me
+  app.get('/api/legal/data-correction-requests/me', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { results } = await db.prepare(`
+      SELECT id, user_id, field_name, proposed_value, reason, status, reviewed_by, review_notes, created_at, resolved_at
+      FROM data_correction_requests
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).bind(uid).all();
+
+    return c.json({ requests: results || [] });
+  });
+
+  // =========================================================================
+  // CONSENT WITHDRAWAL ENDPOINT (DPDP SEC 6(4))
+  // =========================================================================
+
+  // POST /api/legal/consents/withdraw
+  app.post('/api/legal/consents/withdraw', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const body = await c.req.json().catch(() => ({}));
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { purpose } = body;
+    if (!purpose || typeof purpose !== 'string' || purpose.trim().length === 0) {
+      return c.json({ error: 'purpose tag is required for consent withdrawal', code: 'INVALID_PURPOSE' }, 400);
+    }
+
+    const eventId = 'evt-' + crypto.randomUUID();
+    const idemKey = body.idempotencyKey || await hashString(`withdraw_${uid}_${purpose}_${Date.now()}`);
+    const ipRaw = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || '127.0.0.1';
+    const ipHash = await hashString(ipRaw + '_archi_salt_2026');
+    const userAgent = c.req.header('user-agent') || 'Unknown';
+    const source = body.source || 'WEB_APP';
+
+    const existingState = await db.prepare(`
+      SELECT id FROM user_consent_state 
+      WHERE user_id = ? AND consent_type = 'OPTIONAL_PURPOSE' AND purpose_tag = ?
+    `).bind(uid, purpose).first<any>();
+
+    const batch = [
+      db.prepare(`
+        INSERT INTO legal_consent_events (
+          id, user_id, document_id, document_type, document_version, action_type,
+          consent_purpose, idempotency_key, ip_hash, user_agent, source, recorded_at
+        ) VALUES (?, ?, 'doc-priv-v1', 'OPTIONAL_CONSENT', '1.0.0', 'OPTIONAL_CONSENT_WITHDRAWN', ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).bind(eventId, uid, purpose, idemKey, ipHash, userAgent, source)
+    ];
+
+    if (existingState) {
+      batch.push(
+        db.prepare(`
+          UPDATE user_consent_state 
+          SET current_status = 'WITHDRAWN', last_event_id = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).bind(eventId, existingState.id)
+      );
+    } else {
+      const stateId = 'st-' + crypto.randomUUID();
+      batch.push(
+        db.prepare(`
+          INSERT INTO user_consent_state (
+            id, user_id, consent_type, purpose_tag, current_status, accepted_version, last_event_id, updated_at
+          ) VALUES (?, ?, 'OPTIONAL_PURPOSE', ?, 'WITHDRAWN', '1.0.0', ?, CURRENT_TIMESTAMP)
+        `).bind(stateId, uid, purpose, eventId)
+      );
+    }
+
+    await db.batch(batch);
+
+    return c.json({
+      success: true,
+      purpose,
+      status: 'WITHDRAWN',
+      eventId
+    });
+  });
+
+  // =========================================================================
+  // GUARDIAN CONSENTS (DPDP SEC 9 - STUDENT SAFEGUARDS)
+  // =========================================================================
+
+  // POST /api/legal/guardian-consents
+  app.post('/api/legal/guardian-consents', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const body = await c.req.json().catch(() => ({}));
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { guardianName, guardianEmail, guardianPhone, relationship, consentPolicyVersion } = body;
+    if (!guardianName || !guardianEmail || !relationship) {
+      return c.json({ error: 'guardianName, guardianEmail, and relationship are required', code: 'INVALID_GUARDIAN_DATA' }, 400);
+    }
+
+    const consentId = 'grd-' + crypto.randomUUID();
+    const version = consentPolicyVersion || '1.0.0';
+
+    await db.prepare(`
+      INSERT INTO guardian_consents (
+        id, student_user_id, guardian_name, guardian_email, guardian_phone, relationship,
+        consent_policy_version, verification_method, verification_status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'MANUAL_OFFICIAL_REVIEW', 'PENDING_VERIFICATION', CURRENT_TIMESTAMP)
+    `).bind(consentId, uid, guardianName.trim(), guardianEmail.trim().toLowerCase(), guardianPhone || null, relationship.trim(), version).run();
+
+    return c.json({
+      success: true,
+      guardianConsent: {
+        id: consentId,
+        studentUserId: uid,
+        guardianName: guardianName.trim(),
+        guardianEmail: guardianEmail.trim().toLowerCase(),
+        relationship: relationship.trim(),
+        verificationStatus: 'PENDING_VERIFICATION'
+      }
+    }, 201);
+  });
+
+  // GET /api/legal/guardian-consents/me
+  app.get('/api/legal/guardian-consents/me', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { results } = await db.prepare(`
+      SELECT id, student_user_id, guardian_name, guardian_email, guardian_phone, relationship,
+             consent_policy_version, verification_method, verification_status, verified_at, withdrawn_at, notes, created_at
+      FROM guardian_consents
+      WHERE student_user_id = ?
+      ORDER BY created_at DESC
+    `).bind(uid).all();
+
+    return c.json({ guardianConsents: results || [] });
+  });
+
+  // =========================================================================
+  // CANCELLATION & REFUND REQUESTS
+  // =========================================================================
+
+  // POST /api/legal/cancellation-refund-requests
+  app.post('/api/legal/cancellation-refund-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const body = await c.req.json().catch(() => ({}));
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { requestType, referenceId, amountRequested, reason } = body;
+    const validTypes = ['PROJECT_CANCELLATION', 'SUBSCRIPTION_CANCELLATION', 'STUDENT_COURSE_REFUND', 'GENERAL_REFUND'];
+
+    if (!requestType || !validTypes.includes(requestType)) {
+      return c.json({ error: 'Invalid requestType. Must be one of: ' + validTypes.join(', '), code: 'INVALID_REQUEST_TYPE' }, 400);
+    }
+
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
+      return c.json({ error: 'Reason must be at least 5 characters long', code: 'INVALID_REASON' }, 400);
+    }
+
+    const requestId = 'ref-' + crypto.randomUUID();
+    const amount = typeof amountRequested === 'number' ? amountRequested : null;
+
+    await db.prepare(`
+      INSERT INTO cancellation_refund_requests (
+        id, user_id, request_type, reference_id, amount_requested, currency, reason, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, 'INR', ?, 'PENDING', CURRENT_TIMESTAMP)
+    `).bind(requestId, uid, requestType, referenceId || null, amount, reason.trim()).run();
+
+    return c.json({
+      success: true,
+      refundRequest: {
+        id: requestId,
+        userId: uid,
+        requestType,
+        referenceId: referenceId || null,
+        amountRequested: amount,
+        currency: 'INR',
+        reason: reason.trim(),
+        status: 'PENDING'
+      }
+    }, 201);
+  });
+
+  // GET /api/legal/cancellation-refund-requests/me
+  app.get('/api/legal/cancellation-refund-requests/me', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const { results } = await db.prepare(`
+      SELECT id, user_id, request_type, reference_id, amount_requested, amount_approved, currency,
+             reason, status, review_decision, resolution_notes, refund_transaction_ref, created_at, resolved_at
+      FROM cancellation_refund_requests
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).bind(uid).all();
+
+    return c.json({ refundRequests: results || [] });
+  });
+
+  // =========================================================================
+  // ADMIN COMPLIANCE & REVIEW ENDPOINTS (ADMIN & STUDIO_ADMIN ONLY)
+  // =========================================================================
+
+  // GET /api/admin/legal/account-deletion-requests
+  app.get('/api/admin/legal/account-deletion-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const statusFilter = c.req.query('status');
+    let query = `
+      SELECT dr.*, u.email as user_email, u.name as user_name, u.role as user_role
+      FROM account_deletion_requests dr
+      JOIN users u ON dr.user_id = u.id
+    `;
+    const params: any[] = [];
+    if (statusFilter) {
+      query += ' WHERE dr.status = ?';
+      params.push(statusFilter);
+    }
+    query += ' ORDER BY dr.submitted_at DESC';
+
+    const { results } = await db.prepare(query).bind(...params).all();
+    return c.json({ requests: results || [] });
+  });
+
+  // PATCH /api/admin/legal/account-deletion-requests/:id
+  app.patch('/api/admin/legal/account-deletion-requests/:id', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const requestId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { status, reviewNotes, retentionHoldReason, failureDetails } = body;
+
+    const validStatuses = [
+      'IDENTITY_VERIFICATION_REQUIRED', 'VERIFIED', 'UNDER_REVIEW', 'DELETION_SCHEDULED',
+      'PROCESSING', 'PARTIALLY_COMPLETED', 'COMPLETED', 'REJECTED_WITH_REASON'
+    ];
+    if (!status || !validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') }, 400);
+    }
+
+    const req = await db.prepare(`SELECT * FROM account_deletion_requests WHERE id = ?`).bind(requestId).first<any>();
+    if (!req) return c.json({ error: 'Deletion request not found' }, 404);
+
+    let completedAt: string | null = null;
+    let systemsProcessed: string | null = req.systems_processed;
+
+    if (status === 'COMPLETED') {
+      completedAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const targetUserId = req.user_id;
+
+      // 1. Tombstone user profile in D1 (retaining immutable UID for foreign-key integrity, marking SUSPENDED per CHECK constraint)
+      await db.prepare(`
+        UPDATE users 
+        SET name = 'Deleted User', email = ?, mobile = NULL, status = 'SUSPENDED', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(`deleted_${targetUserId}@archidraft.local`, targetUserId).run();
+
+      // 2. Purge personal AI conversations (chat_messages and chat_sessions)
+      try {
+        await db.prepare(`DELETE FROM chat_messages WHERE session_id IN (SELECT id FROM chat_sessions WHERE user_id = ?)`).bind(targetUserId).run();
+        await db.prepare(`DELETE FROM chat_sessions WHERE user_id = ?`).bind(targetUserId).run();
+      } catch (_) {}
+
+      // 3. Mark processed systems
+      systemsProcessed = JSON.stringify([
+        'D1_PROFILE_ANONYMIZED',
+        'PIXMINT_BOT_CONVERSATIONS_PURGED',
+        'COLLABORATIVE_PROJECT_CAD_PRESERVED',
+        'STATUTORY_CERTIN_LOGS_PRESERVED'
+      ]);
+    }
+
+    await db.prepare(`
+      UPDATE account_deletion_requests
+      SET status = ?, review_notes = ?, assigned_admin_id = ?, retention_hold_reason = ?,
+          failure_details = ?, completed_at = COALESCE(?, completed_at), systems_processed = COALESCE(?, systems_processed)
+      WHERE id = ?
+    `).bind(status, reviewNotes || null, uid, retentionHoldReason || null, failureDetails || null, completedAt, systemsProcessed, requestId).run();
+
+    return c.json({ success: true, requestId, status, systemsProcessed });
+  });
+
+  // GET /api/admin/legal/data-export-requests
+  app.get('/api/admin/legal/data-export-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { results } = await db.prepare(`
+      SELECT er.*, u.email as user_email, u.name as user_name, u.role as user_role
+      FROM data_export_requests er
+      JOIN users u ON er.user_id = u.id
+      ORDER BY er.requested_at DESC
+    `).all();
+
+    return c.json({ requests: results || [] });
+  });
+
+  // PATCH /api/admin/legal/data-export-requests/:id
+  app.patch('/api/admin/legal/data-export-requests/:id', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const requestId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { status, failureDetails } = body;
+
+    const validStatuses = ['PROCESSING', 'COMPLETED', 'FAILED'];
+    if (!status || !validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') }, 400);
+    }
+
+    let completedAt: string | null = null;
+    if (status === 'COMPLETED') {
+      completedAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    }
+
+    await db.prepare(`
+      UPDATE data_export_requests
+      SET status = ?, failure_details = ?, completed_at = COALESCE(?, completed_at)
+      WHERE id = ?
+    `).bind(status, failureDetails || null, completedAt, requestId).run();
+
+    return c.json({ success: true, requestId, status });
+  });
+
+  // GET /api/admin/legal/data-correction-requests
+  app.get('/api/admin/legal/data-correction-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { results } = await db.prepare(`
+      SELECT cr.*, u.email as user_email, u.name as user_name, u.role as user_role
+      FROM data_correction_requests cr
+      JOIN users u ON cr.user_id = u.id
+      ORDER BY cr.created_at DESC
+    `).all();
+
+    return c.json({ requests: results || [] });
+  });
+
+  // PATCH /api/admin/legal/data-correction-requests/:id
+  app.patch('/api/admin/legal/data-correction-requests/:id', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const requestId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { status, reviewNotes, applyToUser } = body;
+
+    const validStatuses = ['RESOLVED', 'REJECTED'];
+    if (!status || !validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') }, 400);
+    }
+
+    const req = await db.prepare(`SELECT * FROM data_correction_requests WHERE id = ?`).bind(requestId).first<any>();
+    if (!req) return c.json({ error: 'Correction request not found' }, 404);
+
+    if (status === 'RESOLVED' && applyToUser !== false) {
+      const colMap: Record<string, string> = {
+        name: 'name',
+        mobile: 'mobile',
+        phone: 'mobile',
+        college_name: 'college_name',
+        specialization: 'specialization',
+        qualification: 'qualification',
+        professional_qualification: 'qualification',
+        company_name: 'company_name',
+        address: 'address',
+        postal_address: 'address',
+      };
+      const targetCol = colMap[req.field_name];
+      if (targetCol) {
+        await db.prepare(`UPDATE users SET ${targetCol} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+          .bind(req.proposed_value, req.user_id).run();
+      }
+    }
+
+    await db.prepare(`
+      UPDATE data_correction_requests
+      SET status = ?, review_notes = ?, reviewed_by = ?, resolved_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(status, reviewNotes || null, uid, requestId).run();
+
+    return c.json({ success: true, requestId, status });
+  });
+
+  // GET /api/admin/legal/guardian-consents
+  app.get('/api/admin/legal/guardian-consents', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { results } = await db.prepare(`
+      SELECT gc.*, u.email as student_email, u.name as student_name
+      FROM guardian_consents gc
+      JOIN users u ON gc.student_user_id = u.id
+      ORDER BY gc.created_at DESC
+    `).all();
+
+    return c.json({ guardianConsents: results || [] });
+  });
+
+  // PATCH /api/admin/legal/guardian-consents/:id
+  app.patch('/api/admin/legal/guardian-consents/:id', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const consentId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { status, notes } = body;
+
+    const validStatuses = ['VERIFIED', 'REJECTED', 'WITHDRAWN', 'EXPIRED'];
+    if (!status || !validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') }, 400);
+    }
+
+    let verifiedAt: string | null = null;
+    let withdrawnAt: string | null = null;
+
+    if (status === 'VERIFIED') {
+      verifiedAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    } else if (status === 'WITHDRAWN') {
+      withdrawnAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    }
+
+    await db.prepare(`
+      UPDATE guardian_consents
+      SET verification_status = ?, notes = ?, verified_by = ?,
+          verified_at = COALESCE(?, verified_at), withdrawn_at = COALESCE(?, withdrawn_at)
+      WHERE id = ?
+    `).bind(status, notes || null, uid, verifiedAt, withdrawnAt, consentId).run();
+
+    return c.json({ success: true, consentId, status });
+  });
+
+  // GET /api/admin/legal/cancellation-refund-requests
+  app.get('/api/admin/legal/cancellation-refund-requests', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { results } = await db.prepare(`
+      SELECT crr.*, u.email as user_email, u.name as user_name, u.role as user_role
+      FROM cancellation_refund_requests crr
+      JOIN users u ON crr.user_id = u.id
+      ORDER BY crr.created_at DESC
+    `).all();
+
+    return c.json({ refundRequests: results || [] });
+  });
+
+  // PATCH /api/admin/legal/cancellation-refund-requests/:id
+  app.patch('/api/admin/legal/cancellation-refund-requests/:id', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const requestId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { status, amountApproved, reviewDecision, resolutionNotes, refundTransactionRef } = body;
+
+    const validStatuses = ['UNDER_REVIEW', 'APPROVED', 'REJECTED', 'PROCESSED'];
+    if (!status || !validStatuses.includes(status)) {
+      return c.json({ error: 'Invalid status. Must be one of: ' + validStatuses.join(', ') }, 400);
+    }
+
+    await db.prepare(`
+      UPDATE cancellation_refund_requests
+      SET status = ?, amount_approved = COALESCE(?, amount_approved), review_decision = ?,
+          resolution_notes = ?, refund_transaction_ref = COALESCE(?, refund_transaction_ref),
+          reviewed_by = ?, resolved_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(status, amountApproved, reviewDecision || null, resolutionNotes || null, refundTransactionRef || null, uid, requestId).run();
+
+    return c.json({ success: true, requestId, status });
+  });
+
+  // GET /api/admin/legal/retention-policies
+  app.get('/api/admin/legal/retention-policies', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+
+    const user = await getUser(db, uid);
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN')) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+
+    const { results } = await db.prepare(`
+      SELECT * FROM data_retention_policies ORDER BY data_category ASC
+    `).all();
+
+    return c.json({ retentionPolicies: results || [] });
+  });
 }

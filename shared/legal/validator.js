@@ -133,3 +133,4 @@ if (errorCount > 0) {
   console.log(' Canonical legal configuration successfully validated!\n');
   process.exit(0);
 }
+

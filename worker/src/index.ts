@@ -127,6 +127,7 @@ app.use('*', async (c, next) => {
 // Auth Middleware
 app.use('*', async (c, next) => {
   const isPublicDocRead = c.req.method === 'GET' && c.req.path.startsWith('/api/legal/documents/');
+  const isPublicBusinessProfile = c.req.method === 'GET' && c.req.path === '/api/legal/business-profile';
   const isPublicVerify = c.req.method === 'GET' && c.req.path.startsWith('/api/public/');
   const isPublicHealth = c.req.method === 'GET' && c.req.path === '/api/health';
   const isPublicPixmintStatus = c.req.method === 'GET' && (c.req.path === '/api/pixmint/chat/status' || c.req.path === '/api/chat/status');
@@ -142,7 +143,7 @@ app.use('*', async (c, next) => {
   }
 
   if (!token) {
-    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicDocRead || isPublicBusinessProfile || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
@@ -151,7 +152,7 @@ app.use('*', async (c, next) => {
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
-    if (isPublicDocRead || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicDocRead || isPublicBusinessProfile || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Invalid Firebase token' }, 401);

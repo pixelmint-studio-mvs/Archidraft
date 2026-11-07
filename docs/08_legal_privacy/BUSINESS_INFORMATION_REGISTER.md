@@ -74,3 +74,4 @@ Before authorizing production deployment of the platform or publishing documents
    - Update `shared/legal/business/verification_status.json`.
 4. **Step 4: Execute Automated Validation Runtime**
    - Run `node shared/legal/validator.js` to ensure that all blocking flags are resolved.
+
