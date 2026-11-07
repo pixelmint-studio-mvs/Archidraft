@@ -420,4 +420,44 @@ describe('PIXMINT BOT 2.0 — Simplified 5-Section Admin Control Center Contract
       }
     });
   });
+
+  // ==========================================================================
+  // 8. ADMIN PANEL FLOATING PIXMINT CHATBOT WIDGET CONTRACTS
+  // ==========================================================================
+  describe('8. Admin Panel Floating PIXMINT Chatbot Widget Contracts', () => {
+    const chatWidgetPath = getSafePath('src/components/bot/PixmintChatWidget.tsx');
+    const providersPath = getSafePath('src/components/providers.tsx');
+
+    it('PixmintChatWidget.tsx exists and implements interactive floating chatbot', () => {
+      assert.ok(fs.existsSync(chatWidgetPath), 'PixmintChatWidget.tsx must exist');
+      const content = fs.readFileSync(chatWidgetPath, 'utf-8');
+      assert.ok(content.includes('export function PixmintChatWidget'), 'Must export PixmintChatWidget');
+      assert.ok(content.includes('PIXMINT Bot'), 'Must display PIXMINT Bot brand name');
+      assert.ok(content.includes('handleSendMessage'), 'Must implement message sending');
+      assert.ok(content.includes('handleResetChat'), 'Must implement chat reset');
+      assert.ok(content.includes('handleFeedback'), 'Must implement helpful/unhelpful feedback');
+    });
+
+    it('PixmintChatWidget.tsx enforces high-contrast composer with white background and charcoal text', () => {
+      const content = fs.readFileSync(chatWidgetPath, 'utf-8');
+      assert.ok(content.includes('bg-white'), 'Chat input container must use white background');
+      assert.ok(content.includes('text-[#17212B]'), 'Input text must use dark charcoal #17212B');
+      assert.ok(content.includes('caret-emerald-600'), 'Caret must use emerald green');
+    });
+
+    it('providers.tsx mounts PixmintChatWidget globally across all admin pages', () => {
+      const content = fs.readFileSync(providersPath, 'utf-8');
+      assert.ok(content.includes('<PixmintChatWidget />'), 'providers.tsx must render PixmintChatWidget');
+    });
+
+    it('api.ts defines all 6 interactive chat client methods', () => {
+      const content = fs.readFileSync(apiPath, 'utf-8');
+      assert.ok(content.includes('getBotChatStatus'), 'Must define getBotChatStatus');
+      assert.ok(content.includes('getOrCreateBotChatSession'), 'Must define getOrCreateBotChatSession');
+      assert.ok(content.includes('getBotChatSuggestions'), 'Must define getBotChatSuggestions');
+      assert.ok(content.includes('getBotChatSessionMessages'), 'Must define getBotChatSessionMessages');
+      assert.ok(content.includes('sendBotChatMessage'), 'Must define sendBotChatMessage');
+      assert.ok(content.includes('submitBotChatFeedback'), 'Must define submitBotChatFeedback');
+    });
+  });
 });

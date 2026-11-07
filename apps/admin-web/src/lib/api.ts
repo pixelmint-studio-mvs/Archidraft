@@ -1722,4 +1722,46 @@ export const adminApi = {
     const qs = q.toString() ? `?${q.toString()}` : '';
     return fetchApi<QuestionAnalyticsData>(`/api/pixmint/admin/question-analytics${qs}`);
   },
+
+  // ── PIXMINT BOT 2.0 INTERACTIVE CHAT CLIENT API ───────────────────────────
+  async getBotChatStatus(): Promise<{ status: string; version: string; timestamp: number }> {
+    return fetchApi<{ status: string; version: string; timestamp: number }>('/api/pixmint/chat/status');
+  },
+
+  async getOrCreateBotChatSession(params?: {
+    title?: string;
+    newSession?: boolean;
+    sessionId?: string;
+  }): Promise<ConversationSessionItem> {
+    return fetchApi<ConversationSessionItem>('/api/pixmint/chat/sessions', {
+      method: 'POST',
+      body: JSON.stringify(params || {}),
+    });
+  },
+
+  async getBotChatSuggestions(role = 'admin'): Promise<RemoteSuggestion[]> {
+    return fetchApi<RemoteSuggestion[]>(`/api/pixmint/chat/suggestions?role=${encodeURIComponent(role)}`);
+  },
+
+  async getBotChatSessionMessages(sessionId: string): Promise<ConversationMessageItem[]> {
+    return fetchApi<ConversationMessageItem[]>(`/api/pixmint/chat/sessions/${encodeURIComponent(sessionId)}/messages`);
+  },
+
+  async sendBotChatMessage(sessionId: string, message: string): Promise<ConversationMessageItem> {
+    return fetchApi<ConversationMessageItem>(`/api/pixmint/chat/sessions/${encodeURIComponent(sessionId)}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  },
+
+  async submitBotChatFeedback(payload: {
+    messageId: string;
+    rating: 1 | -1;
+    feedbackText?: string;
+  }): Promise<{ success: boolean; message?: string }> {
+    return fetchApi<{ success: boolean; message?: string }>('/api/pixmint/chat/feedback', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };

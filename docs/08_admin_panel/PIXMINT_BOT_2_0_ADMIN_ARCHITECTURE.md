@@ -88,11 +88,27 @@ ARCHI DRAFT strictly enforces role boundaries:
 
 ---
 
-## 4. Test & Verification Coverage
+## 4. Global Floating Chatbot Widget (`PixmintChatWidget`)
+
+In addition to the governance control center at `/bot`, a dedicated, interactive floating PIXMINT BOT widget is mounted globally across the Admin Web portal (`apps/admin-web/src/components/bot/PixmintChatWidget.tsx`):
+- **Placement:** Anchored at `bottom-6 right-6` with higher precedence, neatly positioned below the `SupportWidget` at `bottom-20 right-6`.
+- **Mascot & State:** Features the official PIXMINT BOT mascot avatar (`/images/pixmint_bot_avatar.png`), pulsing emerald green online status indicator, and version badge (`v2.0.0`).
+- **Interactive Capabilities:**
+  - Active admin session reuse via `POST /api/pixmint/chat/sessions` (persists conversation across navigation).
+  - Quick-start starter suggestions tailored for Studio Admin queries (`GET /api/pixmint/chat/suggestions?role=admin`).
+  - High-contrast composer with pure white `#FFFFFF` background, `#17212B` dark charcoal text, `#8A98A8` hint, and `#00D6A0` emerald cursor.
+  - Grounded source citation inspection accordion.
+  - In-chat thumbs up/down message feedback submission (`POST /api/pixmint/chat/feedback`).
+  - Custom DOM event hook (`open-pixmint-bot`) enabling 1-click launch from the `/bot` dashboard header.
+
+---
+
+## 5. Test & Verification Coverage
 
 | Component | Test Suite | Tests Passed | Status |
 |---|---|---|---|
 | Cloudflare Worker | `worker/test/` | **463 / 463** | 100% Passed |
 | Flutter App | `test/features/pixmint_bot/` | **25 / 25** | 100% Passed |
-| Admin Web Portal | `apps/admin-web/test/pixmint-bot-admin.test.ts` | **28 / 28** | 100% Passed |
+| Admin Web Portal | `apps/admin-web/test/pixmint-bot-admin.test.ts` | **32 / 32** | 100% Passed |
 | Next.js Production Build | `apps/admin-web/` (`npm run build`) | **37 / 37 Routes** | Prerendered & Verified |
+

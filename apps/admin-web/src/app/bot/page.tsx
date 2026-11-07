@@ -860,6 +860,19 @@ export default function PixmintBotAdminPage() {
                       <MessageSquare className="h-3.5 w-3.5 mr-1" />
                       View Chats
                     </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('open-pixmint-bot'));
+                        }
+                      }}
+                      className="text-xs bg-gradient-to-r from-[#0453cd] to-[#00a877] text-white hover:from-blue-700 hover:to-emerald-600 border-0 shadow-xs cursor-pointer"
+                    >
+                      <Bot className="h-3.5 w-3.5 mr-1" />
+                      Chat with Bot
+                    </Button>
                   </div>
                 </div>
 
