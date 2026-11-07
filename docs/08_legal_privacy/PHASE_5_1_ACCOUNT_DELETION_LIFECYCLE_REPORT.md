@@ -110,3 +110,4 @@ The account deletion lifecycle is thoroughly verified across Worker, Admin Web, 
 - `✔ PIXMINT BOT sessions and messages are completely purged on execution` (Passed in 19ms)
 - `✔ User profile is tombstoned to 'Deleted User'` (Passed in 15ms)
 - `✔ Completed CAD drawings and invoice records remain intact` (Passed in 18ms)
+

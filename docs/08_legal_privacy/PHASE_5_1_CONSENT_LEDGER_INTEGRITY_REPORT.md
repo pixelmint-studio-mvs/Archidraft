@@ -82,3 +82,4 @@ Automated suites in `test/canonical_legal_system_phase2.test.mjs` and `test/feat
 - `✔ Salted SHA-256 hash generated for client IP on consent recording` (Passed)
 - `✔ User can withdraw optional consent and record is appended to withdrawal log` (Passed)
 - `✔ Consent records preserve version and document ID without mutation` (Passed)
+

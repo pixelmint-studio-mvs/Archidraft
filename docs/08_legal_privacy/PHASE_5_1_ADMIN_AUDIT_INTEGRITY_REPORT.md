@@ -69,3 +69,4 @@ Automated suites in `apps/admin-web/test/admin-legal-compliance.test.ts` and `te
 - `✔ Deletion review transition generates immutable audit entry` (Passed)
 - `✔ User dossier modal redacts sensitive credentials and raw IP addresses` (Passed)
 - `✔ Audit log query endpoint rejects unauthorized roles with 403 FORBIDDEN` (Passed)
+

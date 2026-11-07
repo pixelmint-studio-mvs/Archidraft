@@ -87,3 +87,4 @@ Automated suites in `test/pixmint_bot.test.mjs` and `test/features/pixmint_bot/`
 - `✔ Cross-tenant session access returns 404/403` (Passed in 9ms)
 - `✔ Account deletion wipes all associated sessions and messages` (Passed in 18ms)
 - `✔ Chat sheet displays contrasting styling and visible AI disclaimers` (Passed in 12ms)
+

@@ -127,3 +127,4 @@ The data export security architecture is verified through automated test suites 
 | 7-Day Download Token TTL | **VERIFIED** | HTTP 410 GONE returned on expired requests |
 | Anti-Caching Security Headers | **VERIFIED** | `no-store, no-cache, must-revalidate, private` |
 | Cryptographic Randomness | **VERIFIED** | `crypto.randomUUID()` used for all export tokens |
+
