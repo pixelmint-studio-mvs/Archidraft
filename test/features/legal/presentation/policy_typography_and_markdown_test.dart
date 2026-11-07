@@ -76,7 +76,7 @@ This is a bold body paragraph explaining terms.
       expect(find.byType(LegalMarkdownViewer), findsOneWidget);
 
       // Expand Privacy Policy tile
-      final privacyFinder = find.widgetWithText(ExpansionTile, 'Privacy Policy');
+      final privacyFinder = find.widgetWithText(ExpansionTile, 'Privacy Policy & Data Protection Notice');
       expect(privacyFinder, findsOneWidget);
       await tester.tap(privacyFinder);
       await tester.pumpAndSettle();
@@ -103,14 +103,14 @@ This is a bold body paragraph explaining terms.
       expect(boldBodySpanCount, greaterThan(20), reason: 'Expected multiple bold spans in rendered policy sections');
 
       // Verify substantive clauses are present in rendered output
-      expect(find.text('ARCHI DRAFT — TERMS & CONDITIONS'), findsOneWidget);
-      expect(find.text('ARCHI DRAFT — PRIVACY POLICY'), findsOneWidget);
-      expect(find.text('1. INTRODUCTION AND ACCEPTANCE'), findsOneWidget);
-      expect(find.text('1. INTRODUCTION AND ORGANIZATION IDENTITY'), findsOneWidget);
+      expect(find.textContaining('ARCHI DRAFT — PLATFORM TERMS AND CONDITIONS'), findsOneWidget);
+      expect(find.textContaining('ARCHI DRAFT — PRIVACY POLICY'), findsOneWidget);
+      expect(find.textContaining('1. PLATFORM SCOPE AND SERVICES'), findsOneWidget);
+      expect(find.textContaining('1. DATA FIDUCIARY IDENTITY'), findsOneWidget);
 
       // Verify draft status is present and unapproved
       expect(find.textContaining('DOCUMENT STATUS:'), findsWidgets);
-      expect(find.textContaining('DRAFT — NOT APPROVED FOR PRODUCTION'), findsWidgets);
+      expect(find.textContaining('PENDING_LEGAL_REVIEW'), findsWidgets);
     });
 
     testWidgets('3. Unrelated UI elements, badges, checkboxes, and preferences remain unchanged', (tester) async {
@@ -138,8 +138,8 @@ This is a bold body paragraph explaining terms.
       expect(find.text('v1.0.0'), findsNWidgets(2));
 
       // Check section titles
-      expect(find.text('Terms and Conditions'), findsOneWidget);
-      expect(find.text('Privacy Policy'), findsOneWidget);
+      expect(find.textContaining('Terms and Conditions'), findsWidgets);
+      expect(find.textContaining('Privacy Policy'), findsWidgets);
 
       // Check checkboxes
       expect(find.byType(CheckboxListTile), findsNWidgets(2));

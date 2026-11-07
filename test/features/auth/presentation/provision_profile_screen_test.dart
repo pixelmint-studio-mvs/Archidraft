@@ -23,10 +23,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ACCOUNT TYPE'), findsOneWidget);
-      expect(find.text('ENGINEER'), findsOneWidget);
+      expect(find.text('ENGINEER/ARCHITECT'), findsOneWidget);
       expect(find.text('DRAUGHTSMAN'), findsOneWidget);
       expect(find.text('STUDENT'), findsOneWidget);
-      expect(find.text('PROVISION PROFILE'), findsOneWidget);
+      expect(find.text('Provision Profile'), findsOneWidget);
     });
 
     testWidgets('DRAUGHTSMAN label is rendered without line wrapping', (tester) async {
@@ -53,8 +53,8 @@ void main() {
       await tester.tap(find.text('STUDENT'));
       await tester.pumpAndSettle();
 
-      // Tap ENGINEER
-      await tester.tap(find.text('ENGINEER'));
+      // Tap ENGINEER/ARCHITECT
+      await tester.tap(find.text('ENGINEER/ARCHITECT'));
       await tester.pumpAndSettle();
     });
   });
@@ -78,7 +78,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('ACCOUNT TYPE'), findsOneWidget);
-        expect(find.text('ENGINEER'), findsOneWidget);
+        expect(find.text('ENGINEER/ARCHITECT'), findsOneWidget);
         expect(find.text('DRAUGHTSMAN'), findsOneWidget);
         expect(find.text('STUDENT'), findsOneWidget);
         expect(tester.takeException(), isNull);

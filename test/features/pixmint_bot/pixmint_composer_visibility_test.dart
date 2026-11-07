@@ -11,14 +11,12 @@ import 'package:archi_draft/src/features/pixmint_bot/theme/pixmint_bot_theme.dar
 void main() {
   group('PIXMINT BOT Chat Composer Text Visibility & Styling', () {
     testWidgets('Applies explicit contrasting colors against light/inherited theme', (tester) async {
-      String? submittedText;
-
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
           home: Scaffold(
             body: PixmintChatInput(
-              onSend: (text) => submittedText = text,
+              onSend: (_) {},
             ),
           ),
         ),

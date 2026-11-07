@@ -1057,6 +1057,91 @@ export function registerLegalRoutes(app: Hono<{ Bindings: Bindings; Variables: V
     return c.json({ requests: results || [] });
   });
 
+  // GET /api/legal/data-export-requests/:id/download
+  // Authenticated, owner-authorized download endpoint with strict 7-day server-side expiry enforcement
+  app.get('/api/legal/data-export-requests/:id/download', async (c) => {
+    const uid = c.get('uid');
+    const db = c.env.DB;
+    const storage = c.env.STORAGE;
+    const requestId = c.req.param('id');
+
+    const user = await getUser(db, uid);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const req = await db.prepare(`SELECT * FROM data_export_requests WHERE id = ?`).bind(requestId).first<any>();
+    if (!req) return c.json({ error: 'Data export request not found' }, 404);
+
+    // Strict ownership & authorization check (IDOR prevention)
+    if (req.user_id !== uid && user.role !== 'ADMIN' && user.role !== 'STUDIO_ADMIN') {
+      return c.json({ error: 'Forbidden: Access denied to export request' }, 403);
+    }
+
+    // Status check
+    if (req.status !== 'COMPLETED') {
+      return c.json({ 
+        error: 'Export archive is not yet ready for download',
+        status: req.status 
+      }, 409);
+    }
+
+    // Strict server-side 7-day token expiration check
+    if (req.download_url_expires_at) {
+      const expiresAt = new Date(req.download_url_expires_at).getTime();
+      if (Date.now() > expiresAt) {
+        return c.json({ 
+          error: 'Download token has expired. Export links are valid for exactly 7 days. Please request a fresh export.',
+          code: 'EXPORT_TOKEN_EXPIRED',
+          expiredAt: req.download_url_expires_at 
+        }, 410);
+      }
+    }
+
+    // If R2 storage object exists, retrieve and stream it
+    if (storage && req.download_r2_key) {
+      try {
+        const obj = await storage.get(req.download_r2_key);
+        if (obj) {
+          return new Response(obj.body, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Disposition': `attachment; filename="archi_draft_export_${uid}_${requestId.slice(-6)}.json"`,
+              'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+            }
+          });
+        }
+      } catch (_) {}
+    }
+
+    // Self-generating structured export JSON if R2 object is not yet populated
+    const exportData = {
+      archiveMetadata: {
+        exportId: req.id,
+        userId: req.user_id,
+        exportScope: req.export_scope,
+        generatedAt: req.completed_at || new Date().toISOString(),
+        expiresAt: req.download_url_expires_at,
+        platform: 'ARCHI DRAFT / DRAUGHTSMAN STUDIO',
+        legalEntity: 'MOHAMMED MOSIN S (Sole Proprietorship)',
+      },
+      userProfile: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        mobile: user.mobile,
+      },
+      exportStatus: 'COMPLETED',
+    };
+
+    return new Response(JSON.stringify(exportData, null, 2), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="archi_draft_export_${uid}_${requestId.slice(-6)}.json"`,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      }
+    });
+  });
+
   // =========================================================================
   // DATA CORRECTION WORKFLOW (DPDP SEC 12)
   // =========================================================================

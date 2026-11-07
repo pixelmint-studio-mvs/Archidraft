@@ -18,6 +18,8 @@ import 'package:archi_draft/src/features/projects/domain/admin_dashboard_metrics
 import 'package:archi_draft/src/features/projects/providers/admin_providers.dart';
 import 'package:archi_draft/src/features/notifications/providers/notification_providers.dart';
 import 'package:archi_draft/src/features/notifications/domain/app_notification.dart';
+import 'package:archi_draft/src/features/pixmint_bot/data/repositories/mock_pixmint_bot_repository.dart';
+import 'package:archi_draft/src/features/pixmint_bot/providers/pixmint_bot_providers.dart';
 
 class MockUser extends Mock implements User {
   final bool _emailVerified;
@@ -119,6 +121,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(container.dispose);
@@ -171,6 +174,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(container.dispose);
@@ -215,6 +219,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(container.dispose);
@@ -253,6 +258,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(container.dispose);
@@ -305,6 +311,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(container.dispose);
@@ -349,6 +356,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(containerA.dispose);
@@ -376,6 +384,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(containerB.dispose);
@@ -459,6 +468,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(mockPrivacyDoc)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(container.dispose);
@@ -502,6 +512,7 @@ void main() {
           effectiveDocumentProvider('PRIVACY_POLICY').overrideWithValue(const AsyncValue.data(null)),
           engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
           notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+          pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
         ],
       );
       addTearDown(containerEng.dispose);

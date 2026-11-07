@@ -173,15 +173,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify Step 5 title is "5. Engineer Review"
-    expect(find.text('5. Engineer Review'), findsOneWidget);
+    // Verify Step 5 title is "5. Engineer/Architect Review"
+    expect(find.text('5. Engineer/Architect Review'), findsOneWidget);
 
     // Verify there are no occurrences of "Client & Engineer Review"
     expect(find.textContaining('Client & Engineer Review'), findsNothing);
 
-    // Verify associated description clearly mentions Engineer review
-    expect(find.textContaining('Drawings submitted and currently pending Engineer review'), findsOneWidget);
-    expect(find.text('UNDER ENGINEER REVIEW'), findsOneWidget);
+    // Verify associated description clearly mentions Engineer/Architect review
+    expect(find.textContaining('Drawings submitted and currently pending Engineer/Architect review'), findsOneWidget);
+    expect(find.text('UNDER ENGINEER/ARCHITECT REVIEW'), findsOneWidget);
 
     expect(tester.takeException(), isNull);
   });

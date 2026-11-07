@@ -16,6 +16,8 @@ import 'package:archi_draft/src/features/projects/domain/project.dart';
 import 'package:archi_draft/src/features/projects/providers/project_providers.dart';
 import 'package:archi_draft/src/features/notifications/providers/notification_providers.dart';
 import 'package:archi_draft/src/features/notifications/domain/app_notification.dart';
+import 'package:archi_draft/src/features/pixmint_bot/data/repositories/mock_pixmint_bot_repository.dart';
+import 'package:archi_draft/src/features/pixmint_bot/providers/pixmint_bot_providers.dart';
 
 class FakeAuthRepository extends Fake implements AuthRepository {
   final Future<void> Function()? onSignOut;
@@ -106,6 +108,7 @@ void main() {
         ))),
         engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
         notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+        pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
       ],
     );
   }
@@ -156,7 +159,7 @@ void main() {
       expect(router.state.matchedLocation, equals('/role-selection'));
 
       // Tap Engineer role card
-      await tester.tap(find.text('Engineer'));
+      await tester.tap(find.textContaining('Engineer'));
       await tester.pumpAndSettle();
 
       // Tap Continue
@@ -264,7 +267,7 @@ void main() {
       router.go('/role-selection');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Engineer'));
+      await tester.tap(find.textContaining('Engineer'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
@@ -310,7 +313,7 @@ void main() {
       router.go('/role-selection');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Engineer'));
+      await tester.tap(find.textContaining('Engineer'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
@@ -346,7 +349,7 @@ void main() {
       // 1. Select Engineer
       router.go('/role-selection');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Engineer'));
+      await tester.tap(find.textContaining('Engineer'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
@@ -415,6 +418,7 @@ void main() {
         userLegalStatusProvider.overrideWithValue(AsyncValue.error(Exception('No user session'), StackTrace.empty)),
         engineerProjectsProvider.overrideWithValue(const AsyncValue.data(<Project>[])),
         notificationsProvider.overrideWithValue(const AsyncValue.data(<AppNotification>[])),
+        pixmintRepositoryProvider.overrideWithValue(MockPixmintBotRepository(simulatedDelay: Duration.zero)),
       ]);
       await tester.pumpAndSettle();
 
@@ -598,7 +602,7 @@ void main() {
       router.go('/role-selection');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Engineer'));
+      await tester.tap(find.textContaining('Engineer'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();

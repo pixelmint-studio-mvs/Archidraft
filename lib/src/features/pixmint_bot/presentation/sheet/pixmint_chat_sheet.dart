@@ -316,8 +316,10 @@ class _PixmintChatSheetState extends ConsumerState<PixmintChatSheet> {
             ],
           ),
           const SizedBox(height: 3),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               InkWell(
                 onTap: () => DocumentReaderSheet.show(context, kDefaultAiDisclaimerDocument),

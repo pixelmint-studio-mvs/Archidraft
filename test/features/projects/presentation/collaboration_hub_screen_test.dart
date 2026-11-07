@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Adjusted and attached updated sheet.'), findsOneWidget);
 
     // Verify sender roles
-    expect(find.text('Engineer'), findsOneWidget);
+    expect(find.text('Engineer/Architect'), findsOneWidget);
     expect(find.text('Draughtsman'), findsOneWidget);
 
     // Verify attachment renders
