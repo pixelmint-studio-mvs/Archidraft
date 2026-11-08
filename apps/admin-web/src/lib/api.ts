@@ -1933,4 +1933,49 @@ export const adminApi = {
   async getAdminFinancials(): Promise<AdminFinancialSummary> {
     return fetchApi<AdminFinancialSummary>('/api/admin/financials');
   },
+
+  // ==========================================
+  // CERTIFICATES & CREDENTIALS REGISTRY
+  // ==========================================
+
+  async getAdminCredentials(params?: {
+    query?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ credentials: any[]; total: number; limit: number; offset: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.query) searchParams.set('query', params.query);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    const qs = searchParams.toString();
+    return fetchApi<{ credentials: any[]; total: number; limit: number; offset: number }>(
+      `/api/admin/credentials${qs ? `?${qs}` : ''}`
+    );
+  },
+
+  async revokeCredential(
+    id: string,
+    reason: string
+  ): Promise<{ success: boolean; message: string; credentialId: string; status: string }> {
+    return fetchApi<{ success: boolean; message: string; credentialId: string; status: string }>(
+      `/api/admin/credentials/${encodeURIComponent(id)}/revoke`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }
+    );
+  },
+
+  async reinstateCredential(
+    id: string
+  ): Promise<{ success: boolean; message: string; credentialId: string; status: string }> {
+    return fetchApi<{ success: boolean; message: string; credentialId: string; status: string }>(
+      `/api/admin/credentials/${encodeURIComponent(id)}/reinstate`,
+      {
+        method: 'POST',
+      }
+    );
+  },
 };

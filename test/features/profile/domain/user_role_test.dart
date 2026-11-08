@@ -24,8 +24,8 @@ void main() {
     });
 
     test('displayName returns user friendly name', () {
-      expect(UserRole.client.displayName, 'Client');
-      expect(UserRole.engineer.displayName, 'Engineer');
+      expect(UserRole.client.displayName, 'Engineer/Architect');
+      expect(UserRole.engineer.displayName, 'Engineer/Architect');
       expect(UserRole.student.displayName, 'Student');
       expect(UserRole.draughtsman.displayName, 'Draughtsman');
       expect(UserRole.admin.displayName, 'Administrator');

@@ -138,4 +138,57 @@ void main() {
     expect(find.text('Public Diploma'), findsOneWidget);
     expect(find.text('Public Viewer'), findsOneWidget);
   });
+
+  testWidgets('CertificateVerificationScreen renders idle search state when token is empty',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: CertificateVerificationScreen(token: ''),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter Certificate Identifier'), findsOneWidget);
+    expect(find.text('OFFICIAL REGISTRY LOOKUP'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Verify'), findsOneWidget);
+  });
+
+  testWidgets('CertificateVerificationScreen renders revoked UI when certificate is formally revoked',
+      (WidgetTester tester) async {
+    final revokedData = {
+      'id': 'cert_revoked_123',
+      'title': 'Diploma in Drafting Systems',
+      'recipientName': 'Revoked Student',
+      'revokedAt': '2026-11-01T12:00:00.000Z',
+      'revocationReason': 'Violated terms of accreditation',
+    };
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          certificateVerificationProvider('token_revoked').overrideWith(
+            (ref) => CertificateVerificationResult.revoked(
+              credentialData: revokedData,
+              error: 'This certificate has been formally revoked by administrative authority.',
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: CertificateVerificationScreen(token: 'token_revoked'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('CERTIFICATE REVOKED'), findsOneWidget);
+    expect(find.text('This certificate has been formally revoked by administrative authority.'), findsOneWidget);
+    expect(find.text('Violated terms of accreditation'), findsOneWidget);
+    expect(find.text('Revoked Student'), findsOneWidget);
+    expect(find.byIcon(Icons.gpp_bad_rounded), findsOneWidget);
+  });
 }

@@ -52,7 +52,7 @@ ENVIRONMENT = "production"
 FIREBASE_PROJECT_ID = "archi-draft"
 AI_PROVIDER = "local_grounded"
 # Production permitted web origins (Custom production domains + production Vercel deployment)
-ALLOWED_ORIGINS = "https://admin-web-eight-wine.vercel.app,https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app,https://www.draughtsmanstudio.com,https://draughtsmanstudio.com"
+ALLOWED_ORIGINS = "https://admin-web-eight-wine.vercel.app,https://admin-web-mohammed-anas-projects-4d2df8c4.vercel.app,https://admin.draughtsmanstudio.com,https://archi-draft.vercel.app,https://www.draughtsmanstudio.com,https://draughtsmanstudio.com,https://archidraft.draughtsmanstudio.com,https://archidraft-app.pages.dev"
 
 [[env.production.d1_databases]]
 binding = "DB"

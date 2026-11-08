@@ -12,6 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 /worker/backups/
+/backups/
 
 # IntelliJ related
 *.iml

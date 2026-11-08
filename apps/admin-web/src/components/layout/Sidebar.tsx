@@ -19,6 +19,7 @@ import {
   LifeBuoy,
   ClipboardCheck,
   Bot,
+  Award,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -139,6 +140,11 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/legal',
         icon: ShieldCheck,
         badgeKey: 'legalRequests',
+      },
+      {
+        name: 'Certificates & Registry',
+        href: '/certificates',
+        icon: Award,
       },
     ],
   },

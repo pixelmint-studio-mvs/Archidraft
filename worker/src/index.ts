@@ -71,6 +71,8 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 const BASELINE_PRODUCTION_ORIGINS = new Set([
   'https://www.draughtsmanstudio.com',
   'https://draughtsmanstudio.com',
+  'https://archidraft.draughtsmanstudio.com',
+  'https://archidraft-app.pages.dev',
   'https://admin.draughtsmanstudio.com',
   'https://admin-staging.draughtsmanstudio.com',
   'https://archi-draft.vercel.app',
@@ -134,16 +136,18 @@ app.use('*', async (c, next) => {
   const isPublicHelpdeskReport = c.req.method === 'POST' && c.req.path === '/api/helpdesk/report';
   const isPublicHelpdeskTicket = c.req.method === 'POST' && c.req.path === '/api/helpdesk/tickets';
 
+  const isPublicRoute = isPublicDocRead || isPublicBusinessProfile || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket;
+
   const authHeader = c.req.header('Authorization');
   let token: string | undefined;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split('Bearer ')[1];
-  } else if (c.req.query('token')) {
+  } else if (!isPublicRoute && c.req.query('token')) {
     token = c.req.query('token');
   }
 
   if (!token) {
-    if (isPublicDocRead || isPublicBusinessProfile || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicRoute) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
@@ -152,7 +156,7 @@ app.use('*', async (c, next) => {
   const payload = await verifyFirebaseToken(token, c.env);
 
   if (!payload || !payload.sub) {
-    if (isPublicDocRead || isPublicBusinessProfile || isPublicVerify || isPublicHealth || isPublicPixmintStatus || isPublicHelpdeskReport || isPublicHelpdeskTicket) {
+    if (isPublicRoute) {
       return await next();
     }
     return c.json({ error: 'Unauthorized: Invalid Firebase token' }, 401);
@@ -373,6 +377,33 @@ export async function ensureIdentificationSchema(db: D1Database): Promise<void> 
     }
   } catch (err) {
     console.warn('[Role ID] Automatic schema initialization warning:', err);
+  }
+}
+
+export async function ensureCertificateSchema(db: D1Database): Promise<void> {
+  try {
+    try {
+      await db.prepare("ALTER TABLE student_credentials ADD COLUMN status TEXT CHECK(status IN ('VALID', 'REVOKED', 'PENDING')) DEFAULT 'VALID'").run();
+    } catch (_) {
+      // Column already exists
+    }
+    try {
+      await db.prepare('ALTER TABLE student_credentials ADD COLUMN revoked_at DATETIME DEFAULT NULL').run();
+    } catch (_) {
+      // Column already exists
+    }
+    try {
+      await db.prepare('ALTER TABLE student_credentials ADD COLUMN revocation_reason TEXT DEFAULT NULL').run();
+    } catch (_) {
+      // Column already exists
+    }
+    try {
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_student_credentials_status ON student_credentials(status)').run();
+    } catch (_) {
+      // Index already exists
+    }
+  } catch (err) {
+    console.warn('[Certificate Schema] Initialization warning:', err);
   }
 }
 
@@ -6715,37 +6746,129 @@ app.get('/api/student/credentials/:credentialId/certificate', async (c) => {
   return new Response(object.body, { headers });
 });
 
-// GET /api/public/credentials/verify/:verificationToken
-app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
-  const token = c.req.param('verificationToken');
-  const db = c.env.DB;
+// ==========================================
+// CERTIFICATE VERIFICATION & CREDENTIALS
+// ==========================================
 
-  const result: any = await db.prepare(`
-    SELECT
-      c.id,
-      c.type,
-      c.title,
-      c.issued_at as issuedAt,
-      u.name as display_name,
-      tl.title as lesson_title,
-      COALESCE(tm.title, tm_direct.title) as module_title
-    FROM student_credentials c
-    JOIN users u ON c.student_id = u.id
-    LEFT JOIN training_lessons tl ON c.type = 'LESSON_COMPLETION' AND tl.id = c.reference_id
-    LEFT JOIN training_modules tm ON tm.id = tl.module_id
-    LEFT JOIN training_modules tm_direct ON c.type = 'MODULE_CERTIFICATION' AND tm_direct.id = c.reference_id
-    WHERE c.verification_token = ? OR c.id = ?
-  `).bind(token, token).first();
+const handleCertificateVerification = async (c: any) => {
+  const token = (
+    c.req.param('verificationToken') ||
+    c.req.param('id') ||
+    c.req.query('token') ||
+    c.req.query('id') ||
+    ''
+  ).trim();
+
+  if (!token) {
+    return c.json({
+      valid: false,
+      status: 'INVALID',
+      error: 'Certificate identifier or verification token is required'
+    }, 400);
+  }
+
+  const db = c.env.DB;
+  await ensureCertificateSchema(db);
+
+  let result: any = null;
+  try {
+    result = await db.prepare(`
+      SELECT
+        c.id,
+        c.type,
+        c.title,
+        c.issued_at as issuedAt,
+        COALESCE(c.status, 'VALID') as status,
+        c.revoked_at as revokedAt,
+        c.revocation_reason as revocationReason,
+        u.name as display_name,
+        tl.title as lesson_title,
+        COALESCE(tm.title, tm_direct.title) as module_title
+      FROM student_credentials c
+      LEFT JOIN users u ON c.student_id = u.id
+      LEFT JOIN training_lessons tl ON c.type = 'LESSON_COMPLETION' AND tl.id = c.reference_id
+      LEFT JOIN training_modules tm ON tm.id = tl.module_id
+      LEFT JOIN training_modules tm_direct ON c.type = 'MODULE_CERTIFICATION' AND tm_direct.id = c.reference_id
+      WHERE c.verification_token = ? OR c.id = ?
+    `).bind(token, token).first();
+  } catch (err: any) {
+    if (err?.message?.includes('no such column')) {
+      result = await db.prepare(`
+        SELECT
+          c.id,
+          c.type,
+          c.title,
+          c.issued_at as issuedAt,
+          u.name as display_name,
+          tl.title as lesson_title,
+          COALESCE(tm.title, tm_direct.title) as module_title
+        FROM student_credentials c
+        LEFT JOIN users u ON c.student_id = u.id
+        LEFT JOIN training_lessons tl ON c.type = 'LESSON_COMPLETION' AND tl.id = c.reference_id
+        LEFT JOIN training_modules tm ON tm.id = tl.module_id
+        LEFT JOIN training_modules tm_direct ON c.type = 'MODULE_CERTIFICATION' AND tm_direct.id = c.reference_id
+        WHERE c.verification_token = ? OR c.id = ?
+      `).bind(token, token).first();
+    } else {
+      throw err;
+    }
+  }
 
   if (!result) {
-    return c.json({ valid: false, error: 'Certificate not found' }, 404);
+    return c.json({
+      valid: false,
+      status: 'INVALID',
+      error: 'Certificate not found in authoritative registry'
+    }, 404);
   }
 
   const rawName = result.display_name;
   const recipientName = (rawName && String(rawName).trim().length > 0) ? String(rawName).trim() : 'Verified Student';
+  const certStatus = (result.status || 'VALID').toUpperCase();
+
+  if (certStatus === 'REVOKED') {
+    return c.json({
+      valid: false,
+      status: 'REVOKED',
+      error: 'This certificate has been formally revoked by administrative authority.',
+      credential: {
+        id: result.id,
+        type: result.type,
+        title: result.title,
+        lessonTitle: result.lesson_title || result.title,
+        moduleTitle: result.module_title || null,
+        issuedAt: result.issuedAt,
+        recipientName: recipientName,
+        issuingAuthority: 'Draughtsman Studio & Archi Draft',
+        status: 'REVOKED',
+        revokedAt: result.revokedAt || result.issuedAt,
+        revocationReason: result.revocationReason || 'Formal revocation issued by administrative authority.'
+      }
+    }, 200);
+  }
+
+  if (certStatus === 'PENDING') {
+    return c.json({
+      valid: false,
+      status: 'PENDING',
+      error: 'Certificate issuance is currently pending verification.',
+      credential: {
+        id: result.id,
+        type: result.type,
+        title: result.title,
+        lessonTitle: result.lesson_title || result.title,
+        moduleTitle: result.module_title || null,
+        issuedAt: result.issuedAt,
+        recipientName: recipientName,
+        issuingAuthority: 'Draughtsman Studio & Archi Draft',
+        status: 'PENDING'
+      }
+    }, 200);
+  }
 
   return c.json({
     valid: true,
+    status: 'VALID',
     credential: {
       id: result.id,
       type: result.type,
@@ -6754,8 +6877,175 @@ app.get('/api/public/credentials/verify/:verificationToken', async (c) => {
       moduleTitle: result.module_title || null,
       issuedAt: result.issuedAt,
       recipientName: recipientName,
-      issuingAuthority: 'Draughtsman Studio & Archi Draft'
+      issuingAuthority: 'Draughtsman Studio & Archi Draft',
+      status: 'VALID'
     }
+  });
+};
+
+// Public Verification Endpoints (Token or Certificate ID, path or query)
+app.get('/api/public/credentials/verify/:verificationToken', handleCertificateVerification);
+app.get('/api/public/credentials/verify', handleCertificateVerification);
+app.get('/api/public/certificates/verify/:id', handleCertificateVerification);
+app.get('/api/public/certificates/verify', handleCertificateVerification);
+
+// Admin Credentials Management Endpoints
+app.get('/api/admin/credentials', async (c) => {
+  const uid = c.get('uid');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  await ensureCertificateSchema(db);
+
+  const query = (c.req.query('query') || '').trim().toLowerCase();
+  const statusFilter = (c.req.query('status') || 'ALL').toUpperCase();
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') || '50', 10)));
+  const offset = Math.max(0, parseInt(c.req.query('offset') || '0', 10));
+
+  let sql = `
+    SELECT
+      c.id,
+      c.student_id as studentId,
+      u.name as studentName,
+      u.email as studentEmail,
+      u.identification_number as studentIdentificationNumber,
+      c.type,
+      c.title,
+      c.description,
+      c.issued_at as issuedAt,
+      COALESCE(c.status, 'VALID') as status,
+      c.revoked_at as revokedAt,
+      c.revocation_reason as revocationReason,
+      c.verification_token as verificationToken,
+      c.certificate_object_key as certificateObjectKey
+    FROM student_credentials c
+    LEFT JOIN users u ON c.student_id = u.id
+    WHERE 1=1
+  `;
+  const params: any[] = [];
+
+  if (statusFilter && statusFilter !== 'ALL') {
+    sql += ` AND COALESCE(c.status, 'VALID') = ?`;
+    params.push(statusFilter);
+  }
+
+  if (query) {
+    sql += ` AND (
+      LOWER(c.id) LIKE ? OR
+      LOWER(u.name) LIKE ? OR
+      LOWER(u.email) LIKE ? OR
+      LOWER(c.title) LIKE ? OR
+      LOWER(COALESCE(c.verification_token, '')) LIKE ?
+    )`;
+    const qParam = `%${query}%`;
+    params.push(qParam, qParam, qParam, qParam, qParam);
+  }
+
+  sql += ` ORDER BY c.issued_at DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const { results: credentials } = await db.prepare(sql).bind(...params).all();
+
+  let countSql = `
+    SELECT COUNT(*) as count
+    FROM student_credentials c
+    LEFT JOIN users u ON c.student_id = u.id
+    WHERE 1=1
+  `;
+  const countParams: any[] = [];
+  if (statusFilter && statusFilter !== 'ALL') {
+    countSql += ` AND COALESCE(c.status, 'VALID') = ?`;
+    countParams.push(statusFilter);
+  }
+  if (query) {
+    countSql += ` AND (
+      LOWER(c.id) LIKE ? OR
+      LOWER(u.name) LIKE ? OR
+      LOWER(u.email) LIKE ? OR
+      LOWER(c.title) LIKE ? OR
+      LOWER(COALESCE(c.verification_token, '')) LIKE ?
+    )`;
+    const qParam = `%${query}%`;
+    countParams.push(qParam, qParam, qParam, qParam, qParam);
+  }
+  const countRes: any = await db.prepare(countSql).bind(...countParams).first();
+
+  return c.json({
+    credentials: credentials || [],
+    total: countRes?.count || (credentials?.length || 0),
+    limit,
+    offset
+  });
+});
+
+app.post('/api/admin/credentials/:id/revoke', async (c) => {
+  const uid = c.get('uid');
+  const credentialId = c.req.param('id');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  await ensureCertificateSchema(db);
+
+  const body = await c.req.json().catch(() => ({}));
+  const reason = (body?.reason || 'Formal revocation issued by administrative authority').trim();
+
+  const existing: any = await db.prepare('SELECT id, status FROM student_credentials WHERE id = ?').bind(credentialId).first();
+  if (!existing) {
+    return c.json({ error: 'Credential not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  await db.prepare(`
+    UPDATE student_credentials
+    SET status = 'REVOKED',
+        revoked_at = CURRENT_TIMESTAMP,
+        revocation_reason = ?
+    WHERE id = ?
+  `).bind(reason, credentialId).run();
+
+  return c.json({
+    success: true,
+    message: 'Certificate revoked successfully',
+    credentialId,
+    status: 'REVOKED',
+    revocationReason: reason
+  });
+});
+
+app.post('/api/admin/credentials/:id/reinstate', async (c) => {
+  const uid = c.get('uid');
+  const credentialId = c.req.param('id');
+  const db = c.env.DB;
+  const user = await getUser(db, uid);
+  if (!user || !['STUDIO_ADMIN', 'ADMIN'].includes(user.role as string)) {
+    return c.json({ error: 'Forbidden: Admin access required', code: 'FORBIDDEN' }, 403);
+  }
+
+  await ensureCertificateSchema(db);
+
+  const existing: any = await db.prepare('SELECT id, status FROM student_credentials WHERE id = ?').bind(credentialId).first();
+  if (!existing) {
+    return c.json({ error: 'Credential not found', code: 'NOT_FOUND' }, 404);
+  }
+
+  await db.prepare(`
+    UPDATE student_credentials
+    SET status = 'VALID',
+        revoked_at = NULL,
+        revocation_reason = NULL
+    WHERE id = ?
+  `).bind(credentialId).run();
+
+  return c.json({
+    success: true,
+    message: 'Certificate reinstated successfully',
+    credentialId,
+    status: 'VALID'
   });
 });
 

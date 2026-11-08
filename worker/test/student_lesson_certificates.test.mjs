@@ -128,7 +128,8 @@ test('Student Lesson Completion Certificate E2E Lifecycle', async (t) => {
   sqlite.exec(`
     INSERT INTO users (id, email, name, role, status) VALUES
       ('student-alpha', 'alpha@archi.test', 'Sarah Connor', 'STUDENT', 'ACTIVE'),
-      ('student-bravo', 'bravo@archi.test', 'Kyle Reese', 'STUDENT', 'ACTIVE');
+      ('student-bravo', 'bravo@archi.test', 'Kyle Reese', 'STUDENT', 'ACTIVE'),
+      ('admin-master', 'contact@draughtsmanstudio.com', 'Studio Master Admin', 'STUDIO_ADMIN', 'ACTIVE');
 
     INSERT INTO legal_documents (id, document_type, version, title, content, effective_at, status, is_mandatory, locale)
     VALUES ('doc-terms-cert', 'TERMS_AND_CONDITIONS', '1.0.0', 'Platform Terms', '# Terms', CURRENT_TIMESTAMP, 'EFFECTIVE', 1, 'en-IN');
@@ -136,12 +137,14 @@ test('Student Lesson Completion Certificate E2E Lifecycle', async (t) => {
     INSERT INTO legal_consent_events (id, user_id, document_id, document_type, document_version, action_type, consent_purpose, idempotency_key, ip_hash, source)
     VALUES
       ('evt-terms-alpha', 'student-alpha', 'doc-terms-cert', 'TERMS_AND_CONDITIONS', '1.0.0', 'ACCEPT', 'DEFAULT', 'idem-alpha', 'hash', 'WEB'),
-      ('evt-terms-bravo', 'student-bravo', 'doc-terms-cert', 'TERMS_AND_CONDITIONS', '1.0.0', 'ACCEPT', 'DEFAULT', 'idem-bravo', 'hash', 'WEB');
+      ('evt-terms-bravo', 'student-bravo', 'doc-terms-cert', 'TERMS_AND_CONDITIONS', '1.0.0', 'ACCEPT', 'DEFAULT', 'idem-bravo', 'hash', 'WEB'),
+      ('evt-terms-admin', 'admin-master', 'doc-terms-cert', 'TERMS_AND_CONDITIONS', '1.0.0', 'ACCEPT', 'DEFAULT', 'idem-admin', 'hash', 'WEB');
 
     INSERT INTO user_consent_state (id, user_id, consent_type, purpose_tag, current_status, accepted_version, last_event_id, updated_at)
     VALUES
       ('cst-alpha', 'student-alpha', 'TERMS', 'DEFAULT', 'ACCEPTED', '1.0.0', 'evt-terms-alpha', CURRENT_TIMESTAMP),
-      ('cst-bravo', 'student-bravo', 'TERMS', 'DEFAULT', 'ACCEPTED', '1.0.0', 'evt-terms-bravo', CURRENT_TIMESTAMP);
+      ('cst-bravo', 'student-bravo', 'TERMS', 'DEFAULT', 'ACCEPTED', '1.0.0', 'evt-terms-bravo', CURRENT_TIMESTAMP),
+      ('cst-admin', 'admin-master', 'TERMS', 'DEFAULT', 'ACCEPTED', '1.0.0', 'evt-terms-admin', CURRENT_TIMESTAMP);
   `);
 
   // Setup module, chapter, and lesson
@@ -355,5 +358,129 @@ test('Student Lesson Completion Certificate E2E Lifecycle', async (t) => {
     const body = await res.json();
     assert.equal(body.certificate.id, credBefore.id, 'Must preserve existing certificate ID');
     assert.equal(body.certificate.verificationToken, credBefore.verification_token);
+  });
+
+  await t.test('8. Multi-format Public Verification & Zero PII Exposure', async () => {
+    const cred = sqlite.prepare('SELECT id, verification_token FROM student_credentials WHERE student_id = ?').get(studentA.id);
+
+    // Test /api/public/certificates/verify/:id
+    const resCertId = await app.request(`/api/public/certificates/verify/${cred.id}`, {}, env);
+    assert.equal(resCertId.status, 200);
+    const bodyCertId = await resCertId.json();
+    assert.equal(bodyCertId.valid, true);
+    assert.equal(bodyCertId.status, 'VALID');
+    assert.equal(bodyCertId.credential.id, cred.id);
+    assert.equal(bodyCertId.credential.recipientName, 'Sarah Connor');
+
+    // Test /api/public/credentials/verify?id=...&token=...
+    const resQuery = await app.request(`/api/public/credentials/verify?id=${cred.id}&token=${cred.verification_token}`, {}, env);
+    assert.equal(resQuery.status, 200);
+    const bodyQuery = await resQuery.json();
+    assert.equal(bodyQuery.valid, true);
+    assert.equal(bodyQuery.status, 'VALID');
+
+    // Test /api/public/certificates/verify?id=...
+    const resCertQuery = await app.request(`/api/public/certificates/verify?id=${cred.id}`, {}, env);
+    assert.equal(resCertQuery.status, 200);
+    const bodyCertQuery = await resCertQuery.json();
+    assert.equal(bodyCertQuery.valid, true);
+
+    // Strict PII Verification: No email, no phone, no internal student user ID
+    assert.equal(bodyCertId.credential.studentId, undefined);
+    assert.equal(bodyCertId.credential.student_id, undefined);
+    assert.equal(bodyCertId.credential.email, undefined);
+    assert.equal(bodyCertId.credential.phone, undefined);
+    assert.equal(bodyCertId.credential.mobile, undefined);
+
+    // Missing token or ID returns 400
+    const resEmpty = await app.request('/api/public/credentials/verify', {}, env);
+    assert.equal(resEmpty.status, 400);
+    const bodyEmpty = await resEmpty.json();
+    assert.equal(bodyEmpty.valid, false);
+    assert.equal(bodyEmpty.status, 'INVALID');
+  });
+
+  await t.test('9. Admin Credentials Management: List, Revoke, and Reinstate', async () => {
+    const cred = sqlite.prepare('SELECT id, verification_token FROM student_credentials WHERE student_id = ?').get(studentA.id);
+
+    // 1. Admin lists credentials
+    const resList = await app.request('/api/admin/credentials?limit=10', {
+      headers: {
+        'Authorization': 'Bearer mock-token:admin-master'
+      }
+    }, env);
+    assert.equal(resList.status, 200);
+    const bodyList = await resList.json();
+    assert.ok(bodyList.credentials.length >= 1);
+    const found = bodyList.credentials.find(c => c.id === cred.id);
+    assert.ok(found);
+    assert.equal(found.studentName, 'Sarah Connor');
+    assert.equal(found.status, 'VALID');
+
+    // 2. Admin revokes credential
+    const revokeReason = 'Disciplinary administrative action: improper attribution.';
+    const resRevoke = await app.request(`/api/admin/credentials/${cred.id}/revoke`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer mock-token:admin-master'
+      },
+      body: JSON.stringify({ reason: revokeReason })
+    }, env);
+    assert.equal(resRevoke.status, 200);
+    const bodyRevoke = await resRevoke.json();
+    assert.equal(bodyRevoke.success, true);
+    assert.equal(bodyRevoke.status, 'REVOKED');
+
+    // 3. Public verification now reflects REVOKED status (HTTP 200 with valid: false)
+    const resVerifyRevoked = await app.request(`/api/public/credentials/verify/${cred.id}`, {}, env);
+    assert.equal(resVerifyRevoked.status, 200);
+    const bodyVerifyRevoked = await resVerifyRevoked.json();
+    assert.equal(bodyVerifyRevoked.valid, false);
+    assert.equal(bodyVerifyRevoked.status, 'REVOKED');
+    assert.equal(bodyVerifyRevoked.credential.status, 'REVOKED');
+    assert.equal(bodyVerifyRevoked.credential.revocationReason, revokeReason);
+    assert.ok(bodyVerifyRevoked.credential.revokedAt);
+
+    // 4. Admin reinstates credential
+    const resReinstate = await app.request(`/api/admin/credentials/${cred.id}/reinstate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer mock-token:admin-master'
+      }
+    }, env);
+    assert.equal(resReinstate.status, 200);
+    const bodyReinstate = await resReinstate.json();
+    assert.equal(bodyReinstate.success, true);
+    assert.equal(bodyReinstate.status, 'VALID');
+
+    // 5. Public verification is once again VALID
+    const resVerifyReinstated = await app.request(`/api/public/credentials/verify/${cred.id}`, {}, env);
+    assert.equal(resVerifyReinstated.status, 200);
+    const bodyVerifyReinstated = await resVerifyReinstated.json();
+    assert.equal(bodyVerifyReinstated.valid, true);
+    assert.equal(bodyVerifyReinstated.status, 'VALID');
+  });
+
+  await t.test('10. CORS allows archidraft.draughtsmanstudio.com and archidraft-app.pages.dev', async () => {
+    const cred = sqlite.prepare('SELECT id FROM student_credentials WHERE student_id = ?').get(studentA.id);
+
+    // CORS for archidraft.draughtsmanstudio.com
+    const resAd = await app.request(`/api/public/credentials/verify/${cred.id}`, {
+      headers: {
+        'Origin': 'https://archidraft.draughtsmanstudio.com'
+      }
+    }, env);
+    assert.equal(resAd.status, 200);
+    assert.equal(resAd.headers.get('Access-Control-Allow-Origin'), 'https://archidraft.draughtsmanstudio.com');
+
+    // CORS for archidraft-app.pages.dev
+    const resPages = await app.request(`/api/public/credentials/verify/${cred.id}`, {
+      headers: {
+        'Origin': 'https://archidraft-app.pages.dev'
+      }
+    }, env);
+    assert.equal(resPages.status, 200);
+    assert.equal(resPages.headers.get('Access-Control-Allow-Origin'), 'https://archidraft-app.pages.dev');
   });
 });
