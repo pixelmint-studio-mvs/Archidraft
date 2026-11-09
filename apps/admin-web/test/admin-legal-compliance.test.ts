@@ -133,12 +133,12 @@ describe('Admin Web Legal & Compliance System Contracts (Phase 4)', () => {
     assert.ok(apiCode.includes('resolveLegalPrivacyRequest'), 'Must export resolveLegalPrivacyRequest');
   });
 
-  it('8. Sidebar navigation includes Governance & Compliance category linking to /legal', () => {
+  it('8. Sidebar navigation includes SETTINGS & SUPPORT category linking to /legal', () => {
     const sidebarFilePath = path.resolve(process.cwd(), 'src/components/layout/Sidebar.tsx');
     assert.ok(fs.existsSync(sidebarFilePath), 'Sidebar.tsx must exist');
 
     const sidebarCode = fs.readFileSync(sidebarFilePath, 'utf8');
-    assert.ok(sidebarCode.includes('Governance & Compliance'), 'Must include Governance & Compliance category');
+    assert.ok(sidebarCode.includes('SETTINGS & SUPPORT'), 'Must include SETTINGS & SUPPORT category');
     assert.ok(sidebarCode.includes('/legal'), 'Must link to /legal');
     assert.ok(sidebarCode.includes('legalRequests'), 'Must include legalRequests badge key');
   });

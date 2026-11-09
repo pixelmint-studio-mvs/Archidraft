@@ -9,11 +9,11 @@ describe('Admin Portal — Registrations Provision & Proof Verification Contract
     const sidebarPath = path.resolve(process.cwd(), 'src/components/layout/Sidebar.tsx');
     const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
 
-    test('Sidebar includes "Registration" category between Overview and Quick Access with "Registrations"', () => {
+    test('Sidebar includes "Registrations" entry linking to /registrations in Overview', () => {
       assert.match(
         sidebarContent,
-        /title:\s*'Registration'[\s\S]*name:\s*'(Registrations|Allow Registrations)'[\s\S]*href:\s*'\/registrations'/,
-        'Sidebar Registration section must contain a "Registrations" entry linking to /registrations'
+        /title:\s*'(?:Overview|Registration)'[\s\S]*name:\s*'(Registrations|Allow Registrations)'[\s\S]*href:\s*'\/registrations'/,
+        'Sidebar must contain a "Registrations" entry linking to /registrations'
       );
     });
 

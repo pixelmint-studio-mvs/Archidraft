@@ -70,11 +70,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/financials',
         icon: DollarSign,
       },
-    ],
-  },
-  {
-    title: 'Registration',
-    items: [
       {
         name: 'Registrations',
         href: '/registrations',
@@ -133,7 +128,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Governance & Compliance',
+    title: 'SETTINGS & SUPPORT',
     items: [
       {
         name: 'Legal & Compliance',
@@ -146,11 +141,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/certificates',
         icon: Award,
       },
-    ],
-  },
-  {
-    title: 'Settings',
-    items: [
       {
         name: 'System Settings & SLA',
         href: '/settings',
