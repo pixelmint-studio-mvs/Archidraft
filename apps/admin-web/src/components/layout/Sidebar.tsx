@@ -19,7 +19,6 @@ import {
   LifeBuoy,
   ClipboardCheck,
   Bot,
-  Award,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
@@ -135,11 +134,6 @@ const NAV_SECTIONS: NavSection[] = [
         href: '/legal',
         icon: ShieldCheck,
         badgeKey: 'legalRequests',
-      },
-      {
-        name: 'Certificates & Registry',
-        href: '/certificates',
-        icon: Award,
       },
       {
         name: 'System Settings & SLA',
@@ -277,7 +271,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
               const isActive =
                 pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href)) ||
-                (item.href === '/students' && pathname.startsWith('/teaching')) ||
+                (item.href === '/students' && (pathname.startsWith('/teaching') || pathname.startsWith('/certificates'))) ||
                 (item.href === '/engineers' && pathname.startsWith('/projects'));
               const badgeCount = (item.badgeKey ? counts[item.badgeKey] : 0) ?? 0;
 

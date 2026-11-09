@@ -27,17 +27,18 @@ describe('Admin Portal — Student Management Interface Layout Tests', () => {
   test('Displays the Student Management buttons in a dedicated action row', () => {
     assert.match(
       pageContent,
-      /grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6/,
-      'Must contain a 4-column responsive grid on desktop for the four options'
+      /grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6/,
+      'Must contain a responsive grid on desktop for the student options'
     );
   });
 
-  test('Contains all four exact button labels with no extra descriptions or complex wording', () => {
+  test('Contains all exact button labels with no extra descriptions or complex wording', () => {
     assert.match(pageContent, /<span>Assign Projects<\/span>/);
     assert.match(pageContent, /<span>Training Modules<\/span>/);
     assert.match(pageContent, /<span>Learning Plans<\/span>/);
     assert.match(pageContent, /<span>Student Progress<\/span>/);
     assert.match(pageContent, /<span>Student Submissions<\/span>/);
+    assert.match(pageContent, /<span>Certificate & Registry<\/span>/);
   });
 
   test('Each button navigates to the corresponding existing feature interface', () => {
@@ -46,6 +47,7 @@ describe('Admin Portal — Student Management Interface Layout Tests', () => {
     assert.match(pageContent, /href="\/teaching\/learning-plans"/);
     assert.match(pageContent, /href="\/teaching\/progress"/);
     assert.match(pageContent, /href="\/students\/submissions"/);
+    assert.match(pageContent, /href="\/certificates"/);
   });
 
   test('Visual styling matches the Archi Draft reference button specifications', () => {

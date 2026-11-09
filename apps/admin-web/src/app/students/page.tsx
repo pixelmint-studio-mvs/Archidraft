@@ -248,7 +248,7 @@ export default function StudentsPage() {
       </div>
 
       {/* Student Management Action Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
         <Link
           href="/teaching/assignments"
           className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
@@ -287,6 +287,14 @@ export default function StudentsPage() {
         >
           <ClipboardCheck className="h-4 w-4 text-teal-400 shrink-0" />
           <span>Student Submissions</span>
+        </Link>
+
+        <Link
+          href="/certificates"
+          className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-[#0d1c32] hover:bg-[#15294a] text-white text-xs font-mono font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.98] border border-slate-800 text-center"
+        >
+          <Award className="h-4 w-4 text-amber-400 shrink-0" />
+          <span>Certificate & Registry</span>
         </Link>
       </div>
 

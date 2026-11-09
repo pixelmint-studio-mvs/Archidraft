@@ -116,21 +116,23 @@ describe('Admin Portal — Student Management Back Navigation Contract Tests', (
       assert.equal(sidebar.includes("'Student Learning Plans'"), false);
       assert.equal(sidebar.includes("'Student Progress'"), false);
       assert.equal(sidebar.includes("'Student Submissions'"), false);
+      assert.equal(sidebar.includes("'Certificates & Registry'"), false);
     });
   });
 
   // ── 4. Student Management Homepage Intact ────────────────────────────────────
   describe('Student Management Homepage Integrity (/students)', () => {
-    test('Displays all five options side-by-side in responsive grid', () => {
+    test('Displays student management options side-by-side in responsive grid', () => {
       assert.match(
         studentsPage,
-        /grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6/
+        /grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-(?:5|6) gap-3 sm:gap-4 mb-6/
       );
       assert.match(studentsPage, /href="\/teaching\/assignments"/);
       assert.match(studentsPage, /href="\/teaching\/modules"/);
       assert.match(studentsPage, /href="\/teaching\/learning-plans"/);
       assert.match(studentsPage, /href="\/teaching\/progress"/);
       assert.match(studentsPage, /href="\/students\/submissions"/);
+      assert.match(studentsPage, /href="\/certificates"/);
     });
   });
 });

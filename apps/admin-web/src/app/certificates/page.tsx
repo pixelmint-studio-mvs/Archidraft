@@ -143,7 +143,7 @@ export default function CertificatesPage() {
   const revokedCount = credentials.filter((c) => c.status === 'REVOKED').length;
 
   return (
-    <AdminShell title="Certificates & Registry">
+    <AdminShell title="Certificates & Registry" backHref="/students" backLabel="Back to Students">
       <div className="space-y-6 max-w-7xl mx-auto pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
